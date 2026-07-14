@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the SarfMaster vocabulary data foundation.
+"""Validate the Safwa vocabulary data foundation.
 
 Usage:  python scripts/validate-vocabulary.py
 
@@ -39,7 +39,7 @@ ROOT_DIR = SCRIPT_DIR.parent
 DATA_DIR = ROOT_DIR / "data"
 DOCS_DIR = ROOT_DIR / "docs"
 ORIGINAL_FILE = DATA_DIR / "safwa-mujarrad.original.json"
-V2_FILE = DATA_DIR / "sarfmaster-vocabulary.v2.json"
+V2_FILE = DATA_DIR / "safwa-vocabulary.v2.json"
 PATTERNS_FILE = DATA_DIR / "mazid-fih-patterns.json"
 CANDIDATES_FILE = DATA_DIR / "mazid-fih-candidates.json"
 REVIEW_ROWS_FILE = DATA_DIR / ".review-rows.json"

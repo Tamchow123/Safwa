@@ -1,4 +1,4 @@
-# SarfMaster Vocabulary Data Audit
+# Safwa Vocabulary Data Audit
 
 Audit of the Safwa-tul-Masaadir thulathi mujarrad dataset and its enrichment,
 covering the provenance correction pass and the final field-level

@@ -1,6 +1,6 @@
-# SarfMaster Vocabulary Schema (v2.2.0)
+# Safwa Vocabulary Schema (v2.2.0)
 
-This document describes every field in `data/sarfmaster-vocabulary.v2.json` and its
+This document describes every field in `data/safwa-vocabulary.v2.json` and its
 companion files, the provenance/status system, and the **field-level**
 quiz-eligibility rules. Two principles govern everything:
 
@@ -15,7 +15,7 @@ Files:
 | File | Purpose |
 |---|---|
 | `data/safwa-mujarrad.original.json` | Byte-identical copy of the source transcription. Read-only, never regenerated. |
-| `data/sarfmaster-vocabulary.v2.json` | Combined enriched dataset (entries + patterns + candidates + statistics). |
+| `data/safwa-vocabulary.v2.json` | Combined enriched dataset (entries + patterns + candidates + statistics). |
 | `data/mazid-fih-patterns.json` | Forms II–X templates only (`dataset_status: pattern_templates`, `lexical_claims: false`). |
 | `data/mazid-fih-candidates.json` | **Incomplete seed dataset** of lexical mazid fih verbs. Not production-ready, not quiz-eligible. |
 | `data/.review-rows.json` | Machine-readable manual-review queue. |
