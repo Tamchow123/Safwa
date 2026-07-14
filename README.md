@@ -9,9 +9,9 @@ multiple-choice quizzes, focused ṣarf quizzes, spaced repetition (FSRS),
 progress tracking and weak-area analysis. Guests can study immediately;
 optional accounts add cross-device synchronisation.
 
-> Some files still carry the earlier working name **SarfMaster**. The project
-> name is **Safwa**. Phase 0 of the implementation plan resolves the naming
-> drift (text references only — data files and IDs are never renamed blindly).
+> The project was earlier developed under the working name **SarfMaster**; the
+> name is now **Safwa**. Phase 0 resolved the naming drift (text references
+> only — data files, JSON keys and IDs were never renamed).
 
 ## Repository layout
 
@@ -64,8 +64,8 @@ python scripts/enrich-vocabulary.py    # regenerate enriched dataset (never touc
 python scripts/validate-vocabulary.py  # must exit 0 — 34,476 checks
 ```
 
-> Note: the scripts currently reference the old `sarfmaster-vocabulary.v2.json`
-> filename; Phase 0 updates the path constants to the actual
+> Note: the scripts' path constants were corrected in Phase 0 from the old
+> `sarfmaster-vocabulary.v2.json` working name to the actual
 > `safwa-vocabulary.v2.json`.
 
 ## Source attribution
