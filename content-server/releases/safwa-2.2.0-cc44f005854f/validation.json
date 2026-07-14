@@ -1,0 +1,7807 @@
+{
+ "allowed_directions": [
+  "arabic_to_english",
+  "english_to_arabic"
+ ],
+ "allowed_skill_types": [
+  "meaning_recognition",
+  "meaning_recall",
+  "bab_identification",
+  "root_identification",
+  "verb_type_identification"
+ ],
+ "allowed_source_fields": [
+  "madi",
+  "mudari",
+  "masdar",
+  "ism_fail",
+  "amr",
+  "nahi"
+ ],
+ "content_version": "2.2.0",
+ "created_at": "2026-07-14T09:46:55+00:00",
+ "entries": [
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 1,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 2,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 3,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 4,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 5,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 6,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 7,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 8,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 9,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 10,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 11,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 12,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 13,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 14,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 15,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 16,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 17,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 18,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 19,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 20,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 21,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 22,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 23,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 24,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 25,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 26,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 27,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 28,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 29,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 30,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 31,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 32,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 33,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 34,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 35,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 36,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 37,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 38,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 39,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 40,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 41,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 42,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 43,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 44,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 45,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 46,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 47,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 48,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 49,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 50,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 51,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 52,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 53,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 54,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 55,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 56,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 57,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 58,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 59,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 60,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 61,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 62,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 63,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 64,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 65,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 66,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 67,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 68,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 69,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 70,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 71,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 72,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 73,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 74,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 75,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 76,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 77,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 78,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 79,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 80,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 81,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 82,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 83,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 84,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 85,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 86,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 87,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 88,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 89,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 90,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 91,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 92,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 93,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 94,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 95,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 96,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 97,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 98,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 99,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 100,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 101,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 102,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 103,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 104,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 105,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 106,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 107,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 108,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 109,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 110,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 111,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 112,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 113,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 114,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 115,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 116,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 117,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 118,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 119,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 120,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 121,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 122,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 123,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 124,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 125,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 126,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 127,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 128,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 129,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 130,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 131,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 132,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 133,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 134,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 135,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 136,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 137,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "meaning"
+   ],
+   "entry_id": 138,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 139,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 140,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 141,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 142,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 143,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 144,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 145,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 146,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 147,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 148,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 149,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 150,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 151,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 152,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 153,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 154,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 155,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 156,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 157,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 158,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 159,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 160,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 161,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 162,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 163,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 164,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 165,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 166,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 167,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 168,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 169,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 170,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 171,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 172,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 173,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 174,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 175,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 176,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 177,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 178,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 179,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 180,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 181,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 182,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 183,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 184,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 185,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 186,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 187,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 188,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 189,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 190,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 191,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 192,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 193,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 194,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 195,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 196,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 197,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 198,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 199,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 200,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 201,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 202,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 203,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 204,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 205,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 206,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 207,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 208,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 209,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 210,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 211,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 212,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 213,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 214,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 215,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 216,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 217,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 218,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 219,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 220,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "hasiba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 221,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "hasiba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 222,
+   "root_quiz_eligible": true,
+   "verb_type_id": "sahih",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 223,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 224,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 225,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 226,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 227,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 228,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 229,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 230,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 231,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 232,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 233,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 234,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 235,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 236,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 237,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 238,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 239,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 240,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 241,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 242,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 243,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 244,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 245,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 246,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 247,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 248,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 249,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 250,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 251,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 252,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 253,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 254,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 255,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 256,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 257,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 258,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 259,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 260,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 261,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 262,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 263,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 264,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 265,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 266,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 267,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 268,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 269,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 270,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 271,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 272,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 273,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 274,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 275,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mudaaf",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 276,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 277,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 278,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 279,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 280,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 281,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 282,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 283,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 284,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 285,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 286,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 287,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 288,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 289,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_fa",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 290,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_ain",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 291,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_ain",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 292,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_ain",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 293,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_ain",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 294,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_ain",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 295,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_ain",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 296,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_ain",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 297,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 298,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 299,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 300,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 301,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 302,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 303,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 304,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 305,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 306,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 307,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 308,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mahmuz_lam",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 309,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 310,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 311,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 312,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 313,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 314,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 315,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 316,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 317,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 318,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 319,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 320,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 321,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 322,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 323,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 324,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 325,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 326,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 327,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 328,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 329,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 330,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "hasiba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 331,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "hasiba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 332,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "hasiba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 333,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 334,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 335,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 336,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 337,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 338,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 339,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 340,
+   "root_quiz_eligible": true,
+   "verb_type_id": "mithal_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 341,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 342,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 343,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 344,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 345,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 346,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 347,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 348,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 349,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 350,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 351,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 352,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 353,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 354,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 355,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 356,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 357,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 358,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 359,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 360,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 361,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 362,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 363,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 364,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 365,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 366,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 367,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 368,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 369,
+   "root_quiz_eligible": false,
+   "verb_type_id": null,
+   "verb_type_quiz_eligible": false
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 370,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 371,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 372,
+   "root_quiz_eligible": false,
+   "verb_type_id": null,
+   "verb_type_quiz_eligible": false
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 373,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 374,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 375,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 376,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 377,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 378,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 379,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 380,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 381,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 382,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 383,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 384,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 385,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 386,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 387,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 388,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 389,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 390,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 391,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 392,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 393,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 394,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 395,
+   "root_quiz_eligible": true,
+   "verb_type_id": "ajwaf_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 396,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 397,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 398,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 399,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 400,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 401,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 402,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 403,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 404,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 405,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 406,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 407,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 408,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 409,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 410,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 411,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 412,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 413,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 414,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_wawi",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "nasara",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 415,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 416,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 417,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 418,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 419,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 420,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 421,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 422,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 423,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 424,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 425,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 426,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 427,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 428,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 429,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 430,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 431,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 432,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 433,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 434,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 435,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 436,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 437,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 438,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 439,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 440,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 441,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 442,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 443,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "fataha",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 444,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "karuma",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 445,
+   "root_quiz_eligible": true,
+   "verb_type_id": "naqis_yai",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 446,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_mafruq",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 447,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_mafruq",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 448,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_mafruq",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 449,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_mafruq",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "hasiba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 450,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_mafruq",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 451,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_maqrun",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 452,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_maqrun",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "daraba",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 453,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_maqrun",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 454,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_maqrun",
+   "verb_type_quiz_eligible": true
+  },
+  {
+   "bab_id": "samia",
+   "bab_quiz_eligible": true,
+   "eligible_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi",
+    "meaning"
+   ],
+   "entry_id": 455,
+   "root_quiz_eligible": true,
+   "verb_type_id": "lafif_maqrun",
+   "verb_type_quiz_eligible": true
+  }
+ ],
+ "entry_count": 455,
+ "minimum_supported_client_version": "0.1.0",
+ "minimum_supported_event_schema": 1,
+ "question_generator_version": "1",
+ "release_id": "safwa-2.2.0-cc44f005854f",
+ "release_status": "active",
+ "schema_version": "2.2.0",
+ "skill_metadata": [
+  {
+   "allowed_directions": [
+    "arabic_to_english"
+   ],
+   "allowed_source_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi"
+   ],
+   "component_shape": "form_direction",
+   "id": "meaning_recognition"
+  },
+  {
+   "allowed_directions": [
+    "english_to_arabic"
+   ],
+   "allowed_source_fields": [
+    "madi",
+    "mudari",
+    "masdar",
+    "ism_fail",
+    "amr",
+    "nahi"
+   ],
+   "component_shape": "form_direction",
+   "id": "meaning_recall"
+  },
+  {
+   "allowed_directions": [],
+   "allowed_source_fields": [],
+   "component_shape": "entry_level",
+   "id": "bab_identification"
+  },
+  {
+   "allowed_directions": [],
+   "allowed_source_fields": [],
+   "component_shape": "entry_level",
+   "id": "root_identification"
+  },
+  {
+   "allowed_directions": [],
+   "allowed_source_fields": [],
+   "component_shape": "entry_level",
+   "id": "verb_type_identification"
+  }
+ ],
+ "valid_component_shapes": [
+  "form_direction",
+  "entry_level"
+ ]
+}

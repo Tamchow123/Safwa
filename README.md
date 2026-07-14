@@ -62,7 +62,14 @@ optional accounts add cross-device synchronisation.
 ```bash
 python scripts/enrich-vocabulary.py    # regenerate enriched dataset (never touches the original)
 python scripts/validate-vocabulary.py  # must exit 0 — 34,489 checks
+pnpm content:build                     # regenerate the immutable content-release artifacts
+pnpm docs:verify                       # verify documentation Arabic against the datasets
 ```
+
+Content releases (`public/content/`, `content-server/`) are **generated,
+committed and deterministic** — never edit them by hand; CI fails if they
+drift from the source data. `content-server/` is a server trust boundary
+and must never be served publicly (see `content-server/README.md`).
 
 > Note: the scripts' path constants were corrected in Phase 0 from the old
 > `sarfmaster-vocabulary.v2.json` working name to the actual
