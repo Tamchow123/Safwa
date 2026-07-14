@@ -1,3 +1,4 @@
+import { ContentFoundationStatus } from "@/components/content/content-foundation-status";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -10,10 +11,11 @@ export default function LibraryPage() {
       />
       <Card>
         <CardContent className="text-muted-foreground text-sm">
-          The vocabulary library arrives with the content-pipeline and library
-          phases.
+          The vocabulary library arrives with the library phase; below is the
+          Phase 3 content-foundation demonstration.
         </CardContent>
       </Card>
+      <ContentFoundationStatus />
     </div>
   );
 }

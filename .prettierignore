@@ -13,6 +13,10 @@ data/
 docs/manual-review-required.md
 docs/.arabic-placeholders.json
 
+# Generated content-release artifacts (deterministic bytes; never reformat)
+public/content/
+content-server/
+
 # Python
 scripts/
 __pycache__/
