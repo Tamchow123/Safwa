@@ -4,13 +4,13 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 
 ## 1. Pyramid and tooling
 
-| Layer | Tooling | Scope |
-|---|---|---|
-| Data validation | Python (`scripts/validate-vocabulary.py`) + Vitest data tests | dataset guarantees, content-release integrity |
-| Unit | Vitest | pure-TS modules: study-engine, scheduler, arabic utils, analytics, sync logic |
-| Component | Vitest + Testing Library | UI components in isolation |
-| Integration | Vitest against disposable Postgres (Docker/Neon branch) | DB constraints, auth, ingestion pipeline, merge, admin import |
-| E2E | Playwright (chromium + mobile viewport; webkit for the offline/PWA suite where feasible) | user journeys, offline, a11y (axe), dark mode |
+| Layer           | Tooling                                                                                  | Scope                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Data validation | Python (`scripts/validate-vocabulary.py`) + Vitest data tests                            | dataset guarantees, content-release integrity                                 |
+| Unit            | Vitest                                                                                   | pure-TS modules: study-engine, scheduler, arabic utils, analytics, sync logic |
+| Component       | Vitest + Testing Library                                                                 | UI components in isolation                                                    |
+| Integration     | Vitest against disposable Postgres (Docker/Neon branch)                                  | DB constraints, auth, ingestion pipeline, merge, admin import                 |
+| E2E             | Playwright (chromium + mobile viewport; webkit for the offline/PWA suite where feasible) | user journeys, offline, a11y (axe), dark mode                                 |
 
 Principles: the study engine and scheduler are pure TS with injected clock and
 RNG — most product behaviour is unit-testable without a browser. Determinism
@@ -21,7 +21,7 @@ integration; the E2E matrix runs on main and before releases.
 ## 2. Data-validation suite (Phase 3, rerun every CI)
 
 - Source preservation: 455 entries; enriched == original for all 12 source
-  fields (the Python validator's 34,476 checks stay authoritative; the TS
+  fields (the Python validator's 34,489 checks stay authoritative; the TS
   pipeline re-asserts counts).
 - Eligibility counts equal dataset statistics: madi 455 · mudari 454 ·
   masdar 445 · meaning 455 · ism_fail 454 · amr 454 · nahi 454 · bab 455 ·

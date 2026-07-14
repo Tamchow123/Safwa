@@ -22,8 +22,8 @@ naqis_yai 31, lafif_mafruq 5, lafif_maqrun 5.
 ## 3. The data-kind distinctions
 
 1. **Source-transcribed** — printed values; immutable.
-2. **Internally validated** — roots cross-checked *only against the book's own
-   printed forms* (never labelled `verified`).
+2. **Internally validated** — roots cross-checked _only against the book's own
+   printed forms_ (never labelled `verified`).
 3. **Algorithmically derived** — generated passives/participles; no
    confirmation of any kind.
 4. **Blocked** (`blocked_by_transitivity_review`) — generated forms
@@ -44,19 +44,19 @@ or bab. Eligibility is now a boolean per field
 generated_additional_forms`), and each of the 14 transcription notes was
 reviewed individually and mapped to exactly the field(s) it concerns:
 
-| ids | note concerns | disabled field(s) |
-|---|---|---|
-| 30, 34 | masdar printed with bare alif | masdar |
-| 118 | ism fail printed as sifah سَعِيْدٌ | ism_fail |
-| 138 | amr/nahi printed with final damma | amr, nahi |
-| 177 | masdar printed without shadda | masdar |
-| 212 | masdar printed with sukun on ظ | masdar |
-| 291, 307 | masdar hamza printing ambiguity | masdar |
-| 371 | masdar alif without fatha | masdar |
-| 372 | wawi/ya'i classification conflict | root, verb_type |
-| 376 | masdar shadda vowel ambiguous | masdar |
-| 438, 449 | masdar final letter very small | masdar |
-| 454 | mudari printed in contracted spelling | mudari |
+| ids      | note concerns                         | disabled field(s) |
+| -------- | ------------------------------------- | ----------------- |
+| 30, 34   | masdar printed with bare alif         | masdar            |
+| 118      | ism fail printed as sifah سَعِيْدٌ    | ism_fail          |
+| 138      | amr/nahi printed with final damma     | amr, nahi         |
+| 177      | masdar printed without shadda         | masdar            |
+| 212      | masdar printed with sukun on ظ        | masdar            |
+| 291, 307 | masdar hamza printing ambiguity       | masdar            |
+| 371      | masdar alif without fatha             | masdar            |
+| 372      | wawi/ya'i classification conflict     | root, verb_type   |
+| 376      | masdar shadda vowel ambiguous         | masdar            |
+| 438, 449 | masdar final letter very small        | masdar            |
+| 454      | mudari printed in contracted spelling | mudari            |
 
 Resulting eligibility counts: madi 455, mudari 454, masdar 445, meaning 455,
 ism_fail 454, amr 454, nahi 454, bab 455, verb_type 453, root 453, generated
@@ -124,18 +124,18 @@ Long-term fix: transcribe the book's own mazid fih section (p. 30 ff.).
 
 ## 10. Known limitations
 
-* Nothing is externally verified yet: 0 roots and 0 generated forms carry
+- Nothing is externally verified yet: 0 roots and 0 generated forms carry
   independent verification; 453 roots rest on book-internal consistency.
-* Transitivity is gloss-derived; the 21 uncertain entries need decisions and
+- Transitivity is gloss-derived; the 21 uncertain entries need decisions and
   the transitive classifications deserve a dictionary spot-check before
   passive drills ship.
-* The 13 printed-irregularity rows and the 2 root conflicts await per-entry
+- The 13 printed-irregularity rows and the 2 root conflicts await per-entry
   decisions; affected fields stay quiz-disabled meanwhile.
-* The mazid seed set is deliberately tiny (21 verbs, 13 roots).
+- The mazid seed set is deliberately tiny (21 verbs, 13 roots).
 
 ## 11. Validation summary
 
-`python scripts/validate-vocabulary.py` — **ALL CHECKS PASSED (34,476
+`python scripts/validate-vocabulary.py` — **ALL CHECKS PASSED (34,489
 checks)**, covering: source preservation (455 entries, every field, notes,
 bab counts, duplicates); root well-formedness/type compatibility; status
 integrity (no unearned `verified`, uncertain ⇔ `needs_review` for

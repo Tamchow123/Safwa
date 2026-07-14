@@ -9,13 +9,13 @@ repo must be green (`typecheck · lint · test`) at every phase boundary.
 
 Milestones:
 
-| Milestone | After phase | Meaning |
-|---|---|---|
-| 🏁 **Guest Alpha** | 12 | a guest has the full local learning experience — **not** the MVP |
-| 🏁 **Core MVP** | 17 | accounts, server-backed progress, cross-device sync, guest merge |
-| 🏁 **Offline-capable Beta** | 18 | installable PWA, offline study, queued sync |
-| 🏁 **Multi-device offline Beta** | 19 | concurrent offline reconciliation proven |
-| 🏁 **Production launch** | 22 | hardened, monitored, deployed |
+| Milestone                        | After phase | Meaning                                                          |
+| -------------------------------- | ----------- | ---------------------------------------------------------------- |
+| 🏁 **Guest Alpha**               | 12          | a guest has the full local learning experience — **not** the MVP |
+| 🏁 **Core MVP**                  | 17          | accounts, server-backed progress, cross-device sync, guest merge |
+| 🏁 **Offline-capable Beta**      | 18          | installable PWA, offline study, queued sync                      |
+| 🏁 **Multi-device offline Beta** | 19          | concurrent offline reconciliation proven                         |
+| 🏁 **Production launch**         | 22          | hardened, monitored, deployed                                    |
 
 Conventions: pnpm; `pnpm dev / build / typecheck / lint / test / test:e2e`;
 Python data tooling stays under `scripts/`.
@@ -46,7 +46,7 @@ Python data tooling stays under `scripts/`.
 - **Commands:** `python scripts/validate-vocabulary.py` ·
   `python scripts/arabic-extract.py 369 madi` · `git rm` the stubs.
 - **DB changes:** none.
-- **Testing checkpoint:** validator exits 0 reporting all 34,476 checks;
+- **Testing checkpoint:** validator exits 0 reporting all 34,489 checks;
   `arabic-extract.py` verifies entries 369, 372, all six bab_arabic values and
   duplicate-madi groups (262/275, 297/303, 409/413) original==enriched;
   enrichment re-run produces a diff only in `generated_at`.
@@ -70,7 +70,7 @@ Python data tooling stays under `scripts/`.
   `scheduler`, `sync`, `analytics`, `shared/arabic` — empty index files),
   `vitest.config.ts`, `playwright.config.ts`, `.github/workflows/ci.yml`.
 - **Commands:** `pnpm create next-app` (or manual), `pnpm dlx shadcn@latest
-  init`, `pnpm test`, `pnpm test:e2e -- --project=chromium`.
+init`, `pnpm test`, `pnpm test:e2e -- --project=chromium`.
 - **DB changes:** none.
 - **Testing checkpoint:** CI green on a PR: typecheck, lint, one placeholder
   unit test, one placeholder Playwright test, Python validator.
@@ -204,7 +204,7 @@ Python data tooling stays under `scripts/`.
   mismatches — the same module used by server later); question generation
   for all four objective types + flashcard prompts, driven by
   `(question_seed, question_generator_version, content_version,
-  component_key)` — fully deterministic; distractor engine (same-field,
+component_key)` — fully deterministic; distractor engine (same-field,
   plausibility-ranked, normalised-uniqueness, ambiguity exclusion for
   identical surface forms); question-instance specification objects
   (`question_instance_id`, seed, generator version, `allowed_answer_refs`,
@@ -218,7 +218,7 @@ Python data tooling stays under `scripts/`.
   adapters.
 - **Prerequisites:** Phases 3, 5.
 - **Expected files:** `modules/study-engine/{components.ts,generator.ts,
-  distractors.ts,session.ts,attempts.ts,correctness.ts}` + exhaustive tests.
+distractors.ts,session.ts,attempts.ts,correctness.ts}` + exhaustive tests.
 - **DB changes:** none.
 - **Testing checkpoint (heaviest unit-test phase):** seeded generation is
   reproducible (same seed ⇒ same question); ineligible fields never selected
@@ -258,7 +258,7 @@ Python data tooling stays under `scripts/`.
 - **Non-goals:** server anything; UI.
 - **Prerequisites:** Phase 6.
 - **Expected files:** `modules/scheduler/{fsrs.ts,ratings.ts,events.ts,
-  chain.ts,states.ts,due.ts}` + tests.
+chain.ts,states.ts,due.ts}` + tests.
 - **DB changes:** Dexie v3 if fields were missed in v2.
 - **Testing checkpoint:** rating mapping table-tested incl. hinted-incorrect
   → Again; wrong-then-correct ⇒ exactly one Again event + reinforcement
@@ -402,10 +402,10 @@ Python data tooling stays under `scripts/`.
   event-time date fields, status), `study_sessions`, `daily_activity`,
   `bookmarks`, `custom_lists(_entries)`, `user_settings`, `guest_imports`,
   `content_versions` — **no vocabulary tables**; manifest loading (validation
-  + assessment) with checksum verification; Better Auth (register, verify,
-  login, logout, reset) + Resend adapter (console/file transport in dev);
-  enumeration-safe responses; rate limiting; account settings CRUD;
-  account-deletion endpoint.
+  - assessment) with checksum verification; Better Auth (register, verify,
+    login, logout, reset) + Resend adapter (console/file transport in dev);
+    enumeration-safe responses; rate limiting; account settings CRUD;
+    account-deletion endpoint.
 - **Non-goals:** sync (16); merge (17); any content in Postgres.
 - **Prerequisites:** Phase 12 (14 recommended).
 - **Expected files:** `db/schema.ts`, `db/migrations/0001_*`,

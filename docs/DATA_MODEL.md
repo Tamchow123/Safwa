@@ -181,21 +181,21 @@ implausible. Changing the user's timezone affects future events only.
 - `study_sessions`: id, user_id, mode, config (filters, counts, timed/test),
   content_version, started/ended, aggregate results.
 - `daily_activity(user_id, local_date, attempts, reviews, new_items,
-  study_ms)` — **derived cache** rebuilt from attempts/events; unique
+study_ms)` — **derived cache** rebuilt from attempts/events; unique
   `(user_id, local_date)`.
 - `bookmarks(user_id, entry_id)` unique pair;
   `custom_lists(id, user_id, name)` + `custom_list_entries(list_id, entry_id)`
   unique pair.
 - `user_settings(user_id PK, timezone, theme, arabic_font_scale,
-  daily_new_target, daily_review_target, defaults..., updated_at)`.
+daily_new_target, daily_review_target, defaults..., updated_at)`.
 - `guest_imports(id, user_id, device_id, imported_at, event_count,
-  attempt_count, result)` — merge audit + idempotency anchor.
+attempt_count, result)` — merge audit + idempotency anchor.
 - `admin_audit_log` (phase 21): actor, action, target, before/after refs,
   occurred_at.
 - `content_versions(release_id PK, content_version, schema_version,
-  created_at, checksum_release, checksum_validation, checksum_assessment,
-  release_status active|supported|revoked, minimum_supported_client_version,
-  minimum_supported_event_schema)` — manifests retained **indefinitely**;
+created_at, checksum_release, checksum_validation, checksum_assessment,
+release_status active|supported|revoked, minimum_supported_client_version,
+minimum_supported_event_schema)` — manifests retained **indefinitely**;
   releases stay sync-compatible unless explicitly revoked for cause.
 
 ## 8. FSRS representation and replay
@@ -205,7 +205,7 @@ implausible. Changing the user's timezone affects future events only.
   `scheduling` events in causal order.
 - Causal order = topological order of the event DAG; independent branches are
   ordered by `(occurred_at_canonical, server_received_at, device_id,
-  client_sequence, event_id)` — total because `event_id` is unique.
+client_sequence, event_id)` — total because `event_id` is unique.
 - `occurred_at_canonical` = `occurred_at_client` clamped at ingestion to
   (a) ≤ `server_received_at` (+~2 min jitter tolerance, then capped) and
   (b) ≥ the same device's previous accepted event; missing/absurd client
@@ -217,20 +217,20 @@ implausible. Changing the user's timezone affects future events only.
   rating wins; ties by canonical order) and their scheduling descendants
   become `conflict_demoted`.
 - Learner-state projection (`not_started → learning → mastered ↔
-  needs_review`) is recomputed from replayed state + distinct qualifying
+needs_review`) is recomputed from replayed state + distinct qualifying
   mastery dates (stored `local_date_at_event` of accepted authoritative
   Good/Easy scheduled reviews; ≥3 distinct dates ⇒ mastered when not due).
 
 ## 9. Dexie (IndexedDB) mirror — guests and offline
 
-| Store | Key | Notes |
-|---|---|---|
-| `content_releases` | `release_id` | cached learner releases + active pointer |
-| `study_components` | **natural key string** | same logical identity as Postgres by construction |
-| `review_events` | `event_id` | local causal chain; `parent_event_id`, `client_component_revision`, sync status (`local | pushed | accepted | demoted | rejected`) |
-| `study_attempts` | `id` | full attempt records pending push |
-| `sessions`, `bookmarks`, `lists`, `settings`, `profile` | — | local equivalents |
-| `mutation_queue` | seq | ordered outbound mutations with idempotency keys |
+| Store                                                   | Key                    | Notes                                                                                   |
+| ------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------- |
+| `content_releases`                                      | `release_id`           | cached learner releases + active pointer                                                |
+| `study_components`                                      | **natural key string** | same logical identity as Postgres by construction                                       |
+| `review_events`                                         | `event_id`             | local causal chain; `parent_event_id`, `client_component_revision`, sync status (`local | pushed | accepted | demoted | rejected`) |
+| `study_attempts`                                        | `id`                   | full attempt records pending push                                                       |
+| `sessions`, `bookmarks`, `lists`, `settings`, `profile` | —                      | local equivalents                                                                       |
+| `mutation_queue`                                        | seq                    | ordered outbound mutations with idempotency keys                                        |
 
 The published app configuration ships authoritative skill metadata
 (`skill_type_id, component_shape, allowed_source_fields, allowed_directions`);
@@ -259,7 +259,7 @@ the shared key builder enforces identical component identity on both sides.
 - **Stage 2 (Phase 21):** operational tables (`vocabulary_entries` with
   structured source fields + provenance columns
   `source_transcribed | internally_validated | algorithmically_derived |
-  needs_review | verified | curated`, `entry_field_eligibility`,
+needs_review | verified | curated`, `entry_field_eligibility`,
   `additional_forms`, `mazid_candidates`, review queue). One-time cutover:
   idempotent import keyed on immutable source ids; from then on the DB is the
   editable authority and publishing flows DB → same pipeline → immutable

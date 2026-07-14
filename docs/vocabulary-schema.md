@@ -12,14 +12,14 @@ quiz-eligibility rules. Two principles govern everything:
 
 Files:
 
-| File | Purpose |
-|---|---|
-| `data/safwa-mujarrad.original.json` | Byte-identical copy of the source transcription. Read-only, never regenerated. |
-| `data/safwa-vocabulary.v2.json` | Combined enriched dataset (entries + patterns + candidates + statistics). |
-| `data/mazid-fih-patterns.json` | Forms II–X templates only (`dataset_status: pattern_templates`, `lexical_claims: false`). |
-| `data/mazid-fih-candidates.json` | **Incomplete seed dataset** of lexical mazid fih verbs. Not production-ready, not quiz-eligible. |
-| `data/.review-rows.json` | Machine-readable manual-review queue. |
-| `docs/manual-review-required.md` | The exact Markdown render of those rows (validator-enforced byte equality with the builder). |
+| File                                | Purpose                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `data/safwa-mujarrad.original.json` | Byte-identical copy of the source transcription. Read-only, never regenerated.                   |
+| `data/safwa-vocabulary.v2.json`     | Combined enriched dataset (entries + patterns + candidates + statistics).                        |
+| `data/mazid-fih-patterns.json`      | Forms II–X templates only (`dataset_status: pattern_templates`, `lexical_claims: false`).        |
+| `data/mazid-fih-candidates.json`    | **Incomplete seed dataset** of lexical mazid fih verbs. Not production-ready, not quiz-eligible. |
+| `data/.review-rows.json`            | Machine-readable manual-review queue.                                                            |
+| `docs/manual-review-required.md`    | The exact Markdown render of those rows (validator-enforced byte equality with the builder).     |
 
 Regeneration: `python scripts/enrich-vocabulary.py`, then
 `python scripts/validate-vocabulary.py` (non-zero exit on any failure; the
@@ -27,16 +27,16 @@ validator imports the enrichment module so shared configuration cannot drift).
 
 ## Status enums
 
-| Status | Meaning |
-|---|---|
-| `source_transcribed` | Transcribed from the printed book. All original fields are this implicitly. |
-| `internally_validated` | Reconstructed value cross-checked **only against other printed forms of the same book**. NOT independent verification. |
-| `algorithmically_derived` | Produced by a documented rule; no confirmation of any kind. |
-| `needs_review` | Conflicting or insufficient evidence; a human must decide. Always has review-report coverage. |
-| `blocked_by_transitivity_review` | Generated form intentionally **not produced** because the entry's transitivity is `needs_review`. Cell has `blocked_by: "transitivity"`, `value: null`, `quiz_eligible: false`. Resolving the transitivity review unblocks it on the next enrichment run. |
-| `verified` / independently verified | Checked against an external authoritative source. Requires `provenance.source` + `reviewed_by`. Currently used by **zero** records. |
-| `not_applicable` | The form does not exist for this entry (e.g. passive of an intransitive verb). |
-| `curated` | (provenance type) Set by a human-maintained override table in the script. |
+| Status                              | Meaning                                                                                                                                                                                                                                                   |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source_transcribed`                | Transcribed from the printed book. All original fields are this implicitly.                                                                                                                                                                               |
+| `internally_validated`              | Reconstructed value cross-checked **only against other printed forms of the same book**. NOT independent verification.                                                                                                                                    |
+| `algorithmically_derived`           | Produced by a documented rule; no confirmation of any kind.                                                                                                                                                                                               |
+| `needs_review`                      | Conflicting or insufficient evidence; a human must decide. Always has review-report coverage.                                                                                                                                                             |
+| `blocked_by_transitivity_review`    | Generated form intentionally **not produced** because the entry's transitivity is `needs_review`. Cell has `blocked_by: "transitivity"`, `value: null`, `quiz_eligible: false`. Resolving the transitivity review unblocks it on the next enrichment run. |
+| `verified` / independently verified | Checked against an external authoritative source. Requires `provenance.source` + `reviewed_by`. Currently used by **zero** records.                                                                                                                       |
+| `not_applicable`                    | The form does not exist for this entry (e.g. passive of an intransitive verb).                                                                                                                                                                            |
+| `curated`                           | (provenance type) Set by a human-maintained override table in the script.                                                                                                                                                                                 |
 
 ## Mujarrad entry — source fields (immutable)
 
@@ -46,15 +46,15 @@ validator imports the enrichment module so shared configuration cannot drift).
 
 ## Mujarrad entry — derived fields
 
-| Field | Notes |
-|---|---|
-| `root`, `root_compact`, `root_letters` | Three radicals; bare `ء`; true `و`/`ي`; representations always agree. |
-| `form_number` = 1, `form_type` = `thulathi_mujarrad` | |
-| `root_provenance` | `{type, method, source, reviewed_by}`; `type` equals `data_quality.root_status`. |
-| `transitivity` | `{value, status, provenance{type, method, source}}`. `value: uncertain` ⇔ `status: needs_review` (validator-enforced). The provenance records that an algorithm/curation produced the assessment; the status records that it is unresolved. |
-| `additional_forms` | Three cells, uniform shape below. |
-| `quiz_eligibility` | **Field-level**, see below. |
-| `data_quality` | `{source_preserved, root_status, derived_fields_status, requires_manual_review, notes}`. |
+| Field                                                | Notes                                                                                                                                                                                                                                       |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `root`, `root_compact`, `root_letters`               | Three radicals; bare `ء`; true `و`/`ي`; representations always agree.                                                                                                                                                                       |
+| `form_number` = 1, `form_type` = `thulathi_mujarrad` |                                                                                                                                                                                                                                             |
+| `root_provenance`                                    | `{type, method, source, reviewed_by}`; `type` equals `data_quality.root_status`.                                                                                                                                                            |
+| `transitivity`                                       | `{value, status, provenance{type, method, source}}`. `value: uncertain` ⇔ `status: needs_review` (validator-enforced). The provenance records that an algorithm/curation produced the assessment; the status records that it is unresolved. |
+| `additional_forms`                                   | Three cells, uniform shape below.                                                                                                                                                                                                           |
+| `quiz_eligibility`                                   | **Field-level**, see below.                                                                                                                                                                                                                 |
+| `data_quality`                                       | `{source_preserved, root_status, derived_fields_status, requires_manual_review, notes}`.                                                                                                                                                    |
 
 ### `additional_forms` cell (uniform)
 
@@ -69,10 +69,10 @@ validator imports the enrichment module so shared configuration cannot drift).
 }
 ```
 
-* Uncertain-transitivity entries carry `status: "blocked_by_transitivity_review"`,
+- Uncertain-transitivity entries carry `status: "blocked_by_transitivity_review"`,
   `blocked_by: "transitivity"`, `value: null` in all three cells; the entry's
   single transitivity review row explicitly lists the three blocked fields.
-* `quiz_eligible: true` requires `status: "verified"` + `verification_source`.
+- `quiz_eligible: true` requires `status: "verified"` + `verification_source`.
   Currently 750 generated values, 63 blocked placeholders, **0 quiz-eligible**.
 
 ### `quiz_eligibility` (field-level)
@@ -86,24 +86,24 @@ validator imports the enrichment module so shared configuration cannot drift).
 }
 ```
 
-* Each source field is individually gated. A review concern disables **only**
+- Each source field is individually gated. A review concern disables **only**
   the affected field(s); the validator fails if an unrelated field is disabled
   or an affected field is left enabled.
-* `root` is `true` iff `root_status` is `internally_validated`/`verified`.
-* Unresolved roots (369 طَاحَ, 372 غَاطَ) disable `root` **and** `verb_type`
+- `root` is `true` iff `root_status` is `internally_validated`/`verified`.
+- Unresolved roots (369 طَاحَ, 372 غَاطَ) disable `root` **and** `verb_type`
   (the wawi/ya'i placement is exactly what is in doubt).
-* `generated_additional_forms` stays `false` until the cells are independently
+- `generated_additional_forms` stays `false` until the cells are independently
   verified.
 
 ### Transcription-note → field mapping (`NOTE_AFFECTED_FIELDS`)
 
-| ids | affected field(s) |
-|---|---|
-| 30, 34, 177, 212, 291, 307, 371, 376, 438, 449 | `masdar` |
-| 118 | `ism_fail` |
-| 138 | `amr`, `nahi` |
-| 454 | `mudari` |
-| 372 | `root`, `verb_type` (folded into its root review row) |
+| ids                                            | affected field(s)                                     |
+| ---------------------------------------------- | ----------------------------------------------------- |
+| 30, 34, 177, 212, 291, 307, 371, 376, 438, 449 | `masdar`                                              |
+| 118                                            | `ism_fail`                                            |
+| 138                                            | `amr`, `nahi`                                         |
+| 454                                            | `mudari`                                              |
+| 372                                            | `root`, `verb_type` (folded into its root review row) |
 
 Everything else in those entries — madi, mudari, meaning, bab, root, etc. —
 remains quiz-eligible unless separately affected.
@@ -126,19 +126,19 @@ remains quiz-eligible unless separately affected.
 }
 ```
 
-* `source_note` must equal the entry's complete `transcription_note`
+- `source_note` must equal the entry's complete `transcription_note`
   (validator-enforced — this is the anti-truncation guarantee), and it may only
   appear on the row that reviews that printed irregularity — e.g. entry 449's
   masdar note sits on its masdar row, not on its transitivity row
   (validator-enforced).
-* Transitivity rows use `affected_quiz_fields: ["ism_maful", "madi_passive",
-  "mudari_passive"]` and state that those forms are blocked by the same issue.
-* Root rows use `["root", "verb_type"]`; candidate rows use `["entire_entry"]`.
-* The Markdown report is the exact output of the shared builder for these rows.
+- Transitivity rows use `affected_quiz_fields: ["ism_maful", "madi_passive",
+"mudari_passive"]` and state that those forms are blocked by the same issue.
+- Root rows use `["root", "verb_type"]`; candidate rows use `["entire_entry"]`.
+- The Markdown report is the exact output of the shared builder for these rows.
 
 ## Mazid fih files
 
-Patterns: unchanged Forms II–X templates; teaching-safe as *patterns*; no
+Patterns: unchanged Forms II–X templates; teaching-safe as _patterns_; no
 lexical claims. Candidates: 21 seed entries, ids `mazid-0001`–`mazid-0021`
 (sequential-contiguous policy, validator-enforced; treat as opaque strings),
 all `needs_review` + `quiz_eligible: false`, with structured provenance; file
