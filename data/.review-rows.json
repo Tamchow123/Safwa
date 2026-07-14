@@ -1,0 +1,1021 @@
+[
+  {
+    "dataset": "mujarrad",
+    "id": "14",
+    "arabic": "خَلَدَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to last forever'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "16",
+    "arabic": "دَخَلَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to enter'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "30",
+    "arabic": "صَدَرَ",
+    "field": "masdar",
+    "proposed": "الصُّدُوْرُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar printed with bare alif (no fatha on ال)",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "34",
+    "arabic": "عَرَكَ",
+    "field": "masdar",
+    "proposed": "الْعَرْكُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar printed with bare alif (no fatha on ال)",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "51",
+    "arabic": "نَفَخَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to blow'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "53",
+    "arabic": "نَقَصَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to decrease'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "96",
+    "arabic": "كَذَبَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to lie'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "118",
+    "arabic": "سَعِدَ",
+    "field": "ism_fail",
+    "proposed": "سَعِيْدٌ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_fail"
+    ],
+    "source_note": "ism fail printed as سَعِيْدٌ (sifah form, not فَاعِلٌ pattern)",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "138",
+    "arabic": "لَبِثَ",
+    "field": "amr,nahi",
+    "proposed": "اِلْبَثُ / لَا تَلْبَثُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "amr",
+      "nahi"
+    ],
+    "source_note": "amr and nahi printed with final damma (sic; paradigm expects sukun اِلْبَثْ / لَا تَلْبَثْ); verified at high zoom against sukun glyphs elsewhere",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "140",
+    "arabic": "لَحِقَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to catch up, to be attached'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "176",
+    "arabic": "ضَجَعَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to lie on one's side'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "177",
+    "arabic": "طَبَخَ",
+    "field": "masdar",
+    "proposed": "اَلطَبْخُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar printed without shadda on ط (verified at 5x zoom), unlike الطَّحْنُ/الطَّرْحُ in adjacent rows",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "202",
+    "arabic": "بَصُرَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to see'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "212",
+    "arabic": "عَظُمَ",
+    "field": "masdar",
+    "proposed": "اَلْعَظْمَةُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar printed with sukun on ظ (اَلْعَظْمَةُ, verified at 5x zoom), not the common عَظَمَة",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "251",
+    "arabic": "كَفَّ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to stop'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "275",
+    "arabic": "حَبَّ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to love'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "282",
+    "arabic": "أَفَكَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to lie'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "291",
+    "arabic": "سَئِمَ",
+    "field": "masdar",
+    "proposed": "اَلسَّأَمُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar hamza vowel small in print; read as fatha (اَلسَّأَمُ)",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "307",
+    "arabic": "بَطُؤَ",
+    "field": "masdar",
+    "proposed": "اَلْبُطْءُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "hamza seat after طْ read as line hamza, matching اَلْبُرْءُ pattern",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "310",
+    "arabic": "وَثَقَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to trust'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "320",
+    "arabic": "وَلَجَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to penetrate'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "348",
+    "arabic": "دَامَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to last'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "355",
+    "arabic": "صَامَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to abstain'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "361",
+    "arabic": "فَاتَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to pass'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "369",
+    "arabic": "طَاحَ",
+    "field": "root",
+    "proposed": "ط و ح",
+    "reason": "mudari يَطِيْحُ shows ي where type ajwaf_wawi expects و",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "root",
+      "verb_type"
+    ],
+    "source_note": null,
+    "action": "confirm the weak radical against an authoritative dictionary, then record it in provenance and upgrade the status"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "371",
+    "arabic": "نَامَ",
+    "field": "masdar",
+    "proposed": "النَّوْمُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "no fatha printed on the alif of النَّوْمُ in this cell (other cells print اَلْ)",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "372",
+    "arabic": "غَاطَ",
+    "field": "root",
+    "proposed": "غ و ط",
+    "reason": "book classifies as ajwaf ya'i (masdar اَلْغَيْطُ) but prints mudari يَغُوْطُ with waw; root could be غ و ط or غ ي ط",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "root",
+      "verb_type"
+    ],
+    "source_note": "listed under ajwaf yai but printed mudari is يَغُوْطُ with waw; masdar printed اَلْغَيْطُ with ya",
+    "action": "check an authoritative dictionary (e.g. al-Qamus, Lisan al-Arab), then record it in provenance and upgrade the status"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "376",
+    "arabic": "تَاهَ",
+    "field": "masdar",
+    "proposed": "اَلتِّيْهُ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar shadda vowel on ت ambiguous at print size; transcribed as kasra (اَلتِّيْهُ)",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "379",
+    "arabic": "دَانَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to borrow, to lend'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "380",
+    "arabic": "زَادَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to increase'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "392",
+    "arabic": "مَالَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to incline, to bend'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "395",
+    "arabic": "شَاءَ",
+    "field": "additional_forms",
+    "proposed": "-",
+    "reason": "verb class combination not safely derivable (ajwaf_yai, root ش ي ء)",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "supply passive/ism maf'ul manually if attested"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "438",
+    "arabic": "عَمِيَ",
+    "field": "masdar",
+    "proposed": "اَلْعَمٰى",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar final letter/vowel very small in print; transcribed اَلْعَمٰى",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "445",
+    "arabic": "نَهُوَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to terminate, to reach completion'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "446",
+    "arabic": "وَعٰى",
+    "field": "additional_forms",
+    "proposed": "مَوْعِيٌّ / وُعِيَ / يُوْعٰى",
+    "reason": "lafif class: derived passives/participles need dictionary confirmation",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "confirm forms against a dictionary"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "447",
+    "arabic": "وَفٰى",
+    "field": "additional_forms",
+    "proposed": "مَوْفِيٌّ / وُفِيَ / يُوْفٰى",
+    "reason": "lafif class: derived passives/participles need dictionary confirmation",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "confirm forms against a dictionary"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "448",
+    "arabic": "وَقٰى",
+    "field": "additional_forms",
+    "proposed": "مَوْقِيٌّ / وُقِيَ / يُوْقٰى",
+    "reason": "lafif class: derived passives/participles need dictionary confirmation",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "confirm forms against a dictionary"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "449",
+    "arabic": "وَجِيَ",
+    "field": "transitivity",
+    "proposed": "-",
+    "reason": "transitivity unclear from gloss 'to wear down (hooves)'; the dependent generated forms (ism_maful, madi_passive, mudari_passive) are blocked by this same review item",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "decide transitivity, then derive or reject the passive forms and unblock them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "449",
+    "arabic": "وَجِيَ",
+    "field": "masdar",
+    "proposed": "اَلْوَجٰى",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "masdar"
+    ],
+    "source_note": "masdar final letter/vowel very small in print; transcribed اَلْوَجٰى",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "451",
+    "arabic": "رَوٰى",
+    "field": "additional_forms",
+    "proposed": "مَرْوِيٌّ / رُوِيَ / يُرْوٰى",
+    "reason": "lafif class: derived passives/participles need dictionary confirmation",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "confirm forms against a dictionary"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "452",
+    "arabic": "طَوٰى",
+    "field": "additional_forms",
+    "proposed": "مَطْوِيٌّ / طُوِيَ / يُطْوٰى",
+    "reason": "lafif class: derived passives/participles need dictionary confirmation",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "confirm forms against a dictionary"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "453",
+    "arabic": "غَوٰى",
+    "field": "additional_forms",
+    "proposed": "مَغْوِيٌّ / غُوِيَ / يُغْوٰى",
+    "reason": "lafif class: derived passives/participles need dictionary confirmation",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "ism_maful",
+      "madi_passive",
+      "mudari_passive"
+    ],
+    "source_note": null,
+    "action": "confirm forms against a dictionary"
+  },
+  {
+    "dataset": "mujarrad",
+    "id": "454",
+    "arabic": "عَيِيَ",
+    "field": "mudari",
+    "proposed": "يَعْىٰ",
+    "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "mudari"
+    ],
+    "source_note": "mudari printed as يَعْىٰ (three letters, dagger alif over dotless final ya, no medial ya tooth)",
+    "action": "decide the quiz policy for the affected field(s), then re-enable them"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0001",
+    "arabic": "عَلَّمَ",
+    "field": "entire_entry",
+    "proposed": "II of root ع ل م",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0002",
+    "arabic": "تَعَلَّمَ",
+    "field": "entire_entry",
+    "proposed": "V of root ع ل م",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0003",
+    "arabic": "أَعْلَمَ",
+    "field": "entire_entry",
+    "proposed": "IV of root ع ل م",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0004",
+    "arabic": "أَخْرَجَ",
+    "field": "entire_entry",
+    "proposed": "IV of root خ ر ج",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0005",
+    "arabic": "اِسْتَخْرَجَ",
+    "field": "entire_entry",
+    "proposed": "X of root خ ر ج",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0006",
+    "arabic": "أَدْخَلَ",
+    "field": "entire_entry",
+    "proposed": "IV of root د خ ل",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0007",
+    "arabic": "اِنْتَصَرَ",
+    "field": "entire_entry",
+    "proposed": "VIII of root ن ص ر",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0008",
+    "arabic": "قَاتَلَ",
+    "field": "entire_entry",
+    "proposed": "III of root ق ت ل",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0009",
+    "arabic": "تَقَاتَلَ",
+    "field": "entire_entry",
+    "proposed": "VI of root ق ت ل",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0010",
+    "arabic": "اِنْقَطَعَ",
+    "field": "entire_entry",
+    "proposed": "VII of root ق ط ع",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0011",
+    "arabic": "اِنْكَسَرَ",
+    "field": "entire_entry",
+    "proposed": "VII of root ك س ر",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0012",
+    "arabic": "اِسْتَغْفَرَ",
+    "field": "entire_entry",
+    "proposed": "X of root غ ف ر",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0013",
+    "arabic": "اِسْتَقْبَلَ",
+    "field": "entire_entry",
+    "proposed": "X of root ق ب ل",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0014",
+    "arabic": "اِسْتَعْمَلَ",
+    "field": "entire_entry",
+    "proposed": "X of root ع م ل",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0015",
+    "arabic": "اِفْتَتَحَ",
+    "field": "entire_entry",
+    "proposed": "VIII of root ف ت ح",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0016",
+    "arabic": "اِنْفَتَحَ",
+    "field": "entire_entry",
+    "proposed": "VII of root ف ت ح",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0017",
+    "arabic": "أَنْزَلَ",
+    "field": "entire_entry",
+    "proposed": "IV of root ن ز ل",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0018",
+    "arabic": "أَسْمَعَ",
+    "field": "entire_entry",
+    "proposed": "IV of root س م ع",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0019",
+    "arabic": "أَكْرَمَ",
+    "field": "entire_entry",
+    "proposed": "IV of root ك ر م",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0020",
+    "arabic": "كَاتَبَ",
+    "field": "entire_entry",
+    "proposed": "III of root ك ت ب",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  },
+  {
+    "dataset": "mazid_fih",
+    "id": "mazid-0021",
+    "arabic": "اِسْوَدَّ",
+    "field": "entire_entry",
+    "proposed": "IX of root س و د",
+    "reason": "seed candidate generated from general knowledge; no authoritative source text in the repository",
+    "status": "needs_review",
+    "quiz_eligible": false,
+    "affected_quiz_fields": [
+      "entire_entry"
+    ],
+    "source_note": null,
+    "action": "confirm forms and meaning against a dictionary or the book's mazid fih section, then set provenance and quiz eligibility"
+  }
+]

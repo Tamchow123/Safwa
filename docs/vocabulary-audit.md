@@ -1,0 +1,154 @@
+# SarfMaster Vocabulary Data Audit
+
+Audit of the Safwa-tul-Masaadir thulathi mujarrad dataset and its enrichment,
+covering the provenance correction pass and the final field-level
+quiz-eligibility pass of 2026-07-14 (schema 2.2.0).
+
+## 1. Original dataset
+
+`{ "source": {…}, "entries": [455 × entry] }` with the seven printed columns
+plus bab/verb-type/page metadata, ids 1–455 (never renumbered), and 14
+`transcription_note`s. Preserved byte-identical at
+`data/safwa-mujarrad.original.json`; the validator re-checks every field of
+every entry on every run.
+
+## 2. Distributions
+
+Per bab: nasara 140, daraba 127, fataha 74, samia 73, karuma 35, hasiba 6.
+Per verb type: sahih 222, mudaaf 53, mahmuz_fa 14, mahmuz_ain 7, mahmuz_lam 12,
+mithal_wawi 25, mithal_yai 7, ajwaf_wawi 31, ajwaf_yai 24, naqis_wawi 19,
+naqis_yai 31, lafif_mafruq 5, lafif_maqrun 5.
+
+## 3. The data-kind distinctions
+
+1. **Source-transcribed** — printed values; immutable.
+2. **Internally validated** — roots cross-checked *only against the book's own
+   printed forms* (never labelled `verified`).
+3. **Algorithmically derived** — generated passives/participles; no
+   confirmation of any kind.
+4. **Blocked** (`blocked_by_transitivity_review`) — generated forms
+   intentionally not produced while the entry's transitivity is unresolved.
+5. **Pattern templates** — Forms II–X morphology; no lexical claims.
+6. **Seed candidates** — 21 mazid fih verbs, unverified, quiz-disabled.
+
+`verified`/independently-verified remains reserved (requires recorded source +
+reviewer); zero records carry it.
+
+## 4. Field-level quiz eligibility (this pass's main change)
+
+The earlier schema had one broad `source_forms` flag that disabled every source
+field of an entry whenever anything about it was noted. That over-blocked
+usable data: an uncertain masdar says nothing about the entry's madi, meaning
+or bab. Eligibility is now a boolean per field
+(`madi, mudari, masdar, meaning, ism_fail, amr, nahi, bab, verb_type, root,
+generated_additional_forms`), and each of the 14 transcription notes was
+reviewed individually and mapped to exactly the field(s) it concerns:
+
+| ids | note concerns | disabled field(s) |
+|---|---|---|
+| 30, 34 | masdar printed with bare alif | masdar |
+| 118 | ism fail printed as sifah سَعِيْدٌ | ism_fail |
+| 138 | amr/nahi printed with final damma | amr, nahi |
+| 177 | masdar printed without shadda | masdar |
+| 212 | masdar printed with sukun on ظ | masdar |
+| 291, 307 | masdar hamza printing ambiguity | masdar |
+| 371 | masdar alif without fatha | masdar |
+| 372 | wawi/ya'i classification conflict | root, verb_type |
+| 376 | masdar shadda vowel ambiguous | masdar |
+| 438, 449 | masdar final letter very small | masdar |
+| 454 | mudari printed in contracted spelling | mudari |
+
+Resulting eligibility counts: madi 455, mudari 454, masdar 445, meaning 455,
+ism_fail 454, amr 454, nahi 454, bab 455, verb_type 453, root 453, generated
+forms 0, mazid entries 0. The source text itself is preserved unchanged even
+where a field is quiz-disabled. The validator fails if a concern disables an
+unrelated field, or leaves an affected field enabled.
+
+## 5. Unresolved roots
+
+Ids 369 طَاحَ and 372 غَاطَ keep `root_status: needs_review` with proposed roots
+(ط و ح, غ و ط) retained as proposals. Because the doubt is precisely the
+wawi/ya'i placement, both `root` and `verb_type` quizzes are disabled for these
+two entries. No final root is chosen until an authoritative dictionary is
+checked and cited in `root_provenance.source`. Roots otherwise: 453
+internally validated, 0 independently verified.
+
+## 6. Transitivity and the blocked generated forms
+
+Transitivity is heuristic (English-gloss tokens + 11 curated overrides; karuma
+verbs never auto-transitive): 251 transitive, 183 intransitive, 21 uncertain.
+Unresolved transitivity is now consistently `status: needs_review` (the
+provenance still records that an algorithm produced the assessment). For those
+21 entries the three dependent generated forms are explicitly
+`blocked_by_transitivity_review` with `blocked_by: "transitivity"` — 63 blocked
+cells — and each entry has a single transitivity review row that names the
+three blocked fields. Deciding the transitivity (via `TRANSITIVITY_OVERRIDES`)
+unblocks them automatically on the next run.
+
+Generated forms elsewhere: 750 values across 250 transitive entries
+(`algorithmically_derived`; lafif classes and شَاءَ are `needs_review`), all with
+`quiz_eligible: false` and `verification_source: null`. Generation is not
+attestation; nothing ships to quizzes without independent verification.
+
+## 7. Duplicate madi groups (unchanged, protected)
+
+حَبَّ 262/275 · قَرَأَ 297/303 · مَحَا 409/413 — separate entries with distinct
+mudari, validator-enforced.
+
+## 8. Manual-review coverage — 64 rows, nothing truncated
+
+`data/.review-rows.json` and `docs/manual-review-required.md` are generated by
+the enrichment script from the same rows; the validator requires the Markdown
+to be the byte-exact render of the JSON. Rows now carry
+`affected_quiz_fields` and a `source_note` field holding the **complete**
+transcription note — the previous ~80-character truncation (which had cut the
+notes of entries 138, 177, 212, 372, 376, 454 mid-sentence) is removed, and
+the validator fails if any row's source note differs from the entry's full
+note, if a note appears on a row unrelated to its concern (e.g. entry 449's
+masdar note belongs on its masdar row, not its transitivity row), or if any
+description ends in an ellipsis.
+
+Breakdown: 2 root rows + 21 transitivity rows (each naming its three blocked
+forms) + 7 generated-form rows (شَاءَ + 6 lafif) + 13 printed-irregularity rows
+(10 masdar, 1 ism_fail, 1 amr+nahi, 1 mudari; id 372's note is carried in full
+on its root row) + 21 candidate rows = **64**.
+
+## 9. Mazid fih
+
+Patterns: 9 templates (II–X), `lexical_claims: false`. Candidates: 21 seed
+entries, ids `mazid-0001`–`mazid-0021` unchanged from the previous release
+(sequential-contiguous policy, validator-enforced), all `needs_review`,
+`quiz_eligible: false`, file-level `incomplete_seed_dataset` /
+`production_ready: false` / `coverage_complete: false`. No coverage claim.
+Long-term fix: transcribe the book's own mazid fih section (p. 30 ff.).
+
+## 10. Known limitations
+
+* Nothing is externally verified yet: 0 roots and 0 generated forms carry
+  independent verification; 453 roots rest on book-internal consistency.
+* Transitivity is gloss-derived; the 21 uncertain entries need decisions and
+  the transitive classifications deserve a dictionary spot-check before
+  passive drills ship.
+* The 13 printed-irregularity rows and the 2 root conflicts await per-entry
+  decisions; affected fields stay quiz-disabled meanwhile.
+* The mazid seed set is deliberately tiny (21 verbs, 13 roots).
+
+## 11. Validation summary
+
+`python scripts/validate-vocabulary.py` — **ALL CHECKS PASSED (34,476
+checks)**, covering: source preservation (455 entries, every field, notes,
+bab counts, duplicates); root well-formedness/type compatibility; status
+integrity (no unearned `verified`, uncertain ⇔ `needs_review` for
+transitivity, blocked cells require `blocked_by: "transitivity"` and
+unresolved transitivity, no quiz-eligible unverified value anywhere);
+field-level eligibility (no `source_forms` flag; disabled set == the mapped
+affected fields exactly; unresolved roots disable root+verb_type); review
+integrity (full untruncated source notes, complete coverage of every
+needs_review/blocked item incl. all 21 candidates, Markdown = exact builder
+render of the JSON rows, no ellipsis-truncated descriptions); mazid safety
+(seed flags, ID policy, no template stored as lexical entry); statistics
+recomputed from records key-for-key including
+`quiz_eligibility_statistics`; raw-UTF-8 output; plus named scenario
+self-tests for ids 30, 118, 138, 454, 1, 369, 372, 202, candidate
+mazid-0001 and the full id-138 note text. Enrichment runs are idempotent
+apart from `generated_at`.

@@ -1,0 +1,181 @@
+{
+  "dataset_status": "pattern_templates",
+  "lexical_claims": false,
+  "description": "Morphological templates for the derived forms (thulathi mazid fih), Forms II-X in Western numbering. These are TEMPLATES ONLY: the presence of a pattern here is no evidence that any particular root is actually used in that form in Arabic. Lexical mazid fih verbs live in mazid-fih-candidates.json. Note that the six babs of thulathi mujarrad (نَصَرَ يَنْصُرُ etc.) are subdivisions of Form I and are unrelated to this catalogue. The source book also lists rarer babs with three added letters (اِفْعِيْعَال، اِفْعِيْلَال، اِفْعِوَّال); they are omitted here by design.",
+  "orthography": "Fully vowelled, following the source book's convention of an explicit sukun on long-vowel letters (e.g. تَفْعِيْلٌ).",
+  "patterns": [
+    {
+      "form_number": 2,
+      "form_label": "II",
+      "arabic_name": "بَابُ التَّفْعِيْلِ",
+      "madi_pattern": "فَعَّلَ",
+      "mudari_pattern": "يُفَعِّلُ",
+      "masdar_patterns": [
+        "تَفْعِيْلٌ",
+        "تَفْعِلَةٌ"
+      ],
+      "ism_fail_pattern": "مُفَعِّلٌ",
+      "ism_maful_pattern": "مُفَعَّلٌ",
+      "amr_pattern": "فَعِّلْ",
+      "general_meanings": [
+        "causative (making someone do the base action)",
+        "intensive or repeated action",
+        "declaring or considering something to be so"
+      ],
+      "notes": [
+        "تَفْعِلَةٌ is the usual masdar for roots with a weak final radical."
+      ]
+    },
+    {
+      "form_number": 3,
+      "form_label": "III",
+      "arabic_name": "بَابُ الْمُفَاعَلَةِ",
+      "madi_pattern": "فَاعَلَ",
+      "mudari_pattern": "يُفَاعِلُ",
+      "masdar_patterns": [
+        "مُفَاعَلَةٌ",
+        "فِعَالٌ"
+      ],
+      "ism_fail_pattern": "مُفَاعِلٌ",
+      "ism_maful_pattern": "مُفَاعَلٌ",
+      "amr_pattern": "فَاعِلْ",
+      "general_meanings": [
+        "directing the action towards another person",
+        "mutual attempted action"
+      ],
+      "notes": []
+    },
+    {
+      "form_number": 4,
+      "form_label": "IV",
+      "arabic_name": "بَابُ الْإِفْعَالِ",
+      "madi_pattern": "أَفْعَلَ",
+      "mudari_pattern": "يُفْعِلُ",
+      "masdar_patterns": [
+        "إِفْعَالٌ"
+      ],
+      "ism_fail_pattern": "مُفْعِلٌ",
+      "ism_maful_pattern": "مُفْعَلٌ",
+      "amr_pattern": "أَفْعِلْ",
+      "general_meanings": [
+        "causative",
+        "entering a time or place",
+        "the subject acquiring the base quality"
+      ],
+      "notes": []
+    },
+    {
+      "form_number": 5,
+      "form_label": "V",
+      "arabic_name": "بَابُ التَّفَعُّلِ",
+      "madi_pattern": "تَفَعَّلَ",
+      "mudari_pattern": "يَتَفَعَّلُ",
+      "masdar_patterns": [
+        "تَفَعُّلٌ"
+      ],
+      "ism_fail_pattern": "مُتَفَعِّلٌ",
+      "ism_maful_pattern": "مُتَفَعَّلٌ",
+      "amr_pattern": "تَفَعَّلْ",
+      "general_meanings": [
+        "reflexive of Form II (undergoing the action on oneself)",
+        "gradual acquisition",
+        "affectation or pretence"
+      ],
+      "notes": []
+    },
+    {
+      "form_number": 6,
+      "form_label": "VI",
+      "arabic_name": "بَابُ التَّفَاعُلِ",
+      "madi_pattern": "تَفَاعَلَ",
+      "mudari_pattern": "يَتَفَاعَلُ",
+      "masdar_patterns": [
+        "تَفَاعُلٌ"
+      ],
+      "ism_fail_pattern": "مُتَفَاعِلٌ",
+      "ism_maful_pattern": "مُتَفَاعَلٌ",
+      "amr_pattern": "تَفَاعَلْ",
+      "general_meanings": [
+        "reciprocal action between two or more parties",
+        "pretending the base quality"
+      ],
+      "notes": []
+    },
+    {
+      "form_number": 7,
+      "form_label": "VII",
+      "arabic_name": "بَابُ الْاِنْفِعَالِ",
+      "madi_pattern": "اِنْفَعَلَ",
+      "mudari_pattern": "يَنْفَعِلُ",
+      "masdar_patterns": [
+        "اِنْفِعَالٌ"
+      ],
+      "ism_fail_pattern": "مُنْفَعِلٌ",
+      "ism_maful_pattern": null,
+      "amr_pattern": "اِنْفَعِلْ",
+      "general_meanings": [
+        "passive-reflexive: receiving or undergoing the base action"
+      ],
+      "notes": [
+        "Intransitive by nature: no ism maf'ul and no internal passive in normal use."
+      ]
+    },
+    {
+      "form_number": 8,
+      "form_label": "VIII",
+      "arabic_name": "بَابُ الْاِفْتِعَالِ",
+      "madi_pattern": "اِفْتَعَلَ",
+      "mudari_pattern": "يَفْتَعِلُ",
+      "masdar_patterns": [
+        "اِفْتِعَالٌ"
+      ],
+      "ism_fail_pattern": "مُفْتَعِلٌ",
+      "ism_maful_pattern": "مُفْتَعَلٌ",
+      "amr_pattern": "اِفْتَعِلْ",
+      "general_meanings": [
+        "reflexive or middle voice of the base verb",
+        "doing something for oneself"
+      ],
+      "notes": [
+        "The ت assimilates after certain radicals (e.g. اِصْطَبَرَ، اِزْدَادَ، اِتَّخَذَ)."
+      ]
+    },
+    {
+      "form_number": 9,
+      "form_label": "IX",
+      "arabic_name": "بَابُ الْاِفْعِلَالِ",
+      "madi_pattern": "اِفْعَلَّ",
+      "mudari_pattern": "يَفْعَلُّ",
+      "masdar_patterns": [
+        "اِفْعِلَالٌ"
+      ],
+      "ism_fail_pattern": "مُفْعَلٌّ",
+      "ism_maful_pattern": null,
+      "amr_pattern": "اِفْعَلَّ",
+      "general_meanings": [
+        "colours and physical defects"
+      ],
+      "notes": [
+        "Restricted almost entirely to colours/defects; intransitive, no ism maf'ul."
+      ]
+    },
+    {
+      "form_number": 10,
+      "form_label": "X",
+      "arabic_name": "بَابُ الْاِسْتِفْعَالِ",
+      "madi_pattern": "اِسْتَفْعَلَ",
+      "mudari_pattern": "يَسْتَفْعِلُ",
+      "masdar_patterns": [
+        "اِسْتِفْعَالٌ"
+      ],
+      "ism_fail_pattern": "مُسْتَفْعِلٌ",
+      "ism_maful_pattern": "مُسْتَفْعَلٌ",
+      "amr_pattern": "اِسْتَفْعِلْ",
+      "general_meanings": [
+        "seeking or requesting the base action",
+        "considering something to have the base quality"
+      ],
+      "notes": []
+    }
+  ]
+}
