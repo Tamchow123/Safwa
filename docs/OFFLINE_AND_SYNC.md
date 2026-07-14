@@ -68,6 +68,7 @@ authoritative state, and neither's local history includes the other.
 Timestamps never establish causality.
 
 **Server ingestion pipeline:**
+
 1. Dedupe by `event_id` (duplicate delivery returns the prior result).
 2. Validate structure against the validation manifest (component key, skill,
    shape, eligibility, release) and lineage (`parent_event_id`,
@@ -154,27 +155,27 @@ Bookmarks/lists union; account settings win, guest fills gaps.
 
 ## 9. Failure scenarios
 
-| Scenario | Behaviour |
-|---|---|
-| Duplicate event delivery | idempotent no-op (unique `event_id`) |
-| Parent never arrives | `pending_parent` TTL → recoverable error; client resubmits chain |
-| Cyclic/impossible lineage | rejected, recoverable; queue not blocked |
-| Clock skew | canonical clamping; never converts sequential→concurrent |
-| Storage evicted (guest) | mitigated by `storage.persist()` + register prompts; risk documented |
-| Sync rejected (validation) | dead-letter + user-visible recoverable state; audit log server-side |
-| Checksum mismatch | re-download release before study |
-| Server unreachable | study continues locally; queue accumulates; status UI shows pending count |
+| Scenario                   | Behaviour                                                                 |
+| -------------------------- | ------------------------------------------------------------------------- |
+| Duplicate event delivery   | idempotent no-op (unique `event_id`)                                      |
+| Parent never arrives       | `pending_parent` TTL → recoverable error; client resubmits chain          |
+| Cyclic/impossible lineage  | rejected, recoverable; queue not blocked                                  |
+| Clock skew                 | canonical clamping; never converts sequential→concurrent                  |
+| Storage evicted (guest)    | mitigated by `storage.persist()` + register prompts; risk documented      |
+| Sync rejected (validation) | dead-letter + user-visible recoverable state; audit log server-side       |
+| Checksum mismatch          | re-download release before study                                          |
+| Server unreachable         | study continues locally; queue accumulates; status UI shows pending count |
 
 Sync status UI: unobtrusive indicator (synced / pending N / offline /
 attention needed), detail view listing recoverable issues.
 
 ## 10. Staged rollout (do not skip stages)
 
-| Stage | Phase | Guarantee added |
-|---|---|---|
-| A — Online sync | 16–17 | authenticated push/pull, server validation + replay, guest merge |
-| B — Offline queue | 18 | installable PWA, offline study, queued mutations, reconnection flush |
-| C — Multi-device reconciliation | 19 | concurrent branch detection, demotion, rebase — full offline multi-device correctness |
+| Stage                           | Phase | Guarantee added                                                                       |
+| ------------------------------- | ----- | ------------------------------------------------------------------------------------- |
+| A — Online sync                 | 16–17 | authenticated push/pull, server validation + replay, guest merge                      |
+| B — Offline queue               | 18    | installable PWA, offline study, queued mutations, reconnection flush                  |
+| C — Multi-device reconciliation | 19    | concurrent branch detection, demotion, rebase — full offline multi-device correctness |
 
 Stage A assumes connectivity for account features (guests are always fully
 local). Offline correctness across devices is only claimed after Stage C's

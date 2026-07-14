@@ -4,30 +4,30 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 
 ## 1. Recommended stack
 
-| Concern | Choice | Rationale |
-|---|---|---|
-| Framework | **Next.js (App Router) + React + TypeScript (strict)** | One deployable; API routes co-located with the client; the study engine and question generator are shared TS modules that run identically in the browser and on the server (required for server-side question reconstruction); strongest tooling/agent familiarity |
-| Styling / UI | **Tailwind CSS + shadcn/ui (Radix primitives)** | Accessible primitives (focus, ARIA, keyboard) out of the box; class-based dark mode; per-element `dir="rtl"` for Arabic content |
-| Client persistence | **Dexie (IndexedDB)** | Guest progress, cached content releases, local causal event chains, offline mutation queue |
-| Spaced repetition | **ts-fsrs** | Maintained FSRS implementation; runs client-side for guests/offline and server-side for deterministic replay |
-| Database / ORM | **PostgreSQL (Neon) + Drizzle ORM** | Relational integrity (composite FKs, partial unique indexes, CHECKs are load-bearing in this design); typed schema; SQL migrations in-repo |
-| Auth | **Better Auth** | TypeScript-native email/password, verification, reset, rate limiting; sessions via secure cookies; guests never blocked |
-| Email | **Resend behind a provider-neutral adapter** | Better Auth provides flows, not delivery; adapter (`sendEmail(template, to, data)`) keeps Postmark/SES swappable; local dev uses a console/file transport |
-| Validation | **Zod** | Shared schemas across client, server and content pipeline |
-| PWA / offline | **Serwist** | Next.js supplies the framework; **Serwist supplies the service worker, caching and offline integration** |
-| Testing | **Vitest + Testing Library + Playwright** | See `TEST_STRATEGY.md` |
-| Hosting | **Vercel + Neon** (assumed free tiers initially) | See `DEPLOYMENT.md` |
+| Concern            | Choice                                                 | Rationale                                                                                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Framework          | **Next.js (App Router) + React + TypeScript (strict)** | One deployable; API routes co-located with the client; the study engine and question generator are shared TS modules that run identically in the browser and on the server (required for server-side question reconstruction); strongest tooling/agent familiarity |
+| Styling / UI       | **Tailwind CSS + shadcn/ui (Radix primitives)**        | Accessible primitives (focus, ARIA, keyboard) out of the box; class-based dark mode; per-element `dir="rtl"` for Arabic content                                                                                                                                    |
+| Client persistence | **Dexie (IndexedDB)**                                  | Guest progress, cached content releases, local causal event chains, offline mutation queue                                                                                                                                                                         |
+| Spaced repetition  | **ts-fsrs**                                            | Maintained FSRS implementation; runs client-side for guests/offline and server-side for deterministic replay                                                                                                                                                       |
+| Database / ORM     | **PostgreSQL (Neon) + Drizzle ORM**                    | Relational integrity (composite FKs, partial unique indexes, CHECKs are load-bearing in this design); typed schema; SQL migrations in-repo                                                                                                                         |
+| Auth               | **Better Auth**                                        | TypeScript-native email/password, verification, reset, rate limiting; sessions via secure cookies; guests never blocked                                                                                                                                            |
+| Email              | **Resend behind a provider-neutral adapter**           | Better Auth provides flows, not delivery; adapter (`sendEmail(template, to, data)`) keeps Postmark/SES swappable; local dev uses a console/file transport                                                                                                          |
+| Validation         | **Zod**                                                | Shared schemas across client, server and content pipeline                                                                                                                                                                                                          |
+| PWA / offline      | **Serwist**                                            | Next.js supplies the framework; **Serwist supplies the service worker, caching and offline integration**                                                                                                                                                           |
+| Testing            | **Vitest + Testing Library + Playwright**              | See `TEST_STRATEGY.md`                                                                                                                                                                                                                                             |
+| Hosting            | **Vercel + Neon** (assumed free tiers initially)       | See `DEPLOYMENT.md`                                                                                                                                                                                                                                                |
 
 ### Alternatives considered
 
-| Alternative | Why rejected |
-|---|---|
-| SvelteKit | Capable, but smaller ecosystem for the accessible-component layer and less shared-module symmetry benefit |
+| Alternative                          | Why rejected                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| SvelteKit                            | Capable, but smaller ecosystem for the accessible-component layer and less shared-module symmetry benefit           |
 | Vite SPA + separate Hono/Express API | Two deployables and duplicated types for no benefit at this scale; breaks the shared question-generator requirement |
-| Supabase (BaaS) | RLS poorly suited to the causal event-ingestion/replay model; heavier lock-in; auth is not the hard part here |
-| Firebase | Non-relational; the schema's integrity constraints are central |
-| SQLite/Turso | Fine technically; Neon Postgres is equally cheap and more standard for the constraint set used |
-| Auth.js | Weaker first-party email/password + verification story than Better Auth |
+| Supabase (BaaS)                      | RLS poorly suited to the causal event-ingestion/replay model; heavier lock-in; auth is not the hard part here       |
+| Firebase                             | Non-relational; the schema's integrity constraints are central                                                      |
+| SQLite/Turso                         | Fine technically; Neon Postgres is equally cheap and more standard for the constraint set used                      |
+| Auth.js                              | Weaker first-party email/password + verification story than Better Auth                                             |
 
 ### ADRs to create during Phase 1
 
@@ -70,14 +70,14 @@ the server (which re-runs them for validation and replay).
 
 ### Client/server responsibilities
 
-| Concern | Client | Server |
-|---|---|---|
-| Question generation | generates deterministically (seed + generator version) | reconstructs and validates the same question |
-| Correctness (objective) | optimistic result for instant feedback | **authoritative** — derives `is_correct` + rating from the assessment manifest |
-| Correctness (flashcards) | subjective self-assessment | structural validation only (component exists, field eligible, rating ∈ {Good, Again}) |
-| FSRS state | optimistic local scheduling | **authoritative** after causal replay of accepted events |
-| Content | consumes cached learner release | validates against validation + assessment manifests |
-| Guest data | fully local (Dexie) | none until merge |
+| Concern                  | Client                                                 | Server                                                                                |
+| ------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Question generation      | generates deterministically (seed + generator version) | reconstructs and validates the same question                                          |
+| Correctness (objective)  | optimistic result for instant feedback                 | **authoritative** — derives `is_correct` + rating from the assessment manifest        |
+| Correctness (flashcards) | subjective self-assessment                             | structural validation only (component exists, field eligible, rating ∈ {Good, Again}) |
+| FSRS state               | optimistic local scheduling                            | **authoritative** after causal replay of accepted events                              |
+| Content                  | consumes cached learner release                        | validates against validation + assessment manifests                                   |
+| Guest data               | fully local (Dexie)                                    | none until merge                                                                      |
 
 ## 3. Content-release architecture
 

@@ -6,7 +6,7 @@ placeholder mechanism described in `CLAUDE.md` — never hand-typed.
 
 ## 1. Product vision
 
-Safwa helps students of the *Cream of Arabic* / *Safwa-tul-Maṣādir* material
+Safwa helps students of the _Cream of Arabic_ / _Safwa-tul-Maṣādir_ material
 memorise Arabic vocabulary the way Quizlet teaches vocabulary — but with
 ṣarf-aware depth: every verb's supplied forms, its three-letter root, its bāb,
 and its morphological category are each independently learnable skills with
@@ -184,7 +184,7 @@ are never touched by progress resets.
   (≥1 clean success) → **Mastered** (qualifying successful scheduled reviews
   on ≥3 distinct stored local dates, not currently due, not reset) →
   **Needs review** (due/lapsed after mastery).
-- A *qualifying* mastery success = an accepted, scheduling-authoritative event
+- A _qualifying_ mastery success = an accepted, scheduling-authoritative event
   rated Good (or future Easy) on a review where the component's FSRS state was
   Review (a genuine due review). `Hard` reschedules but does not advance the
   three-day requirement. The initial learning success establishes Learning and
@@ -199,14 +199,14 @@ are never touched by progress resets.
 
 ## 6. Progress definitions (exact formulas)
 
-| Metric | Numerator | Denominator |
-|---|---|---|
-| Overall completion (word mastery) | entries whose essential components are all Mastered | 455 |
-| Component mastery | Mastered eligible components | all eligible components for the enabled skill set |
-| Per-skill completion | Mastered components of that skill | eligible components of that skill |
-| Per-form completion | Mastered components with that source_field | eligible components with that source_field |
+| Metric                              | Numerator                                             | Denominator                                           |
+| ----------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| Overall completion (word mastery)   | entries whose essential components are all Mastered   | 455                                                   |
+| Component mastery                   | Mastered eligible components                          | all eligible components for the enabled skill set     |
+| Per-skill completion                | Mastered components of that skill                     | eligible components of that skill                     |
+| Per-form completion                 | Mastered components with that source_field            | eligible components with that source_field            |
 | Bāb / verb-type / source completion | Mastered essential components of entries in the group | eligible essential components of entries in the group |
-| Words started / learning / mastered | counts by entry state | — |
+| Words started / learning / mastered | counts by entry state                                 | —                                                     |
 
 - Ineligible fields are excluded from every denominator.
 - **Study day / streak:** a local calendar day (by the event's stored
