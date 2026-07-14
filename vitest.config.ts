@@ -15,5 +15,8 @@ export default defineConfig({
       "lib/**/*.test.{ts,tsx}",
     ],
     exclude: ["e2e/**", "node_modules/**", ".next/**"],
+    coverage: {
+      provider: "v8",
+    },
   },
 });
