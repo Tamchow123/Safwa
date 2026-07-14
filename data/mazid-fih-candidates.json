@@ -1,0 +1,830 @@
+{
+  "dataset_status": "incomplete_seed_dataset",
+  "production_ready": false,
+  "quiz_eligible": false,
+  "coverage_complete": false,
+  "verification_notes": "All lexical candidates require independent verification against an authoritative dictionary or the book's own mazid fih section (book p. 30 ff.) before any quiz exposure.",
+  "id_policy": "ids are assigned sequentially and contiguously (mazid-0001..mazid-NNNN) at generation time, after root filtering; application code must treat them as opaque stable strings and never rely on numbering",
+  "description": "A deliberately SMALL, curated SEED set of well-known thulathi mazid fih verbs whose roots occur in the Safwa-tul-Masaadir mujarrad dataset. No authoritative mazid-fih source text is present in this repository, so every candidate is generated from general knowledge of extremely common verbs, is marked needs_review, and is NOT quiz-eligible. This file is NOT a complete mazid fih dataset and makes no coverage claims.",
+  "candidates": [
+    {
+      "id": "mazid-0001",
+      "root": "ع ل م",
+      "root_compact": "علم",
+      "root_letters": [
+        "ع",
+        "ل",
+        "م"
+      ],
+      "form_number": 2,
+      "form_label": "II",
+      "pattern_arabic": "فَعَّلَ يُفَعِّلُ",
+      "madi": "عَلَّمَ",
+      "mudari": "يُعَلِّمُ",
+      "masdar": [
+        "تَعْلِيْمٌ"
+      ],
+      "meaning": [
+        "to teach"
+      ],
+      "ism_fail": "مُعَلِّمٌ",
+      "ism_maful": "مُعَلَّمٌ",
+      "amr": "عَلِّمْ",
+      "nahi": "لَا تُعَلِّمْ",
+      "related_mujarrad_entry_ids": [
+        129
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0002",
+      "root": "ع ل م",
+      "root_compact": "علم",
+      "root_letters": [
+        "ع",
+        "ل",
+        "م"
+      ],
+      "form_number": 5,
+      "form_label": "V",
+      "pattern_arabic": "تَفَعَّلَ يَتَفَعَّلُ",
+      "madi": "تَعَلَّمَ",
+      "mudari": "يَتَعَلَّمُ",
+      "masdar": [
+        "تَعَلُّمٌ"
+      ],
+      "meaning": [
+        "to learn"
+      ],
+      "ism_fail": "مُتَعَلِّمٌ",
+      "ism_maful": null,
+      "amr": "تَعَلَّمْ",
+      "nahi": "لَا تَتَعَلَّمْ",
+      "related_mujarrad_entry_ids": [
+        129
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": [
+        "Takes the thing learned as its object; no personal ism maf'ul in normal use."
+      ]
+    },
+    {
+      "id": "mazid-0003",
+      "root": "ع ل م",
+      "root_compact": "علم",
+      "root_letters": [
+        "ع",
+        "ل",
+        "م"
+      ],
+      "form_number": 4,
+      "form_label": "IV",
+      "pattern_arabic": "أَفْعَلَ يُفْعِلُ",
+      "madi": "أَعْلَمَ",
+      "mudari": "يُعْلِمُ",
+      "masdar": [
+        "إِعْلَامٌ"
+      ],
+      "meaning": [
+        "to inform"
+      ],
+      "ism_fail": "مُعْلِمٌ",
+      "ism_maful": "مُعْلَمٌ",
+      "amr": "أَعْلِمْ",
+      "nahi": "لَا تُعْلِمْ",
+      "related_mujarrad_entry_ids": [
+        129
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0004",
+      "root": "خ ر ج",
+      "root_compact": "خرج",
+      "root_letters": [
+        "خ",
+        "ر",
+        "ج"
+      ],
+      "form_number": 4,
+      "form_label": "IV",
+      "pattern_arabic": "أَفْعَلَ يُفْعِلُ",
+      "madi": "أَخْرَجَ",
+      "mudari": "يُخْرِجُ",
+      "masdar": [
+        "إِخْرَاجٌ"
+      ],
+      "meaning": [
+        "to take out",
+        "to expel"
+      ],
+      "ism_fail": "مُخْرِجٌ",
+      "ism_maful": "مُخْرَجٌ",
+      "amr": "أَخْرِجْ",
+      "nahi": "لَا تُخْرِجْ",
+      "related_mujarrad_entry_ids": [
+        12
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0005",
+      "root": "خ ر ج",
+      "root_compact": "خرج",
+      "root_letters": [
+        "خ",
+        "ر",
+        "ج"
+      ],
+      "form_number": 10,
+      "form_label": "X",
+      "pattern_arabic": "اِسْتَفْعَلَ يَسْتَفْعِلُ",
+      "madi": "اِسْتَخْرَجَ",
+      "mudari": "يَسْتَخْرِجُ",
+      "masdar": [
+        "اِسْتِخْرَاجٌ"
+      ],
+      "meaning": [
+        "to extract"
+      ],
+      "ism_fail": "مُسْتَخْرِجٌ",
+      "ism_maful": "مُسْتَخْرَجٌ",
+      "amr": "اِسْتَخْرِجْ",
+      "nahi": "لَا تَسْتَخْرِجْ",
+      "related_mujarrad_entry_ids": [
+        12
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0006",
+      "root": "د خ ل",
+      "root_compact": "دخل",
+      "root_letters": [
+        "د",
+        "خ",
+        "ل"
+      ],
+      "form_number": 4,
+      "form_label": "IV",
+      "pattern_arabic": "أَفْعَلَ يُفْعِلُ",
+      "madi": "أَدْخَلَ",
+      "mudari": "يُدْخِلُ",
+      "masdar": [
+        "إِدْخَالٌ"
+      ],
+      "meaning": [
+        "to make enter",
+        "to insert"
+      ],
+      "ism_fail": "مُدْخِلٌ",
+      "ism_maful": "مُدْخَلٌ",
+      "amr": "أَدْخِلْ",
+      "nahi": "لَا تُدْخِلْ",
+      "related_mujarrad_entry_ids": [
+        16
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0007",
+      "root": "ن ص ر",
+      "root_compact": "نصر",
+      "root_letters": [
+        "ن",
+        "ص",
+        "ر"
+      ],
+      "form_number": 8,
+      "form_label": "VIII",
+      "pattern_arabic": "اِفْتَعَلَ يَفْتَعِلُ",
+      "madi": "اِنْتَصَرَ",
+      "mudari": "يَنْتَصِرُ",
+      "masdar": [
+        "اِنْتِصَارٌ"
+      ],
+      "meaning": [
+        "to be victorious"
+      ],
+      "ism_fail": "مُنْتَصِرٌ",
+      "ism_maful": null,
+      "amr": "اِنْتَصِرْ",
+      "nahi": "لَا تَنْتَصِرْ",
+      "related_mujarrad_entry_ids": [
+        50
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": [
+        "Intransitive in this sense: no ism maf'ul."
+      ]
+    },
+    {
+      "id": "mazid-0008",
+      "root": "ق ت ل",
+      "root_compact": "قتل",
+      "root_letters": [
+        "ق",
+        "ت",
+        "ل"
+      ],
+      "form_number": 3,
+      "form_label": "III",
+      "pattern_arabic": "فَاعَلَ يُفَاعِلُ",
+      "madi": "قَاتَلَ",
+      "mudari": "يُقَاتِلُ",
+      "masdar": [
+        "مُقَاتَلَةٌ",
+        "قِتَالٌ"
+      ],
+      "meaning": [
+        "to fight (someone)"
+      ],
+      "ism_fail": "مُقَاتِلٌ",
+      "ism_maful": "مُقَاتَلٌ",
+      "amr": "قَاتِلْ",
+      "nahi": "لَا تُقَاتِلْ",
+      "related_mujarrad_entry_ids": [
+        39
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0009",
+      "root": "ق ت ل",
+      "root_compact": "قتل",
+      "root_letters": [
+        "ق",
+        "ت",
+        "ل"
+      ],
+      "form_number": 6,
+      "form_label": "VI",
+      "pattern_arabic": "تَفَاعَلَ يَتَفَاعَلُ",
+      "madi": "تَقَاتَلَ",
+      "mudari": "يَتَقَاتَلُ",
+      "masdar": [
+        "تَقَاتُلٌ"
+      ],
+      "meaning": [
+        "to fight one another"
+      ],
+      "ism_fail": "مُتَقَاتِلٌ",
+      "ism_maful": null,
+      "amr": "تَقَاتَلْ",
+      "nahi": "لَا تَتَقَاتَلْ",
+      "related_mujarrad_entry_ids": [
+        39
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": [
+        "Reciprocal: no ism maf'ul in normal use."
+      ]
+    },
+    {
+      "id": "mazid-0010",
+      "root": "ق ط ع",
+      "root_compact": "قطع",
+      "root_letters": [
+        "ق",
+        "ط",
+        "ع"
+      ],
+      "form_number": 7,
+      "form_label": "VII",
+      "pattern_arabic": "اِنْفَعَلَ يَنْفَعِلُ",
+      "madi": "اِنْقَطَعَ",
+      "mudari": "يَنْقَطِعُ",
+      "masdar": [
+        "اِنْقِطَاعٌ"
+      ],
+      "meaning": [
+        "to be cut off",
+        "to cease"
+      ],
+      "ism_fail": "مُنْقَطِعٌ",
+      "ism_maful": null,
+      "amr": "اِنْقَطِعْ",
+      "nahi": "لَا تَنْقَطِعْ",
+      "related_mujarrad_entry_ids": [
+        185
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": [
+        "Form VII is inherently passive-reflexive."
+      ]
+    },
+    {
+      "id": "mazid-0011",
+      "root": "ك س ر",
+      "root_compact": "كسر",
+      "root_letters": [
+        "ك",
+        "س",
+        "ر"
+      ],
+      "form_number": 7,
+      "form_label": "VII",
+      "pattern_arabic": "اِنْفَعَلَ يَنْفَعِلُ",
+      "madi": "اِنْكَسَرَ",
+      "mudari": "يَنْكَسِرُ",
+      "masdar": [
+        "اِنْكِسَارٌ"
+      ],
+      "meaning": [
+        "to get broken"
+      ],
+      "ism_fail": "مُنْكَسِرٌ",
+      "ism_maful": null,
+      "amr": "اِنْكَسِرْ",
+      "nahi": "لَا تَنْكَسِرْ",
+      "related_mujarrad_entry_ids": [
+        98
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": [
+        "Form VII is inherently passive-reflexive."
+      ]
+    },
+    {
+      "id": "mazid-0012",
+      "root": "غ ف ر",
+      "root_compact": "غفر",
+      "root_letters": [
+        "غ",
+        "ف",
+        "ر"
+      ],
+      "form_number": 10,
+      "form_label": "X",
+      "pattern_arabic": "اِسْتَفْعَلَ يَسْتَفْعِلُ",
+      "madi": "اِسْتَغْفَرَ",
+      "mudari": "يَسْتَغْفِرُ",
+      "masdar": [
+        "اِسْتِغْفَارٌ"
+      ],
+      "meaning": [
+        "to seek forgiveness"
+      ],
+      "ism_fail": "مُسْتَغْفِرٌ",
+      "ism_maful": "مُسْتَغْفَرٌ",
+      "amr": "اِسْتَغْفِرْ",
+      "nahi": "لَا تَسْتَغْفِرْ",
+      "related_mujarrad_entry_ids": [
+        87
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0013",
+      "root": "ق ب ل",
+      "root_compact": "قبل",
+      "root_letters": [
+        "ق",
+        "ب",
+        "ل"
+      ],
+      "form_number": 10,
+      "form_label": "X",
+      "pattern_arabic": "اِسْتَفْعَلَ يَسْتَفْعِلُ",
+      "madi": "اِسْتَقْبَلَ",
+      "mudari": "يَسْتَقْبِلُ",
+      "masdar": [
+        "اِسْتِقْبَالٌ"
+      ],
+      "meaning": [
+        "to face",
+        "to welcome"
+      ],
+      "ism_fail": "مُسْتَقْبِلٌ",
+      "ism_maful": "مُسْتَقْبَلٌ",
+      "amr": "اِسْتَقْبِلْ",
+      "nahi": "لَا تَسْتَقْبِلْ",
+      "related_mujarrad_entry_ids": [
+        134
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0014",
+      "root": "ع م ل",
+      "root_compact": "عمل",
+      "root_letters": [
+        "ع",
+        "م",
+        "ل"
+      ],
+      "form_number": 10,
+      "form_label": "X",
+      "pattern_arabic": "اِسْتَفْعَلَ يَسْتَفْعِلُ",
+      "madi": "اِسْتَعْمَلَ",
+      "mudari": "يَسْتَعْمِلُ",
+      "masdar": [
+        "اِسْتِعْمَالٌ"
+      ],
+      "meaning": [
+        "to use",
+        "to employ"
+      ],
+      "ism_fail": "مُسْتَعْمِلٌ",
+      "ism_maful": "مُسْتَعْمَلٌ",
+      "amr": "اِسْتَعْمِلْ",
+      "nahi": "لَا تَسْتَعْمِلْ",
+      "related_mujarrad_entry_ids": [
+        130
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0015",
+      "root": "ف ت ح",
+      "root_compact": "فتح",
+      "root_letters": [
+        "ف",
+        "ت",
+        "ح"
+      ],
+      "form_number": 8,
+      "form_label": "VIII",
+      "pattern_arabic": "اِفْتَعَلَ يَفْتَعِلُ",
+      "madi": "اِفْتَتَحَ",
+      "mudari": "يَفْتَتِحُ",
+      "masdar": [
+        "اِفْتِتَاحٌ"
+      ],
+      "meaning": [
+        "to commence",
+        "to inaugurate"
+      ],
+      "ism_fail": "مُفْتَتِحٌ",
+      "ism_maful": "مُفْتَتَحٌ",
+      "amr": "اِفْتَتِحْ",
+      "nahi": "لَا تَفْتَتِحْ",
+      "related_mujarrad_entry_ids": [
+        180
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0016",
+      "root": "ف ت ح",
+      "root_compact": "فتح",
+      "root_letters": [
+        "ف",
+        "ت",
+        "ح"
+      ],
+      "form_number": 7,
+      "form_label": "VII",
+      "pattern_arabic": "اِنْفَعَلَ يَنْفَعِلُ",
+      "madi": "اِنْفَتَحَ",
+      "mudari": "يَنْفَتِحُ",
+      "masdar": [
+        "اِنْفِتَاحٌ"
+      ],
+      "meaning": [
+        "to open (intransitive)"
+      ],
+      "ism_fail": "مُنْفَتِحٌ",
+      "ism_maful": null,
+      "amr": "اِنْفَتِحْ",
+      "nahi": "لَا تَنْفَتِحْ",
+      "related_mujarrad_entry_ids": [
+        180
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": [
+        "Form VII is inherently passive-reflexive."
+      ]
+    },
+    {
+      "id": "mazid-0017",
+      "root": "ن ز ل",
+      "root_compact": "نزل",
+      "root_letters": [
+        "ن",
+        "ز",
+        "ل"
+      ],
+      "form_number": 4,
+      "form_label": "IV",
+      "pattern_arabic": "أَفْعَلَ يُفْعِلُ",
+      "madi": "أَنْزَلَ",
+      "mudari": "يُنْزِلُ",
+      "masdar": [
+        "إِنْزَالٌ"
+      ],
+      "meaning": [
+        "to send down"
+      ],
+      "ism_fail": "مُنْزِلٌ",
+      "ism_maful": "مُنْزَلٌ",
+      "amr": "أَنْزِلْ",
+      "nahi": "لَا تُنْزِلْ",
+      "related_mujarrad_entry_ids": [
+        105
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0018",
+      "root": "س م ع",
+      "root_compact": "سمع",
+      "root_letters": [
+        "س",
+        "م",
+        "ع"
+      ],
+      "form_number": 4,
+      "form_label": "IV",
+      "pattern_arabic": "أَفْعَلَ يُفْعِلُ",
+      "madi": "أَسْمَعَ",
+      "mudari": "يُسْمِعُ",
+      "masdar": [
+        "إِسْمَاعٌ"
+      ],
+      "meaning": [
+        "to make (someone) hear"
+      ],
+      "ism_fail": "مُسْمِعٌ",
+      "ism_maful": "مُسْمَعٌ",
+      "amr": "أَسْمِعْ",
+      "nahi": "لَا تُسْمِعْ",
+      "related_mujarrad_entry_ids": [
+        119
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0019",
+      "root": "ك ر م",
+      "root_compact": "كرم",
+      "root_letters": [
+        "ك",
+        "ر",
+        "م"
+      ],
+      "form_number": 4,
+      "form_label": "IV",
+      "pattern_arabic": "أَفْعَلَ يُفْعِلُ",
+      "madi": "أَكْرَمَ",
+      "mudari": "يُكْرِمُ",
+      "masdar": [
+        "إِكْرَامٌ"
+      ],
+      "meaning": [
+        "to honour"
+      ],
+      "ism_fail": "مُكْرِمٌ",
+      "ism_maful": "مُكْرَمٌ",
+      "amr": "أَكْرِمْ",
+      "nahi": "لَا تُكْرِمْ",
+      "related_mujarrad_entry_ids": [
+        218
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0020",
+      "root": "ك ت ب",
+      "root_compact": "كتب",
+      "root_letters": [
+        "ك",
+        "ت",
+        "ب"
+      ],
+      "form_number": 3,
+      "form_label": "III",
+      "pattern_arabic": "فَاعَلَ يُفَاعِلُ",
+      "madi": "كَاتَبَ",
+      "mudari": "يُكَاتِبُ",
+      "masdar": [
+        "مُكَاتَبَةٌ"
+      ],
+      "meaning": [
+        "to correspond with"
+      ],
+      "ism_fail": "مُكَاتِبٌ",
+      "ism_maful": "مُكَاتَبٌ",
+      "amr": "كَاتِبْ",
+      "nahi": "لَا تُكَاتِبْ",
+      "related_mujarrad_entry_ids": [
+        42
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": []
+    },
+    {
+      "id": "mazid-0021",
+      "root": "س و د",
+      "root_compact": "سود",
+      "root_letters": [
+        "س",
+        "و",
+        "د"
+      ],
+      "form_number": 9,
+      "form_label": "IX",
+      "pattern_arabic": "اِفْعَلَّ يَفْعَلُّ",
+      "madi": "اِسْوَدَّ",
+      "mudari": "يَسْوَدُّ",
+      "masdar": [
+        "اِسْوِدَادٌ"
+      ],
+      "meaning": [
+        "to become black"
+      ],
+      "ism_fail": "مُسْوَدٌّ",
+      "ism_maful": null,
+      "amr": "اِسْوَدَّ",
+      "nahi": "لَا تَسْوَدَّ",
+      "related_mujarrad_entry_ids": [
+        353
+      ],
+      "verification_status": "needs_review",
+      "quiz_eligible": false,
+      "provenance": {
+        "type": "needs_review",
+        "method": "curated seed entry from general knowledge of very common verbs; forms follow the standard paradigm",
+        "source": null,
+        "reviewed_by": null
+      },
+      "source_note": null,
+      "notes": [
+        "Root shared with سَادَ (to rule) in the mujarrad set; the semantic link is via سَوَاد. Colours/defects only occur in Form IX."
+      ]
+    }
+  ]
+}
