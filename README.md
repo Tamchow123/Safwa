@@ -1,7 +1,7 @@
 # Safwa
 
 Safwa is a responsive Arabic vocabulary-learning web application built on the
-thulāthī mujarrad vocabulary of the *Safwa-tul-Maṣādir* / *Cream of Arabic*
+thulāthī mujarrad vocabulary of the _Safwa-tul-Maṣādir_ / _Cream of Arabic_
 material. It helps learners memorise verb meanings, the supplied forms of each
 verb (māḍī, muḍāriʿ, maṣdar, ism al-fāʿil, amr, nahī), three-letter roots, the
 bāb of each verb, and its morphological category — through flashcards,
@@ -15,31 +15,31 @@ optional accounts add cross-device synchronisation.
 
 ## Repository layout
 
-| Path | Purpose |
-|---|---|
-| `data/safwa-mujarrad.original.json` | **Immutable** transcription of the printed source (455 entries). Never modified. |
-| `data/safwa-vocabulary.v2.json` | Enriched application dataset (schema 2.2.0): roots, provenance, field-level quiz eligibility, derived forms, statistics. |
-| `data/mazid-fih-patterns.json` | Forms II–X pattern templates (educational patterns, no lexical claims). |
-| `data/mazid-fih-candidates.json` | 21 unverified mazīd fīh seed candidates — **not** production-ready, quiz-ineligible. |
-| `data/.review-rows.json` | Machine-readable manual-review queue (64 rows). |
-| `scripts/enrich-vocabulary.py` | Regenerates the enriched dataset from the original (deterministic, idempotent). |
-| `scripts/validate-vocabulary.py` | Validates preservation, provenance, eligibility and review integrity (34,476 checks). |
-| `docs/vocabulary-schema.md` | Field-by-field data schema and safety rules. |
-| `docs/vocabulary-audit.md` | Audit of the data foundation. |
-| `docs/manual-review-required.md` | Human-readable review queue (byte-synced with `.review-rows.json`). |
+| Path                                | Purpose                                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `data/safwa-mujarrad.original.json` | **Immutable** transcription of the printed source (455 entries). Never modified.                                         |
+| `data/safwa-vocabulary.v2.json`     | Enriched application dataset (schema 2.2.0): roots, provenance, field-level quiz eligibility, derived forms, statistics. |
+| `data/mazid-fih-patterns.json`      | Forms II–X pattern templates (educational patterns, no lexical claims).                                                  |
+| `data/mazid-fih-candidates.json`    | 21 unverified mazīd fīh seed candidates — **not** production-ready, quiz-ineligible.                                     |
+| `data/.review-rows.json`            | Machine-readable manual-review queue (64 rows).                                                                          |
+| `scripts/enrich-vocabulary.py`      | Regenerates the enriched dataset from the original (deterministic, idempotent).                                          |
+| `scripts/validate-vocabulary.py`    | Validates preservation, provenance, eligibility and review integrity (34,489 checks).                                    |
+| `docs/vocabulary-schema.md`         | Field-by-field data schema and safety rules.                                                                             |
+| `docs/vocabulary-audit.md`          | Audit of the data foundation.                                                                                            |
+| `docs/manual-review-required.md`    | Human-readable review queue (byte-synced with `.review-rows.json`).                                                      |
 
 ## Planning documents
 
-| Document | Contents |
-|---|---|
-| [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) | Vision, MVP/post-MVP scope, learning & quiz rules, progress definitions, acceptance criteria |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Stack, rationale, module boundaries, auth, PWA, security, ADRs |
-| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Conceptual model, tables, constraints, FSRS representation, content versioning, merge model |
-| [docs/OFFLINE_AND_SYNC.md](docs/OFFLINE_AND_SYNC.md) | Guest persistence, mutation queue, causal event graph, conflict resolution, staged rollout |
-| [docs/IMPLEMENTATION_PHASES.md](docs/IMPLEMENTATION_PHASES.md) | 23 small, individually testable phases with milestones |
-| [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md) | Testing pyramid, required suites, per-phase minimums, CI gates |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Local setup, hosting, migrations, backups, rollback, cost assumptions |
-| [docs/RISK_REGISTER.md](docs/RISK_REGISTER.md) | Project risks with likelihood, impact, mitigation |
+| Document                                                       | Contents                                                                                     |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md)   | Vision, MVP/post-MVP scope, learning & quiz rules, progress definitions, acceptance criteria |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | Stack, rationale, module boundaries, auth, PWA, security, ADRs                               |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md)                       | Conceptual model, tables, constraints, FSRS representation, content versioning, merge model  |
+| [docs/OFFLINE_AND_SYNC.md](docs/OFFLINE_AND_SYNC.md)           | Guest persistence, mutation queue, causal event graph, conflict resolution, staged rollout   |
+| [docs/IMPLEMENTATION_PHASES.md](docs/IMPLEMENTATION_PHASES.md) | 23 small, individually testable phases with milestones                                       |
+| [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md)                 | Testing pyramid, required suites, per-phase minimums, CI gates                               |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                       | Local setup, hosting, migrations, backups, rollback, cost assumptions                        |
+| [docs/RISK_REGISTER.md](docs/RISK_REGISTER.md)                 | Project risks with likelihood, impact, mitigation                                            |
 
 ## Data-safety principles (non-negotiable)
 
@@ -61,7 +61,7 @@ optional accounts add cross-device synchronisation.
 
 ```bash
 python scripts/enrich-vocabulary.py    # regenerate enriched dataset (never touches the original)
-python scripts/validate-vocabulary.py  # must exit 0 — 34,476 checks
+python scripts/validate-vocabulary.py  # must exit 0 — 34,489 checks
 ```
 
 > Note: the scripts' path constants were corrected in Phase 0 from the old
@@ -71,7 +71,7 @@ python scripts/validate-vocabulary.py  # must exit 0 — 34,476 checks
 ## Source attribution
 
 The vocabulary is transcribed from published learning material
-(*Safwa-tul-Maṣādir* / *Cream of Arabic*). See
+(_Safwa-tul-Maṣādir_ / _Cream of Arabic_). See
 [docs/RISK_REGISTER.md](docs/RISK_REGISTER.md) for redistribution
 considerations. This project claims no official affiliation with the source
 material's publishers.

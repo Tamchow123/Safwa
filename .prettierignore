@@ -1,0 +1,18 @@
+# Build and generated output
+.next/
+out/
+build/
+coverage/
+playwright-report/
+test-results/
+next-env.d.ts
+pnpm-lock.yaml
+
+# Data files are managed by the Python tooling and must not be reformatted
+data/
+docs/manual-review-required.md
+docs/.arabic-placeholders.json
+
+# Python
+scripts/
+__pycache__/
