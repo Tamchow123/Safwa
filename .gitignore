@@ -9,9 +9,14 @@ venv/
 node_modules/
 .next/
 out/
+build/
 coverage/
 playwright-report/
 test-results/
+next-env.d.ts
+*.tsbuildinfo
+.vercel/
+*.pem
 
 # Environment and secrets
 .env

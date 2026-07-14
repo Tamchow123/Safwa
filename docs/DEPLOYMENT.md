@@ -16,34 +16,34 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 
 ## 2. Environment variables
 
-| Variable | Purpose | Envs |
-|---|---|---|
-| `DATABASE_URL` | Postgres connection (Neon pooled URL in prod) | all |
-| `BETTER_AUTH_SECRET` | session/token signing | all (unique per env) |
-| `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL` | canonical origin | all |
-| `RESEND_API_KEY` | transactional email | preview/prod (dev uses console transport) |
-| `EMAIL_FROM` | verified sender | preview/prod |
-| `SENTRY_DSN` | error monitoring | preview/prod |
-| `CONTENT_SERVER_DIR` / storage binding | assessment+validation manifests location | all |
-| `ADMIN_BOOTSTRAP_EMAIL` | first admin promotion (one-shot) | prod |
+| Variable                                  | Purpose                                       | Envs                                      |
+| ----------------------------------------- | --------------------------------------------- | ----------------------------------------- |
+| `DATABASE_URL`                            | Postgres connection (Neon pooled URL in prod) | all                                       |
+| `BETTER_AUTH_SECRET`                      | session/token signing                         | all (unique per env)                      |
+| `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL` | canonical origin                              | all                                       |
+| `RESEND_API_KEY`                          | transactional email                           | preview/prod (dev uses console transport) |
+| `EMAIL_FROM`                              | verified sender                               | preview/prod                              |
+| `SENTRY_DSN`                              | error monitoring                              | preview/prod                              |
+| `CONTENT_SERVER_DIR` / storage binding    | assessment+validation manifests location      | all                                       |
+| `ADMIN_BOOTSTRAP_EMAIL`                   | first admin promotion (one-shot)              | prod                                      |
 
 Secrets live only in Vercel/Neon dashboards and local `.env.local`
 (gitignored). `.env.example` documents every variable without values.
 
 ## 3. Hosting recommendation
 
-| Component | Choice | Assumption / note |
-|---|---|---|
-| Web app + API | **Vercel** | Hobby tier suffices pre-launch for a free educational app; upgrade trigger: team members, higher limits, or commercial terms |
-| Database | **Neon Postgres** | free tier assumed adequate at low usage; serverless driver from Vercel functions; PITR window per plan |
-| Static content releases | shipped with the app (`public/content/`) or Vercel Blob later | releases are small (hundreds of KB) |
-| Server manifests | bundled server-side at build (Stage 1); DB/Blob after Phase 21 | must never be publicly served from `public/` |
-| Email | **Resend** | free tier assumed ~100 emails/day — enough for verification/reset at launch scale |
-| Scheduled tasks | none required for MVP; Vercel Cron if needed (pending-parent TTL sweep, activity rollups) | |
-| Push notifications | deferred post-MVP; web-push via a small worker + VAPID when added | iOS constraints documented in `OFFLINE_AND_SYNC.md` |
+| Component               | Choice                                                                                    | Assumption / note                                                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Web app + API           | **Vercel**                                                                                | Hobby tier suffices pre-launch for a free educational app; upgrade trigger: team members, higher limits, or commercial terms |
+| Database                | **Neon Postgres**                                                                         | free tier assumed adequate at low usage; serverless driver from Vercel functions; PITR window per plan                       |
+| Static content releases | shipped with the app (`public/content/`) or Vercel Blob later                             | releases are small (hundreds of KB)                                                                                          |
+| Server manifests        | bundled server-side at build (Stage 1); DB/Blob after Phase 21                            | must never be publicly served from `public/`                                                                                 |
+| Email                   | **Resend**                                                                                | free tier assumed ~100 emails/day — enough for verification/reset at launch scale                                            |
+| Scheduled tasks         | none required for MVP; Vercel Cron if needed (pending-parent TTL sweep, activity rollups) |                                                                                                                              |
+| Push notifications      | deferred post-MVP; web-push via a small worker + VAPID when added                         | iOS constraints documented in `OFFLINE_AND_SYNC.md`                                                                          |
 
-**Expected low-usage cost: ~$0–5/month** (assumption). Upgrade points:
-Vercel Pro (~$20/mo) for limits/analytics; Neon paid (~$19/mo) for more
+**Expected low-usage cost: ~~$0–5/month** (assumption). Upgrade points:
+Vercel Pro (~$20/mo) for limits/analytics; Neon paid (~~$19/mo) for more
 storage/compute/PITR; Resend paid at volume.
 
 **Lock-in assessment:** standard Next.js + Postgres + SQL migrations —
@@ -65,7 +65,7 @@ self-hosted libraries; Resend sits behind the email adapter.
 - Drizzle SQL migrations committed with the phase that introduces them;
   additive-first policy (`DATA_MODEL.md` §12).
 - CI runs the full migration chain against a disposable Postgres on every PR.
-- Production: apply migrations as a deploy step *before* promoting the build;
+- Production: apply migrations as a deploy step _before_ promoting the build;
   destructive migrations require a documented plan + fresh backup + rollback
   note.
 
