@@ -42,7 +42,8 @@ Content pipeline and client content store (Phase 3).
   never edited by hand.
 - `content-server/` artifacts are a server trust boundary — never imported
   into browser code, never served publicly.
-- Determinism: identical input ⇒ byte-identical artifacts (`created_at`
-  comes from the dataset's `generated_at`, never wall-clock).
+- Determinism: identical input ⇒ byte-identical artifacts. Immutable
+  artifacts contain no timestamps at all; the source `generated_at` is
+  ignored for both release identity and artifact bytes.
 - Eligibility is copied from approved metadata; presence of a value never
   implies quiz eligibility. Generated forms and mazīd candidates never ship.

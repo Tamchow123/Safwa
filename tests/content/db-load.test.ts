@@ -198,6 +198,70 @@ describe("verified cache reads (tampering)", () => {
     expect(repaired!.entry.meaning).toBe(cached!.entries[0].meaning);
   });
 
+  it.each([
+    ["bab", { bab: "hasiba" }],
+    ["verbType", { verbType: "lafif_maqrun" }],
+    ["bookPage", { bookPage: 999 }],
+  ] as const)(
+    "a tampered denormalised %s index is detected and repaired",
+    async (_field, patch) => {
+      // Entry 1 is sahih/nasara/page 1 — tamper one indexed field only.
+      const row = await db.contentEntries.get([built.releaseId, 1]);
+      await db.contentEntries.put({ ...row!, ...patch });
+
+      const cached = await readVerifiedCachedRelease(db, built.releaseId);
+      expect(cached).not.toBeNull();
+      // Returned values come from the verified artifact.
+      expect(cached!.entries[0].bab).toBe("nasara");
+      expect(cached!.entries[0].verb_type).toBe("sahih");
+      expect(cached!.entries[0].book_page).toBe(1);
+
+      // The row itself was repaired…
+      const repaired = await db.contentEntries.get([built.releaseId, 1]);
+      expect(repaired!.bab).toBe("nasara");
+      expect(repaired!.verbType).toBe("sahih");
+      expect(repaired!.bookPage).toBe(1);
+
+      // …and a subsequent indexed query uses the repaired values: no row
+      // carries the corrupted index value anymore.
+      const byTamperedBab = await db.contentEntries
+        .where("bab")
+        .equals("hasiba")
+        .and((candidate) => candidate.entryId === 1)
+        .count();
+      expect(byTamperedBab).toBe(0);
+      const byRealBab = await db.contentEntries
+        .where("bab")
+        .equals("nasara")
+        .and((candidate) => candidate.entryId === 1)
+        .count();
+      expect(byRealBab).toBe(1);
+    },
+  );
+
+  it("an unexpected extra row is detected and removed", async () => {
+    await db.contentEntries.put({
+      releaseId: built.releaseId,
+      entryId: 9999,
+      bab: "nasara",
+      verbType: "sahih",
+      bookPage: 1,
+      entry: { ...built.learner.entries[0], id: 9999 },
+    });
+    const cached = await readVerifiedCachedRelease(db, built.releaseId);
+    expect(cached).not.toBeNull();
+    expect(cached!.entries).toHaveLength(455);
+    expect(
+      await db.contentEntries.get([built.releaseId, 9999]),
+    ).toBeUndefined();
+    expect(
+      await db.contentEntries
+        .where("releaseId")
+        .equals(built.releaseId)
+        .count(),
+    ).toBe(455);
+  });
+
   it("missing indexed rows are rebuilt from the verified artifact", async () => {
     await db.contentEntries
       .where("releaseId")

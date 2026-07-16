@@ -10,10 +10,18 @@
  *   content-server/releases/<release-id>/checksums.json  (server-only)
  *
  * NODE-ONLY entry point (`pnpm content:build`); the pure builder
- * (buildArtifacts) is imported by tests. Determinism: stable key order,
- * `created_at` taken from the dataset's own generated_at (never wall-clock),
- * release id derived from a content hash — identical input produces
- * byte-identical artifacts.
+ * (buildArtifacts) is imported by tests. Determinism: stable key order and
+ * a release id derived from the full semantic release basis. Immutable
+ * artifacts contain NO build timestamp — the source dataset's generated_at
+ * is ignored for release identity and artifact bytes; operational
+ * publication timestamps, if ever needed, belong outside the immutable
+ * release directories (e.g. in the server release registry).
+ *
+ * Publication order: registry validation happens BEFORE any mutable
+ * publication state changes, and the public pointer (active.json) is
+ * written LAST — the client-visible pointer only moves once the registry
+ * has been validated and written and the immutable files exist with the
+ * expected bytes.
  */
 import {
   existsSync,
@@ -513,26 +521,38 @@ export function writeImmutableFile(
   return "written";
 }
 
-/** Upsert this release into the mutable server release registry. */
-function updateReleaseRegistry(built: BuiltArtifacts): ReleaseRegistry {
-  const registryPath = join(SERVER_CONTENT_DIR, "release-registry.json");
-  let registry: ReleaseRegistry = {
-    active_release_id: built.releaseId,
-    releases: {},
-  };
-  if (existsSync(registryPath)) {
-    registry = releaseRegistrySchema.parse(
-      JSON.parse(readFileSync(registryPath, "utf8")),
-    );
-  }
-  const existing = registry.releases[built.releaseId];
+/**
+ * Compute the next registry state for activating `releaseId`. Pure — no
+ * filesystem access, no mutation of the input. Rules: the target becomes
+ * `active`; every other currently-active release is demoted to
+ * `supported`; `supported` stays `supported`; `revoked` stays `revoked`;
+ * per-release protocol minimums are preserved. Activating a revoked
+ * release, or starting from an invalid registry, fails.
+ */
+export function prepareReleaseRegistry(
+  currentRegistry: ReleaseRegistry | null,
+  releaseId: string,
+): ReleaseRegistry {
+  const current = currentRegistry
+    ? releaseRegistrySchema.parse(currentRegistry)
+    : null;
+
+  const existing = current?.releases[releaseId];
   if (existing?.status === "revoked") {
     throw new ContentBuildError(
-      `release ${built.releaseId} is revoked and cannot be re-activated`,
+      `release ${releaseId} is revoked and cannot be re-activated`,
     );
   }
-  registry.active_release_id = built.releaseId;
-  registry.releases[built.releaseId] = {
+
+  const releases: ReleaseRegistry["releases"] = {};
+  for (const [id, release] of Object.entries(current?.releases ?? {})) {
+    releases[id] = {
+      ...release,
+      // Deterministic demotion: previous active releases become supported.
+      status: release.status === "active" ? "supported" : release.status,
+    };
+  }
+  releases[releaseId] = {
     status: "active",
     minimum_supported_client_version:
       existing?.minimum_supported_client_version ??
@@ -541,28 +561,43 @@ function updateReleaseRegistry(built: BuiltArtifacts): ReleaseRegistry {
       existing?.minimum_supported_event_schema ??
       MINIMUM_SUPPORTED_EVENT_SCHEMA,
   };
-  writeFileAtomic(registryPath, serializeArtifact(registry));
-  return registry;
+
+  return releaseRegistrySchema.parse({
+    active_release_id: releaseId,
+    releases,
+  });
 }
 
-export function runContentBuild(): BuiltArtifacts {
-  const sourceText = readFileSync(SOURCE_DATASET_PATH, "utf8");
-  const built = buildArtifacts(sourceText);
+/**
+ * Publish built artifacts to the given directories in the safe order:
+ * (1) read + validate the current registry and prepare the next one —
+ * failing here changes NOTHING; (2) write/verify the immutable release
+ * files; (3) atomically write the registry; (4) atomically write the
+ * public pointer LAST, so the client-visible pointer only moves after
+ * everything else has succeeded.
+ */
+export function publishBuiltArtifacts(options: {
+  built: Pick<BuiltArtifacts, "releaseId" | "serialized">;
+  publicContentDir: string;
+  serverContentDir: string;
+}): ReleaseRegistry {
+  const { built, publicContentDir, serverContentDir } = options;
 
-  const learnerPath = join(
-    PUBLIC_CONTENT_DIR,
-    "releases",
-    built.releaseId,
-    "learner.json",
-  );
-  const serverReleaseDir = join(
-    SERVER_CONTENT_DIR,
-    "releases",
-    built.releaseId,
-  );
+  // Step 1: registry preparation (validates; throws before any write).
+  const registryPath = join(serverContentDir, "release-registry.json");
+  const currentRegistry = existsSync(registryPath)
+    ? releaseRegistrySchema.parse(
+        JSON.parse(readFileSync(registryPath, "utf8")),
+      )
+    : null;
+  const nextRegistry = prepareReleaseRegistry(currentRegistry, built.releaseId);
 
-  // Immutable artifacts: never overwritten with different bytes.
-  writeImmutableFile(learnerPath, built.serialized.learner);
+  // Step 2: immutable artifacts (no-op on identical bytes, fail on drift).
+  const serverReleaseDir = join(serverContentDir, "releases", built.releaseId);
+  writeImmutableFile(
+    join(publicContentDir, "releases", built.releaseId, "learner.json"),
+    built.serialized.learner,
+  );
   writeImmutableFile(
     join(serverReleaseDir, "validation.json"),
     built.serialized.validation,
@@ -575,12 +610,28 @@ export function runContentBuild(): BuiltArtifacts {
     join(serverReleaseDir, "checksums.json"),
     built.serialized.checksums,
   );
-  // Mutable pointer + operational registry: atomic replace.
+
+  // Step 3: operational registry (atomic replace).
+  writeFileAtomic(registryPath, serializeArtifact(nextRegistry));
+
+  // Step 4: public pointer LAST (atomic replace).
   writeFileAtomic(
-    join(PUBLIC_CONTENT_DIR, "active.json"),
+    join(publicContentDir, "active.json"),
     built.serialized.activePointer,
   );
-  updateReleaseRegistry(built);
+
+  return nextRegistry;
+}
+
+export function runContentBuild(): BuiltArtifacts {
+  const sourceText = readFileSync(SOURCE_DATASET_PATH, "utf8");
+  const built = buildArtifacts(sourceText);
+
+  publishBuiltArtifacts({
+    built,
+    publicContentDir: PUBLIC_CONTENT_DIR,
+    serverContentDir: SERVER_CONTENT_DIR,
+  });
 
   const eligibility = Object.entries(EXPECTED_ELIGIBILITY_COUNTS)
     .map(([field, count]) => `${field} ${count}`)

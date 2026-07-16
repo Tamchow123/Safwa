@@ -139,17 +139,43 @@ export type AssessmentManifest = z.infer<typeof assessmentManifestSchema>;
  * lifecycle and protocol support — kept OUTSIDE the immutable release
  * directories so status changes never touch immutable bytes.
  */
-export const releaseRegistrySchema = z.strictObject({
-  active_release_id: z.string().min(1),
-  releases: z.record(
-    z.string(),
-    z.strictObject({
-      status: z.enum(["active", "supported", "revoked"]),
-      minimum_supported_client_version: z.string().min(1),
-      minimum_supported_event_schema: z.number().int().positive(),
-    }),
-  ),
-});
+export const releaseRegistrySchema = z
+  .strictObject({
+    active_release_id: z.string().min(1),
+    releases: z.record(
+      z.string(),
+      z.strictObject({
+        status: z.enum(["active", "supported", "revoked"]),
+        minimum_supported_client_version: z.string().min(1),
+        minimum_supported_event_schema: z.number().int().positive(),
+      }),
+    ),
+  })
+  .superRefine((registry, ctx) => {
+    // Invariants: exactly one active release, and it is active_release_id.
+    // Ambiguous/corrupt lifecycle state is rejected, never silently fixed.
+    const activeIds = Object.entries(registry.releases)
+      .filter(([, release]) => release.status === "active")
+      .map(([id]) => id);
+    const target = registry.releases[registry.active_release_id];
+    if (!target) {
+      ctx.addIssue({
+        code: "custom",
+        message: `active_release_id ${registry.active_release_id} is not present in releases`,
+      });
+    } else if (target.status !== "active") {
+      ctx.addIssue({
+        code: "custom",
+        message: `active_release_id ${registry.active_release_id} has status ${target.status}, expected active`,
+      });
+    }
+    if (activeIds.length !== 1) {
+      ctx.addIssue({
+        code: "custom",
+        message: `exactly one release must be active, found ${activeIds.length} (${activeIds.join(", ")})`,
+      });
+    }
+  });
 export type ReleaseRegistry = z.infer<typeof releaseRegistrySchema>;
 
 export const checksumManifestSchema = z.strictObject({
