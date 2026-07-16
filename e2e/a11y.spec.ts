@@ -36,10 +36,36 @@ test.describe("accessibility", () => {
   test("library with loaded content in light mode", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/library");
-    await expect(page.getByTestId("content-status")).toHaveText(
-      /entries loaded/,
+    await expect(page.getByTestId("library-result-count")).toHaveText(
+      /entries/,
       { timeout: 15_000 },
     );
+    await expectNoSeriousViolations(page);
+  });
+
+  test("filtered library page", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/library?bab=nasara&eligibility=eligible%3Amasdar");
+    await expect(page.getByTestId("library-result-count")).toHaveText(
+      /match your filters/,
+      { timeout: 15_000 },
+    );
+    await expectNoSeriousViolations(page);
+  });
+
+  test("vocabulary detail page", async ({ page }) => {
+    await page.goto("/library/1");
+    await expect(page.getByTestId("detail-madi")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expectNoSeriousViolations(page);
+  });
+
+  test("detail page with an ineligible field (entry 369)", async ({ page }) => {
+    await page.goto("/library/369");
+    await expect(page.getByTestId("detail-root")).toBeVisible({
+      timeout: 15_000,
+    });
     await expectNoSeriousViolations(page);
   });
 

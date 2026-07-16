@@ -1,0 +1,107 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+import type { LearnerEntry } from "@/modules/content/schema";
+import {
+  loadActiveContent,
+  OFFLINE_REASONS,
+  type ContentSource,
+  type FallbackReason,
+  type LoadContentResult,
+} from "@/modules/content/load";
+
+/** Short user-safe failure text — never raw checksums or Zod diagnostics. */
+const FAILURE_MESSAGES: Record<
+  Extract<LoadContentResult, { ok: false }>["code"],
+  string
+> = {
+  "no-content-available":
+    "No content is available. Check your connection and retry.",
+  "checksum-mismatch":
+    "The downloaded content failed verification. Please retry.",
+  "invalid-release": "The downloaded content was invalid. Please retry.",
+  "pointer-invalid": "The content index looks inconsistent. Please retry.",
+};
+
+export type ActiveContentState =
+  | { status: "loading" }
+  | {
+      status: "ready";
+      entries: LearnerEntry[];
+      releaseId: string;
+      contentVersion: string;
+      entryCount: number;
+      source: ContentSource;
+      fallbackReason?: FallbackReason;
+    }
+  | { status: "error"; message: string };
+
+/**
+ * Reusable lifecycle around the verified Phase 3 content loader. Exposes
+ * typed source/fallback information, a user-safe error message and a retry
+ * action; never leaks internal diagnostics; guards against state updates
+ * after unmount. Shared by the library and detail pages.
+ */
+export function useActiveContent() {
+  const [state, setState] = useState<ActiveContentState>({
+    status: "loading",
+  });
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadActiveContent()
+      .then((result) => {
+        if (cancelled) return;
+        if (result.ok) {
+          setState({
+            status: "ready",
+            entries: result.entries,
+            releaseId: result.releaseId,
+            contentVersion: result.contentVersion,
+            entryCount: result.entryCount,
+            source: result.source,
+            fallbackReason: result.fallbackReason,
+          });
+        } else {
+          setState({ status: "error", message: FAILURE_MESSAGES[result.code] });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setState({
+            status: "error",
+            message: "Something went wrong loading content. Please retry.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const retry = useCallback(() => {
+    setState({ status: "loading" });
+    setAttempt((n) => n + 1);
+  }, []);
+
+  return { state, retry };
+}
+
+/** User-safe source description; "offline" only when actually unreachable. */
+export function contentSourceLabel(
+  source: ContentSource,
+  fallbackReason?: FallbackReason,
+): string {
+  switch (source) {
+    case "network":
+      return "downloaded from network";
+    case "cache":
+      return "served from verified cache";
+    case "fallback-cache":
+      return fallbackReason && OFFLINE_REASONS.includes(fallbackReason)
+        ? "using the previous verified cached release (offline)"
+        : "using the previous verified cached release";
+  }
+}
