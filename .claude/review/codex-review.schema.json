@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Codex phase review result",
+  "description": "Final response shape for the independent Codex phase review. APPROVED is valid only when no actionable P0, P1 or P2 findings remain.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "summary", "findings"],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": ["APPROVED", "CHANGES_REQUIRED"],
+      "description": "APPROVED only when no actionable P0, P1 or P2 findings exist and the phase is safe to present for human review."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Concise overall assessment of the phase: what was reviewed, how thoroughly, and the basis for the decision."
+    },
+    "findings": {
+      "type": "array",
+      "description": "All findings, most severe first. Empty array when there are none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "severity",
+          "file",
+          "line",
+          "title",
+          "failure_scenario",
+          "explanation",
+          "suggested_fix"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["P0", "P1", "P2", "P3"]
+          },
+          "file": {
+            "type": "string",
+            "description": "Repository-relative path of the affected file."
+          },
+          "line": {
+            "type": ["integer", "null"],
+            "description": "1-indexed line the finding anchors to, or null when it applies to the whole file or to a missing file."
+          },
+          "title": {
+            "type": "string",
+            "description": "One-sentence statement of the defect."
+          },
+          "failure_scenario": {
+            "type": "string",
+            "description": "Concrete inputs or state under which the defect produces wrong behaviour."
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Why this is wrong and why it matters."
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "Practical recommended correction. Described only — the reviewer never applies fixes."
+          }
+        }
+      }
+    }
+  }
+}

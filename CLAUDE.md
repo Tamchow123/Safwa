@@ -73,3 +73,27 @@ App commands (once scaffolded): `pnpm dev`, `pnpm test` (Vitest),
 - `docs/vocabulary-schema.md`, `docs/vocabulary-audit.md`,
   `docs/manual-review-required.md` — existing data-layer docs (do not edit;
   they are maintained by the enrichment tooling)
+
+## Phase implementation workflow (permanent rules)
+
+- **`/phase-loop` is the standard implementation workflow** for every phase:
+  branch → implement → quality gate → Claude review → Codex review → draft PR.
+  See `.claude/skills/phase-loop/SKILL.md`.
+- **Codex is strictly an independent read-only reviewer** (run via
+  `scripts/run-codex-review.ps1` in an ephemeral read-only sandbox). It must
+  never edit files, fix findings, commit, push, merge or open PRs.
+- **Codex findings are fixed only by Claude.** Every finding is either fixed
+  or explicitly rebutted with a technical rationale — never silently ignored.
+- **No PR until both reviews approve.** A pull request may be created only
+  after the quality gate passes AND the `phase-code-reviewer` subagent AND
+  Codex both return `APPROVED`. PRs are always created as drafts.
+- **Any code change invalidates prior reviewer approvals** — from both
+  reviewers. Re-run the quality gate and both reviews after every correction.
+- **Never merge a pull request or deploy automatically.** The human reviews
+  and merges every PR manually.
+- **Never weaken tests.** Never delete, skip, hollow out or loosen a test to
+  make a check or review pass.
+- **Never hide review failures.** Failed gates, reviewer rejections and
+  unresolved findings are reported verbatim, not smoothed over.
+- **Never claim success without evidence.** "Done" requires quality-gate
+  output showing every check passed (`scripts/quality-gate.ps1` exit 0).
