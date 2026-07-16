@@ -61,27 +61,9 @@ test.describe("content foundation (/library)", () => {
     await page.getByRole("button", { name: "Reload content" }).click();
     await waitForReady(page);
     await expect(page.getByTestId("content-source")).toHaveText(
-      "served from existing cache",
+      "served from verified cache",
     );
     expect(learnerDownloads).toBe(1); // no second learner download
-  });
-
-  test("offline fallback serves the cached release without a reload", async ({
-    page,
-    context,
-  }) => {
-    await page.goto("/library");
-    await waitForReady(page);
-
-    await context.setOffline(true);
-    await page.getByRole("button", { name: "Reload content" }).click();
-    await waitForReady(page);
-    await expect(page.getByTestId("content-source")).toHaveText(
-      "offline fallback from cache",
-    );
-    await expect(page.getByTestId("content-entry-count")).toHaveText("455");
-    await expect(page.getByTestId("content-sample-arabic")).toBeVisible();
-    await context.setOffline(false);
   });
 
   test("a corrupt learner response is rejected and the valid cache survives", async ({
@@ -121,12 +103,51 @@ test.describe("content foundation (/library)", () => {
     await page.getByRole("button", { name: "Reload content" }).click();
     await waitForReady(page);
     // Corrupt release rejected; previously valid cache still serves content.
+    // Not an offline case, so the label must not claim offline.
     await expect(page.getByTestId("content-source")).toHaveText(
-      "offline fallback from cache",
+      "using the previous verified cached release",
     );
     await expect(page.getByTestId("content-release-id")).toHaveText(
       validReleaseId ?? "",
     );
     await expect(page.getByTestId("content-entry-count")).toHaveText("455");
+  });
+});
+
+test.describe("content foundation — offline fallback", () => {
+  // This suite deliberately disconnects the network; resource-load errors
+  // are expected. Hydration/runtime errors are still caught by the guard.
+  test.use({ allowExpectedNetworkErrors: true });
+
+  test("offline fallback serves the cached release without a reload", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/library");
+    await waitForReady(page);
+
+    await context.setOffline(true);
+    await page.getByRole("button", { name: "Reload content" }).click();
+    await waitForReady(page);
+    await expect(page.getByTestId("content-source")).toHaveText(
+      "using the previous verified cached release (offline)",
+    );
+    await expect(page.getByTestId("content-entry-count")).toHaveText("455");
+    await expect(page.getByTestId("content-sample-arabic")).toBeVisible();
+    await context.setOffline(false);
+  });
+});
+
+test.describe("console-error guard", () => {
+  test("ordinary tests fail on unexpected resource errors", async ({
+    page,
+  }) => {
+    // Marked as expected-failure: the strict guard must fail this test
+    // because of the deliberately missing resource. If the guard stops
+    // catching resource errors, this test "passes" and the suite fails.
+    test.fail();
+    await page.goto("/library");
+    await page.evaluate(() => fetch("/definitely-missing-resource.js"));
+    await page.waitForTimeout(250);
   });
 });

@@ -19,7 +19,6 @@
   "nahi"
  ],
  "content_version": "2.2.0",
- "created_at": "2026-07-14T09:46:55+00:00",
  "entries": [
   {
    "bab_id": "nasara",
@@ -7744,11 +7743,8 @@
   }
  ],
  "entry_count": 455,
- "minimum_supported_client_version": "0.1.0",
- "minimum_supported_event_schema": 1,
  "question_generator_version": "1",
- "release_id": "safwa-2.2.0-cc44f005854f",
- "release_status": "active",
+ "release_id": "safwa-2.2.0-2b053aa72340a9d3",
  "schema_version": "2.2.0",
  "skill_metadata": [
   {

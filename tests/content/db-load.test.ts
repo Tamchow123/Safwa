@@ -9,8 +9,8 @@ import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import {
   cacheLearnerRelease,
   CONTENT_DB_VERSION,
-  readActiveCachedRelease,
-  readCachedRelease,
+  readVerifiedActiveCachedRelease,
+  readVerifiedCachedRelease,
   SafwaContentDb,
 } from "@/modules/content/db";
 import { loadActiveContent, sha256HexBrowser } from "@/modules/content/load";
@@ -20,19 +20,21 @@ if (typeof globalThis.crypto?.subtle === "undefined") {
   Object.defineProperty(globalThis, "crypto", { value: webcrypto });
 }
 
+// Full-artifact verification over 455 entries through fake-indexeddb is
+// slow under V8 coverage instrumentation; allow generous per-test time.
+vi.setConfig({ testTimeout: 30_000 });
+
 const built = buildArtifacts(readFileSync(SOURCE_DATASET_PATH, "utf8"));
+const LEARNER_TEXT = built.serialized.learner;
+const LEARNER_SHA = built.checksums.learner;
 
 let dbCounter = 0;
 let db: SafwaContentDb;
 
 function pointerResponse(overrides: Partial<Record<string, unknown>> = {}) {
-  return {
-    ...built.activePointer,
-    ...overrides,
-  };
+  return { ...built.activePointer, ...overrides };
 }
 
-/** fetch mock serving pointer + learner text (overridable per test). */
 function mockFetch(options: {
   pointer?: () => Response | Promise<Response>;
   learner?: () => Response | Promise<Response>;
@@ -47,7 +49,7 @@ function mockFetch(options: {
     if (url.includes("/content/releases/")) {
       return options.learner
         ? options.learner()
-        : new Response(built.serialized.learner, { status: 200 });
+        : new Response(LEARNER_TEXT, { status: 200 });
     }
     throw new Error(`unexpected fetch: ${url}`);
   });
@@ -76,59 +78,155 @@ describe("Dexie content schema v1", () => {
     ]);
   });
 
-  it("caches a release transactionally and reads all 455 entries", async () => {
-    await cacheLearnerRelease(db, built.learner, built.checksums.learner, 123);
-    const cached = await readCachedRelease(db, built.releaseId);
+  it("caches the exact serialized artifact and reads all 455 entries", async () => {
+    await cacheLearnerRelease(db, LEARNER_TEXT, LEARNER_SHA, 123);
+    const record = await db.contentReleases.get(built.releaseId);
+    expect(record!.serializedLearner).toBe(LEARNER_TEXT);
+    const cached = await readVerifiedCachedRelease(db, built.releaseId);
     expect(cached).not.toBeNull();
     expect(cached!.entries).toHaveLength(455);
     expect(cached!.entries[0].id).toBe(1);
-    expect(cached!.release.learnerChecksum).toBe(built.checksums.learner);
-    const active = await readActiveCachedRelease(db);
+    const active = await readVerifiedActiveCachedRelease(db);
     expect(active!.release.releaseId).toBe(built.releaseId);
   });
 
-  it("a failed write cannot become the active release", async () => {
-    const broken = {
-      ...built.learner,
-      // entry_count disagrees with entries -> bulkPut succeeds but the
-      // release row claims more entries than exist; simulate a mid-write
-      // failure instead by aborting the transaction.
-    };
+  it("rejects a write whose checksum does not match the bytes", async () => {
     await expect(
-      db.transaction(
-        "rw",
-        [db.contentReleases, db.contentEntries, db.contentMetadata],
-        async () => {
-          await cacheLearnerRelease(db, broken, built.checksums.learner);
-          throw new Error("simulated failure after write");
-        },
-      ),
-    ).rejects.toThrow("simulated failure");
-    expect(await readActiveCachedRelease(db)).toBeNull();
+      cacheLearnerRelease(db, LEARNER_TEXT, "0".repeat(64)),
+    ).rejects.toThrow(/checksum mismatch/);
     expect(await db.contentReleases.count()).toBe(0);
   });
 
-  it("two releases may coexist; activation switches without deleting", async () => {
-    await cacheLearnerRelease(db, built.learner, built.checksums.learner);
-    const second = {
-      ...built.learner,
-      release_id: "safwa-2.2.0-fixture000000",
-    };
-    await cacheLearnerRelease(db, second, "0".repeat(64));
-    expect(await db.contentReleases.count()).toBe(2);
-    const active = await readActiveCachedRelease(db);
-    expect(active!.release.releaseId).toBe("safwa-2.2.0-fixture000000");
-    expect(await readCachedRelease(db, built.releaseId)).not.toBeNull();
+  it("a fabricated checksum cannot make arbitrary content valid", async () => {
+    const arbitrary = '{"anything": true}';
+    const itsRealHash = await sha256HexBrowser(arbitrary);
+    // Even with the CORRECT hash of arbitrary bytes, schema validation fails.
+    await expect(
+      cacheLearnerRelease(db, arbitrary, itsRealHash),
+    ).rejects.toThrow();
+    expect(await db.contentReleases.count()).toBe(0);
   });
 
-  it("an incomplete entry set invalidates the cached release", async () => {
-    await cacheLearnerRelease(db, built.learner, built.checksums.learner);
+  it("rejects entry_count/entries disagreement and duplicate ids", async () => {
+    const parsed = JSON.parse(LEARNER_TEXT) as {
+      entry_count: number;
+      entries: Array<{ id: number }>;
+    };
+    parsed.entries[1].id = parsed.entries[0].id; // duplicate id
+    const tamperedDup = JSON.stringify(parsed);
+    await expect(
+      cacheLearnerRelease(db, tamperedDup, await sha256HexBrowser(tamperedDup)),
+    ).rejects.toThrow(/duplicate entry ids/);
+  });
+
+  it("a failed transaction cannot become the active release", async () => {
+    // Force a mid-transaction failure: the release row is written before
+    // the entry rows, so aborting bulkPut must roll everything back.
+    const spy = vi
+      .spyOn(db.contentEntries, "bulkPut")
+      .mockImplementation(() => {
+        throw new Error("simulated failure mid-transaction");
+      });
+    await expect(
+      cacheLearnerRelease(db, LEARNER_TEXT, LEARNER_SHA),
+    ).rejects.toThrow(/simulated failure/);
+    spy.mockRestore();
+    expect(await readVerifiedActiveCachedRelease(db)).toBeNull();
+    expect(await db.contentReleases.count()).toBe(0);
+    expect(await db.contentMetadata.count()).toBe(0);
+  });
+
+  it("two releases may coexist; activation switches without deleting", async () => {
+    await cacheLearnerRelease(db, LEARNER_TEXT, LEARNER_SHA);
+    const second = LEARNER_TEXT.replace(
+      built.releaseId,
+      "safwa-2.2.0-fixture00000000",
+    );
+    await cacheLearnerRelease(db, second, await sha256HexBrowser(second));
+    expect(await db.contentReleases.count()).toBe(2);
+    const active = await readVerifiedActiveCachedRelease(db);
+    expect(active!.release.releaseId).toBe("safwa-2.2.0-fixture00000000");
+    expect(await readVerifiedCachedRelease(db, built.releaseId)).not.toBeNull();
+  });
+});
+
+describe("verified cache reads (tampering)", () => {
+  beforeEach(async () => {
+    await cacheLearnerRelease(db, LEARNER_TEXT, LEARNER_SHA);
+  });
+
+  it("a tampered serialized artifact is rejected", async () => {
+    await db.contentReleases.update(built.releaseId, {
+      serializedLearner: LEARNER_TEXT.replace(
+        '"meaning": "to spend"',
+        '"meaning": "tampered"',
+      ),
+    });
+    expect(await readVerifiedCachedRelease(db, built.releaseId)).toBeNull();
+    expect(await readVerifiedActiveCachedRelease(db)).toBeNull();
+  });
+
+  it("a tampered stored checksum is rejected", async () => {
+    await db.contentReleases.update(built.releaseId, {
+      learnerChecksum: "f".repeat(64),
+    });
+    expect(await readVerifiedCachedRelease(db, built.releaseId)).toBeNull();
+  });
+
+  it("tampered cached metadata is rejected", async () => {
+    await db.contentReleases.update(built.releaseId, { entryCount: 454 });
+    expect(await readVerifiedCachedRelease(db, built.releaseId)).toBeNull();
+    await db.contentReleases.update(built.releaseId, {
+      entryCount: 455,
+      contentVersion: "9.9.9",
+    });
+    expect(await readVerifiedCachedRelease(db, built.releaseId)).toBeNull();
+  });
+
+  it("altered indexed rows are never returned; they are rebuilt from the artifact", async () => {
+    const row = await db.contentEntries.get([built.releaseId, 1]);
+    await db.contentEntries.put({
+      ...row!,
+      entry: { ...row!.entry, meaning: "tampered row" },
+    });
+    const cached = await readVerifiedCachedRelease(db, built.releaseId);
+    expect(cached).not.toBeNull();
+    // Returned entries come from the verified artifact, not the row.
+    expect(cached!.entries[0].meaning).not.toBe("tampered row");
+    // And the row was repaired transactionally.
+    const repaired = await db.contentEntries.get([built.releaseId, 1]);
+    expect(repaired!.entry.meaning).toBe(cached!.entries[0].meaning);
+  });
+
+  it("missing indexed rows are rebuilt from the verified artifact", async () => {
     await db.contentEntries
       .where("releaseId")
       .equals(built.releaseId)
       .limit(10)
       .delete();
-    expect(await readCachedRelease(db, built.releaseId)).toBeNull();
+    const cached = await readVerifiedCachedRelease(db, built.releaseId);
+    expect(cached).not.toBeNull();
+    expect(cached!.entries).toHaveLength(455);
+    expect(
+      await db.contentEntries
+        .where("releaseId")
+        .equals(built.releaseId)
+        .count(),
+    ).toBe(455);
+  });
+
+  it("matching pointer checksum alone is insufficient — bytes must verify", async () => {
+    // Stored checksum metadata matches the pointer, but the bytes differ.
+    await db.contentReleases.update(built.releaseId, {
+      serializedLearner: LEARNER_TEXT.replace(
+        '"meaning": "to spend"',
+        '"meaning": "evil"',
+      ),
+      learnerChecksum: LEARNER_SHA, // claims to match
+    });
+    expect(
+      await readVerifiedCachedRelease(db, built.releaseId, LEARNER_SHA),
+    ).toBeNull();
   });
 });
 
@@ -141,10 +239,9 @@ describe("content loader", () => {
     expect(result.source).toBe("network");
     expect(result.entryCount).toBe(455);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(await readActiveCachedRelease(db)).not.toBeNull();
   });
 
-  it("uses the cache without re-downloading the learner artifact", async () => {
+  it("uses the verified cache without re-downloading", async () => {
     mockFetch({});
     await loadActiveContent(db);
     const fetchMock = mockFetch({
@@ -157,112 +254,30 @@ describe("content loader", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1); // pointer only
   });
 
-  it("falls back to the cached active release when the pointer is unreachable", async () => {
+  it("corrupt matching cache + working network causes a clean redownload", async () => {
     mockFetch({});
     await loadActiveContent(db);
-    mockFetch({
-      pointer: () => {
-        throw new TypeError("network down");
-      },
+    await db.contentReleases.update(built.releaseId, {
+      serializedLearner: LEARNER_TEXT.replace(
+        '"meaning": "to spend"',
+        '"meaning": "corrupt"',
+      ),
     });
+    const fetchMock = mockFetch({});
     const result = await loadActiveContent(db);
-    expect(result.ok && result.source).toBe("offline-fallback");
-    if (result.ok) expect(result.entryCount).toBe(455);
+    expect(result.ok && result.source).toBe("network");
+    expect(fetchMock).toHaveBeenCalledTimes(2); // pointer + learner redownload
+    // Cache repaired by the redownload.
+    const cached = await readVerifiedCachedRelease(db, built.releaseId);
+    expect(cached!.entries[0].meaning).toBe("to spend");
   });
 
-  it("preserves the old cache when the learner download fails", async () => {
+  it("corrupt cache + no network returns no-content-available", async () => {
     mockFetch({});
     await loadActiveContent(db);
-    mockFetch({
-      pointer: () =>
-        Response.json(
-          pointerResponse({
-            release_id: "safwa-2.2.0-newrelease00",
-            learner_url:
-              "/content/releases/safwa-2.2.0-newrelease00/learner.json",
-          }),
-        ),
-      learner: () => new Response("gone", { status: 404 }),
+    await db.contentReleases.update(built.releaseId, {
+      learnerChecksum: "f".repeat(64),
     });
-    const result = await loadActiveContent(db);
-    expect(result.ok && result.source).toBe("offline-fallback");
-    if (result.ok) expect(result.releaseId).toBe(built.releaseId);
-  });
-
-  it("rejects a checksum mismatch and never activates the corrupt release", async () => {
-    const corrupt = built.serialized.learner.replace(
-      '"entry_count": 455',
-      '"entry_count": 454',
-    );
-    mockFetch({ learner: () => new Response(corrupt, { status: 200 }) });
-    const result = await loadActiveContent(db);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("checksum-mismatch");
-    expect(await readActiveCachedRelease(db)).toBeNull();
-  });
-
-  it("checksum mismatch falls back to an existing valid cache", async () => {
-    mockFetch({});
-    await loadActiveContent(db);
-    const corruptText = built.serialized.learner.replace(
-      '"meaning": "to spend"',
-      '"meaning": "tampered"',
-    );
-    mockFetch({
-      pointer: () =>
-        Response.json(
-          pointerResponse({ release_id: "safwa-2.2.0-tampered0000" }),
-        ),
-      learner: () => new Response(corruptText, { status: 200 }),
-    });
-    const result = await loadActiveContent(db);
-    expect(result.ok && result.source).toBe("offline-fallback");
-    if (result.ok) expect(result.releaseId).toBe(built.releaseId);
-  });
-
-  it("rejects invalid JSON and Zod-invalid payloads", async () => {
-    const notJson = "not json at all";
-    mockFetch({
-      pointer: () =>
-        Response.json(
-          pointerResponse({
-            learner_sha256: undefined,
-          }),
-        ),
-    });
-    // Pointer missing checksum fails Zod at the pointer stage.
-    const pointerResult = await loadActiveContent(db);
-    expect(pointerResult.ok).toBe(false);
-
-    const badChecksum = await sha256HexBrowser(notJson);
-    mockFetch({
-      pointer: () =>
-        Response.json(pointerResponse({ learner_sha256: badChecksum })),
-      learner: () => new Response(notJson, { status: 200 }),
-    });
-    const result = await loadActiveContent(db);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("invalid-release");
-  });
-
-  it("rejects a pointer/release metadata mismatch", async () => {
-    mockFetch({
-      pointer: () =>
-        Response.json(
-          pointerResponse({
-            release_id: "safwa-2.2.0-differentid0",
-            learner_url:
-              "/content/releases/safwa-2.2.0-differentid0/learner.json",
-          }),
-        ),
-    });
-    const result = await loadActiveContent(db);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("pointer-invalid");
-    expect(await readActiveCachedRelease(db)).toBeNull();
-  });
-
-  it("returns a typed error when nothing is available at all", async () => {
     mockFetch({
       pointer: () => {
         throw new TypeError("offline");
@@ -273,9 +288,110 @@ describe("content loader", () => {
     if (!result.ok) expect(result.code).toBe("no-content-available");
   });
 
-  it("browser sha256 agrees with the build checksum", async () => {
-    expect(await sha256HexBrowser(built.serialized.learner)).toBe(
-      built.checksums.learner,
+  it("network failure falls back with source fallback-cache and reason pointer-unavailable", async () => {
+    mockFetch({});
+    await loadActiveContent(db);
+    mockFetch({
+      pointer: () => {
+        throw new TypeError("network down");
+      },
+    });
+    const result = await loadActiveContent(db);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.source).toBe("fallback-cache");
+    expect(result.fallbackReason).toBe("pointer-unavailable");
+    expect(result.entryCount).toBe(455);
+  });
+
+  it("download failure falls back with reason download-failed", async () => {
+    mockFetch({});
+    await loadActiveContent(db);
+    mockFetch({
+      pointer: () =>
+        Response.json(
+          pointerResponse({
+            release_id: "safwa-2.2.0-newrelease000000",
+            learner_url:
+              "/content/releases/safwa-2.2.0-newrelease000000/learner.json",
+          }),
+        ),
+      learner: () => new Response("gone", { status: 404 }),
+    });
+    const result = await loadActiveContent(db);
+    expect(result.ok && result.source).toBe("fallback-cache");
+    if (result.ok) {
+      expect(result.fallbackReason).toBe("download-failed");
+      expect(result.releaseId).toBe(built.releaseId);
+    }
+  });
+
+  it("checksum mismatch falls back with reason checksum-mismatch, not offline", async () => {
+    mockFetch({});
+    await loadActiveContent(db);
+    const corrupt = LEARNER_TEXT.replace(
+      '"meaning": "to spend"',
+      '"meaning": "tampered"',
     );
+    mockFetch({
+      pointer: () =>
+        Response.json(
+          pointerResponse({ release_id: "safwa-2.2.0-tampered00000000" }),
+        ),
+      learner: () => new Response(corrupt, { status: 200 }),
+    });
+    const result = await loadActiveContent(db);
+    expect(result.ok && result.source).toBe("fallback-cache");
+    if (result.ok) expect(result.fallbackReason).toBe("checksum-mismatch");
+  });
+
+  it("checksum mismatch with no cache is a typed failure; nothing activates", async () => {
+    const corrupt = LEARNER_TEXT.replace(
+      '"entry_count": 455',
+      '"entry_count": 454',
+    );
+    mockFetch({ learner: () => new Response(corrupt, { status: 200 }) });
+    const result = await loadActiveContent(db);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("checksum-mismatch");
+    expect(await readVerifiedActiveCachedRelease(db)).toBeNull();
+  });
+
+  it("pointer/release metadata mismatch never activates the download", async () => {
+    // Serve the real artifact under a pointer that claims a different id
+    // WITH the correct checksum of those bytes — agreement check must fire.
+    mockFetch({
+      pointer: () =>
+        Response.json(
+          pointerResponse({
+            release_id: "safwa-2.2.0-differentid00000",
+            learner_url:
+              "/content/releases/safwa-2.2.0-differentid00000/learner.json",
+          }),
+        ),
+    });
+    const result = await loadActiveContent(db);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("pointer-invalid");
+    expect(await readVerifiedActiveCachedRelease(db)).toBeNull();
+  });
+
+  it("invalid (Zod-failing) payload with a correct hash is rejected", async () => {
+    const parsed = JSON.parse(LEARNER_TEXT) as Record<string, unknown>;
+    parsed.internal_note = "leaked field";
+    const invalid = JSON.stringify(parsed);
+    const invalidHash = await sha256HexBrowser(invalid);
+    mockFetch({
+      pointer: () =>
+        Response.json(pointerResponse({ learner_sha256: invalidHash })),
+      learner: () => new Response(invalid, { status: 200 }),
+    });
+    const result = await loadActiveContent(db);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("invalid-release");
+  });
+
+  it("browser sha256 agrees with the build checksum", async () => {
+    expect(await sha256HexBrowser(LEARNER_TEXT)).toBe(LEARNER_SHA);
   });
 });

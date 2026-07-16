@@ -13,18 +13,40 @@ import {
 } from "@/components/ui/card";
 import {
   loadActiveContent,
+  OFFLINE_REASONS,
   type LoadContentResult,
 } from "@/modules/content/load";
 
-const SOURCE_LABELS = {
-  network: "downloaded from network",
-  cache: "served from existing cache",
-  "offline-fallback": "offline fallback from cache",
+type SuccessResult = Extract<LoadContentResult, { ok: true }>;
+
+/** User-safe source description; "offline" only when actually unreachable. */
+function sourceLabel(result: SuccessResult): string {
+  switch (result.source) {
+    case "network":
+      return "downloaded from network";
+    case "cache":
+      return "served from verified cache";
+    case "fallback-cache":
+      return result.fallbackReason &&
+        OFFLINE_REASONS.includes(result.fallbackReason)
+        ? "using the previous verified cached release (offline)"
+        : "using the previous verified cached release";
+  }
+}
+
+/** Short user-safe failure text — never raw checksums or Zod diagnostics. */
+const FAILURE_MESSAGES = {
+  "no-content-available":
+    "No content is available. Check your connection and retry.",
+  "checksum-mismatch":
+    "The downloaded content failed verification. Please retry.",
+  "invalid-release": "The downloaded content was invalid. Please retry.",
+  "pointer-invalid": "The content index looks inconsistent. Please retry.",
 } as const;
 
 type Status =
   | { state: "loading" }
-  | { state: "ready"; result: Extract<LoadContentResult, { ok: true }> }
+  | { state: "ready"; result: SuccessResult }
   | { state: "error"; message: string };
 
 /**
@@ -44,15 +66,15 @@ export function ContentFoundationStatus() {
         if (result.ok) {
           setStatus({ state: "ready", result });
         } else {
-          setStatus({
-            state: "error",
-            message: `${result.code}: ${result.message}`,
-          });
+          setStatus({ state: "error", message: FAILURE_MESSAGES[result.code] });
         }
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (!cancelled) {
-          setStatus({ state: "error", message: String(error) });
+          setStatus({
+            state: "error",
+            message: "Something went wrong loading content. Please retry.",
+          });
         }
       });
     return () => {
@@ -89,9 +111,7 @@ export function ContentFoundationStatus() {
 
         {status.state === "error" ? (
           <div role="alert" data-testid="content-status" className="space-y-2">
-            <p className="text-destructive text-sm">
-              Content could not be loaded: {status.message}
-            </p>
+            <p className="text-destructive text-sm">{status.message}</p>
             <Button type="button" variant="outline" onClick={reload}>
               Retry loading content
             </Button>
@@ -111,7 +131,7 @@ export function ContentFoundationStatus() {
               </span>{" "}
               entries loaded (
               <span data-testid="content-source">
-                {SOURCE_LABELS[status.result.source]}
+                {sourceLabel(status.result)}
               </span>
               ).
             </p>

@@ -4,28 +4,37 @@ import { expect, test as base } from "@playwright/test";
  * Test base that fails on any console error or uncaught page error —
  * this is how hydration problems and runtime errors surface in E2E.
  *
- * Resource-load failures are excluded: offline-fallback tests disconnect
- * the network on purpose, and the browser logs those fetch failures as
- * console errors. Hydration/runtime errors have distinct messages and are
- * still caught.
+ * Strict by default: a missing font, script, stylesheet or content
+ * artifact fails the test. Tests that deliberately go offline opt in with
+ * `test.use({ allowExpectedNetworkErrors: true })`, which permits
+ * network/resource-load failures ONLY — hydration and runtime errors are
+ * always caught.
  */
-const IGNORED_PATTERNS = [
+type ConsoleGuardOptions = {
+  allowExpectedNetworkErrors: boolean;
+};
+
+const NETWORK_ERROR_PATTERNS = [
   /Failed to load resource/i,
   /net::ERR_/i,
   /fetch failed/i,
 ];
 
-export const test = base.extend<{ consoleGuard: void }>({
+export const test = base.extend<ConsoleGuardOptions & { consoleGuard: void }>({
+  allowExpectedNetworkErrors: [false, { option: true }],
   consoleGuard: [
-    async ({ page }, use) => {
+    async ({ page, allowExpectedNetworkErrors }, use) => {
       const errors: string[] = [];
       page.on("console", (message) => {
+        if (message.type() !== "error") return;
+        const text = message.text();
         if (
-          message.type() === "error" &&
-          !IGNORED_PATTERNS.some((pattern) => pattern.test(message.text()))
+          allowExpectedNetworkErrors &&
+          NETWORK_ERROR_PATTERNS.some((pattern) => pattern.test(text))
         ) {
-          errors.push(message.text());
+          return;
         }
+        errors.push(text);
       });
       page.on("pageerror", (error) => {
         errors.push(String(error));

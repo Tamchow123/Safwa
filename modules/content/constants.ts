@@ -154,6 +154,8 @@ export const EXPECTED_DUPLICATE_MADI_GROUPS: readonly (readonly number[])[] = [
 ];
 
 export const RELEASE_ID_PREFIX = "safwa";
+/** Hex chars of the release-basis SHA-256 used in the release id. */
+export const RELEASE_ID_HASH_LENGTH = 16;
 
 /** Public URL (Next.js public dir) of a release's learner artifact. */
 export function learnerUrlForRelease(releaseId: string): string {

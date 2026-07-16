@@ -17,6 +17,24 @@ Content pipeline and client content store (Phase 3).
 | `load.ts`             | **browser only** | pointer fetch → cache check → verified download → transactional cache → typed result, with offline fallback |
 | `index.ts`            | browser-safe     | re-exports (excludes Node-only files)                                                                       |
 
+## Content identity
+
+- **`release_id` is the authoritative identifier for the exact approved
+  content release.** It is derived from the SHA-256 of the full release
+  basis (versions + generator version + learner entries + structural
+  validation rules/skill metadata/per-entry validation metadata +
+  assessment canonical answers). Future question instances, attempts and
+  sync events must carry `release_id`.
+- `content_version` is human-readable dataset metadata only — it does NOT
+  uniquely identify an exact release and must never be used as one.
+- Immutable artifacts carry no timestamps (a source `generated_at`-only
+  change produces identical bytes and the same id). Release files are
+  never overwritten with different bytes: identical bytes are an
+  idempotent no-op, different bytes fail the build.
+- Lifecycle status and protocol support live in the mutable
+  `content-server/release-registry.json` (operational state), never inside
+  an immutable artifact.
+
 ## Rules
 
 - The enriched JSON + Python scripts are the sole content-authoring

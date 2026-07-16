@@ -16,6 +16,7 @@
  * byte-identical artifacts.
  */
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -39,6 +40,7 @@ import {
   MINIMUM_SUPPORTED_CLIENT_VERSION,
   MINIMUM_SUPPORTED_EVENT_SCHEMA,
   QUESTION_GENERATOR_VERSION,
+  RELEASE_ID_HASH_LENGTH,
   RELEASE_ID_PREFIX,
   SKILL_METADATA,
   SKILL_TYPES,
@@ -51,8 +53,10 @@ import {
   assessmentManifestSchema,
   checksumManifestSchema,
   learnerReleaseSchema,
+  releaseRegistrySchema,
   validationManifestSchema,
   type ActivePointer,
+  type ReleaseRegistry,
   type AssessmentManifest,
   type ChecksumManifest,
   type LearnerEntry,
@@ -287,24 +291,31 @@ export type BuiltArtifacts = {
 };
 
 /**
- * Release-ID algorithm: `safwa-<content_version>-<hash12>` where hash12 is
- * the first 12 hex chars of the SHA-256 of the deterministic serialization
- * of everything learner-relevant (versions + generator version + the full
- * allowlisted entry list). Same input => same id; any learner-relevant
- * change => new id; internal-only source changes do not affect it.
+ * Release identity: `safwa-<content_version>-<hash16>` where hash16 is the
+ * first RELEASE_ID_HASH_LENGTH hex chars of the SHA-256 of the
+ * deterministic serialization of the FULL release basis — every semantic
+ * that affects any immutable primary artifact (versions, generator
+ * version, learner entries, structural validation rules + skill metadata +
+ * per-entry validation metadata, and assessment canonical answers). The
+ * `release_id` is then injected into the artifacts.
+ *
+ * Consequences: any learner/assessment/validation-policy change => new id;
+ * a source `generated_at`-only change => same id and identical bytes
+ * (timestamps never enter immutable artifacts); operational lifecycle
+ * changes live in the release registry and never affect the id.
+ *
+ * `release_id` is the AUTHORITATIVE exact-release identifier;
+ * `content_version` is human-readable metadata only.
  */
-export function deriveReleaseId(
+export function deriveReleaseIdFromBasis(
   contentVersion: string,
-  entries: readonly LearnerEntry[],
+  releaseBasis: unknown,
 ): string {
-  const contentHash = sha256HexUtf8(
-    stableStringify({
-      content_version: contentVersion,
-      question_generator_version: QUESTION_GENERATOR_VERSION,
-      entries,
-    }),
-  );
-  return `${RELEASE_ID_PREFIX}-${contentVersion}-${contentHash.slice(0, 12)}`;
+  const basisHash = sha256HexUtf8(stableStringify(releaseBasis));
+  return `${RELEASE_ID_PREFIX}-${contentVersion}-${basisHash.slice(
+    0,
+    RELEASE_ID_HASH_LENGTH,
+  )}`;
 }
 
 /** Pure builder: source JSON text in, fully validated artifacts out. */
@@ -313,15 +324,56 @@ export function buildArtifacts(sourceJsonText: string): BuiltArtifacts {
   assertSourceInvariants(source);
 
   const contentVersion = source.schema_version;
-  const createdAt = source.generated_at;
   const entries = source.mujarrad_entries.map(buildLearnerEntry);
-  const releaseId = deriveReleaseId(contentVersion, entries);
+
+  const skillMetadata = SKILL_METADATA.map((skill) => ({
+    id: skill.id,
+    component_shape: skill.component_shape,
+    allowed_source_fields: [...skill.allowed_source_fields],
+    allowed_directions: [...skill.allowed_directions],
+  }));
+
+  const validationEntries = source.mujarrad_entries.map((entry) => ({
+    entry_id: entry.id,
+    eligible_fields: [
+      ...SOURCE_QUIZ_FORM_FIELDS.filter(
+        (field) => entry.quiz_eligibility[field],
+      ),
+      ...(entry.quiz_eligibility.meaning ? (["meaning"] as const) : []),
+    ],
+    bab_id: entry.bab,
+    verb_type_id: entry.quiz_eligibility.verb_type ? entry.verb_type : null,
+    root_quiz_eligible: entry.quiz_eligibility.root,
+    bab_quiz_eligible: entry.quiz_eligibility.bab,
+    verb_type_quiz_eligible: entry.quiz_eligibility.verb_type,
+  }));
+
+  const assessmentEntries = source.mujarrad_entries.map((entry) => ({
+    entry_id: entry.id,
+    answers: buildAssessmentAnswers(entry),
+  }));
+
+  const releaseBasis = {
+    schema_version: source.schema_version,
+    content_version: contentVersion,
+    question_generator_version: QUESTION_GENERATOR_VERSION,
+    learner: { entries },
+    validation: {
+      allowed_source_fields: [...SOURCE_QUIZ_FORM_FIELDS],
+      allowed_directions: [...DIRECTIONS],
+      allowed_skill_types: [...SKILL_TYPES],
+      valid_component_shapes: [...COMPONENT_SHAPES],
+      skill_metadata: skillMetadata,
+      entries: validationEntries,
+    },
+    assessment: { entries: assessmentEntries },
+  };
+  const releaseId = deriveReleaseIdFromBasis(contentVersion, releaseBasis);
 
   const learner = learnerReleaseSchema.parse({
     release_id: releaseId,
     schema_version: source.schema_version,
     content_version: contentVersion,
-    created_at: createdAt,
     question_generator_version: QUESTION_GENERATOR_VERSION,
     entry_count: entries.length,
     entries,
@@ -331,49 +383,23 @@ export function buildArtifacts(sourceJsonText: string): BuiltArtifacts {
     release_id: releaseId,
     schema_version: source.schema_version,
     content_version: contentVersion,
-    created_at: createdAt,
     question_generator_version: QUESTION_GENERATOR_VERSION,
-    release_status: "active",
-    minimum_supported_client_version: MINIMUM_SUPPORTED_CLIENT_VERSION,
-    minimum_supported_event_schema: MINIMUM_SUPPORTED_EVENT_SCHEMA,
     entry_count: entries.length,
     allowed_source_fields: [...SOURCE_QUIZ_FORM_FIELDS],
     allowed_directions: [...DIRECTIONS],
     allowed_skill_types: [...SKILL_TYPES],
     valid_component_shapes: [...COMPONENT_SHAPES],
-    skill_metadata: SKILL_METADATA.map((skill) => ({
-      id: skill.id,
-      component_shape: skill.component_shape,
-      allowed_source_fields: [...skill.allowed_source_fields],
-      allowed_directions: [...skill.allowed_directions],
-    })),
-    entries: source.mujarrad_entries.map((entry) => ({
-      entry_id: entry.id,
-      eligible_fields: [
-        ...SOURCE_QUIZ_FORM_FIELDS.filter(
-          (field) => entry.quiz_eligibility[field],
-        ),
-        ...(entry.quiz_eligibility.meaning ? (["meaning"] as const) : []),
-      ],
-      bab_id: entry.bab,
-      verb_type_id: entry.quiz_eligibility.verb_type ? entry.verb_type : null,
-      root_quiz_eligible: entry.quiz_eligibility.root,
-      bab_quiz_eligible: entry.quiz_eligibility.bab,
-      verb_type_quiz_eligible: entry.quiz_eligibility.verb_type,
-    })),
+    skill_metadata: skillMetadata,
+    entries: validationEntries,
   } satisfies ValidationManifest);
 
   const assessment = assessmentManifestSchema.parse({
     release_id: releaseId,
     schema_version: source.schema_version,
     content_version: contentVersion,
-    created_at: createdAt,
     question_generator_version: QUESTION_GENERATOR_VERSION,
     entry_count: entries.length,
-    entries: source.mujarrad_entries.map((entry) => ({
-      entry_id: entry.id,
-      answers: buildAssessmentAnswers(entry),
-    })),
+    entries: assessmentEntries,
   } satisfies AssessmentManifest);
 
   // Cross-artifact safety: canonical answers exist only for eligible fields.
@@ -454,6 +480,7 @@ export const SOURCE_DATASET_PATH = join(
 export const PUBLIC_CONTENT_DIR = join(REPO_ROOT, "public", "content");
 export const SERVER_CONTENT_DIR = join(REPO_ROOT, "content-server");
 
+/** Atomic replace — for mutable pointer/registry files only. */
 function writeFileAtomic(path: string, content: string): void {
   mkdirSync(dirname(path), { recursive: true });
   const tempPath = `${path}.tmp`;
@@ -464,6 +491,58 @@ function writeFileAtomic(path: string, content: string): void {
     rmSync(tempPath, { force: true });
     throw error;
   }
+}
+
+/**
+ * Write an IMMUTABLE release file: absent -> atomic write; identical bytes
+ * -> idempotent no-op; different bytes -> hard failure. A published release
+ * id can never be re-pointed at different content.
+ */
+export function writeImmutableFile(
+  path: string,
+  content: string,
+): "written" | "unchanged" {
+  if (existsSync(path)) {
+    const existing = readFileSync(path, "utf8");
+    if (existing === content) return "unchanged";
+    throw new ContentBuildError(
+      `immutable release file already exists with different bytes: ${path}`,
+    );
+  }
+  writeFileAtomic(path, content);
+  return "written";
+}
+
+/** Upsert this release into the mutable server release registry. */
+function updateReleaseRegistry(built: BuiltArtifacts): ReleaseRegistry {
+  const registryPath = join(SERVER_CONTENT_DIR, "release-registry.json");
+  let registry: ReleaseRegistry = {
+    active_release_id: built.releaseId,
+    releases: {},
+  };
+  if (existsSync(registryPath)) {
+    registry = releaseRegistrySchema.parse(
+      JSON.parse(readFileSync(registryPath, "utf8")),
+    );
+  }
+  const existing = registry.releases[built.releaseId];
+  if (existing?.status === "revoked") {
+    throw new ContentBuildError(
+      `release ${built.releaseId} is revoked and cannot be re-activated`,
+    );
+  }
+  registry.active_release_id = built.releaseId;
+  registry.releases[built.releaseId] = {
+    status: "active",
+    minimum_supported_client_version:
+      existing?.minimum_supported_client_version ??
+      MINIMUM_SUPPORTED_CLIENT_VERSION,
+    minimum_supported_event_schema:
+      existing?.minimum_supported_event_schema ??
+      MINIMUM_SUPPORTED_EVENT_SCHEMA,
+  };
+  writeFileAtomic(registryPath, serializeArtifact(registry));
+  return registry;
 }
 
 export function runContentBuild(): BuiltArtifacts {
@@ -482,23 +561,26 @@ export function runContentBuild(): BuiltArtifacts {
     built.releaseId,
   );
 
-  writeFileAtomic(learnerPath, built.serialized.learner);
-  writeFileAtomic(
+  // Immutable artifacts: never overwritten with different bytes.
+  writeImmutableFile(learnerPath, built.serialized.learner);
+  writeImmutableFile(
     join(serverReleaseDir, "validation.json"),
     built.serialized.validation,
   );
-  writeFileAtomic(
+  writeImmutableFile(
     join(serverReleaseDir, "assessment.json"),
     built.serialized.assessment,
   );
-  writeFileAtomic(
+  writeImmutableFile(
     join(serverReleaseDir, "checksums.json"),
     built.serialized.checksums,
   );
+  // Mutable pointer + operational registry: atomic replace.
   writeFileAtomic(
     join(PUBLIC_CONTENT_DIR, "active.json"),
     built.serialized.activePointer,
   );
+  updateReleaseRegistry(built);
 
   const eligibility = Object.entries(EXPECTED_ELIGIBILITY_COUNTS)
     .map(([field, count]) => `${field} ${count}`)
@@ -516,6 +598,7 @@ export function runContentBuild(): BuiltArtifacts {
     `  sha256 assess. : ${built.checksums.assessment}`,
     `  excluded       : ${built.excludedGeneratedFormValues} generated form values, ${built.excludedMazidCandidates} mazid candidates`,
     `  pointer        : public${ACTIVE_POINTER_URL}`,
+    `  registry       : content-server/release-registry.json (operational, mutable)`,
   ].join("\n");
   console.log(summary);
   return built;

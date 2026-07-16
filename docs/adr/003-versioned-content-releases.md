@@ -19,6 +19,15 @@ the admin phase cuts over to DB-authored content published through the same
 pipeline. Old releases stay sync-compatible indefinitely unless revoked for
 cause.
 
+## Clarification (Phase 3)
+
+`release_id` (content-hash derived) is the authoritative identifier of an
+exact release; `content_version` is human-readable metadata and may not
+uniquely identify one. Immutable artifacts carry no timestamps and no
+lifecycle state — release status and protocol minimums live in the mutable
+server release registry (`content-server/release-registry.json`). Question
+instances, attempts and sync events must reference `release_id`.
+
 ## Consequences
 
 Offline caching, session pinning and long-offline recovery are simple and
