@@ -43,6 +43,11 @@ test.describe("vocabulary detail", () => {
 
     await expect(page.getByTestId("detail-madi")).toHaveText(first.madi);
     await expect(page.getByTestId("detail-madi")).toHaveAttribute("lang", "ar");
+    // The entry title is the page's level-one heading (screen-reader
+    // heading navigation must find a page title).
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      first.madi,
+    );
     await expect(page.getByTestId("detail-meaning")).toHaveText(first.meaning);
     const mudari = page.getByTestId("detail-mudari");
     await expect(mudari.locator('[lang="ar"][dir="rtl"]')).toHaveText(

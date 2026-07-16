@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
-type ArabicTextElement = "span" | "p" | "div" | "h2" | "h3" | "blockquote";
+type ArabicTextElement =
+  "span" | "p" | "div" | "h1" | "h2" | "h3" | "blockquote";
 
 type ArabicTextProps = {
   /** Semantic element to render. Defaults to an inline span. */
