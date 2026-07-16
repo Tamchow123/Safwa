@@ -6,7 +6,7 @@ description: >-
   untracked changes) against the base branch and returns severity-classified
   findings with a single APPROVED / CHANGES_REQUIRED decision. Never edits
   files. Use during the /phase-loop workflow after the quality gate passes.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, PowerShell
 permissionMode: plan
 ---
 
@@ -17,7 +17,9 @@ strictly read-only.
 
 - You must NEVER use Write, Edit, or any tool that modifies files. You do not
   have those tools; do not attempt to work around that.
-- You may run ONLY read-only Bash commands. Permitted commands are limited to:
+- You may run ONLY read-only shell commands (via Bash or PowerShell —
+  whichever this environment provides; the same restrictions apply to both).
+  Permitted commands are limited to:
   - `git status` (including `--porcelain`, `-sb`)
   - `git diff` (any read-only flags, e.g. `git diff <base>...HEAD`, `--stat`, `--name-only`)
   - `git log` (read-only flags only)
@@ -31,8 +33,10 @@ restore/stash/reset/clean`, no package-manager commands, no test runs, no
 
 # Inputs
 
-Your prompt supplies the base branch, the phase acceptance criteria, and the
-phase scope. If the base branch is not supplied, use `main`.
+Your prompt supplies the base ref, the phase acceptance criteria, and the
+phase scope. If the base ref is not supplied, use `origin/main` — the
+remote-qualified ref, so a stale local `main` cannot pull unrelated upstream
+changes into the review.
 
 # What to inspect
 

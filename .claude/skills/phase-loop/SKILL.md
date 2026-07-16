@@ -8,7 +8,7 @@ description: >-
   deploys.
 disable-model-invocation: true
 argument-hint: <phase requirements — e.g. "Phase 5 — guest identity & local persistence" plus any extra constraints>
-allowed-tools: Read, Grep, Glob, Edit, Write, Agent, TaskCreate, TaskUpdate, TaskList, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git merge-base:*), Bash(git ls-files:*), Bash(git fetch origin:*), Bash(git switch -c phase/*), Bash(git switch phase/*), Bash(git switch main), Bash(git add:*), Bash(git commit:*), Bash(git push -u origin phase/*), Bash(git push origin phase/*), Bash(pnpm typecheck:*), Bash(pnpm lint:*), Bash(pnpm format:check:*), Bash(pnpm test:*), Bash(pnpm test:e2e:*), Bash(pnpm build:*), Bash(pnpm content:build:*), Bash(pnpm docs:verify:*), Bash(pnpm install --frozen-lockfile:*), Bash(pnpm exec playwright install chromium), Bash(python scripts/validate-vocabulary.py:*), Bash(python scripts/arabic-extract.py --verify-known:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*), Bash(gh pr create:*), PowerShell(git status:*), PowerShell(git diff:*), PowerShell(git log:*), PowerShell(git show:*), PowerShell(git rev-parse:*), PowerShell(git merge-base:*), PowerShell(git ls-files:*), PowerShell(git fetch origin:*), PowerShell(git switch -c phase/*), PowerShell(git switch phase/*), PowerShell(git switch main), PowerShell(git add:*), PowerShell(git commit:*), PowerShell(git push -u origin phase/*), PowerShell(git push origin phase/*), PowerShell(pnpm typecheck:*), PowerShell(pnpm lint:*), PowerShell(pnpm format:check:*), PowerShell(pnpm test:*), PowerShell(pnpm test:e2e:*), PowerShell(pnpm build:*), PowerShell(pnpm content:build:*), PowerShell(pnpm docs:verify:*), PowerShell(pnpm install --frozen-lockfile:*), PowerShell(pnpm exec playwright install chromium), PowerShell(python scripts/validate-vocabulary.py:*), PowerShell(python scripts/arabic-extract.py --verify-known:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*), PowerShell(gh pr create:*)
+allowed-tools: Read, Grep, Glob, Edit, Write, Agent, TaskCreate, TaskUpdate, TaskList, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git merge-base:*), Bash(git ls-files:*), Bash(git fetch origin:*), Bash(git switch -c phase/*), Bash(git switch phase/*), Bash(git switch main), Bash(git add:*), Bash(git commit:*), Bash(git push -u origin phase/*), Bash(git push origin phase/*), Bash(pnpm typecheck:*), Bash(pnpm lint:*), Bash(pnpm format:check:*), Bash(pnpm test:*), Bash(pnpm test:e2e:*), Bash(pnpm build:*), Bash(pnpm content:build:*), Bash(pnpm docs:verify:*), Bash(pnpm install --frozen-lockfile:*), Bash(pnpm exec playwright install chromium), Bash(python scripts/validate-vocabulary.py:*), Bash(python scripts/arabic-extract.py --verify-known:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1), Bash(gh pr create:*), PowerShell(git status:*), PowerShell(git diff:*), PowerShell(git log:*), PowerShell(git show:*), PowerShell(git rev-parse:*), PowerShell(git merge-base:*), PowerShell(git ls-files:*), PowerShell(git fetch origin:*), PowerShell(git switch -c phase/*), PowerShell(git switch phase/*), PowerShell(git switch main), PowerShell(git add:*), PowerShell(git commit:*), PowerShell(git push -u origin phase/*), PowerShell(git push origin phase/*), PowerShell(pnpm typecheck:*), PowerShell(pnpm lint:*), PowerShell(pnpm format:check:*), PowerShell(pnpm test:*), PowerShell(pnpm test:e2e:*), PowerShell(pnpm build:*), PowerShell(pnpm content:build:*), PowerShell(pnpm docs:verify:*), PowerShell(pnpm install --frozen-lockfile:*), PowerShell(pnpm exec playwright install chromium), PowerShell(python scripts/validate-vocabulary.py:*), PowerShell(python scripts/arabic-extract.py --verify-known:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1), PowerShell(gh pr create:*)
 ---
 
 # /phase-loop — autonomous phase implementation with dual review
@@ -34,7 +34,11 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
    to this phase that could be overwritten or accidentally committed, STOP
    and report this as a **vital escalation** — do not stash, reset or discard
    anything.
-4. `git fetch origin` to get the latest base branch.
+4. `git fetch origin` to get the latest base branch. From here on,
+   `origin/main` is THE base ref for everything — branch creation, both
+   reviews and the final diff inspection — so a stale local `main` can
+   never leak unrelated upstream changes into a review. Only the pull
+   request base (step 45) uses the branch name `main`.
 5. Create the branch as `phase/<number>-<short-kebab-description>` (matching
    the existing convention, e.g. `phase/5-guest-identity`), via
    `git switch -c phase/<...> origin/main`.
@@ -72,6 +76,12 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
 
 15. Run the full quality gate:
     `powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1`
+    If the phase changed vocabulary content or the content pipeline, first
+    stage ONLY the regenerated artifacts
+    (`git add public/content content-server`). Staging is not committing —
+    the gate's artifact checks compare against the index, and the staged
+    output becomes part of the single phase commit only after dual approval
+    (step 43).
 16. Fix deterministic failures and rerun until it passes.
 17. Never delete, weaken, skip or hollow out a test to make the gate pass.
 18. Where practical, verify important user-facing behaviour directly (e.g.
@@ -79,12 +89,21 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
 
 ## 4. Claude review loop
 
-19. Invoke the `phase-code-reviewer` subagent in the FOREGROUND (Agent tool,
-    `subagent_type: "phase-code-reviewer"`, `run_in_background: false`).
-20. Give it: the base branch (`main`) and the verbatim content of
+19. Capture the workspace fingerprint BEFORE the review:
+    `powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1`
+    Then invoke the `phase-code-reviewer` subagent in the FOREGROUND (Agent
+    tool, `subagent_type: "phase-code-reviewer"`, `run_in_background: false`).
+    Subagent permission modes are not guaranteed to survive every parent
+    permission mode, so the reviewer's read-onlyness is verified by
+    detection, exactly as the Codex runner verifies its sandbox.
+20. Give it: the base ref (`origin/main`) and the verbatim content of
     `.claude/review/results/phase-requirements.md` (the same criteria Codex
     receives).
-21. Wait for its complete response and read the decision line.
+21. Wait for its complete response and read the decision line. Re-run the
+    fingerprint command and compare: if the digest changed, the review is
+    VOID — investigate what changed, restore/fix as needed, rerun the
+    quality gate and rerun the review. Never accept an approval whose
+    fingerprints do not match.
 22. Fix ALL valid P0, P1 and P2 findings. If a finding is demonstrably
     incorrect, record a concise technical rationale (keep it for the PR
     description) instead of changing code.
@@ -95,7 +114,7 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
 ## 5. Codex review loop
 
 26. Run the independent review, always passing the recorded requirements:
-    `powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1 -BaseBranch main -RequirementsFile .claude/review/results/phase-requirements.md`
+    `powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1 -BaseBranch origin/main -RequirementsFile .claude/review/results/phase-requirements.md`
     (exit 0 = APPROVED, exit 2 = CHANGES_REQUIRED, exit 1 = failure — a
     failure is never an approval; diagnose and rerun).
 27. Read `.claude/review/results/latest.json` for the structured findings.
@@ -141,15 +160,22 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
 
 ## 7. Finalisation
 
-38. Inspect the final diff (`git diff main...HEAD` plus `git status`) for
+38. Inspect the final diff (`git diff origin/main...HEAD` plus `git status`) for
     accidental or unrelated changes; remove anything out of scope (which
     invalidates approvals — loop again).
 39. Confirm every recorded acceptance criterion is met.
 40. Run the complete quality gate one final time.
 41. Run one final Claude review and one final Codex review.
 42. Make NO code changes after these final two approvals.
-43. Commit with a meaningful message following the repo convention
-    (`Phase <n>: <summary>`).
+43. Stage the COMPLETE reviewed change set explicitly (`git add` every
+    reviewed path — source, tests, docs and any previously staged generated
+    artifacts; staging unchanged reviewed bytes does not invalidate
+    approval), then commit with a meaningful message following the repo
+    convention (`Phase <n>: <summary>`). Immediately verify nothing was
+    left behind: `git status --porcelain` must be empty, and inspect
+    `git show --stat HEAD` to confirm the commit contains the full reviewed
+    union. A non-empty status or missing files means the commit is partial —
+    fix it before pushing.
 44. Push the branch normally: `git push -u origin phase/<...>` — never force.
 45. Create a DRAFT pull request with `gh pr create --draft --base main`, with
     a body containing ALL of:
