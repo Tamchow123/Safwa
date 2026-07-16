@@ -57,16 +57,23 @@ foreach ($segment in $segments) {
         Where-Object { $_ -ne "" })
 
     if ($s -match "\sgit(\.exe)?\s+push\b") {
-        foreach ($t in $tokens) {
+        $pushIndex = [Array]::IndexOf($tokens, "push")
+        $positional = 0
+        for ($i = $pushIndex + 1; $i -lt $tokens.Count; $i++) {
+            $t = $tokens[$i]
             if ($t -like "--force*") { $violations += "force push"; continue }
             if ($t -eq "--mirror") { $violations += "mirror push"; continue }
             if ($t -eq "--delete") { $violations += "remote branch deletion"; continue }
+            if (@("--all", "--branches", "--tags", "--follow-tags", "--prune") -contains $t) {
+                $violations += "bulk push ($t)"; continue
+            }
             if ($t -match "^-[A-Za-z]+$") {
                 # Clustered or standalone short options: -f forces, -d deletes.
                 if ($t -match "f") { $violations += "force push (-f)" }
                 if ($t -cmatch "d") { $violations += "remote branch deletion (-d)" }
                 continue
             }
+            if ($t -like "--*") { continue }  # other long flags (--set-upstream, --dry-run, ...)
             if ($t -match "^\+.") { $violations += "forced refspec (+ref)"; continue }
             if ($t -match "^:.") { $violations += "deleting refspec (:ref)"; continue }
             if ($t -match "^[^:]+:(.+)$") {
@@ -77,6 +84,26 @@ foreach ($segment in $segments) {
                     $violations += "push refspec targeting a non-phase branch ($dest)"
                 }
                 continue
+            }
+            # Positional arguments: the first is the remote; every later one
+            # is a bare ref pushed to the same-named remote branch, so
+            # `git push origin phase/5 main` also pushes main directly.
+            $positional++
+            if ($positional -ge 2 -and $t -notmatch "^(refs/heads/)?phase/") {
+                $violations += "bare push ref outside phase/ ($t)"
+            }
+        }
+    }
+    if ($s -match "\sgit(\.exe)?\s+switch\b") {
+        foreach ($t in $tokens) {
+            if (@("--discard-changes", "--force", "--force-create") -contains $t) {
+                $violations += "git switch discarding local work ($t)"; continue
+            }
+            if ($t -match "^-[A-Za-z]+$") {
+                # -f/-C discard or overwrite local work; lowercase -c (create)
+                # is the safe branch-creation flag.
+                if ($t -match "f") { $violations += "git switch discarding local work (-f)" }
+                if ($t -cmatch "C") { $violations += "git switch force-creating over an existing branch (-C)" }
             }
         }
     }
