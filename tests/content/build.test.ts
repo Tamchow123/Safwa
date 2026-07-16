@@ -1,9 +1,21 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import {
+  mkdtempSync,
+  readFileSync as readFs,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+
 import { describe, expect, it } from "vitest";
 
 import { sha256HexUtf8 } from "@/modules/content/checksum";
+import {
+  deriveReleaseIdFromBasis,
+  writeImmutableFile,
+} from "@/modules/content/build";
 import {
   EXPECTED_BAB_COUNTS,
   EXPECTED_ELIGIBILITY_COUNTS,
@@ -217,6 +229,79 @@ describe("content build — determinism and identity", () => {
     expect(second.serialized).toEqual(built.serialized);
   });
 
+  it("a generated_at-only source change leaves id and all immutable bytes identical", () => {
+    const mutated = JSON.parse(sourceText) as { generated_at: string };
+    mutated.generated_at = "2031-01-01T00:00:00+00:00";
+    const rebuilt = buildArtifacts(JSON.stringify(mutated));
+    expect(rebuilt.releaseId).toBe(built.releaseId);
+    expect(rebuilt.serialized.learner).toBe(built.serialized.learner);
+    expect(rebuilt.serialized.validation).toBe(built.serialized.validation);
+    expect(rebuilt.serialized.assessment).toBe(built.serialized.assessment);
+    expect(rebuilt.serialized.checksums).toBe(built.serialized.checksums);
+    expect(rebuilt.serialized.activePointer).toBe(
+      built.serialized.activePointer,
+    );
+  });
+
+  it("no immutable artifact contains a timestamp", () => {
+    for (const text of [
+      built.serialized.learner,
+      built.serialized.validation,
+      built.serialized.assessment,
+      built.serialized.checksums,
+    ]) {
+      expect(text).not.toContain("created_at");
+      expect(text).not.toContain("generated_at");
+    }
+  });
+
+  it("lifecycle/protocol policy is absent from the immutable validation manifest", () => {
+    expect(built.serialized.validation).not.toContain("release_status");
+    expect(built.serialized.validation).not.toContain(
+      "minimum_supported_client_version",
+    );
+    expect(built.serialized.validation).not.toContain(
+      "minimum_supported_event_schema",
+    );
+  });
+
+  it("release id changes for validation/skill-metadata and assessment changes", () => {
+    const basis = {
+      schema_version: "2.2.0",
+      content_version: "2.2.0",
+      question_generator_version: "1",
+      learner: { entries: [{ id: 1 }] },
+      validation: {
+        skill_metadata: [{ id: "meaning_recognition" }],
+        entries: [{ entry_id: 1, root_quiz_eligible: true }],
+      },
+      assessment: { entries: [{ entry_id: 1, answers: { madi: "x" } }] },
+    };
+    const baseline = deriveReleaseIdFromBasis("2.2.0", basis);
+    expect(baseline).toMatch(/^safwa-2\.2\.0-[0-9a-f]{16}$/);
+
+    const skillChanged = structuredClone(basis);
+    skillChanged.validation.skill_metadata = [{ id: "typed_meaning_recall" }];
+    expect(deriveReleaseIdFromBasis("2.2.0", skillChanged)).not.toBe(baseline);
+
+    const validationChanged = structuredClone(basis);
+    validationChanged.validation.entries[0].root_quiz_eligible = false;
+    expect(deriveReleaseIdFromBasis("2.2.0", validationChanged)).not.toBe(
+      baseline,
+    );
+
+    const assessmentChanged = structuredClone(basis);
+    assessmentChanged.assessment.entries[0].answers.madi = "y";
+    expect(deriveReleaseIdFromBasis("2.2.0", assessmentChanged)).not.toBe(
+      baseline,
+    );
+
+    // Identical basis => identical id (deterministic).
+    expect(deriveReleaseIdFromBasis("2.2.0", structuredClone(basis))).toBe(
+      baseline,
+    );
+  });
+
   it("a learner-relevant mutation changes the release id and checksum", () => {
     const mutated = JSON.parse(sourceText) as {
       mujarrad_entries: Array<{ meaning: string }>;
@@ -250,6 +335,55 @@ describe("content build — determinism and identity", () => {
     expect(() => buildArtifacts(JSON.stringify(mutated))).toThrow(
       ContentBuildError,
     );
+  });
+});
+
+describe("immutable release writes", () => {
+  it("no-op on identical bytes, hard failure on different bytes", () => {
+    const dir = mkdtempSync(join(tmpdir(), "safwa-immutable-"));
+    const target = join(dir, "releases", "safwa-test", "learner.json");
+    try {
+      expect(writeImmutableFile(target, '{"a":1}\n')).toBe("written");
+      expect(readFs(target, "utf8")).toBe('{"a":1}\n');
+      // Identical bytes: idempotent no-op.
+      expect(writeImmutableFile(target, '{"a":1}\n')).toBe("unchanged");
+      // Different bytes beneath an existing release path: hard failure.
+      expect(() => writeImmutableFile(target, '{"a":2}\n')).toThrow(
+        ContentBuildError,
+      );
+      // The original bytes were never overwritten.
+      expect(readFs(target, "utf8")).toBe('{"a":1}\n');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("pre-existing different bytes fail even when written externally", () => {
+    const dir = mkdtempSync(join(tmpdir(), "safwa-immutable-"));
+    const target = join(dir, "existing.json");
+    try {
+      writeFileSync(target, "external bytes", "utf8");
+      expect(() => writeImmutableFile(target, "build bytes")).toThrow(
+        /different bytes/,
+      );
+      expect(readFs(target, "utf8")).toBe("external bytes");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("release registry (operational state)", () => {
+  it("exists, is valid, points at the built release, and is outside the immutable dir", () => {
+    const registryPath = join(SERVER_CONTENT_DIR, "release-registry.json");
+    const registry = JSON.parse(readFileSync(registryPath, "utf8")) as {
+      active_release_id: string;
+      releases: Record<string, { status: string }>;
+    };
+    expect(registry.active_release_id).toBe(built.releaseId);
+    expect(registry.releases[built.releaseId].status).toBe("active");
+    // Lifecycle state lives here, not in any checksummed immutable artifact.
+    expect(built.serialized.checksums).not.toContain("release-registry");
   });
 });
 

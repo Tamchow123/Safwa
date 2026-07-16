@@ -51,11 +51,16 @@ export const learnerEntrySchema = z.strictObject({
 });
 export type LearnerEntry = z.infer<typeof learnerEntrySchema>;
 
+/*
+ * Immutable artifacts carry NO timestamps: identical semantic input must
+ * produce byte-identical artifacts, and the source dataset's generated_at
+ * is a build timestamp, not content. Operational publication metadata
+ * lives in the server release registry instead.
+ */
 export const learnerReleaseSchema = z.strictObject({
   release_id: z.string().min(1),
   schema_version: z.string().min(1),
   content_version: z.string().min(1),
-  created_at: z.string().min(1),
   question_generator_version: z.string().min(1),
   entry_count: z.number().int().positive(),
   entries: z.array(learnerEntrySchema),
@@ -92,15 +97,16 @@ export const validationManifestEntrySchema = z.strictObject({
   verb_type_quiz_eligible: z.boolean(),
 });
 
+/**
+ * Structural content-validation data ONLY. Lifecycle status and protocol
+ * support levels are operational state and live in the server release
+ * registry (releaseRegistrySchema), never inside an immutable artifact.
+ */
 export const validationManifestSchema = z.strictObject({
   release_id: z.string().min(1),
   schema_version: z.string().min(1),
   content_version: z.string().min(1),
-  created_at: z.string().min(1),
   question_generator_version: z.string().min(1),
-  release_status: z.enum(["active", "supported", "revoked"]),
-  minimum_supported_client_version: z.string().min(1),
-  minimum_supported_event_schema: z.number().int().positive(),
   entry_count: z.number().int().positive(),
   allowed_source_fields: z.array(z.enum(SOURCE_QUIZ_FORM_FIELDS)),
   allowed_directions: z.array(z.enum(DIRECTIONS)),
@@ -121,12 +127,30 @@ export const assessmentManifestSchema = z.strictObject({
   release_id: z.string().min(1),
   schema_version: z.string().min(1),
   content_version: z.string().min(1),
-  created_at: z.string().min(1),
   question_generator_version: z.string().min(1),
   entry_count: z.number().int().positive(),
   entries: z.array(assessmentManifestEntrySchema),
 });
 export type AssessmentManifest = z.infer<typeof assessmentManifestSchema>;
+
+/**
+ * Server-only operational release registry
+ * (content-server/release-registry.json). Mutable policy state — release
+ * lifecycle and protocol support — kept OUTSIDE the immutable release
+ * directories so status changes never touch immutable bytes.
+ */
+export const releaseRegistrySchema = z.strictObject({
+  active_release_id: z.string().min(1),
+  releases: z.record(
+    z.string(),
+    z.strictObject({
+      status: z.enum(["active", "supported", "revoked"]),
+      minimum_supported_client_version: z.string().min(1),
+      minimum_supported_event_schema: z.number().int().positive(),
+    }),
+  ),
+});
+export type ReleaseRegistry = z.infer<typeof releaseRegistrySchema>;
 
 export const checksumManifestSchema = z.strictObject({
   algorithm: z.literal("sha256"),
@@ -148,6 +172,8 @@ export const contentReleaseRecordSchema = z.strictObject({
   learnerChecksum: z.string().regex(/^[0-9a-f]{64}$/),
   questionGeneratorVersion: z.string().min(1),
   entryCount: z.number().int().positive(),
+  /** Exact verified learner artifact bytes — authoritative for integrity. */
+  serializedLearner: z.string().min(1),
   cachedAt: z.number(),
 });
 export type ContentReleaseRecord = z.infer<typeof contentReleaseRecordSchema>;

@@ -1,9 +1,9 @@
 {
  "content_version": "2.2.0",
  "entry_count": 455,
- "learner_sha256": "c32912e31d0394d9f753e180a61b67a01dd4565ff44a237cdcb45fba83081f5e",
- "learner_url": "/content/releases/safwa-2.2.0-cc44f005854f/learner.json",
+ "learner_sha256": "b1633a6f031e2ab911053f61eb1e38f2a11a03c78291f3ec569ce7e5e604430c",
+ "learner_url": "/content/releases/safwa-2.2.0-2b053aa72340a9d3/learner.json",
  "question_generator_version": "1",
- "release_id": "safwa-2.2.0-cc44f005854f",
+ "release_id": "safwa-2.2.0-2b053aa72340a9d3",
  "schema_version": "2.2.0"
 }
