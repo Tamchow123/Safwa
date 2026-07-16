@@ -37,6 +37,15 @@ jobs:
       - name: Verify Arabic integrity
         run: python scripts/arabic-extract.py --verify-known
 
+      - name: Build content release
+        run: pnpm content:build
+
+      - name: Verify documentation Arabic
+        run: pnpm docs:verify
+
+      - name: Generated artifacts are current and deterministic
+        run: git diff --exit-code -- public/content content-server
+
       - name: Type check
         run: pnpm typecheck
 

@@ -1,0 +1,6816 @@
+{
+ "content_version": "2.2.0",
+ "entries": [
+  {
+   "answers": {
+    "amr": "اُبْذُلْ",
+    "bab": "nasara",
+    "ism_fail": "بَاذِلٌ",
+    "madi": "بَذَلَ",
+    "masdar": "اَلْبَذْلُ",
+    "meaning": "to spend",
+    "mudari": "يَبْذُلُ",
+    "nahi": "لَا تَبْذُلْ",
+    "root": "ب ذ ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 1
+  },
+  {
+   "answers": {
+    "amr": "اُبْسُطْ",
+    "bab": "nasara",
+    "ism_fail": "بَاسِطٌ",
+    "madi": "بَسَطَ",
+    "masdar": "اَلْبَسْطُ",
+    "meaning": "to spread",
+    "mudari": "يَبْسُطُ",
+    "nahi": "لَا تَبْسُطْ",
+    "root": "ب س ط",
+    "verb_type": "sahih"
+   },
+   "entry_id": 2
+  },
+  {
+   "answers": {
+    "amr": "اُبْطُلْ",
+    "bab": "nasara",
+    "ism_fail": "بَاطِلٌ",
+    "madi": "بَطَلَ",
+    "masdar": "اَلْبُطْلَانُ",
+    "meaning": "to become null or void",
+    "mudari": "يَبْطُلُ",
+    "nahi": "لَا تَبْطُلْ",
+    "root": "ب ط ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 3
+  },
+  {
+   "answers": {
+    "amr": "اُبْلُغْ",
+    "bab": "nasara",
+    "ism_fail": "بَالِغٌ",
+    "madi": "بَلَغَ",
+    "masdar": "اَلْبُلُوْغُ",
+    "meaning": "to reach",
+    "mudari": "يَبْلُغُ",
+    "nahi": "لَا تَبْلُغْ",
+    "root": "ب ل غ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 4
+  },
+  {
+   "answers": {
+    "amr": "اُتْرُكْ",
+    "bab": "nasara",
+    "ism_fail": "تَارِكٌ",
+    "madi": "تَرَكَ",
+    "masdar": "اَلتَّرْكُ",
+    "meaning": "to leave",
+    "mudari": "يَتْرُكُ",
+    "nahi": "لَا تَتْرُكْ",
+    "root": "ت ر ك",
+    "verb_type": "sahih"
+   },
+   "entry_id": 5
+  },
+  {
+   "answers": {
+    "amr": "اُثْبُتْ",
+    "bab": "nasara",
+    "ism_fail": "ثَابِتٌ",
+    "madi": "ثَبَتَ",
+    "masdar": "اَلثُّبُوْتُ",
+    "meaning": "to be fixed, to be established",
+    "mudari": "يَثْبُتُ",
+    "nahi": "لَا تَثْبُتْ",
+    "root": "ث ب ت",
+    "verb_type": "sahih"
+   },
+   "entry_id": 6
+  },
+  {
+   "answers": {
+    "amr": "اُحْدُثْ",
+    "bab": "nasara",
+    "ism_fail": "حَادِثٌ",
+    "madi": "حَدَثَ",
+    "masdar": "اَلْحُدُوْثُ",
+    "meaning": "to occur",
+    "mudari": "يَحْدُثُ",
+    "nahi": "لَا تَحْدُثْ",
+    "root": "ح د ث",
+    "verb_type": "sahih"
+   },
+   "entry_id": 7
+  },
+  {
+   "answers": {
+    "amr": "اُحْرُثْ",
+    "bab": "nasara",
+    "ism_fail": "حَارِثٌ",
+    "madi": "حَرَثَ",
+    "masdar": "اَلْحَرْثُ",
+    "meaning": "to cultivate",
+    "mudari": "يَحْرُثُ",
+    "nahi": "لَا تَحْرُثْ",
+    "root": "ح ر ث",
+    "verb_type": "sahih"
+   },
+   "entry_id": 8
+  },
+  {
+   "answers": {
+    "amr": "اُحْشُرْ",
+    "bab": "nasara",
+    "ism_fail": "حَاشِرٌ",
+    "madi": "حَشَرَ",
+    "masdar": "اَلْحَشْرُ",
+    "meaning": "to gather",
+    "mudari": "يَحْشُرُ",
+    "nahi": "لَا تَحْشُرْ",
+    "root": "ح ش ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 9
+  },
+  {
+   "answers": {
+    "amr": "اُحْصُدْ",
+    "bab": "nasara",
+    "ism_fail": "حَاصِدٌ",
+    "madi": "حَصَدَ",
+    "masdar": "اَلْحَصَادُ",
+    "meaning": "to harvest",
+    "mudari": "يَحْصُدُ",
+    "nahi": "لَا تَحْصُدْ",
+    "root": "ح ص د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 10
+  },
+  {
+   "answers": {
+    "amr": "اُحْضُرْ",
+    "bab": "nasara",
+    "ism_fail": "حَاضِرٌ",
+    "madi": "حَضَرَ",
+    "masdar": "اَلْحُضُوْرُ",
+    "meaning": "to be present, to come",
+    "mudari": "يَحْضُرُ",
+    "nahi": "لَا تَحْضُرْ",
+    "root": "ح ض ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 11
+  },
+  {
+   "answers": {
+    "amr": "اُخْرُجْ",
+    "bab": "nasara",
+    "ism_fail": "خَارِجٌ",
+    "madi": "خَرَجَ",
+    "masdar": "اَلْخُرُوْجُ",
+    "meaning": "to go out, to exit",
+    "mudari": "يَخْرُجُ",
+    "nahi": "لَا تَخْرُجْ",
+    "root": "خ ر ج",
+    "verb_type": "sahih"
+   },
+   "entry_id": 12
+  },
+  {
+   "answers": {
+    "amr": "اُخْطُبْ",
+    "bab": "nasara",
+    "ism_fail": "خَاطِبٌ",
+    "madi": "خَطَبَ",
+    "masdar": "اَلْخُطْبَةُ / اَلْخَطَابَةُ",
+    "meaning": "to deliver a speech",
+    "mudari": "يَخْطُبُ",
+    "nahi": "لَا تَخْطُبْ",
+    "root": "خ ط ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 13
+  },
+  {
+   "answers": {
+    "amr": "اُخْلُدْ",
+    "bab": "nasara",
+    "ism_fail": "خَالِدٌ",
+    "madi": "خَلَدَ",
+    "masdar": "اَلْخُلُوْدُ",
+    "meaning": "to last forever",
+    "mudari": "يَخْلُدُ",
+    "nahi": "لَا تَخْلُدْ",
+    "root": "خ ل د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 14
+  },
+  {
+   "answers": {
+    "amr": "اُخْلُقْ",
+    "bab": "nasara",
+    "ism_fail": "خَالِقٌ",
+    "madi": "خَلَقَ",
+    "masdar": "اَلْخَلْقُ",
+    "meaning": "to create",
+    "mudari": "يَخْلُقُ",
+    "nahi": "لَا تَخْلُقْ",
+    "root": "خ ل ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 15
+  },
+  {
+   "answers": {
+    "amr": "اُدْخُلْ",
+    "bab": "nasara",
+    "ism_fail": "دَاخِلٌ",
+    "madi": "دَخَلَ",
+    "masdar": "اَلدُّخُوْلُ",
+    "meaning": "to enter",
+    "mudari": "يَدْخُلُ",
+    "nahi": "لَا تَدْخُلْ",
+    "root": "د خ ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 16
+  },
+  {
+   "answers": {
+    "amr": "اُدْلُكْ",
+    "bab": "nasara",
+    "ism_fail": "دَالِكٌ",
+    "madi": "دَلَكَ",
+    "masdar": "اَلدَّلْكُ",
+    "meaning": "to rub",
+    "mudari": "يَدْلُكُ",
+    "nahi": "لَا تَدْلُكْ",
+    "root": "د ل ك",
+    "verb_type": "sahih"
+   },
+   "entry_id": 17
+  },
+  {
+   "answers": {
+    "amr": "اُرْبُطْ",
+    "bab": "nasara",
+    "ism_fail": "رَابِطٌ",
+    "madi": "رَبَطَ",
+    "masdar": "اَلرَّبْطُ",
+    "meaning": "to bind",
+    "mudari": "يَرْبُطُ",
+    "nahi": "لَا تَرْبُطْ",
+    "root": "ر ب ط",
+    "verb_type": "sahih"
+   },
+   "entry_id": 18
+  },
+  {
+   "answers": {
+    "amr": "اُرْجُمْ",
+    "bab": "nasara",
+    "ism_fail": "رَاجِمٌ",
+    "madi": "رَجَمَ",
+    "masdar": "اَلرَّجْمُ",
+    "meaning": "to stone",
+    "mudari": "يَرْجُمُ",
+    "nahi": "لَا تَرْجُمْ",
+    "root": "ر ج م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 19
+  },
+  {
+   "answers": {
+    "amr": "اُرْقُبْ",
+    "bab": "nasara",
+    "ism_fail": "رَاقِبٌ",
+    "madi": "رَقَبَ",
+    "masdar": "اَلرَّقْبُ",
+    "meaning": "to observe",
+    "mudari": "يَرْقُبُ",
+    "nahi": "لَا تَرْقُبْ",
+    "root": "ر ق ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 20
+  },
+  {
+   "answers": {
+    "amr": "اُرْقُدْ",
+    "bab": "nasara",
+    "ism_fail": "رَاقِدٌ",
+    "madi": "رَقَدَ",
+    "masdar": "اَلرُّقُوْدُ",
+    "meaning": "to sleep",
+    "mudari": "يَرْقُدُ",
+    "nahi": "لَا تَرْقُدْ",
+    "root": "ر ق د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 21
+  },
+  {
+   "answers": {
+    "amr": "اُرْكُضْ",
+    "bab": "nasara",
+    "ism_fail": "رَاكِضٌ",
+    "madi": "رَكَضَ",
+    "masdar": "اَلرَّكْضُ",
+    "meaning": "to run",
+    "mudari": "يَرْكُضُ",
+    "nahi": "لَا تَرْكُضْ",
+    "root": "ر ك ض",
+    "verb_type": "sahih"
+   },
+   "entry_id": 22
+  },
+  {
+   "answers": {
+    "amr": "اُزْجُرْ",
+    "bab": "nasara",
+    "ism_fail": "زَاجِرٌ",
+    "madi": "زَجَرَ",
+    "masdar": "اَلزَّجْرُ",
+    "meaning": "to reprimand, to restrain",
+    "mudari": "يَزْجُرُ",
+    "nahi": "لَا تَزْجُرْ",
+    "root": "ز ج ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 23
+  },
+  {
+   "answers": {
+    "amr": "اُزْعُمْ",
+    "bab": "nasara",
+    "ism_fail": "زَاعِمٌ",
+    "madi": "زَعَمَ",
+    "masdar": "اَلزَّعْمُ",
+    "meaning": "to claim",
+    "mudari": "يَزْعُمُ",
+    "nahi": "لَا تَزْعُمْ",
+    "root": "ز ع م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 24
+  },
+  {
+   "answers": {
+    "amr": "اُسْتُرْ",
+    "bab": "nasara",
+    "ism_fail": "سَاتِرٌ",
+    "madi": "سَتَرَ",
+    "masdar": "اَلسَّتْرُ",
+    "meaning": "to cover",
+    "mudari": "يَسْتُرُ",
+    "nahi": "لَا تَسْتُرْ",
+    "root": "س ت ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 25
+  },
+  {
+   "answers": {
+    "amr": "اُسْقُطْ",
+    "bab": "nasara",
+    "ism_fail": "سَاقِطٌ",
+    "madi": "سَقَطَ",
+    "masdar": "اَلسُّقُوْطُ",
+    "meaning": "to fall",
+    "mudari": "يَسْقُطُ",
+    "nahi": "لَا تَسْقُطْ",
+    "root": "س ق ط",
+    "verb_type": "sahih"
+   },
+   "entry_id": 26
+  },
+  {
+   "answers": {
+    "amr": "اُسْكُتْ",
+    "bab": "nasara",
+    "ism_fail": "سَاكِتٌ",
+    "madi": "سَكَتَ",
+    "masdar": "اَلسُّكُوْتُ",
+    "meaning": "to be silent",
+    "mudari": "يَسْكُتُ",
+    "nahi": "لَا تَسْكُتْ",
+    "root": "س ك ت",
+    "verb_type": "sahih"
+   },
+   "entry_id": 27
+  },
+  {
+   "answers": {
+    "amr": "اُسْكُنْ",
+    "bab": "nasara",
+    "ism_fail": "سَاكِنٌ",
+    "madi": "سَكَنَ",
+    "masdar": "اَلسُّكُوْنُ",
+    "meaning": "to be tranquil",
+    "mudari": "يَسْكُنُ",
+    "nahi": "لَا تَسْكُنْ",
+    "root": "س ك ن",
+    "verb_type": "sahih"
+   },
+   "entry_id": 28
+  },
+  {
+   "answers": {
+    "amr": "اُشْعُرْ",
+    "bab": "nasara",
+    "ism_fail": "شَاعِرٌ",
+    "madi": "شَعَرَ",
+    "masdar": "اَلشُّعُوْرُ",
+    "meaning": "to know, to feel",
+    "mudari": "يَشْعُرُ",
+    "nahi": "لَا تَشْعُرْ",
+    "root": "ش ع ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 29
+  },
+  {
+   "answers": {
+    "amr": "اُصْدُرْ",
+    "bab": "nasara",
+    "ism_fail": "صَادِرٌ",
+    "madi": "صَدَرَ",
+    "meaning": "to go out",
+    "mudari": "يَصْدُرُ",
+    "nahi": "لَا تَصْدُرْ",
+    "root": "ص د ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 30
+  },
+  {
+   "answers": {
+    "amr": "اُطْلُبْ",
+    "bab": "nasara",
+    "ism_fail": "طَالِبٌ",
+    "madi": "طَلَبَ",
+    "masdar": "اَلطَّلَبُ",
+    "meaning": "to seek",
+    "mudari": "يَطْلُبُ",
+    "nahi": "لَا تَطْلُبْ",
+    "root": "ط ل ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 31
+  },
+  {
+   "answers": {
+    "amr": "اُعْبُدْ",
+    "bab": "nasara",
+    "ism_fail": "عَابِدٌ",
+    "madi": "عَبَدَ",
+    "masdar": "اَلْعِبَادَةُ",
+    "meaning": "to worship",
+    "mudari": "يَعْبُدُ",
+    "nahi": "لَا تَعْبُدْ",
+    "root": "ع ب د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 32
+  },
+  {
+   "answers": {
+    "amr": "اُعْرُجْ",
+    "bab": "nasara",
+    "ism_fail": "عَارِجٌ",
+    "madi": "عَرَجَ",
+    "masdar": "اَلْعُرُوْجُ",
+    "meaning": "to ascend",
+    "mudari": "يَعْرُجُ",
+    "nahi": "لَا تَعْرُجْ",
+    "root": "ع ر ج",
+    "verb_type": "sahih"
+   },
+   "entry_id": 33
+  },
+  {
+   "answers": {
+    "amr": "اُعْرُكْ",
+    "bab": "nasara",
+    "ism_fail": "عَارِكٌ",
+    "madi": "عَرَكَ",
+    "meaning": "to rub, to scrub",
+    "mudari": "يَعْرُكُ",
+    "nahi": "لَا تَعْرُكْ",
+    "root": "ع ر ك",
+    "verb_type": "sahih"
+   },
+   "entry_id": 34
+  },
+  {
+   "answers": {
+    "amr": "اُعْطُسْ",
+    "bab": "nasara",
+    "ism_fail": "عَاطِسٌ",
+    "madi": "عَطَسَ",
+    "masdar": "اَلْعَطْسُ",
+    "meaning": "to sneeze",
+    "mudari": "يَعْطُسُ",
+    "nahi": "لَا تَعْطُسْ",
+    "root": "ع ط س",
+    "verb_type": "sahih"
+   },
+   "entry_id": 35
+  },
+  {
+   "answers": {
+    "amr": "اُغْفُلْ",
+    "bab": "nasara",
+    "ism_fail": "غَافِلٌ",
+    "madi": "غَفَلَ",
+    "masdar": "اَلْغَفْلَةُ",
+    "meaning": "to neglect",
+    "mudari": "يَغْفُلُ",
+    "nahi": "لَا تَغْفُلْ",
+    "root": "غ ف ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 36
+  },
+  {
+   "answers": {
+    "amr": "اُفْجُرْ",
+    "bab": "nasara",
+    "ism_fail": "فَاجِرٌ",
+    "madi": "فَجَرَ",
+    "masdar": "اَلْفُجُوْرُ",
+    "meaning": "to act immorally",
+    "mudari": "يَفْجُرُ",
+    "nahi": "لَا تَفْجُرْ",
+    "root": "ف ج ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 37
+  },
+  {
+   "answers": {
+    "amr": "اُفْسُقْ",
+    "bab": "nasara",
+    "ism_fail": "فَاسِقٌ",
+    "madi": "فَسَقَ",
+    "masdar": "اَلْفُسُوْقُ",
+    "meaning": "to deviate",
+    "mudari": "يَفْسُقُ",
+    "nahi": "لَا تَفْسُقْ",
+    "root": "ف س ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 38
+  },
+  {
+   "answers": {
+    "amr": "اُقْتُلْ",
+    "bab": "nasara",
+    "ism_fail": "قَاتِلٌ",
+    "madi": "قَتَلَ",
+    "masdar": "اَلْقَتْلُ",
+    "meaning": "to kill",
+    "mudari": "يَقْتُلُ",
+    "nahi": "لَا تَقْتُلْ",
+    "root": "ق ت ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 39
+  },
+  {
+   "answers": {
+    "amr": "اُقْعُدْ",
+    "bab": "nasara",
+    "ism_fail": "قَاعِدٌ",
+    "madi": "قَعَدَ",
+    "masdar": "اَلْقُعُوْدُ",
+    "meaning": "to sit down",
+    "mudari": "يَقْعُدُ",
+    "nahi": "لَا تَقْعُدْ",
+    "root": "ق ع د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 40
+  },
+  {
+   "answers": {
+    "amr": "اُقْنُتْ",
+    "bab": "nasara",
+    "ism_fail": "قَانِتٌ",
+    "madi": "قَنَتَ",
+    "masdar": "اَلْقُنُوْتُ",
+    "meaning": "to be obedient",
+    "mudari": "يَقْنُتُ",
+    "nahi": "لَا تَقْنُتْ",
+    "root": "ق ن ت",
+    "verb_type": "sahih"
+   },
+   "entry_id": 41
+  },
+  {
+   "answers": {
+    "amr": "اُكْتُبْ",
+    "bab": "nasara",
+    "ism_fail": "كَاتِبٌ",
+    "madi": "كَتَبَ",
+    "masdar": "اَلْكِتَابَةُ",
+    "meaning": "to write",
+    "mudari": "يَكْتُبُ",
+    "nahi": "لَا تَكْتُبْ",
+    "root": "ك ت ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 42
+  },
+  {
+   "answers": {
+    "amr": "اُكْفُرْ",
+    "bab": "nasara",
+    "ism_fail": "كَافِرٌ",
+    "madi": "كَفَرَ",
+    "masdar": "اَلْكُفْرُ",
+    "meaning": "to hide, to be ungrateful",
+    "mudari": "يَكْفُرُ",
+    "nahi": "لَا تَكْفُرْ",
+    "root": "ك ف ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 43
+  },
+  {
+   "answers": {
+    "amr": "اُلْمُسْ",
+    "bab": "nasara",
+    "ism_fail": "لَامِسٌ",
+    "madi": "لَمَسَ",
+    "masdar": "اَللَّمْسُ",
+    "meaning": "to touch",
+    "mudari": "يَلْمُسُ",
+    "nahi": "لَا تَلْمُسْ",
+    "root": "ل م س",
+    "verb_type": "sahih"
+   },
+   "entry_id": 44
+  },
+  {
+   "answers": {
+    "amr": "اُمْطُرْ",
+    "bab": "nasara",
+    "ism_fail": "مَاطِرٌ",
+    "madi": "مَطَرَ",
+    "masdar": "اَلْمَطْرُ",
+    "meaning": "to rain",
+    "mudari": "يَمْطُرُ",
+    "nahi": "لَا تَمْطُرْ",
+    "root": "م ط ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 45
+  },
+  {
+   "answers": {
+    "amr": "اُمْكُثْ",
+    "bab": "nasara",
+    "ism_fail": "مَاكِثٌ",
+    "madi": "مَكَثَ",
+    "masdar": "اَلْمَكْثُ",
+    "meaning": "to stay to delay",
+    "mudari": "يَمْكُثُ",
+    "nahi": "لَا تَمْكُثْ",
+    "root": "م ك ث",
+    "verb_type": "sahih"
+   },
+   "entry_id": 46
+  },
+  {
+   "answers": {
+    "amr": "اُنْبُتْ",
+    "bab": "nasara",
+    "ism_fail": "نَابِتٌ",
+    "madi": "نَبَتَ",
+    "masdar": "اَلنَّبْتُ",
+    "meaning": "to grow",
+    "mudari": "يَنْبُتُ",
+    "nahi": "لَا تَنْبُتْ",
+    "root": "ن ب ت",
+    "verb_type": "sahih"
+   },
+   "entry_id": 47
+  },
+  {
+   "answers": {
+    "amr": "اُنْسُجْ",
+    "bab": "nasara",
+    "ism_fail": "نَاسِجٌ",
+    "madi": "نَسَجَ",
+    "masdar": "اَلنَّسْجُ",
+    "meaning": "to weave",
+    "mudari": "يَنْسُجُ",
+    "nahi": "لَا تَنْسُجْ",
+    "root": "ن س ج",
+    "verb_type": "sahih"
+   },
+   "entry_id": 48
+  },
+  {
+   "answers": {
+    "amr": "اُنْشُرْ",
+    "bab": "nasara",
+    "ism_fail": "نَاشِرٌ",
+    "madi": "نَشَرَ",
+    "masdar": "اَلنَّشْرُ",
+    "meaning": "to spread out",
+    "mudari": "يَنْشُرُ",
+    "nahi": "لَا تَنْشُرْ",
+    "root": "ن ش ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 49
+  },
+  {
+   "answers": {
+    "amr": "اُنْصُرْ",
+    "bab": "nasara",
+    "ism_fail": "نَاصِرٌ",
+    "madi": "نَصَرَ",
+    "masdar": "اَلنَّصْرُ",
+    "meaning": "to help",
+    "mudari": "يَنْصُرُ",
+    "nahi": "لَا تَنْصُرْ",
+    "root": "ن ص ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 50
+  },
+  {
+   "answers": {
+    "amr": "اُنْفُخْ",
+    "bab": "nasara",
+    "ism_fail": "نَافِخٌ",
+    "madi": "نَفَخَ",
+    "masdar": "اَلنَّفْخُ",
+    "meaning": "to blow",
+    "mudari": "يَنْفُخُ",
+    "nahi": "لَا تَنْفُخْ",
+    "root": "ن ف خ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 51
+  },
+  {
+   "answers": {
+    "amr": "اُنْفُذْ",
+    "bab": "nasara",
+    "ism_fail": "نَافِذٌ",
+    "madi": "نَفَذَ",
+    "masdar": "اَلنُّفُوْذُ",
+    "meaning": "to pierce, to be effective",
+    "mudari": "يَنْفُذُ",
+    "nahi": "لَا تَنْفُذْ",
+    "root": "ن ف ذ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 52
+  },
+  {
+   "answers": {
+    "amr": "اُنْقُصْ",
+    "bab": "nasara",
+    "ism_fail": "نَاقِصٌ",
+    "madi": "نَقَصَ",
+    "masdar": "اَلنَّقْصُ",
+    "meaning": "to decrease",
+    "mudari": "يَنْقُصُ",
+    "nahi": "لَا تَنْقُصْ",
+    "root": "ن ق ص",
+    "verb_type": "sahih"
+   },
+   "entry_id": 53
+  },
+  {
+   "answers": {
+    "amr": "اُنْقُضْ",
+    "bab": "nasara",
+    "ism_fail": "نَاقِضٌ",
+    "madi": "نَقَضَ",
+    "masdar": "اَلنَّقْضُ",
+    "meaning": "to destroy",
+    "mudari": "يَنْقُضُ",
+    "nahi": "لَا تَنْقُضْ",
+    "root": "ن ق ض",
+    "verb_type": "sahih"
+   },
+   "entry_id": 54
+  },
+  {
+   "answers": {
+    "amr": "اُنْقُلْ",
+    "bab": "nasara",
+    "ism_fail": "نَاقِلٌ",
+    "madi": "نَقَلَ",
+    "masdar": "اَلنَّقْلُ",
+    "meaning": "to transfer, to convey",
+    "mudari": "يَنْقُلُ",
+    "nahi": "لَا تَنْقُلْ",
+    "root": "ن ق ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 55
+  },
+  {
+   "answers": {
+    "amr": "اُهْرُبْ",
+    "bab": "nasara",
+    "ism_fail": "هَارِبٌ",
+    "madi": "هَرَبَ",
+    "masdar": "اَلْهَرْبُ",
+    "meaning": "to flee",
+    "mudari": "يَهْرُبُ",
+    "nahi": "لَا تَهْرُبْ",
+    "root": "ه ر ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 56
+  },
+  {
+   "answers": {
+    "amr": "اِجْذِبْ",
+    "bab": "daraba",
+    "ism_fail": "جَاذِبٌ",
+    "madi": "جَذَبَ",
+    "masdar": "اَلْجَذْبُ",
+    "meaning": "to pull",
+    "mudari": "يَجْذِبُ",
+    "nahi": "لَا تَجْذِبْ",
+    "root": "ج ذ ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 57
+  },
+  {
+   "answers": {
+    "amr": "اِجْلِسْ",
+    "bab": "daraba",
+    "ism_fail": "جَالِسٌ",
+    "madi": "جَلَسَ",
+    "masdar": "اَلْجُلُوْسُ",
+    "meaning": "to sit down",
+    "mudari": "يَجْلِسُ",
+    "nahi": "لَا تَجْلِسْ",
+    "root": "ج ل س",
+    "verb_type": "sahih"
+   },
+   "entry_id": 58
+  },
+  {
+   "answers": {
+    "amr": "اِحْبِسْ",
+    "bab": "daraba",
+    "ism_fail": "حَابِسٌ",
+    "madi": "حَبَسَ",
+    "masdar": "اَلْحَبْسُ",
+    "meaning": "to withold, to imprison",
+    "mudari": "يَحْبِسُ",
+    "nahi": "لَا تَحْبِسْ",
+    "root": "ح ب س",
+    "verb_type": "sahih"
+   },
+   "entry_id": 59
+  },
+  {
+   "answers": {
+    "amr": "اِحْذِفْ",
+    "bab": "daraba",
+    "ism_fail": "حَاذِفٌ",
+    "madi": "حَذَفَ",
+    "masdar": "اَلْحَذْفُ",
+    "meaning": "to shorten, to omit",
+    "mudari": "يَحْذِفُ",
+    "nahi": "لَا تَحْذِفْ",
+    "root": "ح ذ ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 60
+  },
+  {
+   "answers": {
+    "amr": "اِحْفِدْ",
+    "bab": "daraba",
+    "ism_fail": "حَافِدٌ",
+    "madi": "حَفَدَ",
+    "masdar": "اَلْحَفْدُ",
+    "meaning": "to hasten in service",
+    "mudari": "يَحْفِدُ",
+    "nahi": "لَا تَحْفِدْ",
+    "root": "ح ف د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 61
+  },
+  {
+   "answers": {
+    "amr": "اِحْلِفْ",
+    "bab": "daraba",
+    "ism_fail": "حَالِفٌ",
+    "madi": "حَلَفَ",
+    "masdar": "اَلْحَلْفُ",
+    "meaning": "to swear",
+    "mudari": "يَحْلِفُ",
+    "nahi": "لَا تَحْلِفْ",
+    "root": "ح ل ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 62
+  },
+  {
+   "answers": {
+    "amr": "اِحْلِقْ",
+    "bab": "daraba",
+    "ism_fail": "حَالِقٌ",
+    "madi": "حَلَقَ",
+    "masdar": "اَلْحَلْقُ",
+    "meaning": "to shave off",
+    "mudari": "يَحْلِقُ",
+    "nahi": "لَا تَحْلِقْ",
+    "root": "ح ل ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 63
+  },
+  {
+   "answers": {
+    "amr": "اِحْمِلْ",
+    "bab": "daraba",
+    "ism_fail": "حَامِلٌ",
+    "madi": "حَمَلَ",
+    "masdar": "اَلْحَمْلُ",
+    "meaning": "to carry",
+    "mudari": "يَحْمِلُ",
+    "nahi": "لَا تَحْمِلْ",
+    "root": "ح م ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 64
+  },
+  {
+   "answers": {
+    "amr": "اِخْرِقْ",
+    "bab": "daraba",
+    "ism_fail": "خَارِقٌ",
+    "madi": "خَرَقَ",
+    "masdar": "اَلْخَرْقُ",
+    "meaning": "to tear",
+    "mudari": "يَخْرِقُ",
+    "nahi": "لَا تَخْرِقْ",
+    "root": "خ ر ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 65
+  },
+  {
+   "answers": {
+    "amr": "اِخْلِطْ",
+    "bab": "daraba",
+    "ism_fail": "خَالِطٌ",
+    "madi": "خَلَطَ",
+    "masdar": "اَلْخَلْطُ",
+    "meaning": "to mix",
+    "mudari": "يَخْلِطُ",
+    "nahi": "لَا تَخْلِطْ",
+    "root": "خ ل ط",
+    "verb_type": "sahih"
+   },
+   "entry_id": 66
+  },
+  {
+   "answers": {
+    "amr": "اِرْجِعْ",
+    "bab": "daraba",
+    "ism_fail": "رَاجِعٌ",
+    "madi": "رَجَعَ",
+    "masdar": "اَلرُّجُوْعُ",
+    "meaning": "to return",
+    "mudari": "يَرْجِعُ",
+    "nahi": "لَا تَرْجِعْ",
+    "root": "ر ج ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 67
+  },
+  {
+   "answers": {
+    "amr": "اِسْرِقْ",
+    "bab": "daraba",
+    "ism_fail": "سَارِقٌ",
+    "madi": "سَرَقَ",
+    "masdar": "اَلسَّرِقَةُ",
+    "meaning": "to steal",
+    "mudari": "يَسْرِقُ",
+    "nahi": "لَا تَسْرِقْ",
+    "root": "س ر ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 68
+  },
+  {
+   "answers": {
+    "amr": "اِسْفِكْ",
+    "bab": "daraba",
+    "ism_fail": "سَافِكٌ",
+    "madi": "سَفَكَ",
+    "masdar": "اَلسَّفْكُ",
+    "meaning": "to shed blood",
+    "mudari": "يَسْفِكُ",
+    "nahi": "لَا تَسْفِكْ",
+    "root": "س ف ك",
+    "verb_type": "sahih"
+   },
+   "entry_id": 69
+  },
+  {
+   "answers": {
+    "amr": "اِصْبِرْ",
+    "bab": "daraba",
+    "ism_fail": "صَابِرٌ",
+    "madi": "صَبَرَ",
+    "masdar": "اَلصَّبْرُ",
+    "meaning": "to bind, to be patient",
+    "mudari": "يَصْبِرُ",
+    "nahi": "لَا تَصْبِرْ",
+    "root": "ص ب ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 70
+  },
+  {
+   "answers": {
+    "amr": "اِصْرِفْ",
+    "bab": "daraba",
+    "ism_fail": "صَارِفٌ",
+    "madi": "صَرَفَ",
+    "masdar": "اَلصَّرْفُ",
+    "meaning": "to turn away, to test",
+    "mudari": "يَصْرِفُ",
+    "nahi": "لَا تَصْرِفْ",
+    "root": "ص ر ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 71
+  },
+  {
+   "answers": {
+    "amr": "اِضْرِبْ",
+    "bab": "daraba",
+    "ism_fail": "ضَارِبٌ",
+    "madi": "ضَرَبَ",
+    "masdar": "اَلضَّرْبُ",
+    "meaning": "to hit",
+    "mudari": "يَضْرِبُ",
+    "nahi": "لَا تَضْرِبْ",
+    "root": "ض ر ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 72
+  },
+  {
+   "answers": {
+    "amr": "اِطْمِسْ",
+    "bab": "daraba",
+    "ism_fail": "طَامِسٌ",
+    "madi": "طَمَسَ",
+    "masdar": "اَلطَّمْسُ",
+    "meaning": "to wipe out",
+    "mudari": "يَطْمِسُ",
+    "nahi": "لَا تَطْمِسْ",
+    "root": "ط م س",
+    "verb_type": "sahih"
+   },
+   "entry_id": 73
+  },
+  {
+   "answers": {
+    "amr": "اِظْلِمْ",
+    "bab": "daraba",
+    "ism_fail": "ظَالِمٌ",
+    "madi": "ظَلَمَ",
+    "masdar": "اَلظُّلْمُ",
+    "meaning": "to wrong",
+    "mudari": "يَظْلِمُ",
+    "nahi": "لَا تَظْلِمْ",
+    "root": "ظ ل م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 74
+  },
+  {
+   "answers": {
+    "amr": "اِعْبِسْ",
+    "bab": "daraba",
+    "ism_fail": "عَابِسٌ",
+    "madi": "عَبَسَ",
+    "masdar": "اَلْعَبْسُ",
+    "meaning": "to frown",
+    "mudari": "يَعْبِسُ",
+    "nahi": "لَا تَعْبِسْ",
+    "root": "ع ب س",
+    "verb_type": "sahih"
+   },
+   "entry_id": 75
+  },
+  {
+   "answers": {
+    "amr": "اِعْدِلْ",
+    "bab": "daraba",
+    "ism_fail": "عَادِلٌ",
+    "madi": "عَدَلَ",
+    "masdar": "اَلْعَدْلُ",
+    "meaning": "to act justly",
+    "mudari": "يَعْدِلُ",
+    "nahi": "لَا تَعْدِلْ",
+    "root": "ع د ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 76
+  },
+  {
+   "answers": {
+    "amr": "اِعْرِضْ",
+    "bab": "daraba",
+    "ism_fail": "عَارِضٌ",
+    "madi": "عَرَضَ",
+    "masdar": "اَلْعَرْضُ",
+    "meaning": "to present",
+    "mudari": "يَعْرِضُ",
+    "nahi": "لَا تَعْرِضْ",
+    "root": "ع ر ض",
+    "verb_type": "sahih"
+   },
+   "entry_id": 77
+  },
+  {
+   "answers": {
+    "amr": "اِعْرِفْ",
+    "bab": "daraba",
+    "ism_fail": "عَارِفٌ",
+    "madi": "عَرَفَ",
+    "masdar": "اَلْمَعْرِفَةُ",
+    "meaning": "to realise",
+    "mudari": "يَعْرِفُ",
+    "nahi": "لَا تَعْرِفْ",
+    "root": "ع ر ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 78
+  },
+  {
+   "answers": {
+    "amr": "اِعْزِلْ",
+    "bab": "daraba",
+    "ism_fail": "عَازِلٌ",
+    "madi": "عَزَلَ",
+    "masdar": "اَلْعَزْلُ",
+    "meaning": "to remove",
+    "mudari": "يَعْزِلُ",
+    "nahi": "لَا تَعْزِلْ",
+    "root": "ع ز ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 79
+  },
+  {
+   "answers": {
+    "amr": "اِعْزِمْ",
+    "bab": "daraba",
+    "ism_fail": "عَازِمٌ",
+    "madi": "عَزَمَ",
+    "masdar": "اَلْعَزْمُ",
+    "meaning": "to decide",
+    "mudari": "يَعْزِمُ",
+    "nahi": "لَا تَعْزِمْ",
+    "root": "ع ز م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 80
+  },
+  {
+   "answers": {
+    "amr": "اِعْصِرْ",
+    "bab": "daraba",
+    "ism_fail": "عَاصِرٌ",
+    "madi": "عَصَرَ",
+    "masdar": "اَلْعَصْرُ",
+    "meaning": "to squeeze",
+    "mudari": "يَعْصِرُ",
+    "nahi": "لَا تَعْصِرْ",
+    "root": "ع ص ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 81
+  },
+  {
+   "answers": {
+    "amr": "اِعْصِمْ",
+    "bab": "daraba",
+    "ism_fail": "عَاصِمٌ",
+    "madi": "عَصَمَ",
+    "masdar": "اَلْعِصْمَةُ",
+    "meaning": "to protect",
+    "mudari": "يَعْصِمُ",
+    "nahi": "لَا تَعْصِمْ",
+    "root": "ع ص م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 82
+  },
+  {
+   "answers": {
+    "amr": "اِعْمِدْ",
+    "bab": "daraba",
+    "ism_fail": "عَامِدٌ",
+    "madi": "عَمَدَ",
+    "masdar": "اَلْعَمْدُ",
+    "meaning": "to intend",
+    "mudari": "يَعْمِدُ",
+    "nahi": "لَا تَعْمِدْ",
+    "root": "ع م د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 83
+  },
+  {
+   "answers": {
+    "amr": "اِغْرِزْ",
+    "bab": "daraba",
+    "ism_fail": "غَارِزٌ",
+    "madi": "غَرَزَ",
+    "masdar": "اَلْغَرْزُ",
+    "meaning": "to prick",
+    "mudari": "يَغْرِزُ",
+    "nahi": "لَا تَغْرِزْ",
+    "root": "غ ر ز",
+    "verb_type": "sahih"
+   },
+   "entry_id": 84
+  },
+  {
+   "answers": {
+    "amr": "اِغْزِلْ",
+    "bab": "daraba",
+    "ism_fail": "غَازِلٌ",
+    "madi": "غَزَلَ",
+    "masdar": "اَلْغَزْلُ",
+    "meaning": "to spin",
+    "mudari": "يَغْزِلُ",
+    "nahi": "لَا تَغْزِلْ",
+    "root": "غ ز ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 85
+  },
+  {
+   "answers": {
+    "amr": "اِغْسِلْ",
+    "bab": "daraba",
+    "ism_fail": "غَاسِلٌ",
+    "madi": "غَسَلَ",
+    "masdar": "اَلْغَسْلُ",
+    "meaning": "to wash",
+    "mudari": "يَغْسِلُ",
+    "nahi": "لَا تَغْسِلْ",
+    "root": "غ س ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 86
+  },
+  {
+   "answers": {
+    "amr": "اِغْفِرْ",
+    "bab": "daraba",
+    "ism_fail": "غَافِرٌ",
+    "madi": "غَفَرَ",
+    "masdar": "اَلْمَغْفِرَةُ",
+    "meaning": "to forgive",
+    "mudari": "يَغْفِرُ",
+    "nahi": "لَا تَغْفِرْ",
+    "root": "غ ف ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 87
+  },
+  {
+   "answers": {
+    "amr": "اِغْلِبْ",
+    "bab": "daraba",
+    "ism_fail": "غَالِبٌ",
+    "madi": "غَلَبَ",
+    "masdar": "اَلْغَلْبُ",
+    "meaning": "to subdue",
+    "mudari": "يَغْلِبُ",
+    "nahi": "لَا تَغْلِبْ",
+    "root": "غ ل ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 88
+  },
+  {
+   "answers": {
+    "amr": "اِغْمِزْ",
+    "bab": "daraba",
+    "ism_fail": "غَامِزٌ",
+    "madi": "غَمَزَ",
+    "masdar": "اَلْغَمْزُ",
+    "meaning": "to make a sign",
+    "mudari": "يَغْمِزُ",
+    "nahi": "لَا تَغْمِزْ",
+    "root": "غ م ز",
+    "verb_type": "sahih"
+   },
+   "entry_id": 89
+  },
+  {
+   "answers": {
+    "amr": "اِفْتِلْ",
+    "bab": "daraba",
+    "ism_fail": "فَاتِلٌ",
+    "madi": "فَتَلَ",
+    "masdar": "اَلْفَتْلُ",
+    "meaning": "to entwine",
+    "mudari": "يَفْتِلُ",
+    "nahi": "لَا تَفْتِلْ",
+    "root": "ف ت ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 90
+  },
+  {
+   "answers": {
+    "amr": "اِفْلِقْ",
+    "bab": "daraba",
+    "ism_fail": "فَالِقٌ",
+    "madi": "فَلَقَ",
+    "masdar": "اَلْفَلْقُ",
+    "meaning": "to split",
+    "mudari": "يَفْلِقُ",
+    "nahi": "لَا تَفْلِقْ",
+    "root": "ف ل ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 91
+  },
+  {
+   "answers": {
+    "amr": "اِقْبِضْ",
+    "bab": "daraba",
+    "ism_fail": "قَابِضٌ",
+    "madi": "قَبَضَ",
+    "masdar": "اَلْقَبْضُ",
+    "meaning": "to seize",
+    "mudari": "يَقْبِضُ",
+    "nahi": "لَا تَقْبِضْ",
+    "root": "ق ب ض",
+    "verb_type": "sahih"
+   },
+   "entry_id": 92
+  },
+  {
+   "answers": {
+    "amr": "اِقْذِفْ",
+    "bab": "daraba",
+    "ism_fail": "قَاذِفٌ",
+    "madi": "قَذَفَ",
+    "masdar": "اَلْقَذْفُ",
+    "meaning": "to throw away",
+    "mudari": "يَقْذِفُ",
+    "nahi": "لَا تَقْذِفْ",
+    "root": "ق ذ ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 93
+  },
+  {
+   "answers": {
+    "amr": "اِقْصِدْ",
+    "bab": "daraba",
+    "ism_fail": "قَاصِدٌ",
+    "madi": "قَصَدَ",
+    "masdar": "اَلْقَصْدُ",
+    "meaning": "to proceed",
+    "mudari": "يَقْصِدُ",
+    "nahi": "لَا تَقْصِدْ",
+    "root": "ق ص د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 94
+  },
+  {
+   "answers": {
+    "amr": "اِقْطِفْ",
+    "bab": "daraba",
+    "ism_fail": "قَاطِفٌ",
+    "madi": "قَطَفَ",
+    "masdar": "اَلْقَطْفُ",
+    "meaning": "to pick",
+    "mudari": "يَقْطِفُ",
+    "nahi": "لَا تَقْطِفْ",
+    "root": "ق ط ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 95
+  },
+  {
+   "answers": {
+    "amr": "اِكْذِبْ",
+    "bab": "daraba",
+    "ism_fail": "كَاذِبٌ",
+    "madi": "كَذَبَ",
+    "masdar": "اَلْكِذْبُ",
+    "meaning": "to lie",
+    "mudari": "يَكْذِبُ",
+    "nahi": "لَا تَكْذِبْ",
+    "root": "ك ذ ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 96
+  },
+  {
+   "answers": {
+    "amr": "اِكْسِبْ",
+    "bab": "daraba",
+    "ism_fail": "كَاسِبٌ",
+    "madi": "كَسَبَ",
+    "masdar": "اَلْكَسْبُ",
+    "meaning": "to earn",
+    "mudari": "يَكْسِبُ",
+    "nahi": "لَا تَكْسِبْ",
+    "root": "ك س ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 97
+  },
+  {
+   "answers": {
+    "amr": "اِكْسِرْ",
+    "bab": "daraba",
+    "ism_fail": "كَاسِرٌ",
+    "madi": "كَسَرَ",
+    "masdar": "اَلْكَسْرُ",
+    "meaning": "to break",
+    "mudari": "يَكْسِرُ",
+    "nahi": "لَا تَكْسِرْ",
+    "root": "ك س ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 98
+  },
+  {
+   "answers": {
+    "amr": "اِكْشِفْ",
+    "bab": "daraba",
+    "ism_fail": "كَاشِفٌ",
+    "madi": "كَشَفَ",
+    "masdar": "اَلْكَشْفُ",
+    "meaning": "to open",
+    "mudari": "يَكْشِفُ",
+    "nahi": "لَا تَكْشِفْ",
+    "root": "ك ش ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 99
+  },
+  {
+   "answers": {
+    "amr": "اِكْنِزْ",
+    "bab": "daraba",
+    "ism_fail": "كَانِزٌ",
+    "madi": "كَنَزَ",
+    "masdar": "اَلْكَنْزُ",
+    "meaning": "to gather, to hoard",
+    "mudari": "يَكْنِزُ",
+    "nahi": "لَا تَكْنِزْ",
+    "root": "ك ن ز",
+    "verb_type": "sahih"
+   },
+   "entry_id": 100
+  },
+  {
+   "answers": {
+    "amr": "اِلْطِمْ",
+    "bab": "daraba",
+    "ism_fail": "لَاطِمٌ",
+    "madi": "لَطَمَ",
+    "masdar": "اَللَّطْمُ",
+    "meaning": "to strike with the hand",
+    "mudari": "يَلْطِمُ",
+    "nahi": "لَا تَلْطِمْ",
+    "root": "ل ط م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 101
+  },
+  {
+   "answers": {
+    "amr": "اِلْمِزْ",
+    "bab": "daraba",
+    "ism_fail": "لَامِزٌ",
+    "madi": "لَمَزَ",
+    "masdar": "اَللَّمْزُ",
+    "meaning": "to criticize",
+    "mudari": "يَلْمِزُ",
+    "nahi": "لَا تَلْمِزْ",
+    "root": "ل م ز",
+    "verb_type": "sahih"
+   },
+   "entry_id": 102
+  },
+  {
+   "answers": {
+    "amr": "اِمْلِكْ",
+    "bab": "daraba",
+    "ism_fail": "مَالِكٌ",
+    "madi": "مَلَكَ",
+    "masdar": "اَلْمِلْكُ",
+    "meaning": "to take possession",
+    "mudari": "يَمْلِكُ",
+    "nahi": "لَا تَمْلِكْ",
+    "root": "م ل ك",
+    "verb_type": "sahih"
+   },
+   "entry_id": 103
+  },
+  {
+   "answers": {
+    "amr": "اِنْتِفْ",
+    "bab": "daraba",
+    "ism_fail": "نَاتِفٌ",
+    "madi": "نَتَفَ",
+    "masdar": "اَلنَّتْفُ",
+    "meaning": "to pluck out",
+    "mudari": "يَنْتِفُ",
+    "nahi": "لَا تَنْتِفْ",
+    "root": "ن ت ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 104
+  },
+  {
+   "answers": {
+    "amr": "اِنْزِلْ",
+    "bab": "daraba",
+    "ism_fail": "نَازِلٌ",
+    "madi": "نَزَلَ",
+    "masdar": "اَلنُّزُوْلُ",
+    "meaning": "to dismount",
+    "mudari": "يَنْزِلُ",
+    "nahi": "لَا تَنْزِلْ",
+    "root": "ن ز ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 105
+  },
+  {
+   "answers": {
+    "amr": "اِهْلِكْ",
+    "bab": "daraba",
+    "ism_fail": "هَالِكٌ",
+    "madi": "هَلَكَ",
+    "masdar": "اَلْهَلَاكُ",
+    "meaning": "to perish",
+    "mudari": "يَهْلِكُ",
+    "nahi": "لَا تَهْلِكْ",
+    "root": "ه ل ك",
+    "verb_type": "sahih"
+   },
+   "entry_id": 106
+  },
+  {
+   "answers": {
+    "amr": "اِجْزَعْ",
+    "bab": "samia",
+    "ism_fail": "جَازِعٌ",
+    "madi": "جَزِعَ",
+    "masdar": "اَلْجَزَعُ",
+    "meaning": "to be anxious",
+    "mudari": "يَجْزَعُ",
+    "nahi": "لَا تَجْزَعْ",
+    "root": "ج ز ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 107
+  },
+  {
+   "answers": {
+    "amr": "اِجْهَلْ",
+    "bab": "samia",
+    "ism_fail": "جَاهِلٌ",
+    "madi": "جَهِلَ",
+    "masdar": "اَلْجَهْلُ",
+    "meaning": "to be ignorant",
+    "mudari": "يَجْهَلُ",
+    "nahi": "لَا تَجْهَلْ",
+    "root": "ج ه ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 108
+  },
+  {
+   "answers": {
+    "amr": "اِحْزَنْ",
+    "bab": "samia",
+    "ism_fail": "حَازِنٌ",
+    "madi": "حَزِنَ",
+    "masdar": "اَلْحُزْنُ",
+    "meaning": "to make sad",
+    "mudari": "يَحْزَنُ",
+    "nahi": "لَا تَحْزَنْ",
+    "root": "ح ز ن",
+    "verb_type": "sahih"
+   },
+   "entry_id": 109
+  },
+  {
+   "answers": {
+    "amr": "اِحْفَظْ",
+    "bab": "samia",
+    "ism_fail": "حَافِظٌ",
+    "madi": "حَفِظَ",
+    "masdar": "اَلْحِفْظُ",
+    "meaning": "to preserve",
+    "mudari": "يَحْفَظُ",
+    "nahi": "لَا تَحْفَظْ",
+    "root": "ح ف ظ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 110
+  },
+  {
+   "answers": {
+    "amr": "اِحْمَدْ",
+    "bab": "samia",
+    "ism_fail": "حَامِدٌ",
+    "madi": "حَمِدَ",
+    "masdar": "اَلْحَمْدُ",
+    "meaning": "to praise",
+    "mudari": "يَحْمَدُ",
+    "nahi": "لَا تَحْمَدْ",
+    "root": "ح م د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 111
+  },
+  {
+   "answers": {
+    "amr": "اِحْنَثْ",
+    "bab": "samia",
+    "ism_fail": "حَانِثٌ",
+    "madi": "حَنِثَ",
+    "masdar": "اَلْحِنْثُ",
+    "meaning": "to break one's oath",
+    "mudari": "يَحْنَثُ",
+    "nahi": "لَا تَحْنَثْ",
+    "root": "ح ن ث",
+    "verb_type": "sahih"
+   },
+   "entry_id": 112
+  },
+  {
+   "answers": {
+    "amr": "اِخْسَرْ",
+    "bab": "samia",
+    "ism_fail": "خَاسِرٌ",
+    "madi": "خَسِرَ",
+    "masdar": "اَلْخُسْرُ / اَلْخُسْرَانُ",
+    "meaning": "to incur loss",
+    "mudari": "يَخْسَرُ",
+    "nahi": "لَا تَخْسَرْ",
+    "root": "خ س ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 113
+  },
+  {
+   "answers": {
+    "amr": "اِرْبَحْ",
+    "bab": "samia",
+    "ism_fail": "رَابِحٌ",
+    "madi": "رَبِحَ",
+    "masdar": "اَلرِّبْحُ",
+    "meaning": "to gain (profit)",
+    "mudari": "يَرْبَحُ",
+    "nahi": "لَا تَرْبَحْ",
+    "root": "ر ب ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 114
+  },
+  {
+   "answers": {
+    "amr": "اِرْحَمْ",
+    "bab": "samia",
+    "ism_fail": "رَاحِمٌ",
+    "madi": "رَحِمَ",
+    "masdar": "اَلرَّحْمَةُ",
+    "meaning": "to have mercy",
+    "mudari": "يَرْحَمُ",
+    "nahi": "لَا تَرْحَمْ",
+    "root": "ر ح م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 115
+  },
+  {
+   "answers": {
+    "amr": "اِرْغَبْ",
+    "bab": "samia",
+    "ism_fail": "رَاغِبٌ",
+    "madi": "رَغِبَ",
+    "masdar": "اَلرَّغْبَةُ",
+    "meaning": "to desire",
+    "mudari": "يَرْغَبُ",
+    "nahi": "لَا تَرْغَبْ",
+    "root": "ر غ ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 116
+  },
+  {
+   "answers": {
+    "amr": "اِرْكَبْ",
+    "bab": "samia",
+    "ism_fail": "رَاكِبٌ",
+    "madi": "رَكِبَ",
+    "masdar": "اَلرُّكُوْبُ",
+    "meaning": "to ride",
+    "mudari": "يَرْكَبُ",
+    "nahi": "لَا تَرْكَبْ",
+    "root": "ر ك ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 117
+  },
+  {
+   "answers": {
+    "amr": "اِسْعَدْ",
+    "bab": "samia",
+    "madi": "سَعِدَ",
+    "masdar": "اَلسَّعَادَةُ",
+    "meaning": "to be fortunate",
+    "mudari": "يَسْعَدُ",
+    "nahi": "لَا تَسْعَدْ",
+    "root": "س ع د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 118
+  },
+  {
+   "answers": {
+    "amr": "اِسْمَعْ",
+    "bab": "samia",
+    "ism_fail": "سَامِعٌ",
+    "madi": "سَمِعَ",
+    "masdar": "اَلسَّمْعُ",
+    "meaning": "to hear",
+    "mudari": "يَسْمَعُ",
+    "nahi": "لَا تَسْمَعْ",
+    "root": "س م ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 119
+  },
+  {
+   "answers": {
+    "amr": "اِسْهَرْ",
+    "bab": "samia",
+    "ism_fail": "سَاهِرٌ",
+    "madi": "سَهِرَ",
+    "masdar": "اَلسَّهَرُ",
+    "meaning": "to stay up at night",
+    "mudari": "يَسْهَرُ",
+    "nahi": "لَا تَسْهَرْ",
+    "root": "س ه ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 120
+  },
+  {
+   "answers": {
+    "amr": "اِشْبَعْ",
+    "bab": "samia",
+    "ism_fail": "شَابِعٌ",
+    "madi": "شَبِعَ",
+    "masdar": "اَلشِّبَعُ",
+    "meaning": "to satisfy one's appetite",
+    "mudari": "يَشْبَعُ",
+    "nahi": "لَا تَشْبَعْ",
+    "root": "ش ب ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 121
+  },
+  {
+   "answers": {
+    "amr": "اِشْرَبْ",
+    "bab": "samia",
+    "ism_fail": "شَارِبٌ",
+    "madi": "شَرِبَ",
+    "masdar": "اَلشُّرْبُ",
+    "meaning": "to drink",
+    "mudari": "يَشْرَبُ",
+    "nahi": "لَا تَشْرَبْ",
+    "root": "ش ر ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 122
+  },
+  {
+   "answers": {
+    "amr": "اِشْهَدْ",
+    "bab": "samia",
+    "ism_fail": "شَاهِدٌ",
+    "madi": "شَهِدَ",
+    "masdar": "اَلشَّهَادَةُ",
+    "meaning": "to witness",
+    "mudari": "يَشْهَدُ",
+    "nahi": "لَا تَشْهَدْ",
+    "root": "ش ه د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 123
+  },
+  {
+   "answers": {
+    "amr": "اِصْحَبْ",
+    "bab": "samia",
+    "ism_fail": "صَاحِبٌ",
+    "madi": "صَحِبَ",
+    "masdar": "اَلصُّحْبَةُ",
+    "meaning": "to be a companion",
+    "mudari": "يَصْحَبُ",
+    "nahi": "لَا تَصْحَبْ",
+    "root": "ص ح ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 124
+  },
+  {
+   "answers": {
+    "amr": "اِصْعَدْ",
+    "bab": "samia",
+    "ism_fail": "صَاعِدٌ",
+    "madi": "صَعِدَ",
+    "masdar": "اَلصُّعُوْدُ",
+    "meaning": "to rise",
+    "mudari": "يَصْعَدُ",
+    "nahi": "لَا تَصْعَدْ",
+    "root": "ص ع د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 125
+  },
+  {
+   "answers": {
+    "amr": "اِضْحَكْ",
+    "bab": "samia",
+    "ism_fail": "ضَاحِكٌ",
+    "madi": "ضَحِكَ",
+    "masdar": "اَلضِّحْكُ",
+    "meaning": "to laugh",
+    "mudari": "يَضْحَكُ",
+    "nahi": "لَا تَضْحَكْ",
+    "root": "ض ح ك",
+    "verb_type": "sahih"
+   },
+   "entry_id": 126
+  },
+  {
+   "answers": {
+    "amr": "اِضْمَنْ",
+    "bab": "samia",
+    "ism_fail": "ضَامِنٌ",
+    "madi": "ضَمِنَ",
+    "masdar": "اَلضَّمَانُ",
+    "meaning": "to be responsible",
+    "mudari": "يَضْمَنُ",
+    "nahi": "لَا تَضْمَنْ",
+    "root": "ض م ن",
+    "verb_type": "sahih"
+   },
+   "entry_id": 127
+  },
+  {
+   "answers": {
+    "amr": "اِعْطَشْ",
+    "bab": "samia",
+    "ism_fail": "عَاطِشٌ",
+    "madi": "عَطِشَ",
+    "masdar": "اَلْعَطَشُ",
+    "meaning": "to be thirsty",
+    "mudari": "يَعْطَشُ",
+    "nahi": "لَا تَعْطَشْ",
+    "root": "ع ط ش",
+    "verb_type": "sahih"
+   },
+   "entry_id": 128
+  },
+  {
+   "answers": {
+    "amr": "اِعْلَمْ",
+    "bab": "samia",
+    "ism_fail": "عَالِمٌ",
+    "madi": "عَلِمَ",
+    "masdar": "اَلْعِلْمُ",
+    "meaning": "to know",
+    "mudari": "يَعْلَمُ",
+    "nahi": "لَا تَعْلَمْ",
+    "root": "ع ل م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 129
+  },
+  {
+   "answers": {
+    "amr": "اِعْمَلْ",
+    "bab": "samia",
+    "ism_fail": "عَامِلٌ",
+    "madi": "عَمِلَ",
+    "masdar": "اَلْعَمَلُ",
+    "meaning": "to act to work",
+    "mudari": "يَعْمَلُ",
+    "nahi": "لَا تَعْمَلْ",
+    "root": "ع م ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 130
+  },
+  {
+   "answers": {
+    "amr": "اِغْضَبْ",
+    "bab": "samia",
+    "ism_fail": "غَاضِبٌ",
+    "madi": "غَضِبَ",
+    "masdar": "اَلْغَضَبُ",
+    "meaning": "to be angry to be displeased",
+    "mudari": "يَغْضَبُ",
+    "nahi": "لَا تَغْضَبْ",
+    "root": "غ ض ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 131
+  },
+  {
+   "answers": {
+    "amr": "اِفْزَعْ",
+    "bab": "samia",
+    "ism_fail": "فَازِعٌ",
+    "madi": "فَزِعَ",
+    "masdar": "اَلْفَزَعُ",
+    "meaning": "to be afraid",
+    "mudari": "يَفْزَعُ",
+    "nahi": "لَا تَفْزَعْ",
+    "root": "ف ز ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 132
+  },
+  {
+   "answers": {
+    "amr": "اِفْهَمْ",
+    "bab": "samia",
+    "ism_fail": "فَاهِمٌ",
+    "madi": "فَهِمَ",
+    "masdar": "اَلْفَهْمُ",
+    "meaning": "to understand",
+    "mudari": "يَفْهَمُ",
+    "nahi": "لَا تَفْهَمْ",
+    "root": "ف ه م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 133
+  },
+  {
+   "answers": {
+    "amr": "اِقْبَلْ",
+    "bab": "samia",
+    "ism_fail": "قَابِلٌ",
+    "madi": "قَبِلَ",
+    "masdar": "اَلْقَبُوْلُ",
+    "meaning": "to accept",
+    "mudari": "يَقْبَلُ",
+    "nahi": "لَا تَقْبَلْ",
+    "root": "ق ب ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 134
+  },
+  {
+   "answers": {
+    "amr": "اِقْدَمْ",
+    "bab": "samia",
+    "ism_fail": "قَادِمٌ",
+    "madi": "قَدِمَ",
+    "masdar": "اَلْقُدُوْمُ",
+    "meaning": "to precede",
+    "mudari": "يَقْدَمُ",
+    "nahi": "لَا تَقْدَمْ",
+    "root": "ق د م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 135
+  },
+  {
+   "answers": {
+    "amr": "اِقْنَطْ",
+    "bab": "samia",
+    "ism_fail": "قَانِطٌ",
+    "madi": "قَنِطَ",
+    "masdar": "اَلْقُنُوْطُ",
+    "meaning": "to despair",
+    "mudari": "يَقْنَطُ",
+    "nahi": "لَا تَقْنَطْ",
+    "root": "ق ن ط",
+    "verb_type": "sahih"
+   },
+   "entry_id": 136
+  },
+  {
+   "answers": {
+    "amr": "اِكْرَهْ",
+    "bab": "samia",
+    "ism_fail": "كَارِهٌ",
+    "madi": "كَرِهَ",
+    "masdar": "اَلْكَرَاهَةُ",
+    "meaning": "to dislike",
+    "mudari": "يَكْرَهُ",
+    "nahi": "لَا تَكْرَهْ",
+    "root": "ك ر ه",
+    "verb_type": "sahih"
+   },
+   "entry_id": 137
+  },
+  {
+   "answers": {
+    "bab": "samia",
+    "ism_fail": "لَابِثٌ",
+    "madi": "لَبِثَ",
+    "masdar": "اَللَّبْثُ",
+    "meaning": "to wait, to stay",
+    "mudari": "يَلْبَثُ",
+    "root": "ل ب ث",
+    "verb_type": "sahih"
+   },
+   "entry_id": 138
+  },
+  {
+   "answers": {
+    "amr": "اِلْبَسْ",
+    "bab": "samia",
+    "ism_fail": "لَابِسٌ",
+    "madi": "لَبِسَ",
+    "masdar": "اَللُّبْسُ",
+    "meaning": "to wear",
+    "mudari": "يَلْبَسُ",
+    "nahi": "لَا تَلْبَسْ",
+    "root": "ل ب س",
+    "verb_type": "sahih"
+   },
+   "entry_id": 139
+  },
+  {
+   "answers": {
+    "amr": "اِلْحَقْ",
+    "bab": "samia",
+    "ism_fail": "لَاحِقٌ",
+    "madi": "لَحِقَ",
+    "masdar": "اَللُّحُوْقُ",
+    "meaning": "to catch up, to be attached",
+    "mudari": "يَلْحَقُ",
+    "nahi": "لَا تَلْحَقْ",
+    "root": "ل ح ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 140
+  },
+  {
+   "answers": {
+    "amr": "اِلْزَقْ",
+    "bab": "samia",
+    "ism_fail": "لَازِقٌ",
+    "madi": "لَزِقَ",
+    "masdar": "اَللَّزْقُ",
+    "meaning": "to cling",
+    "mudari": "يَلْزَقُ",
+    "nahi": "لَا تَلْزَقْ",
+    "root": "ل ز ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 141
+  },
+  {
+   "answers": {
+    "amr": "اِلْعَبْ",
+    "bab": "samia",
+    "ism_fail": "لَاعِبٌ",
+    "madi": "لَعِبَ",
+    "masdar": "اَللَّعِبُ",
+    "meaning": "to play",
+    "mudari": "يَلْعَبُ",
+    "nahi": "لَا تَلْعَبْ",
+    "root": "ل ع ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 142
+  },
+  {
+   "answers": {
+    "amr": "اِلْعَقْ",
+    "bab": "samia",
+    "ism_fail": "لَاعِقٌ",
+    "madi": "لَعِقَ",
+    "masdar": "اَللَّعْقُ",
+    "meaning": "to lick",
+    "mudari": "يَلْعَقُ",
+    "nahi": "لَا تَلْعَقْ",
+    "root": "ل ع ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 143
+  },
+  {
+   "answers": {
+    "amr": "اِمْرَضْ",
+    "bab": "samia",
+    "ism_fail": "مَارِضٌ",
+    "madi": "مَرِضَ",
+    "masdar": "اَلْمَرَضُ",
+    "meaning": "to become sick",
+    "mudari": "يَمْرَضُ",
+    "nahi": "لَا تَمْرَضْ",
+    "root": "م ر ض",
+    "verb_type": "sahih"
+   },
+   "entry_id": 144
+  },
+  {
+   "answers": {
+    "amr": "اِنْدَمْ",
+    "bab": "samia",
+    "ism_fail": "نَادِمٌ",
+    "madi": "نَدِمَ",
+    "masdar": "اَلنَّدَامَةُ",
+    "meaning": "to regret",
+    "mudari": "يَنْدَمُ",
+    "nahi": "لَا تَنْدَمْ",
+    "root": "ن د م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 145
+  },
+  {
+   "answers": {
+    "amr": "اِبْعَثْ",
+    "bab": "fataha",
+    "ism_fail": "بَاعِثٌ",
+    "madi": "بَعَثَ",
+    "masdar": "اَلْبَعْثُ",
+    "meaning": "to send",
+    "mudari": "يَبْعَثُ",
+    "nahi": "لَا تَبْعَثْ",
+    "root": "ب ع ث",
+    "verb_type": "sahih"
+   },
+   "entry_id": 146
+  },
+  {
+   "answers": {
+    "amr": "اِبْلَعْ",
+    "bab": "fataha",
+    "ism_fail": "بَالِعٌ",
+    "madi": "بَلَعَ",
+    "masdar": "اَلْبَلْعُ",
+    "meaning": "to swallow",
+    "mudari": "يَبْلَعُ",
+    "nahi": "لَا تَبْلَعْ",
+    "root": "ب ل ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 147
+  },
+  {
+   "answers": {
+    "amr": "اِجْحَدْ",
+    "bab": "fataha",
+    "ism_fail": "جَاحِدٌ",
+    "madi": "جَحَدَ",
+    "masdar": "اَلْجُحُوْدُ",
+    "meaning": "to negate",
+    "mudari": "يَجْحَدُ",
+    "nahi": "لَا تَجْحَدْ",
+    "root": "ج ح د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 148
+  },
+  {
+   "answers": {
+    "amr": "اِجْدَعْ",
+    "bab": "fataha",
+    "ism_fail": "جَادِعٌ",
+    "madi": "جَدَعَ",
+    "masdar": "اَلْجَدْعُ",
+    "meaning": "to cut off",
+    "mudari": "يَجْدَعُ",
+    "nahi": "لَا تَجْدَعْ",
+    "root": "ج د ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 149
+  },
+  {
+   "answers": {
+    "amr": "اِجْرَحْ",
+    "bab": "fataha",
+    "ism_fail": "جَارِحٌ",
+    "madi": "جَرَحَ",
+    "masdar": "اَلْجَرْحُ",
+    "meaning": "to wound",
+    "mudari": "يَجْرَحُ",
+    "nahi": "لَا تَجْرَحْ",
+    "root": "ج ر ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 150
+  },
+  {
+   "answers": {
+    "amr": "اِجْعَلْ",
+    "bab": "fataha",
+    "ism_fail": "جَاعِلٌ",
+    "madi": "جَعَلَ",
+    "masdar": "اَلْجَعْلُ",
+    "meaning": "to make",
+    "mudari": "يَجْعَلُ",
+    "nahi": "لَا تَجْعَلْ",
+    "root": "ج ع ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 151
+  },
+  {
+   "answers": {
+    "amr": "اِجْهَرْ",
+    "bab": "fataha",
+    "ism_fail": "جَاهِرٌ",
+    "madi": "جَهَرَ",
+    "masdar": "اَلْجَهْرُ",
+    "meaning": "to be brought to light",
+    "mudari": "يَجْهَرُ",
+    "nahi": "لَا تَجْهَرْ",
+    "root": "ج ه ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 152
+  },
+  {
+   "answers": {
+    "amr": "اِخْدَعْ",
+    "bab": "fataha",
+    "ism_fail": "خَادِعٌ",
+    "madi": "خَدَعَ",
+    "masdar": "اَلْخَدْعُ",
+    "meaning": "to cheat",
+    "mudari": "يَخْدَعُ",
+    "nahi": "لَا تَخْدَعْ",
+    "root": "خ د ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 153
+  },
+  {
+   "answers": {
+    "amr": "اِخْشَعْ",
+    "bab": "fataha",
+    "ism_fail": "خَاشِعٌ",
+    "madi": "خَشَعَ",
+    "masdar": "اَلْخُشُوْعُ",
+    "meaning": "to be submissive",
+    "mudari": "يَخْشَعُ",
+    "nahi": "لَا تَخْشَعْ",
+    "root": "خ ش ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 154
+  },
+  {
+   "answers": {
+    "amr": "اِخْضَعْ",
+    "bab": "fataha",
+    "ism_fail": "خَاضِعٌ",
+    "madi": "خَضَعَ",
+    "masdar": "اَلْخُضُوْعُ",
+    "meaning": "to bow",
+    "mudari": "يَخْضَعُ",
+    "nahi": "لَا تَخْضَعْ",
+    "root": "خ ض ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 155
+  },
+  {
+   "answers": {
+    "amr": "اِخْلَعْ",
+    "bab": "fataha",
+    "ism_fail": "خَالِعٌ",
+    "madi": "خَلَعَ",
+    "masdar": "اَلْخَلْعُ",
+    "meaning": "to take off",
+    "mudari": "يَخْلَعُ",
+    "nahi": "لَا تَخْلَعْ",
+    "root": "خ ل ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 156
+  },
+  {
+   "answers": {
+    "amr": "اِدْعَمْ",
+    "bab": "fataha",
+    "ism_fail": "دَاعِمٌ",
+    "madi": "دَعَمَ",
+    "masdar": "اَلدَّعْمُ",
+    "meaning": "to support",
+    "mudari": "يَدْعَمُ",
+    "nahi": "لَا تَدْعَمْ",
+    "root": "د ع م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 157
+  },
+  {
+   "answers": {
+    "amr": "اِدْفَعْ",
+    "bab": "fataha",
+    "ism_fail": "دَافِعٌ",
+    "madi": "دَفَعَ",
+    "masdar": "اَلدَّفْعُ",
+    "meaning": "to push",
+    "mudari": "يَدْفَعُ",
+    "nahi": "لَا تَدْفَعْ",
+    "root": "د ف ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 158
+  },
+  {
+   "answers": {
+    "amr": "اِذْبَحْ",
+    "bab": "fataha",
+    "ism_fail": "ذَابِحٌ",
+    "madi": "ذَبَحَ",
+    "masdar": "اَلذَّبْحُ",
+    "meaning": "to slaughter",
+    "mudari": "يَذْبَحُ",
+    "nahi": "لَا تَذْبَحْ",
+    "root": "ذ ب ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 159
+  },
+  {
+   "answers": {
+    "amr": "اِذْهَبْ",
+    "bab": "fataha",
+    "ism_fail": "ذَاهِبٌ",
+    "madi": "ذَهَبَ",
+    "masdar": "اَلذَّهَابُ",
+    "meaning": "to go",
+    "mudari": "يَذْهَبُ",
+    "nahi": "لَا تَذْهَبْ",
+    "root": "ذ ه ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 160
+  },
+  {
+   "answers": {
+    "amr": "اِرْضَعْ",
+    "bab": "fataha",
+    "ism_fail": "رَاضِعٌ",
+    "madi": "رَضَعَ",
+    "masdar": "اَلرَّضْعُ / اَلرِّضَاعُ",
+    "meaning": "to suckle",
+    "mudari": "يَرْضَعُ",
+    "nahi": "لَا تَرْضَعْ",
+    "root": "ر ض ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 161
+  },
+  {
+   "answers": {
+    "amr": "اِرْعَبْ",
+    "bab": "fataha",
+    "ism_fail": "رَاعِبٌ",
+    "madi": "رَعَبَ",
+    "masdar": "اَلرَّعْبُ",
+    "meaning": "to be terrified",
+    "mudari": "يَرْعَبُ",
+    "nahi": "لَا تَرْعَبْ",
+    "root": "ر ع ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 162
+  },
+  {
+   "answers": {
+    "amr": "اِرْفَعْ",
+    "bab": "fataha",
+    "ism_fail": "رَافِعٌ",
+    "madi": "رَفَعَ",
+    "masdar": "اَلرَّفْعُ",
+    "meaning": "to lift",
+    "mudari": "يَرْفَعُ",
+    "nahi": "لَا تَرْفَعْ",
+    "root": "ر ف ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 163
+  },
+  {
+   "answers": {
+    "amr": "اِرْكَنْ",
+    "bab": "fataha",
+    "ism_fail": "رَاكِنٌ",
+    "madi": "رَكَنَ",
+    "masdar": "اَلرَّكْنُ",
+    "meaning": "to lean",
+    "mudari": "يَرْكَنُ",
+    "nahi": "لَا تَرْكَنْ",
+    "root": "ر ك ن",
+    "verb_type": "sahih"
+   },
+   "entry_id": 164
+  },
+  {
+   "answers": {
+    "amr": "اِزْرَعْ",
+    "bab": "fataha",
+    "ism_fail": "زَارِعٌ",
+    "madi": "زَرَعَ",
+    "masdar": "اَلزَّرْعُ",
+    "meaning": "to sow",
+    "mudari": "يَزْرَعُ",
+    "nahi": "لَا تَزْرَعْ",
+    "root": "ز ر ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 165
+  },
+  {
+   "answers": {
+    "amr": "اِزْهَقْ",
+    "bab": "fataha",
+    "ism_fail": "زَاهِقٌ",
+    "madi": "زَهَقَ",
+    "masdar": "اَلزَّهْقُ",
+    "meaning": "to come to nothing, to die",
+    "mudari": "يَزْهَقُ",
+    "nahi": "لَا تَزْهَقْ",
+    "root": "ز ه ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 166
+  },
+  {
+   "answers": {
+    "amr": "اِسْبَحْ",
+    "bab": "fataha",
+    "ism_fail": "سَابِحٌ",
+    "madi": "سَبَحَ",
+    "masdar": "اَلسِّبَاحَةُ",
+    "meaning": "to swim",
+    "mudari": "يَسْبَحُ",
+    "nahi": "لَا تَسْبَحْ",
+    "root": "س ب ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 167
+  },
+  {
+   "answers": {
+    "amr": "اِسْحَقْ",
+    "bab": "fataha",
+    "ism_fail": "سَاحِقٌ",
+    "madi": "سَحَقَ",
+    "masdar": "اَلسَّحْقُ",
+    "meaning": "to crush",
+    "mudari": "يَسْحَقُ",
+    "nahi": "لَا تَسْحَقْ",
+    "root": "س ح ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 168
+  },
+  {
+   "answers": {
+    "amr": "اِسْلَخْ",
+    "bab": "fataha",
+    "ism_fail": "سَالِخٌ",
+    "madi": "سَلَخَ",
+    "masdar": "اَلسَّلْخُ",
+    "meaning": "to skin",
+    "mudari": "يَسْلَخُ",
+    "nahi": "لَا تَسْلَخْ",
+    "root": "س ل خ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 169
+  },
+  {
+   "answers": {
+    "amr": "اِسْمَحْ",
+    "bab": "fataha",
+    "ism_fail": "سَامِحٌ",
+    "madi": "سَمَحَ",
+    "masdar": "اَلسَّمْحُ",
+    "meaning": "to grant generously",
+    "mudari": "يَسْمَحُ",
+    "nahi": "لَا تَسْمَحْ",
+    "root": "س م ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 170
+  },
+  {
+   "answers": {
+    "amr": "اِشْرَحْ",
+    "bab": "fataha",
+    "ism_fail": "شَارِحٌ",
+    "madi": "شَرَحَ",
+    "masdar": "اَلشَّرْحُ",
+    "meaning": "to explain, to open",
+    "mudari": "يَشْرَحُ",
+    "nahi": "لَا تَشْرَحْ",
+    "root": "ش ر ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 171
+  },
+  {
+   "answers": {
+    "amr": "اِصْرَخْ",
+    "bab": "fataha",
+    "ism_fail": "صَارِخٌ",
+    "madi": "صَرَخَ",
+    "masdar": "اَلصُّرَاخُ",
+    "meaning": "to cry, to yell",
+    "mudari": "يَصْرَخُ",
+    "nahi": "لَا تَصْرَخْ",
+    "root": "ص ر خ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 172
+  },
+  {
+   "answers": {
+    "amr": "اِصْنَعْ",
+    "bab": "fataha",
+    "ism_fail": "صَانِعٌ",
+    "madi": "صَنَعَ",
+    "masdar": "اَلصُّنْعُ",
+    "meaning": "to make, to prepare",
+    "mudari": "يَصْنَعُ",
+    "nahi": "لَا تَصْنَعْ",
+    "root": "ص ن ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 173
+  },
+  {
+   "answers": {
+    "amr": "اِصْرَعْ",
+    "bab": "fataha",
+    "ism_fail": "صَارِعٌ",
+    "madi": "صَرَعَ",
+    "masdar": "اَلصَّرْعُ",
+    "meaning": "to knock down",
+    "mudari": "يَصْرَعُ",
+    "nahi": "لَا تَصْرَعْ",
+    "root": "ص ر ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 174
+  },
+  {
+   "answers": {
+    "amr": "اِصْهَلْ",
+    "bab": "fataha",
+    "ism_fail": "صَاهِلٌ",
+    "madi": "صَهَلَ",
+    "masdar": "اَلصَّهْلُ",
+    "meaning": "to neigh (horse)",
+    "mudari": "يَصْهَلُ",
+    "nahi": "لَا تَصْهَلْ",
+    "root": "ص ه ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 175
+  },
+  {
+   "answers": {
+    "amr": "اِضْجَعْ",
+    "bab": "fataha",
+    "ism_fail": "ضَاجِعٌ",
+    "madi": "ضَجَعَ",
+    "masdar": "اَلضَّجْعُ",
+    "meaning": "to lie on one's side",
+    "mudari": "يَضْجَعُ",
+    "nahi": "لَا تَضْجَعْ",
+    "root": "ض ج ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 176
+  },
+  {
+   "answers": {
+    "amr": "اِطْبَخْ",
+    "bab": "fataha",
+    "ism_fail": "طَابِخٌ",
+    "madi": "طَبَخَ",
+    "meaning": "to cook",
+    "mudari": "يَطْبَخُ",
+    "nahi": "لَا تَطْبَخْ",
+    "root": "ط ب خ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 177
+  },
+  {
+   "answers": {
+    "amr": "اِطْحَنْ",
+    "bab": "fataha",
+    "ism_fail": "طَاحِنٌ",
+    "madi": "طَحَنَ",
+    "masdar": "اَلطَّحْنُ",
+    "meaning": "to mill",
+    "mudari": "يَطْحَنُ",
+    "nahi": "لَا تَطْحَنْ",
+    "root": "ط ح ن",
+    "verb_type": "sahih"
+   },
+   "entry_id": 178
+  },
+  {
+   "answers": {
+    "amr": "اِطْرَحْ",
+    "bab": "fataha",
+    "ism_fail": "طَارِحٌ",
+    "madi": "طَرَحَ",
+    "masdar": "اَلطَّرْحُ",
+    "meaning": "to throw, to disown",
+    "mudari": "يَطْرَحُ",
+    "nahi": "لَا تَطْرَحْ",
+    "root": "ط ر ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 179
+  },
+  {
+   "answers": {
+    "amr": "اِفْتَحْ",
+    "bab": "fataha",
+    "ism_fail": "فَاتِحٌ",
+    "madi": "فَتَحَ",
+    "masdar": "اَلْفَتْحُ",
+    "meaning": "to open",
+    "mudari": "يَفْتَحُ",
+    "nahi": "لَا تَفْتَحْ",
+    "root": "ف ت ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 180
+  },
+  {
+   "answers": {
+    "amr": "اِفْجَعْ",
+    "bab": "fataha",
+    "ism_fail": "فَاجِعٌ",
+    "madi": "فَجَعَ",
+    "masdar": "اَلْفَجْعُ",
+    "meaning": "to inflict suffering",
+    "mudari": "يَفْجَعُ",
+    "nahi": "لَا تَفْجَعْ",
+    "root": "ف ج ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 181
+  },
+  {
+   "answers": {
+    "amr": "اِفْحَصْ",
+    "bab": "fataha",
+    "ism_fail": "فَاحِصٌ",
+    "madi": "فَحَصَ",
+    "masdar": "اَلْفَحْصُ",
+    "meaning": "to check, to investigate",
+    "mudari": "يَفْحَصُ",
+    "nahi": "لَا تَفْحَصْ",
+    "root": "ف ح ص",
+    "verb_type": "sahih"
+   },
+   "entry_id": 182
+  },
+  {
+   "answers": {
+    "amr": "اِفْسَخْ",
+    "bab": "fataha",
+    "ism_fail": "فَاسِخٌ",
+    "madi": "فَسَخَ",
+    "masdar": "اَلْفَسْخُ",
+    "meaning": "to annul, to invalidate",
+    "mudari": "يَفْسَخُ",
+    "nahi": "لَا تَفْسَخْ",
+    "root": "ف س خ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 183
+  },
+  {
+   "answers": {
+    "amr": "اِقْرَعْ",
+    "bab": "fataha",
+    "ism_fail": "قَارِعٌ",
+    "madi": "قَرَعَ",
+    "masdar": "اَلْقَرْعُ",
+    "meaning": "to knock",
+    "mudari": "يَقْرَعُ",
+    "nahi": "لَا تَقْرَعْ",
+    "root": "ق ر ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 184
+  },
+  {
+   "answers": {
+    "amr": "اِقْطَعْ",
+    "bab": "fataha",
+    "ism_fail": "قَاطِعٌ",
+    "madi": "قَطَعَ",
+    "masdar": "اَلْقَطْعُ",
+    "meaning": "to cut",
+    "mudari": "يَقْطَعُ",
+    "nahi": "لَا تَقْطَعْ",
+    "root": "ق ط ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 185
+  },
+  {
+   "answers": {
+    "amr": "اِقْلَعْ",
+    "bab": "fataha",
+    "ism_fail": "قَالِعٌ",
+    "madi": "قَلَعَ",
+    "masdar": "اَلْقَلْعُ",
+    "meaning": "to uproot",
+    "mudari": "يَقْلَعُ",
+    "nahi": "لَا تَقْلَعْ",
+    "root": "ق ل ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 186
+  },
+  {
+   "answers": {
+    "amr": "اِلْسَعْ",
+    "bab": "fataha",
+    "ism_fail": "لَاسِعٌ",
+    "madi": "لَسَعَ",
+    "masdar": "اَللَّسْعُ",
+    "meaning": "to sting",
+    "mudari": "يَلْسَعُ",
+    "nahi": "لَا تَلْسَعْ",
+    "root": "ل س ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 187
+  },
+  {
+   "answers": {
+    "amr": "اِلْمَعْ",
+    "bab": "fataha",
+    "ism_fail": "لَامِعٌ",
+    "madi": "لَمَعَ",
+    "masdar": "اَللَّمْعُ",
+    "meaning": "to shine",
+    "mudari": "يَلْمَعُ",
+    "nahi": "لَا تَلْمَعْ",
+    "root": "ل م ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 188
+  },
+  {
+   "answers": {
+    "amr": "اِمْحَقْ",
+    "bab": "fataha",
+    "ism_fail": "مَاحِقٌ",
+    "madi": "مَحَقَ",
+    "masdar": "اَلْمَحْقُ",
+    "meaning": "to annihilate",
+    "mudari": "يَمْحَقُ",
+    "nahi": "لَا تَمْحَقْ",
+    "root": "م ح ق",
+    "verb_type": "sahih"
+   },
+   "entry_id": 189
+  },
+  {
+   "answers": {
+    "amr": "اِمْدَحْ",
+    "bab": "fataha",
+    "ism_fail": "مَادِحٌ",
+    "madi": "مَدَحَ",
+    "masdar": "اَلْمَدْحُ",
+    "meaning": "to praise",
+    "mudari": "يَمْدَحُ",
+    "nahi": "لَا تَمْدَحْ",
+    "root": "م د ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 190
+  },
+  {
+   "answers": {
+    "amr": "اِمْزَحْ",
+    "bab": "fataha",
+    "ism_fail": "مَازِحٌ",
+    "madi": "مَزَحَ",
+    "masdar": "اَلْمَزْحُ",
+    "meaning": "to joke",
+    "mudari": "يَمْزَحُ",
+    "nahi": "لَا تَمْزَحْ",
+    "root": "م ز ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 191
+  },
+  {
+   "answers": {
+    "amr": "اِمْسَخْ",
+    "bab": "fataha",
+    "ism_fail": "مَاسِخٌ",
+    "madi": "مَسَخَ",
+    "masdar": "اَلْمَسْخُ",
+    "meaning": "to disfigure",
+    "mudari": "يَمْسَخُ",
+    "nahi": "لَا تَمْسَخْ",
+    "root": "م س خ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 192
+  },
+  {
+   "answers": {
+    "amr": "اِمْضَغْ",
+    "bab": "fataha",
+    "ism_fail": "مَاضِغٌ",
+    "madi": "مَضَغَ",
+    "masdar": "اَلْمَضْغُ",
+    "meaning": "to chew",
+    "mudari": "يَمْضَغُ",
+    "nahi": "لَا تَمْضَغْ",
+    "root": "م ض غ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 193
+  },
+  {
+   "answers": {
+    "amr": "اِمْنَحْ",
+    "bab": "fataha",
+    "ism_fail": "مَانِحٌ",
+    "madi": "مَنَحَ",
+    "masdar": "اَلْمَنْحُ",
+    "meaning": "to gift",
+    "mudari": "يَمْنَحُ",
+    "nahi": "لَا تَمْنَحْ",
+    "root": "م ن ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 194
+  },
+  {
+   "answers": {
+    "amr": "اِمْنَعْ",
+    "bab": "fataha",
+    "ism_fail": "مَانِعٌ",
+    "madi": "مَنَعَ",
+    "masdar": "اَلْمَنْعُ",
+    "meaning": "to prevent",
+    "mudari": "يَمْنَعُ",
+    "nahi": "لَا تَمْنَعْ",
+    "root": "م ن ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 195
+  },
+  {
+   "answers": {
+    "amr": "اِنْحَلْ",
+    "bab": "fataha",
+    "ism_fail": "نَاحِلٌ",
+    "madi": "نَحَلَ",
+    "masdar": "اَلنُّحُوْلُ",
+    "meaning": "to be slim",
+    "mudari": "يَنْحَلُ",
+    "nahi": "لَا تَنْحَلْ",
+    "root": "ن ح ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 196
+  },
+  {
+   "answers": {
+    "amr": "اِنْسَخْ",
+    "bab": "fataha",
+    "ism_fail": "نَاسِخٌ",
+    "madi": "نَسَخَ",
+    "masdar": "اَلنَّسْخُ",
+    "meaning": "to abrogate, to write",
+    "mudari": "يَنْسَخُ",
+    "nahi": "لَا تَنْسَخْ",
+    "root": "ن س خ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 197
+  },
+  {
+   "answers": {
+    "amr": "اِنْصَحْ",
+    "bab": "fataha",
+    "ism_fail": "نَاصِحٌ",
+    "madi": "نَصَحَ",
+    "masdar": "اَلنُّصْحُ",
+    "meaning": "to advise",
+    "mudari": "يَنْصَحُ",
+    "nahi": "لَا تَنْصَحْ",
+    "root": "ن ص ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 198
+  },
+  {
+   "answers": {
+    "amr": "اِنْهَبْ",
+    "bab": "fataha",
+    "ism_fail": "نَاهِبٌ",
+    "madi": "نَهَبَ",
+    "masdar": "اَلنَّهْبُ",
+    "meaning": "to plunder",
+    "mudari": "يَنْهَبُ",
+    "nahi": "لَا تَنْهَبْ",
+    "root": "ن ه ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 199
+  },
+  {
+   "answers": {
+    "amr": "اِنْهَضْ",
+    "bab": "fataha",
+    "ism_fail": "نَاهِضٌ",
+    "madi": "نَهَضَ",
+    "masdar": "اَلنُّهُوْضُ",
+    "meaning": "to rise",
+    "mudari": "يَنْهَضُ",
+    "nahi": "لَا تَنْهَضْ",
+    "root": "ن ه ض",
+    "verb_type": "sahih"
+   },
+   "entry_id": 200
+  },
+  {
+   "answers": {
+    "amr": "اِهْجَعْ",
+    "bab": "fataha",
+    "ism_fail": "هَاجِعٌ",
+    "madi": "هَجَعَ",
+    "masdar": "اَلْهُجُوْعُ",
+    "meaning": "to sleep",
+    "mudari": "يَهْجَعُ",
+    "nahi": "لَا تَهْجَعْ",
+    "root": "ه ج ع",
+    "verb_type": "sahih"
+   },
+   "entry_id": 201
+  },
+  {
+   "answers": {
+    "amr": "اُبْصُرْ",
+    "bab": "karuma",
+    "ism_fail": "بَصِيْرٌ",
+    "madi": "بَصُرَ",
+    "masdar": "اَلْبَصَارَةُ",
+    "meaning": "to see",
+    "mudari": "يَبْصُرُ",
+    "nahi": "لَا تَبْصُرْ",
+    "root": "ب ص ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 202
+  },
+  {
+   "answers": {
+    "amr": "اُبْعُدْ",
+    "bab": "karuma",
+    "ism_fail": "بَعِيْدٌ",
+    "madi": "بَعُدَ",
+    "masdar": "اَلْبُعْدُ",
+    "meaning": "to be far",
+    "mudari": "يَبْعُدُ",
+    "nahi": "لَا تَبْعُدْ",
+    "root": "ب ع د",
+    "verb_type": "sahih"
+   },
+   "entry_id": 203
+  },
+  {
+   "answers": {
+    "amr": "اُجْدُرْ",
+    "bab": "karuma",
+    "ism_fail": "جَدِيْرٌ",
+    "madi": "جَدُرَ",
+    "masdar": "اَلْجَدَارَةُ",
+    "meaning": "to be worthy of",
+    "mudari": "يَجْدُرُ",
+    "nahi": "لَا تَجْدُرْ",
+    "root": "ج د ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 204
+  },
+  {
+   "answers": {
+    "amr": "اُحْصُنْ",
+    "bab": "karuma",
+    "ism_fail": "حَصِيْنٌ",
+    "madi": "حَصُنَ",
+    "masdar": "اَلْحَصَانَةُ",
+    "meaning": "to be pure",
+    "mudari": "يَحْصُنُ",
+    "nahi": "لَا تَحْصُنْ",
+    "root": "ح ص ن",
+    "verb_type": "sahih"
+   },
+   "entry_id": 205
+  },
+  {
+   "answers": {
+    "amr": "اُخْبُثْ",
+    "bab": "karuma",
+    "ism_fail": "خَبِيْثٌ",
+    "madi": "خَبُثَ",
+    "masdar": "اَلْخَبَاثَةُ",
+    "meaning": "to be bad, to be wicked",
+    "mudari": "يَخْبُثُ",
+    "nahi": "لَا تَخْبُثْ",
+    "root": "خ ب ث",
+    "verb_type": "sahih"
+   },
+   "entry_id": 206
+  },
+  {
+   "answers": {
+    "amr": "اُشْرُفْ",
+    "bab": "karuma",
+    "ism_fail": "شَرِيْفٌ",
+    "madi": "شَرُفَ",
+    "masdar": "اَلشَّرَافَةُ",
+    "meaning": "to be noble",
+    "mudari": "يَشْرُفُ",
+    "nahi": "لَا تَشْرُفْ",
+    "root": "ش ر ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 207
+  },
+  {
+   "answers": {
+    "amr": "اُصْعُبْ",
+    "bab": "karuma",
+    "ism_fail": "صَعْبٌ",
+    "madi": "صَعُبَ",
+    "masdar": "اَلصُّعُوْبَةُ",
+    "meaning": "to be difficult",
+    "mudari": "يَصْعُبُ",
+    "nahi": "لَا تَصْعُبْ",
+    "root": "ص ع ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 208
+  },
+  {
+   "answers": {
+    "amr": "اُصْلُحْ",
+    "bab": "karuma",
+    "ism_fail": "صَالِحٌ",
+    "madi": "صَلُحَ",
+    "masdar": "اَلصَّلَاحُ",
+    "meaning": "to be pious, to be in order",
+    "mudari": "يَصْلُحُ",
+    "nahi": "لَا تَصْلُحْ",
+    "root": "ص ل ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 209
+  },
+  {
+   "answers": {
+    "amr": "اُضْعُفْ",
+    "bab": "karuma",
+    "ism_fail": "ضَعِيْفٌ",
+    "madi": "ضَعُفَ",
+    "masdar": "اَلضُّعْفُ",
+    "meaning": "to be weak",
+    "mudari": "يَضْعُفُ",
+    "nahi": "لَا تَضْعُفْ",
+    "root": "ض ع ف",
+    "verb_type": "sahih"
+   },
+   "entry_id": 210
+  },
+  {
+   "answers": {
+    "amr": "اُطْهُرْ",
+    "bab": "karuma",
+    "ism_fail": "طَاهِرٌ",
+    "madi": "طَهُرَ",
+    "masdar": "اَلطُّهْرُ",
+    "meaning": "to be clean",
+    "mudari": "يَطْهُرُ",
+    "nahi": "لَا تَطْهُرْ",
+    "root": "ط ه ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 211
+  },
+  {
+   "answers": {
+    "amr": "اُعْظُمْ",
+    "bab": "karuma",
+    "ism_fail": "عَظِيْمٌ",
+    "madi": "عَظُمَ",
+    "meaning": "to be great",
+    "mudari": "يَعْظُمُ",
+    "nahi": "لَا تَعْظُمْ",
+    "root": "ع ظ م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 212
+  },
+  {
+   "answers": {
+    "amr": "اُغْلُظْ",
+    "bab": "karuma",
+    "ism_fail": "غَلِيْظٌ",
+    "madi": "غَلُظَ",
+    "masdar": "اَلْغِلْظُ",
+    "meaning": "to be thick",
+    "mudari": "يَغْلُظُ",
+    "nahi": "لَا تَغْلُظْ",
+    "root": "غ ل ظ",
+    "verb_type": "sahih"
+   },
+   "entry_id": 213
+  },
+  {
+   "answers": {
+    "amr": "اُقْبُحْ",
+    "bab": "karuma",
+    "ism_fail": "قَبِيْحٌ",
+    "madi": "قَبُحَ",
+    "masdar": "اَلْقَبَاحَةُ",
+    "meaning": "to be bad, to be ugly",
+    "mudari": "يَقْبُحُ",
+    "nahi": "لَا تَقْبُحْ",
+    "root": "ق ب ح",
+    "verb_type": "sahih"
+   },
+   "entry_id": 214
+  },
+  {
+   "answers": {
+    "amr": "اُقْرُبْ",
+    "bab": "karuma",
+    "ism_fail": "قَرِيْبٌ",
+    "madi": "قَرُبَ",
+    "masdar": "اَلْقُرْبُ",
+    "meaning": "to be near",
+    "mudari": "يَقْرُبُ",
+    "nahi": "لَا تَقْرُبْ",
+    "root": "ق ر ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 215
+  },
+  {
+   "answers": {
+    "amr": "اُكْبُرْ",
+    "bab": "karuma",
+    "ism_fail": "كَبِيْرٌ",
+    "madi": "كَبُرَ",
+    "masdar": "اَلْكِبْرُ",
+    "meaning": "to be big",
+    "mudari": "يَكْبُرُ",
+    "nahi": "لَا تَكْبُرْ",
+    "root": "ك ب ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 216
+  },
+  {
+   "answers": {
+    "amr": "اُكْثُرْ",
+    "bab": "karuma",
+    "ism_fail": "كَثِيْرٌ",
+    "madi": "كَثُرَ",
+    "masdar": "اَلْكَثْرَةُ",
+    "meaning": "to be much",
+    "mudari": "يَكْثُرُ",
+    "nahi": "لَا تَكْثُرْ",
+    "root": "ك ث ر",
+    "verb_type": "sahih"
+   },
+   "entry_id": 217
+  },
+  {
+   "answers": {
+    "amr": "اُكْرُمْ",
+    "bab": "karuma",
+    "ism_fail": "كَرِيْمٌ",
+    "madi": "كَرُمَ",
+    "masdar": "اَلْكَرَامَةُ",
+    "meaning": "to be generous, to be respected",
+    "mudari": "يَكْرُمُ",
+    "nahi": "لَا تَكْرُمْ",
+    "root": "ك ر م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 218
+  },
+  {
+   "answers": {
+    "amr": "اُكْمُلْ",
+    "bab": "karuma",
+    "ism_fail": "كَامِلٌ",
+    "madi": "كَمُلَ",
+    "masdar": "اَلْكَمَالُ",
+    "meaning": "to be complete",
+    "mudari": "يَكْمُلُ",
+    "nahi": "لَا تَكْمُلْ",
+    "root": "ك م ل",
+    "verb_type": "sahih"
+   },
+   "entry_id": 219
+  },
+  {
+   "answers": {
+    "amr": "اُنْعُمْ",
+    "bab": "karuma",
+    "ism_fail": "نَاعِمٌ",
+    "madi": "نَعُمَ",
+    "masdar": "اَلنُّعُوْمَةُ",
+    "meaning": "to be tender",
+    "mudari": "يَنْعُمُ",
+    "nahi": "لَا تَنْعُمْ",
+    "root": "ن ع م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 220
+  },
+  {
+   "answers": {
+    "amr": "اِحْسِبْ",
+    "bab": "hasiba",
+    "ism_fail": "حَاسِبٌ",
+    "madi": "حَسِبَ",
+    "masdar": "اَلْحِسْبَانُ",
+    "meaning": "to think",
+    "mudari": "يَحْسِبُ",
+    "nahi": "لَا تَحْسِبْ",
+    "root": "ح س ب",
+    "verb_type": "sahih"
+   },
+   "entry_id": 221
+  },
+  {
+   "answers": {
+    "amr": "اِنْعِمْ",
+    "bab": "hasiba",
+    "ism_fail": "نَاعِمٌ",
+    "madi": "نَعِمَ",
+    "masdar": "اَلنَّعْمَةُ",
+    "meaning": "to live in luxury",
+    "mudari": "يَنْعِمُ",
+    "nahi": "لَا تَنْعِمْ",
+    "root": "ن ع م",
+    "verb_type": "sahih"
+   },
+   "entry_id": 222
+  },
+  {
+   "answers": {
+    "amr": "بُثَّ",
+    "bab": "nasara",
+    "ism_fail": "بَاثٌّ",
+    "madi": "بَثَّ",
+    "masdar": "اَلْبَثُّ",
+    "meaning": "to spread",
+    "mudari": "يَبُثُّ",
+    "nahi": "لَا تَبُثَّ",
+    "root": "ب ث ث",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 223
+  },
+  {
+   "answers": {
+    "amr": "بُلَّ",
+    "bab": "nasara",
+    "ism_fail": "بَالٌّ",
+    "madi": "بَلَّ",
+    "masdar": "اَلْبَلُّ / اَلْبِلَّةُ",
+    "meaning": "to wet",
+    "mudari": "يَبُلُّ",
+    "nahi": "لَا تَبُلَّ",
+    "root": "ب ل ل",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 224
+  },
+  {
+   "answers": {
+    "amr": "جُرَّ",
+    "bab": "nasara",
+    "ism_fail": "جَارٌّ",
+    "madi": "جَرَّ",
+    "masdar": "اَلْجَرُّ",
+    "meaning": "to pull, to drag",
+    "mudari": "يَجُرُّ",
+    "nahi": "لَا تَجُرَّ",
+    "root": "ج ر ر",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 225
+  },
+  {
+   "answers": {
+    "amr": "حُطَّ",
+    "bab": "nasara",
+    "ism_fail": "حَاطٌّ",
+    "madi": "حَطَّ",
+    "masdar": "اَلْحَطُّ",
+    "meaning": "to put down",
+    "mudari": "يَحُطُّ",
+    "nahi": "لَا تَحُطَّ",
+    "root": "ح ط ط",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 226
+  },
+  {
+   "answers": {
+    "amr": "حُكَّ",
+    "bab": "nasara",
+    "ism_fail": "حَاكٌّ",
+    "madi": "حَكَّ",
+    "masdar": "اَلْحَكُّ",
+    "meaning": "to itch",
+    "mudari": "يَحُكُّ",
+    "nahi": "لَا تَحُكَّ",
+    "root": "ح ك ك",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 227
+  },
+  {
+   "answers": {
+    "amr": "حُلَّ",
+    "bab": "nasara",
+    "ism_fail": "حَالٌّ",
+    "madi": "حَلَّ",
+    "masdar": "اَلْحَلُّ",
+    "meaning": "to open, to untie",
+    "mudari": "يَحُلُّ",
+    "nahi": "لَا تَحُلَّ",
+    "root": "ح ل ل",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 228
+  },
+  {
+   "answers": {
+    "amr": "خُصَّ",
+    "bab": "nasara",
+    "ism_fail": "خَاصٌّ",
+    "madi": "خَصَّ",
+    "masdar": "اَلْخَصُّ",
+    "meaning": "to specify",
+    "mudari": "يَخُصُّ",
+    "nahi": "لَا تَخُصَّ",
+    "root": "خ ص ص",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 229
+  },
+  {
+   "answers": {
+    "amr": "دُعَّ",
+    "bab": "nasara",
+    "ism_fail": "دَاعٌّ",
+    "madi": "دَعَّ",
+    "masdar": "اَلدَّعُّ",
+    "meaning": "to repel",
+    "mudari": "يَدُعُّ",
+    "nahi": "لَا تَدُعَّ",
+    "root": "د ع ع",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 230
+  },
+  {
+   "answers": {
+    "amr": "دُقَّ",
+    "bab": "nasara",
+    "ism_fail": "دَاقٌّ",
+    "madi": "دَقَّ",
+    "masdar": "اَلدَّقُّ",
+    "meaning": "to pound",
+    "mudari": "يَدُقُّ",
+    "nahi": "لَا تَدُقَّ",
+    "root": "د ق ق",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 231
+  },
+  {
+   "answers": {
+    "amr": "دُلَّ",
+    "bab": "nasara",
+    "ism_fail": "دَالٌّ",
+    "madi": "دَلَّ",
+    "masdar": "اَلدَّلَالَةُ",
+    "meaning": "to show",
+    "mudari": "يَدُلُّ",
+    "nahi": "لَا تَدُلَّ",
+    "root": "د ل ل",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 232
+  },
+  {
+   "answers": {
+    "amr": "ذُمَّ",
+    "bab": "nasara",
+    "ism_fail": "ذَامٌّ",
+    "madi": "ذَمَّ",
+    "masdar": "اَلذَّمُّ",
+    "meaning": "to criticize",
+    "mudari": "يَذُمُّ",
+    "nahi": "لَا تَذُمَّ",
+    "root": "ذ م م",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 233
+  },
+  {
+   "answers": {
+    "amr": "رُدَّ",
+    "bab": "nasara",
+    "ism_fail": "رَادٌّ",
+    "madi": "رَدَّ",
+    "masdar": "اَلرَّدُّ",
+    "meaning": "to return",
+    "mudari": "يَرُدُّ",
+    "nahi": "لَا تَرُدَّ",
+    "root": "ر د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 234
+  },
+  {
+   "answers": {
+    "amr": "رُشَّ",
+    "bab": "nasara",
+    "ism_fail": "رَاشٌّ",
+    "madi": "رَشَّ",
+    "masdar": "اَلرَّشُّ",
+    "meaning": "to sprinkle",
+    "mudari": "يَرُشُّ",
+    "nahi": "لَا تَرُشَّ",
+    "root": "ر ش ش",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 235
+  },
+  {
+   "answers": {
+    "amr": "سُبَّ",
+    "bab": "nasara",
+    "ism_fail": "سَابٌّ",
+    "madi": "سَبَّ",
+    "masdar": "اَلسَّبُّ",
+    "meaning": "to swear",
+    "mudari": "يَسُبُّ",
+    "nahi": "لَا تَسُبَّ",
+    "root": "س ب ب",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 236
+  },
+  {
+   "answers": {
+    "amr": "سُدَّ",
+    "bab": "nasara",
+    "ism_fail": "سَادٌّ",
+    "madi": "سَدَّ",
+    "masdar": "اَلسَّدُّ",
+    "meaning": "to close",
+    "mudari": "يَسُدُّ",
+    "nahi": "لَا تَسُدَّ",
+    "root": "س د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 237
+  },
+  {
+   "answers": {
+    "amr": "سُرَّ",
+    "bab": "nasara",
+    "ism_fail": "سَارٌّ",
+    "madi": "سَرَّ",
+    "masdar": "اَلْمَسَرَّةُ",
+    "meaning": "to be happy",
+    "mudari": "يَسُرُّ",
+    "nahi": "لَا تَسُرَّ",
+    "root": "س ر ر",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 238
+  },
+  {
+   "answers": {
+    "amr": "سُلَّ",
+    "bab": "nasara",
+    "ism_fail": "سَالٌّ",
+    "madi": "سَلَّ",
+    "masdar": "اَلسَّلُّ",
+    "meaning": "to unsheathe, to pull out",
+    "mudari": "يَسُلُّ",
+    "nahi": "لَا تَسُلَّ",
+    "root": "س ل ل",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 239
+  },
+  {
+   "answers": {
+    "amr": "شُجَّ",
+    "bab": "nasara",
+    "ism_fail": "شَاجٌّ",
+    "madi": "شَجَّ",
+    "masdar": "اَلشَّجُّ",
+    "meaning": "to wound",
+    "mudari": "يَشُجُّ",
+    "nahi": "لَا تَشُجَّ",
+    "root": "ش ج ج",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 240
+  },
+  {
+   "answers": {
+    "amr": "شُدَّ",
+    "bab": "nasara",
+    "ism_fail": "شَادٌّ",
+    "madi": "شَدَّ",
+    "masdar": "اَلشَّدُّ",
+    "meaning": "to tie",
+    "mudari": "يَشُدُّ",
+    "nahi": "لَا تَشُدَّ",
+    "root": "ش د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 241
+  },
+  {
+   "answers": {
+    "amr": "شُقَّ",
+    "bab": "nasara",
+    "ism_fail": "شَاقٌّ",
+    "madi": "شَقَّ",
+    "masdar": "اَلشَّقُّ",
+    "meaning": "to tear, to be hard",
+    "mudari": "يَشُقُّ",
+    "nahi": "لَا تَشُقَّ",
+    "root": "ش ق ق",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 242
+  },
+  {
+   "answers": {
+    "amr": "شُمَّ",
+    "bab": "nasara",
+    "ism_fail": "شَامٌّ",
+    "madi": "شَمَّ",
+    "masdar": "اَلشَّمُّ",
+    "meaning": "to smell",
+    "mudari": "يَشُمُّ",
+    "nahi": "لَا تَشُمَّ",
+    "root": "ش م م",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 243
+  },
+  {
+   "answers": {
+    "amr": "صُبَّ",
+    "bab": "nasara",
+    "ism_fail": "صَابٌّ",
+    "madi": "صَبَّ",
+    "masdar": "اَلصَّبُّ",
+    "meaning": "to pour",
+    "mudari": "يَصُبُّ",
+    "nahi": "لَا تَصُبَّ",
+    "root": "ص ب ب",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 244
+  },
+  {
+   "answers": {
+    "amr": "صُدَّ",
+    "bab": "nasara",
+    "ism_fail": "صَادٌّ",
+    "madi": "صَدَّ",
+    "masdar": "اَلصَّدُّ",
+    "meaning": "to avert",
+    "mudari": "يَصُدُّ",
+    "nahi": "لَا تَصُدَّ",
+    "root": "ص د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 245
+  },
+  {
+   "answers": {
+    "amr": "ضُمَّ",
+    "bab": "nasara",
+    "ism_fail": "ضَامٌّ",
+    "madi": "ضَمَّ",
+    "masdar": "اَلضَّمُّ",
+    "meaning": "to join",
+    "mudari": "يَضُمُّ",
+    "nahi": "لَا تَضُمَّ",
+    "root": "ض م م",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 246
+  },
+  {
+   "answers": {
+    "amr": "ظُنَّ",
+    "bab": "nasara",
+    "ism_fail": "ظَانٌّ",
+    "madi": "ظَنَّ",
+    "masdar": "اَلظَّنُّ",
+    "meaning": "to assume",
+    "mudari": "يَظُنُّ",
+    "nahi": "لَا تَظُنَّ",
+    "root": "ظ ن ن",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 247
+  },
+  {
+   "answers": {
+    "amr": "عُدَّ",
+    "bab": "nasara",
+    "ism_fail": "عَادٌّ",
+    "madi": "عَدَّ",
+    "masdar": "اَلْعَدُّ",
+    "meaning": "to count",
+    "mudari": "يَعُدُّ",
+    "nahi": "لَا تَعُدَّ",
+    "root": "ع د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 248
+  },
+  {
+   "answers": {
+    "amr": "غُضَّ",
+    "bab": "nasara",
+    "ism_fail": "غَاضٌّ",
+    "madi": "غَضَّ",
+    "masdar": "اَلْغَضُّ",
+    "meaning": "to cast down (one`s gaze)",
+    "mudari": "يَغُضُّ",
+    "nahi": "لَا تَغُضَّ",
+    "root": "غ ض ض",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 249
+  },
+  {
+   "answers": {
+    "amr": "قُصَّ",
+    "bab": "nasara",
+    "ism_fail": "قَاصٌّ",
+    "madi": "قَصَّ",
+    "masdar": "اَلْقَصُّ",
+    "meaning": "to narrate, to walk behind",
+    "mudari": "يَقُصُّ",
+    "nahi": "لَا تَقُصَّ",
+    "root": "ق ص ص",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 250
+  },
+  {
+   "answers": {
+    "amr": "كُفَّ",
+    "bab": "nasara",
+    "ism_fail": "كَافٌّ",
+    "madi": "كَفَّ",
+    "masdar": "اَلْكَفُّ",
+    "meaning": "to stop",
+    "mudari": "يَكُفُّ",
+    "nahi": "لَا تَكُفَّ",
+    "root": "ك ف ف",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 251
+  },
+  {
+   "answers": {
+    "amr": "لُفَّ",
+    "bab": "nasara",
+    "ism_fail": "لَافٌّ",
+    "madi": "لَفَّ",
+    "masdar": "اَللَّفُّ",
+    "meaning": "to wrap",
+    "mudari": "يَلُفُّ",
+    "nahi": "لَا تَلُفَّ",
+    "root": "ل ف ف",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 252
+  },
+  {
+   "answers": {
+    "amr": "مُدَّ",
+    "bab": "nasara",
+    "ism_fail": "مَادٌّ",
+    "madi": "مَدَّ",
+    "masdar": "اَلْمَدُّ",
+    "meaning": "to extend",
+    "mudari": "يَمُدُّ",
+    "nahi": "لَا تَمُدَّ",
+    "root": "م د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 253
+  },
+  {
+   "answers": {
+    "amr": "مُرَّ",
+    "bab": "nasara",
+    "ism_fail": "مَارٌّ",
+    "madi": "مَرَّ",
+    "masdar": "اَلْمُرُورُ",
+    "meaning": "to pass by",
+    "mudari": "يَمُرُّ",
+    "nahi": "لَا تَمُرَّ",
+    "root": "م ر ر",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 254
+  },
+  {
+   "answers": {
+    "amr": "مُنَّ",
+    "bab": "nasara",
+    "ism_fail": "مَانٌّ",
+    "madi": "مَنَّ",
+    "masdar": "اَلْمَنُّ",
+    "meaning": "to favour",
+    "mudari": "يَمُنُّ",
+    "nahi": "لَا تَمُنَّ",
+    "root": "م ن ن",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 255
+  },
+  {
+   "answers": {
+    "amr": "هُشَّ",
+    "bab": "nasara",
+    "ism_fail": "هَاشٌّ",
+    "madi": "هَشَّ",
+    "masdar": "اَلْهَشُّ",
+    "meaning": "to chop off (leaves)",
+    "mudari": "يَهُشُّ",
+    "nahi": "لَا تَهُشَّ",
+    "root": "ه ش ش",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 256
+  },
+  {
+   "answers": {
+    "amr": "بِتَّ",
+    "bab": "daraba",
+    "ism_fail": "بَاتٌّ",
+    "madi": "بَتَّ",
+    "masdar": "اَلْبُتُوتُ",
+    "meaning": "to cut off",
+    "mudari": "يَبِتُّ",
+    "nahi": "لَا تَبِتَّ",
+    "root": "ب ت ت",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 257
+  },
+  {
+   "answers": {
+    "amr": "تِبَّ",
+    "bab": "daraba",
+    "ism_fail": "تَابٌّ",
+    "madi": "تَبَّ",
+    "masdar": "اَلتَّبُّ",
+    "meaning": "to destroy",
+    "mudari": "يَتِبُّ",
+    "nahi": "لَا تَتِبَّ",
+    "root": "ت ب ب",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 258
+  },
+  {
+   "answers": {
+    "amr": "تِمَّ",
+    "bab": "daraba",
+    "ism_fail": "تَامٌّ",
+    "madi": "تَمَّ",
+    "masdar": "اَلتَّمَامُ",
+    "meaning": "to be complete",
+    "mudari": "يَتِمُّ",
+    "nahi": "لَا تَتِمَّ",
+    "root": "ت م م",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 259
+  },
+  {
+   "answers": {
+    "amr": "جِدَّ",
+    "bab": "daraba",
+    "ism_fail": "جَادٌّ",
+    "madi": "جَدَّ",
+    "masdar": "اَلْجَدُّ",
+    "meaning": "to be of high status",
+    "mudari": "يَجِدُّ",
+    "nahi": "لَا تَجِدَّ",
+    "root": "ج د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 260
+  },
+  {
+   "answers": {
+    "amr": "جِفَّ",
+    "bab": "daraba",
+    "ism_fail": "جَافٌّ",
+    "madi": "جَفَّ",
+    "masdar": "اَلْجَفَافُ",
+    "meaning": "to become dry",
+    "mudari": "يَجِفُّ",
+    "nahi": "لَا تَجِفَّ",
+    "root": "ج ف ف",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 261
+  },
+  {
+   "answers": {
+    "amr": "حِبَّ",
+    "bab": "daraba",
+    "ism_fail": "حَابٌّ",
+    "madi": "حَبَّ",
+    "masdar": "اَلْحُبُّ",
+    "meaning": "to love",
+    "mudari": "يَحِبُّ",
+    "nahi": "لَا تَحِبَّ",
+    "root": "ح ب ب",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 262
+  },
+  {
+   "answers": {
+    "amr": "زِلَّ",
+    "bab": "daraba",
+    "ism_fail": "زَالٌّ",
+    "madi": "زَلَّ",
+    "masdar": "اَلزَّلَّةُ",
+    "meaning": "to slip",
+    "mudari": "يَزِلُّ",
+    "nahi": "لَا تَزِلَّ",
+    "root": "ز ل ل",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 263
+  },
+  {
+   "answers": {
+    "amr": "ضِجَّ",
+    "bab": "daraba",
+    "ism_fail": "ضَاجٌّ",
+    "madi": "ضَجَّ",
+    "masdar": "اَلضَّجُّ",
+    "meaning": "to clamour",
+    "mudari": "يَضِجُّ",
+    "nahi": "لَا تَضِجَّ",
+    "root": "ض ج ج",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 264
+  },
+  {
+   "answers": {
+    "amr": "ضِلَّ",
+    "bab": "daraba",
+    "ism_fail": "ضَالٌّ",
+    "madi": "ضَلَّ",
+    "masdar": "اَلضَّلَالُ",
+    "meaning": "to go astray",
+    "mudari": "يَضِلُّ",
+    "nahi": "لَا تَضِلَّ",
+    "root": "ض ل ل",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 265
+  },
+  {
+   "answers": {
+    "amr": "فِرَّ",
+    "bab": "daraba",
+    "ism_fail": "فَارٌّ",
+    "madi": "فَرَّ",
+    "masdar": "اَلْفِرَارُ",
+    "meaning": "to flee",
+    "mudari": "يَفِرُّ",
+    "nahi": "لَا تَفِرَّ",
+    "root": "ف ر ر",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 266
+  },
+  {
+   "answers": {
+    "amr": "قِلَّ",
+    "bab": "daraba",
+    "ism_fail": "قَالٌّ",
+    "madi": "قَلَّ",
+    "masdar": "اَلْقِلَّةُ",
+    "meaning": "to be little",
+    "mudari": "يَقِلُّ",
+    "nahi": "لَا تَقِلَّ",
+    "root": "ق ل ل",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 267
+  },
+  {
+   "answers": {
+    "amr": "بَرَّ",
+    "bab": "samia",
+    "ism_fail": "بَارٌّ",
+    "madi": "بَرَّ",
+    "masdar": "اَلْبِرُّ",
+    "meaning": "to be pious",
+    "mudari": "يَبَرُّ",
+    "nahi": "لَا تَبَرَّ",
+    "root": "ب ر ر",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 268
+  },
+  {
+   "answers": {
+    "amr": "بَشَّ",
+    "bab": "samia",
+    "ism_fail": "بَاشٌّ",
+    "madi": "بَشَّ",
+    "masdar": "اَلْبَشَاشَةُ",
+    "meaning": "to look happy",
+    "mudari": "يَبَشُّ",
+    "nahi": "لَا تَبَشَّ",
+    "root": "ب ش ش",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 269
+  },
+  {
+   "answers": {
+    "amr": "عَضَّ",
+    "bab": "samia",
+    "ism_fail": "عَاضٌّ",
+    "madi": "عَضَّ",
+    "masdar": "اَلْعَضُّ",
+    "meaning": "to bite, to grab with the teeth",
+    "mudari": "يَعَضُّ",
+    "nahi": "لَا تَعَضَّ",
+    "root": "ع ض ض",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 270
+  },
+  {
+   "answers": {
+    "amr": "لَذَّ",
+    "bab": "samia",
+    "ism_fail": "لَاذٌّ",
+    "madi": "لَذَّ",
+    "masdar": "اَللَّذَّةُ",
+    "meaning": "to be delicious",
+    "mudari": "يَلَذُّ",
+    "nahi": "لَا تَلَذَّ",
+    "root": "ل ذ ذ",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 271
+  },
+  {
+   "answers": {
+    "amr": "مَسَّ",
+    "bab": "samia",
+    "ism_fail": "مَاسٌّ",
+    "madi": "مَسَّ",
+    "masdar": "اَلْمَسُّ",
+    "meaning": "to touch",
+    "mudari": "يَمَسُّ",
+    "nahi": "لَا تَمَسَّ",
+    "root": "م س س",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 272
+  },
+  {
+   "answers": {
+    "amr": "مَصَّ",
+    "bab": "samia",
+    "ism_fail": "مَاصٌّ",
+    "madi": "مَصَّ",
+    "masdar": "اَلْمَصُّ",
+    "meaning": "to suck",
+    "mudari": "يَمَصُّ",
+    "nahi": "لَا تَمَصَّ",
+    "root": "م ص ص",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 273
+  },
+  {
+   "answers": {
+    "amr": "وَدَّ",
+    "bab": "samia",
+    "ism_fail": "وَادٌّ",
+    "madi": "وَدَّ",
+    "masdar": "اَلْوُدُّ",
+    "meaning": "to befriend",
+    "mudari": "يَوَدُّ",
+    "nahi": "لَا تَوَدَّ",
+    "root": "و د د",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 274
+  },
+  {
+   "answers": {
+    "amr": "حُبَّ",
+    "bab": "karuma",
+    "ism_fail": "حَبِيْبٌ",
+    "madi": "حَبَّ",
+    "masdar": "اَلْحُبُّ",
+    "meaning": "to love",
+    "mudari": "يَحُبُّ",
+    "nahi": "لَا تَحُبَّ",
+    "root": "ح ب ب",
+    "verb_type": "mudaaf"
+   },
+   "entry_id": 275
+  },
+  {
+   "answers": {
+    "amr": "اُوْجُرْ",
+    "bab": "nasara",
+    "ism_fail": "اٰجِرٌ",
+    "madi": "أَجَرَ",
+    "masdar": "اَلْأَجْرُ",
+    "meaning": "to lease",
+    "mudari": "يَأْجُرُ",
+    "nahi": "لَا تَأْجُرْ",
+    "root": "ء ج ر",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 276
+  },
+  {
+   "answers": {
+    "amr": "خُذْ",
+    "bab": "nasara",
+    "ism_fail": "اٰخِذٌ",
+    "madi": "أَخَذَ",
+    "masdar": "اَلْأَخْذُ",
+    "meaning": "to hold, to take",
+    "mudari": "يَأْخُذُ",
+    "nahi": "لَا تَأْخُذْ",
+    "root": "ء خ ذ",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 277
+  },
+  {
+   "answers": {
+    "amr": "كُلْ",
+    "bab": "nasara",
+    "ism_fail": "اٰكِلٌ",
+    "madi": "أَكَلَ",
+    "masdar": "اَلْأَكْلُ",
+    "meaning": "to eat",
+    "mudari": "يَأْكُلُ",
+    "nahi": "لَا تَأْكُلْ",
+    "root": "ء ك ل",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 278
+  },
+  {
+   "answers": {
+    "amr": "مُرْ",
+    "bab": "nasara",
+    "ism_fail": "اٰمِرٌ",
+    "madi": "أَمَرَ",
+    "masdar": "اَلْأَمْرُ",
+    "meaning": "to command",
+    "mudari": "يَأْمُرُ",
+    "nahi": "لَا تَأْمُرْ",
+    "root": "ء م ر",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 279
+  },
+  {
+   "answers": {
+    "amr": "اِيْدِبْ",
+    "bab": "daraba",
+    "ism_fail": "اٰدِبٌ",
+    "madi": "أَدَبَ",
+    "masdar": "اَلْأَدْبُ",
+    "meaning": "to host",
+    "mudari": "يَأْدِبُ",
+    "nahi": "لَا تَأْدِبْ",
+    "root": "ء د ب",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 280
+  },
+  {
+   "answers": {
+    "amr": "اِيْسِرْ",
+    "bab": "daraba",
+    "ism_fail": "اٰسِرٌ",
+    "madi": "أَسَرَ",
+    "masdar": "اَلْأَسْرُ",
+    "meaning": "to jail",
+    "mudari": "يَأْسِرُ",
+    "nahi": "لَا تَأْسِرْ",
+    "root": "ء س ر",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 281
+  },
+  {
+   "answers": {
+    "amr": "اِيْفِكْ",
+    "bab": "daraba",
+    "ism_fail": "اٰفِكٌ",
+    "madi": "أَفَكَ",
+    "masdar": "اَلْإِفْكُ",
+    "meaning": "to lie",
+    "mudari": "يَأْفِكُ",
+    "nahi": "لَا تَأْفِكْ",
+    "root": "ء ف ك",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 282
+  },
+  {
+   "answers": {
+    "amr": "اِيْثَمْ",
+    "bab": "samia",
+    "ism_fail": "اٰثِمٌ",
+    "madi": "أَثِمَ",
+    "masdar": "اَلْإِثْمُ",
+    "meaning": "to be sinful",
+    "mudari": "يَأْثَمُ",
+    "nahi": "لَا تَأْثَمْ",
+    "root": "ء ث م",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 283
+  },
+  {
+   "answers": {
+    "amr": "اِيْذَنْ",
+    "bab": "samia",
+    "ism_fail": "اٰذِنٌ",
+    "madi": "أَذِنَ",
+    "masdar": "اَلْإِذْنُ",
+    "meaning": "to permit",
+    "mudari": "يَأْذَنُ",
+    "nahi": "لَا تَأْذَنْ",
+    "root": "ء ذ ن",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 284
+  },
+  {
+   "answers": {
+    "amr": "اِيْمَنْ",
+    "bab": "samia",
+    "ism_fail": "اٰمِنٌ",
+    "madi": "أَمِنَ",
+    "masdar": "اَلْأَمْنُ",
+    "meaning": "to be safe",
+    "mudari": "يَأْمَنُ",
+    "nahi": "لَا تَأْمَنْ",
+    "root": "ء م ن",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 285
+  },
+  {
+   "answers": {
+    "amr": "اُوْبُلْ",
+    "bab": "karuma",
+    "ism_fail": "أَبِيْلٌ",
+    "madi": "أَبُلَ",
+    "masdar": "اَلْأَبَالَةُ",
+    "meaning": "to become a monk",
+    "mudari": "يَأْبُلُ",
+    "nahi": "لَا تَأْبُلْ",
+    "root": "ء ب ل",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 286
+  },
+  {
+   "answers": {
+    "amr": "اُوْثُلْ",
+    "bab": "karuma",
+    "ism_fail": "أَثِيْلٌ",
+    "madi": "أَثُلَ",
+    "masdar": "اَلْأَثَالَةُ",
+    "meaning": "to be old",
+    "mudari": "يَأْثُلُ",
+    "nahi": "لَا تَأْثُلْ",
+    "root": "ء ث ل",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 287
+  },
+  {
+   "answers": {
+    "amr": "اُوْدُبْ",
+    "bab": "karuma",
+    "ism_fail": "أَدِيْبٌ",
+    "madi": "أَدُبَ",
+    "masdar": "اَلْأَدَبُ",
+    "meaning": "to be well-mannered",
+    "mudari": "يَأْدُبُ",
+    "nahi": "لَا تَأْدُبْ",
+    "root": "ء د ب",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 288
+  },
+  {
+   "answers": {
+    "amr": "اُوْرُبْ",
+    "bab": "karuma",
+    "ism_fail": "أَرِيْبٌ",
+    "madi": "أَرُبَ",
+    "masdar": "اَلْأَرَابَةُ",
+    "meaning": "to be wise, to be proficient",
+    "mudari": "يَأْرُبُ",
+    "nahi": "لَا تَأْرُبْ",
+    "root": "ء ر ب",
+    "verb_type": "mahmuz_fa"
+   },
+   "entry_id": 289
+  },
+  {
+   "answers": {
+    "amr": "اِرْأَمْ",
+    "bab": "samia",
+    "ism_fail": "رَائِمٌ",
+    "madi": "رَئِمَ",
+    "masdar": "اَلرَّأْمُ",
+    "meaning": "to heal up",
+    "mudari": "يَرْأَمُ",
+    "nahi": "لَا تَرْأَمْ",
+    "root": "ر ء م",
+    "verb_type": "mahmuz_ain"
+   },
+   "entry_id": 290
+  },
+  {
+   "answers": {
+    "amr": "اِسْأَمْ",
+    "bab": "samia",
+    "ism_fail": "سَائِمٌ",
+    "madi": "سَئِمَ",
+    "meaning": "to be bored",
+    "mudari": "يَسْأَمُ",
+    "nahi": "لَا تَسْأَمْ",
+    "root": "س ء م",
+    "verb_type": "mahmuz_ain"
+   },
+   "entry_id": 291
+  },
+  {
+   "answers": {
+    "amr": "اِدْأَبْ",
+    "bab": "fataha",
+    "ism_fail": "دَائِبٌ",
+    "madi": "دَأَبَ",
+    "masdar": "اَلدَّأْبُ",
+    "meaning": "to persevere",
+    "mudari": "يَدْأَبُ",
+    "nahi": "لَا تَدْأَبْ",
+    "root": "د ء ب",
+    "verb_type": "mahmuz_ain"
+   },
+   "entry_id": 292
+  },
+  {
+   "answers": {
+    "amr": "اِرْأَسْ",
+    "bab": "fataha",
+    "ism_fail": "رَائِسٌ",
+    "madi": "رَأَسَ",
+    "masdar": "اَلرِّئَاسَةُ",
+    "meaning": "to lead",
+    "mudari": "يَرْأَسُ",
+    "nahi": "لَا تَرْأَسْ",
+    "root": "ر ء س",
+    "verb_type": "mahmuz_ain"
+   },
+   "entry_id": 293
+  },
+  {
+   "answers": {
+    "amr": "اِسْأَلْ",
+    "bab": "fataha",
+    "ism_fail": "سَائِلٌ",
+    "madi": "سَأَلَ",
+    "masdar": "اَلسُّؤَالُ",
+    "meaning": "to ask",
+    "mudari": "يَسْأَلُ",
+    "nahi": "لَا تَسْأَلْ",
+    "root": "س ء ل",
+    "verb_type": "mahmuz_ain"
+   },
+   "entry_id": 294
+  },
+  {
+   "answers": {
+    "amr": "اُبْؤُسْ",
+    "bab": "karuma",
+    "ism_fail": "بَئِيْسٌ",
+    "madi": "بَؤُسَ",
+    "masdar": "اَلْبَأْسُ",
+    "meaning": "to be brave",
+    "mudari": "يَبْؤُسُ",
+    "nahi": "لَا تَبْؤُسْ",
+    "root": "ب ء س",
+    "verb_type": "mahmuz_ain"
+   },
+   "entry_id": 295
+  },
+  {
+   "answers": {
+    "amr": "اُلْؤُمْ",
+    "bab": "karuma",
+    "ism_fail": "لَئِيْمٌ",
+    "madi": "لَؤُمَ",
+    "masdar": "اَللُّؤْمُ",
+    "meaning": "to be lowly",
+    "mudari": "يَلْؤُمُ",
+    "nahi": "لَا تَلْؤُمْ",
+    "root": "ل ء م",
+    "verb_type": "mahmuz_ain"
+   },
+   "entry_id": 296
+  },
+  {
+   "answers": {
+    "amr": "اُقْرُؤْ",
+    "bab": "nasara",
+    "ism_fail": "قَارِئٌ",
+    "madi": "قَرَأَ",
+    "masdar": "اَلْقِرَاءَةُ",
+    "meaning": "to read",
+    "mudari": "يَقْرُؤُ",
+    "nahi": "لَا تَقْرُؤْ",
+    "root": "ق ر ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 297
+  },
+  {
+   "answers": {
+    "amr": "اِهْنِئْ",
+    "bab": "daraba",
+    "ism_fail": "هَانِئٌ",
+    "madi": "هَنَأَ",
+    "masdar": "اَلْهَنْأُ",
+    "meaning": "to give someone food, etc.",
+    "mudari": "يَهْنِئُ",
+    "nahi": "لَا تَهْنِئْ",
+    "root": "ه ن ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 298
+  },
+  {
+   "answers": {
+    "amr": "اِخْطَأْ",
+    "bab": "samia",
+    "ism_fail": "خَاطِئٌ",
+    "madi": "خَطِئَ",
+    "masdar": "اَلْخَطَأُ",
+    "meaning": "to make a mistake",
+    "mudari": "يَخْطَأُ",
+    "nahi": "لَا تَخْطَأْ",
+    "root": "خ ط ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 299
+  },
+  {
+   "answers": {
+    "amr": "اِرْزَأْ",
+    "bab": "samia",
+    "ism_fail": "رَازِئٌ",
+    "madi": "رَزِئَ",
+    "masdar": "اَلرُّزْءُ",
+    "meaning": "to cause loss to some one (financially)",
+    "mudari": "يَرْزَأُ",
+    "nahi": "لَا تَرْزَأْ",
+    "root": "ر ز ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 300
+  },
+  {
+   "answers": {
+    "amr": "اِصْدَأْ",
+    "bab": "samia",
+    "ism_fail": "صَادِئٌ",
+    "madi": "صَدِئَ",
+    "masdar": "اَلصَّدَأُ",
+    "meaning": "to rust",
+    "mudari": "يَصْدَأُ",
+    "nahi": "لَا تَصْدَأْ",
+    "root": "ص د ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 301
+  },
+  {
+   "answers": {
+    "amr": "اِبْدَأْ",
+    "bab": "fataha",
+    "ism_fail": "بَادِئٌ",
+    "madi": "بَدَأَ",
+    "masdar": "اَلْبَدْءُ",
+    "meaning": "to begin",
+    "mudari": "يَبْدَأُ",
+    "nahi": "لَا تَبْدَأْ",
+    "root": "ب د ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 302
+  },
+  {
+   "answers": {
+    "amr": "اِقْرَأْ",
+    "bab": "fataha",
+    "ism_fail": "قَارِئٌ",
+    "madi": "قَرَأَ",
+    "masdar": "اَلْقِرَاءَةُ",
+    "meaning": "to recite",
+    "mudari": "يَقْرَأُ",
+    "nahi": "لَا تَقْرَأْ",
+    "root": "ق ر ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 303
+  },
+  {
+   "answers": {
+    "amr": "اِمْلَأْ",
+    "bab": "fataha",
+    "ism_fail": "مَالِئٌ",
+    "madi": "مَلَأَ",
+    "masdar": "اَلْمَلْءُ",
+    "meaning": "to fill",
+    "mudari": "يَمْلَأُ",
+    "nahi": "لَا تَمْلَأْ",
+    "root": "م ل ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 304
+  },
+  {
+   "answers": {
+    "amr": "اِنْشَأْ",
+    "bab": "fataha",
+    "ism_fail": "نَاشِئٌ",
+    "madi": "نَشَأَ",
+    "masdar": "اَلنَّشْأُ / اَلنَّشْأَةُ",
+    "meaning": "to grow, to originate",
+    "mudari": "يَنْشَأُ",
+    "nahi": "لَا تَنْشَأْ",
+    "root": "ن ش ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 305
+  },
+  {
+   "answers": {
+    "amr": "اُبْرُؤْ",
+    "bab": "karuma",
+    "ism_fail": "بَرِيْئٌ",
+    "madi": "بَرُؤَ",
+    "masdar": "اَلْبُرْءُ",
+    "meaning": "to retire",
+    "mudari": "يَبْرُؤُ",
+    "nahi": "لَا تَبْرُؤْ",
+    "root": "ب ر ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 306
+  },
+  {
+   "answers": {
+    "amr": "اُبْطُؤْ",
+    "bab": "karuma",
+    "ism_fail": "بَطِيْئٌ",
+    "madi": "بَطُؤَ",
+    "meaning": "to be slow",
+    "mudari": "يَبْطُؤُ",
+    "nahi": "لَا تَبْطُؤْ",
+    "root": "ب ط ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 307
+  },
+  {
+   "answers": {
+    "amr": "اُجْرُؤْ",
+    "bab": "karuma",
+    "ism_fail": "جَرِيْئٌ",
+    "madi": "جَرُؤَ",
+    "masdar": "اَلْجُرْأَةُ",
+    "meaning": "to have courage",
+    "mudari": "يَجْرُؤُ",
+    "nahi": "لَا تَجْرُؤْ",
+    "root": "ج ر ء",
+    "verb_type": "mahmuz_lam"
+   },
+   "entry_id": 308
+  },
+  {
+   "answers": {
+    "amr": "ثِبْ",
+    "bab": "daraba",
+    "ism_fail": "وَاثِبٌ",
+    "madi": "وَثَبَ",
+    "masdar": "اَلْوَثْبُ",
+    "meaning": "to jump",
+    "mudari": "يَثِبُ",
+    "nahi": "لَا تَثِبْ",
+    "root": "و ث ب",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 309
+  },
+  {
+   "answers": {
+    "amr": "ثِقْ",
+    "bab": "daraba",
+    "ism_fail": "وَاثِقٌ",
+    "madi": "وَثَقَ",
+    "masdar": "اَلْوُثُوْقُ",
+    "meaning": "to trust",
+    "mudari": "يَثِقُ",
+    "nahi": "لَا تَثِقْ",
+    "root": "و ث ق",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 310
+  },
+  {
+   "answers": {
+    "amr": "جِدْ",
+    "bab": "daraba",
+    "ism_fail": "وَاجِدٌ",
+    "madi": "وَجَدَ",
+    "masdar": "اَلْوِجْدَانُ",
+    "meaning": "to find",
+    "mudari": "يَجِدُ",
+    "nahi": "لَا تَجِدْ",
+    "root": "و ج د",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 311
+  },
+  {
+   "answers": {
+    "amr": "رِدْ",
+    "bab": "daraba",
+    "ism_fail": "وَارِدٌ",
+    "madi": "وَرَدَ",
+    "masdar": "اَلْوُرُوْدُ",
+    "meaning": "to arrive",
+    "mudari": "يَرِدُ",
+    "nahi": "لَا تَرِدْ",
+    "root": "و ر د",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 312
+  },
+  {
+   "answers": {
+    "amr": "زِرْ",
+    "bab": "daraba",
+    "ism_fail": "وَازِرٌ",
+    "madi": "وَزَرَ",
+    "masdar": "اَلْوِزْرُ",
+    "meaning": "to carry (a burden)",
+    "mudari": "يَزِرُ",
+    "nahi": "لَا تَزِرْ",
+    "root": "و ز ر",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 313
+  },
+  {
+   "answers": {
+    "amr": "زِنْ",
+    "bab": "daraba",
+    "ism_fail": "وَازِنٌ",
+    "madi": "وَزَنَ",
+    "masdar": "اَلْوَزْنُ",
+    "meaning": "to weigh",
+    "mudari": "يَزِنُ",
+    "nahi": "لَا تَزِنْ",
+    "root": "و ز ن",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 314
+  },
+  {
+   "answers": {
+    "amr": "صِفْ",
+    "bab": "daraba",
+    "ism_fail": "وَاصِفٌ",
+    "madi": "وَصَفَ",
+    "masdar": "اَلْوَصْفُ / اَلصِّفَةُ",
+    "meaning": "to depict, to describe",
+    "mudari": "يَصِفُ",
+    "nahi": "لَا تَصِفْ",
+    "root": "و ص ف",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 315
+  },
+  {
+   "answers": {
+    "amr": "صِلْ",
+    "bab": "daraba",
+    "ism_fail": "وَاصِلٌ",
+    "madi": "وَصَلَ",
+    "masdar": "اَلْوَصْلُ",
+    "meaning": "to join",
+    "mudari": "يَصِلُ",
+    "nahi": "لَا تَصِلْ",
+    "root": "و ص ل",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 316
+  },
+  {
+   "answers": {
+    "amr": "عِدْ",
+    "bab": "daraba",
+    "ism_fail": "وَاعِدٌ",
+    "madi": "وَعَدَ",
+    "masdar": "اَلْوَعْدُ",
+    "meaning": "to promise",
+    "mudari": "يَعِدُ",
+    "nahi": "لَا تَعِدْ",
+    "root": "و ع د",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 317
+  },
+  {
+   "answers": {
+    "amr": "عِظْ",
+    "bab": "daraba",
+    "ism_fail": "وَاعِظٌ",
+    "madi": "وَعَظَ",
+    "masdar": "اَلْوَعْظُ",
+    "meaning": "to admonish",
+    "mudari": "يَعِظُ",
+    "nahi": "لَا تَعِظْ",
+    "root": "و ع ظ",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 318
+  },
+  {
+   "answers": {
+    "amr": "قِفْ",
+    "bab": "daraba",
+    "ism_fail": "وَاقِفٌ",
+    "madi": "وَقَفَ",
+    "masdar": "اَلْوُقُوْفُ",
+    "meaning": "to stop",
+    "mudari": "يَقِفُ",
+    "nahi": "لَا تَقِفْ",
+    "root": "و ق ف",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 319
+  },
+  {
+   "answers": {
+    "amr": "لِجْ",
+    "bab": "daraba",
+    "ism_fail": "وَالِجٌ",
+    "madi": "وَلَجَ",
+    "masdar": "اَلْوُلُوْجُ",
+    "meaning": "to penetrate",
+    "mudari": "يَلِجُ",
+    "nahi": "لَا تَلِجْ",
+    "root": "و ل ج",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 320
+  },
+  {
+   "answers": {
+    "amr": "لِدْ",
+    "bab": "daraba",
+    "ism_fail": "وَالِدٌ",
+    "madi": "وَلَدَ",
+    "masdar": "اَلْوِلَادَةُ",
+    "meaning": "to give birth",
+    "mudari": "يَلِدُ",
+    "nahi": "لَا تَلِدْ",
+    "root": "و ل د",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 321
+  },
+  {
+   "answers": {
+    "amr": "اِيْجَعْ",
+    "bab": "samia",
+    "ism_fail": "وَاجِعٌ",
+    "madi": "وَجِعَ",
+    "masdar": "اَلْوَجَعُ",
+    "meaning": "to feel pain",
+    "mudari": "يَوْجَعُ",
+    "nahi": "لَا تَوْجَعْ",
+    "root": "و ج ع",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 322
+  },
+  {
+   "answers": {
+    "amr": "اِيْجَلْ",
+    "bab": "samia",
+    "ism_fail": "وَاجِلٌ",
+    "madi": "وَجِلَ",
+    "masdar": "اَلْوَجَلُ",
+    "meaning": "to be afraid",
+    "mudari": "يَوْجَلُ",
+    "nahi": "لَا تَوْجَلْ",
+    "root": "و ج ل",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 323
+  },
+  {
+   "answers": {
+    "amr": "اِيْلَعْ",
+    "bab": "samia",
+    "ism_fail": "وَالِعٌ",
+    "madi": "وَلِعَ",
+    "masdar": "اَلْوَلَعُ",
+    "meaning": "to be enthusiastic",
+    "mudari": "يَوْلَعُ",
+    "nahi": "لَا تَوْلَعْ",
+    "root": "و ل ع",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 324
+  },
+  {
+   "answers": {
+    "amr": "دَعْ",
+    "bab": "fataha",
+    "ism_fail": "وَادِعٌ",
+    "madi": "وَدَعَ",
+    "masdar": "اَلْوَدَاعُ",
+    "meaning": "to leave",
+    "mudari": "يَدَعُ",
+    "nahi": "لَا تَدَعْ",
+    "root": "و د ع",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 325
+  },
+  {
+   "answers": {
+    "amr": "ضَعْ",
+    "bab": "fataha",
+    "ism_fail": "وَاضِعٌ",
+    "madi": "وَضَعَ",
+    "masdar": "اَلْوَضْعُ",
+    "meaning": "to place",
+    "mudari": "يَضَعُ",
+    "nahi": "لَا تَضَعْ",
+    "root": "و ض ع",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 326
+  },
+  {
+   "answers": {
+    "amr": "قَعْ",
+    "bab": "fataha",
+    "ism_fail": "وَاقِعٌ",
+    "madi": "وَقَعَ",
+    "masdar": "اَلْوُقُوْعُ",
+    "meaning": "to occur, to fall",
+    "mudari": "يَقَعُ",
+    "nahi": "لَا تَقَعْ",
+    "root": "و ق ع",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 327
+  },
+  {
+   "answers": {
+    "amr": "هَبْ",
+    "bab": "fataha",
+    "ism_fail": "وَاهِبٌ",
+    "madi": "وَهَبَ",
+    "masdar": "اَلْهِبَةُ",
+    "meaning": "to give, to gift",
+    "mudari": "يَهَبُ",
+    "nahi": "لَا تَهَبْ",
+    "root": "و ه ب",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 328
+  },
+  {
+   "answers": {
+    "amr": "اُوْسُمْ",
+    "bab": "karuma",
+    "ism_fail": "وَسِيْمٌ",
+    "madi": "وَسُمَ",
+    "masdar": "اَلْوَسْمُ",
+    "meaning": "to be handsome",
+    "mudari": "يَوْسُمُ",
+    "nahi": "لَا تَوْسُمْ",
+    "root": "و س م",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 329
+  },
+  {
+   "answers": {
+    "amr": "اُوْعُثْ",
+    "bab": "karuma",
+    "ism_fail": "وَعِيْثٌ",
+    "madi": "وَعُثَ",
+    "masdar": "اَلْوُعُوْثَةُ",
+    "meaning": "to be difficult (pathway)",
+    "mudari": "يَوْعُثُ",
+    "nahi": "لَا تَوْعُثْ",
+    "root": "و ع ث",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 330
+  },
+  {
+   "answers": {
+    "amr": "رِثْ",
+    "bab": "hasiba",
+    "ism_fail": "وَارِثٌ",
+    "madi": "وَرِثَ",
+    "masdar": "اَلْوَرَاثَةُ",
+    "meaning": "to inherit",
+    "mudari": "يَرِثُ",
+    "nahi": "لَا تَرِثْ",
+    "root": "و ر ث",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 331
+  },
+  {
+   "answers": {
+    "amr": "رِعْ",
+    "bab": "hasiba",
+    "ism_fail": "وَارِعٌ",
+    "madi": "وَرِعَ",
+    "masdar": "اَلْوَرْعُ",
+    "meaning": "to be pious",
+    "mudari": "يَرِعُ",
+    "nahi": "لَا تَرِعْ",
+    "root": "و ر ع",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 332
+  },
+  {
+   "answers": {
+    "amr": "رِمْ",
+    "bab": "hasiba",
+    "ism_fail": "وَارِمٌ",
+    "madi": "وَرِمَ",
+    "masdar": "اَلْوَرْمُ",
+    "meaning": "to swell",
+    "mudari": "يَرِمُ",
+    "nahi": "لَا تَرِمْ",
+    "root": "و ر م",
+    "verb_type": "mithal_wawi"
+   },
+   "entry_id": 333
+  },
+  {
+   "answers": {
+    "amr": "اِيْسِرْ",
+    "bab": "daraba",
+    "ism_fail": "يَاسِرٌ",
+    "madi": "يَسَرَ",
+    "masdar": "اَلْمَيْسِرُ",
+    "meaning": "to gamble",
+    "mudari": "يَيْسِرُ",
+    "nahi": "لَا تَيْسِرْ",
+    "root": "ي س ر",
+    "verb_type": "mithal_yai"
+   },
+   "entry_id": 334
+  },
+  {
+   "answers": {
+    "amr": "اِيْعِرْ",
+    "bab": "daraba",
+    "ism_fail": "يَاعِرٌ",
+    "madi": "يَعَرَ",
+    "masdar": "اَلْيَعَارُ",
+    "meaning": "to crow",
+    "mudari": "يَيْعِرُ",
+    "nahi": "لَا تَيْعِرْ",
+    "root": "ي ع ر",
+    "verb_type": "mithal_yai"
+   },
+   "entry_id": 335
+  },
+  {
+   "answers": {
+    "amr": "اِيْتَمْ",
+    "bab": "samia",
+    "ism_fail": "يَتِيْمٌ",
+    "madi": "يَتِمَ",
+    "masdar": "اَلْيُتْمُ",
+    "meaning": "to be an orphan",
+    "mudari": "يَيْتَمُ",
+    "nahi": "لَا تَيْتَمْ",
+    "root": "ي ت م",
+    "verb_type": "mithal_yai"
+   },
+   "entry_id": 336
+  },
+  {
+   "answers": {
+    "amr": "اِيْقَنْ",
+    "bab": "samia",
+    "ism_fail": "يَقِيْنٌ",
+    "madi": "يَقِنَ",
+    "masdar": "اَلْيَقْنُ",
+    "meaning": "to be certain",
+    "mudari": "يَيْقَنُ",
+    "nahi": "لَا تَيْقَنْ",
+    "root": "ي ق ن",
+    "verb_type": "mithal_yai"
+   },
+   "entry_id": 337
+  },
+  {
+   "answers": {
+    "amr": "اِيْنَعْ",
+    "bab": "fataha",
+    "ism_fail": "يَانِعٌ",
+    "madi": "يَنَعَ",
+    "masdar": "اَلْيَنْعُ",
+    "meaning": "to become ripe",
+    "mudari": "يَيْنَعُ",
+    "nahi": "لَا تَيْنَعْ",
+    "root": "ي ن ع",
+    "verb_type": "mithal_yai"
+   },
+   "entry_id": 338
+  },
+  {
+   "answers": {
+    "amr": "اُوْسُرْ",
+    "bab": "karuma",
+    "ism_fail": "يَسِيْرٌ",
+    "madi": "يَسُرَ",
+    "masdar": "اَلْيُسْرُ / اَلْمَيْسُوْرُ",
+    "meaning": "to be easy",
+    "mudari": "يَيْسُرُ",
+    "nahi": "لَا تَيْسُرْ",
+    "root": "ي س ر",
+    "verb_type": "mithal_yai"
+   },
+   "entry_id": 339
+  },
+  {
+   "answers": {
+    "amr": "اُوْقُظْ",
+    "bab": "karuma",
+    "ism_fail": "يَقِيْظٌ",
+    "madi": "يَقُظَ",
+    "masdar": "اَلْيَقَظُ",
+    "meaning": "to be awake",
+    "mudari": "يَيْقُظُ",
+    "nahi": "لَا تَيْقُظْ",
+    "root": "ي ق ظ",
+    "verb_type": "mithal_yai"
+   },
+   "entry_id": 340
+  },
+  {
+   "answers": {
+    "amr": "بُلْ",
+    "bab": "nasara",
+    "ism_fail": "بَائِلٌ",
+    "madi": "بَالَ",
+    "masdar": "اَلْبَوْلُ",
+    "meaning": "to urinate",
+    "mudari": "يَبُوْلُ",
+    "nahi": "لَا تَبُلْ",
+    "root": "ب و ل",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 341
+  },
+  {
+   "answers": {
+    "amr": "تُبْ",
+    "bab": "nasara",
+    "ism_fail": "تَائِبٌ",
+    "madi": "تَابَ",
+    "masdar": "اَلتَّوْبَةُ",
+    "meaning": "to repent",
+    "mudari": "يَتُوْبُ",
+    "nahi": "لَا تَتُبْ",
+    "root": "ت و ب",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 342
+  },
+  {
+   "answers": {
+    "amr": "جُزْ",
+    "bab": "nasara",
+    "ism_fail": "جَائِزٌ",
+    "madi": "جَازَ",
+    "masdar": "اَلْجَوَازُ",
+    "meaning": "to be permitted",
+    "mudari": "يَجُوْزُ",
+    "nahi": "لَا تَجُزْ",
+    "root": "ج و ز",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 343
+  },
+  {
+   "answers": {
+    "amr": "جُعْ",
+    "bab": "nasara",
+    "ism_fail": "جَائِعٌ",
+    "madi": "جَاعَ",
+    "masdar": "اَلْجُوْعُ",
+    "meaning": "to be hungry",
+    "mudari": "يَجُوْعُ",
+    "nahi": "لَا تَجُعْ",
+    "root": "ج و ع",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 344
+  },
+  {
+   "answers": {
+    "amr": "خُنْ",
+    "bab": "nasara",
+    "ism_fail": "خَائِنٌ",
+    "madi": "خَانَ",
+    "masdar": "اَلْخِيَانَةُ",
+    "meaning": "to deceive",
+    "mudari": "يَخُوْنُ",
+    "nahi": "لَا تَخُنْ",
+    "root": "خ و ن",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 345
+  },
+  {
+   "answers": {
+    "amr": "دُرْ",
+    "bab": "nasara",
+    "ism_fail": "دَائِرٌ",
+    "madi": "دَارَ",
+    "masdar": "اَلدَّوْرُ / اَلدَّوَرَانُ",
+    "meaning": "to revolve, to circle",
+    "mudari": "يَدُوْرُ",
+    "nahi": "لَا تَدُرْ",
+    "root": "د و ر",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 346
+  },
+  {
+   "answers": {
+    "amr": "دُسْ",
+    "bab": "nasara",
+    "ism_fail": "دَائِسٌ",
+    "madi": "دَاسَ",
+    "masdar": "اَلدِّيَاسَةُ",
+    "meaning": "to trample",
+    "mudari": "يَدُوْسُ",
+    "nahi": "لَا تَدُسْ",
+    "root": "د و س",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 347
+  },
+  {
+   "answers": {
+    "amr": "دُمْ",
+    "bab": "nasara",
+    "ism_fail": "دَائِمٌ",
+    "madi": "دَامَ",
+    "masdar": "اَلدَّوَامُ",
+    "meaning": "to last",
+    "mudari": "يَدُوْمُ",
+    "nahi": "لَا تَدُمْ",
+    "root": "د و م",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 348
+  },
+  {
+   "answers": {
+    "amr": "ذُبْ",
+    "bab": "nasara",
+    "ism_fail": "ذَائِبٌ",
+    "madi": "ذَابَ",
+    "masdar": "اَلذَّوْبُ",
+    "meaning": "to dissolve",
+    "mudari": "يَذُوْبُ",
+    "nahi": "لَا تَذُبْ",
+    "root": "ذ و ب",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 349
+  },
+  {
+   "answers": {
+    "amr": "ذُقْ",
+    "bab": "nasara",
+    "ism_fail": "ذَائِقٌ",
+    "madi": "ذَاقَ",
+    "masdar": "اَلذَّوْقُ",
+    "meaning": "to taste",
+    "mudari": "يَذُوْقُ",
+    "nahi": "لَا تَذُقْ",
+    "root": "ذ و ق",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 350
+  },
+  {
+   "answers": {
+    "amr": "زُرْ",
+    "bab": "nasara",
+    "ism_fail": "زَائِرٌ",
+    "madi": "زَارَ",
+    "masdar": "اَلزِّيَارَةُ",
+    "meaning": "to visit",
+    "mudari": "يَزُوْرُ",
+    "nahi": "لَا تَزُرْ",
+    "root": "ز و ر",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 351
+  },
+  {
+   "answers": {
+    "amr": "زُلْ",
+    "bab": "nasara",
+    "ism_fail": "زَائِلٌ",
+    "madi": "زَالَ",
+    "masdar": "اَلزَّوْلُ / اَلزَّوَالُ",
+    "meaning": "to remove, to go down",
+    "mudari": "يَزُوْلُ",
+    "nahi": "لَا تَزُلْ",
+    "root": "ز و ل",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 352
+  },
+  {
+   "answers": {
+    "amr": "سُدْ",
+    "bab": "nasara",
+    "ism_fail": "سَائِدٌ",
+    "madi": "سَادَ",
+    "masdar": "اَلسِّيَادَةُ",
+    "meaning": "to be the chief",
+    "mudari": "يَسُوْدُ",
+    "nahi": "لَا تَسُدْ",
+    "root": "س و د",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 353
+  },
+  {
+   "answers": {
+    "amr": "سُقْ",
+    "bab": "nasara",
+    "ism_fail": "سَائِقٌ",
+    "madi": "سَاقَ",
+    "masdar": "اَلسَّوْقُ",
+    "meaning": "to drive",
+    "mudari": "يَسُوْقُ",
+    "nahi": "لَا تَسُقْ",
+    "root": "س و ق",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 354
+  },
+  {
+   "answers": {
+    "amr": "صُمْ",
+    "bab": "nasara",
+    "ism_fail": "صَائِمٌ",
+    "madi": "صَامَ",
+    "masdar": "اَلصَّوْمُ",
+    "meaning": "to abstain",
+    "mudari": "يَصُوْمُ",
+    "nahi": "لَا تَصُمْ",
+    "root": "ص و م",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 355
+  },
+  {
+   "answers": {
+    "amr": "صُنْ",
+    "bab": "nasara",
+    "ism_fail": "صَائِنٌ",
+    "madi": "صَانَ",
+    "masdar": "اَلصَّوْنُ",
+    "meaning": "to preserve",
+    "mudari": "يَصُوْنُ",
+    "nahi": "لَا تَصُنْ",
+    "root": "ص و ن",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 356
+  },
+  {
+   "answers": {
+    "amr": "طُفْ",
+    "bab": "nasara",
+    "ism_fail": "طَائِفٌ",
+    "madi": "طَافَ",
+    "masdar": "اَلطَّوَافُ",
+    "meaning": "to walk around",
+    "mudari": "يَطُوْفُ",
+    "nahi": "لَا تَطُفْ",
+    "root": "ط و ف",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 357
+  },
+  {
+   "answers": {
+    "amr": "طُلْ",
+    "bab": "nasara",
+    "ism_fail": "طَائِلٌ",
+    "madi": "طَالَ",
+    "masdar": "اَلطُّوْلُ",
+    "meaning": "to lengthen",
+    "mudari": "يَطُوْلُ",
+    "nahi": "لَا تَطُلْ",
+    "root": "ط و ل",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 358
+  },
+  {
+   "answers": {
+    "amr": "عُدْ",
+    "bab": "nasara",
+    "ism_fail": "عَائِدٌ",
+    "madi": "عَادَ",
+    "masdar": "اَلْعَوْدُ",
+    "meaning": "to return",
+    "mudari": "يَعُوْدُ",
+    "nahi": "لَا تَعُدْ",
+    "root": "ع و د",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 359
+  },
+  {
+   "answers": {
+    "amr": "عُذْ",
+    "bab": "nasara",
+    "ism_fail": "عَائِذٌ",
+    "madi": "عَاذَ",
+    "masdar": "اَلْعَوْذُ",
+    "meaning": "to seek protection",
+    "mudari": "يَعُوْذُ",
+    "nahi": "لَا تَعُذْ",
+    "root": "ع و ذ",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 360
+  },
+  {
+   "answers": {
+    "amr": "فُتْ",
+    "bab": "nasara",
+    "ism_fail": "فَائِتٌ",
+    "madi": "فَاتَ",
+    "masdar": "اَلْفَوْتُ",
+    "meaning": "to pass",
+    "mudari": "يَفُوْتُ",
+    "nahi": "لَا تَفُتْ",
+    "root": "ف و ت",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 361
+  },
+  {
+   "answers": {
+    "amr": "فُزْ",
+    "bab": "nasara",
+    "ism_fail": "فَائِزٌ",
+    "madi": "فَازَ",
+    "masdar": "اَلْفَوْزُ",
+    "meaning": "to succeed",
+    "mudari": "يَفُوْزُ",
+    "nahi": "لَا تَفُزْ",
+    "root": "ف و ز",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 362
+  },
+  {
+   "answers": {
+    "amr": "قُلْ",
+    "bab": "nasara",
+    "ism_fail": "قَائِلٌ",
+    "madi": "قَالَ",
+    "masdar": "اَلْقَوْلُ",
+    "meaning": "to say",
+    "mudari": "يَقُوْلُ",
+    "nahi": "لَا تَقُلْ",
+    "root": "ق و ل",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 363
+  },
+  {
+   "answers": {
+    "amr": "قُمْ",
+    "bab": "nasara",
+    "ism_fail": "قَائِمٌ",
+    "madi": "قَامَ",
+    "masdar": "اَلْقِيَامُ",
+    "meaning": "to stand up",
+    "mudari": "يَقُوْمُ",
+    "nahi": "لَا تَقُمْ",
+    "root": "ق و م",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 364
+  },
+  {
+   "answers": {
+    "amr": "كُنْ",
+    "bab": "nasara",
+    "ism_fail": "كَائِنٌ",
+    "madi": "كَانَ",
+    "masdar": "اَلْكَوْنُ",
+    "meaning": "to be",
+    "mudari": "يَكُوْنُ",
+    "nahi": "لَا تَكُنْ",
+    "root": "ك و ن",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 365
+  },
+  {
+   "answers": {
+    "amr": "لُمْ",
+    "bab": "nasara",
+    "ism_fail": "لَائِمٌ",
+    "madi": "لَامَ",
+    "masdar": "اَللَّوْمُ",
+    "meaning": "to blame",
+    "mudari": "يَلُوْمُ",
+    "nahi": "لَا تَلُمْ",
+    "root": "ل و م",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 366
+  },
+  {
+   "answers": {
+    "amr": "مُرْ",
+    "bab": "nasara",
+    "ism_fail": "مَائِرٌ",
+    "madi": "مَارَ",
+    "masdar": "اَلْمَوْرُ",
+    "meaning": "to move side to side",
+    "mudari": "يَمُوْرُ",
+    "nahi": "لَا تَمُرْ",
+    "root": "م و ر",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 367
+  },
+  {
+   "answers": {
+    "amr": "هُنْ",
+    "bab": "nasara",
+    "ism_fail": "هَيِّنٌ",
+    "madi": "هَانَ",
+    "masdar": "اَلْهَوْنُ",
+    "meaning": "to be easy, to be light",
+    "mudari": "يَهُوْنُ",
+    "nahi": "لَا تَهُنْ",
+    "root": "ه و ن",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 368
+  },
+  {
+   "answers": {
+    "amr": "طِحْ",
+    "bab": "daraba",
+    "ism_fail": "طَائِحٌ",
+    "madi": "طَاحَ",
+    "masdar": "اَلطَّوْحُ",
+    "meaning": "to perish",
+    "mudari": "يَطِيْحُ",
+    "nahi": "لَا تَطِحْ"
+   },
+   "entry_id": 369
+  },
+  {
+   "answers": {
+    "amr": "خَفْ",
+    "bab": "samia",
+    "ism_fail": "خَائِفٌ",
+    "madi": "خَافَ",
+    "masdar": "اَلْخَوْفُ",
+    "meaning": "to fear",
+    "mudari": "يَخَافُ",
+    "nahi": "لَا تَخَفْ",
+    "root": "خ و ف",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 370
+  },
+  {
+   "answers": {
+    "amr": "نَمْ",
+    "bab": "samia",
+    "ism_fail": "نَائِمٌ",
+    "madi": "نَامَ",
+    "meaning": "to sleep",
+    "mudari": "يَنَامُ",
+    "nahi": "لَا تَنَمْ",
+    "root": "ن و م",
+    "verb_type": "ajwaf_wawi"
+   },
+   "entry_id": 371
+  },
+  {
+   "answers": {
+    "amr": "غُطْ",
+    "bab": "nasara",
+    "ism_fail": "غَائِطٌ",
+    "madi": "غَاطَ",
+    "masdar": "اَلْغَيْطُ",
+    "meaning": "to become deeper",
+    "mudari": "يَغُوْطُ",
+    "nahi": "لَا تَغُطْ"
+   },
+   "entry_id": 372
+  },
+  {
+   "answers": {
+    "amr": "بِتْ",
+    "bab": "daraba",
+    "ism_fail": "بَائِتٌ",
+    "madi": "بَاتَ",
+    "masdar": "اَلْبَيْتُوْتَةُ",
+    "meaning": "to spend the night",
+    "mudari": "يَبِيْتُ",
+    "nahi": "لَا تَبِتْ",
+    "root": "ب ي ت",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 373
+  },
+  {
+   "answers": {
+    "amr": "بِعْ",
+    "bab": "daraba",
+    "ism_fail": "بَائِعٌ",
+    "madi": "بَاعَ",
+    "masdar": "اَلْبَيْعُ",
+    "meaning": "to sell",
+    "mudari": "يَبِيْعُ",
+    "nahi": "لَا تَبِعْ",
+    "root": "ب ي ع",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 374
+  },
+  {
+   "answers": {
+    "amr": "بِنْ",
+    "bab": "daraba",
+    "ism_fail": "بَائِنٌ",
+    "madi": "بَانَ",
+    "masdar": "اَلْبَيْنُ / اَلْبَيَانُ",
+    "meaning": "to become clear, to be separated",
+    "mudari": "يَبِيْنُ",
+    "nahi": "لَا تَبِنْ",
+    "root": "ب ي ن",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 375
+  },
+  {
+   "answers": {
+    "amr": "تِهْ",
+    "bab": "daraba",
+    "ism_fail": "تَائِهٌ",
+    "madi": "تَاهَ",
+    "meaning": "to get lost",
+    "mudari": "يَتِيْهُ",
+    "nahi": "لَا تَتِهْ",
+    "root": "ت ي ه",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 376
+  },
+  {
+   "answers": {
+    "amr": "خِبْ",
+    "bab": "daraba",
+    "ism_fail": "خَائِبٌ",
+    "madi": "خَابَ",
+    "masdar": "اَلْخَيْبَةُ",
+    "meaning": "to fail",
+    "mudari": "يَخِيْبُ",
+    "nahi": "لَا تَخِبْ",
+    "root": "خ ي ب",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 377
+  },
+  {
+   "answers": {
+    "amr": "خِطْ",
+    "bab": "daraba",
+    "ism_fail": "خَائِطٌ",
+    "madi": "خَاطَ",
+    "masdar": "اَلْخِيَاطَةُ",
+    "meaning": "to sew",
+    "mudari": "يَخِيْطُ",
+    "nahi": "لَا تَخِطْ",
+    "root": "خ ي ط",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 378
+  },
+  {
+   "answers": {
+    "amr": "دِنْ",
+    "bab": "daraba",
+    "ism_fail": "دَائِنٌ",
+    "madi": "دَانَ",
+    "masdar": "اَلدَّيْنُ",
+    "meaning": "to borrow, to lend",
+    "mudari": "يَدِيْنُ",
+    "nahi": "لَا تَدِنْ",
+    "root": "د ي ن",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 379
+  },
+  {
+   "answers": {
+    "amr": "زِدْ",
+    "bab": "daraba",
+    "ism_fail": "زَائِدٌ",
+    "madi": "زَادَ",
+    "masdar": "اَلزِّيَادَةُ",
+    "meaning": "to increase",
+    "mudari": "يَزِيْدُ",
+    "nahi": "لَا تَزِدْ",
+    "root": "ز ي د",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 380
+  },
+  {
+   "answers": {
+    "amr": "زِغْ",
+    "bab": "daraba",
+    "ism_fail": "زَائِغٌ",
+    "madi": "زَاغَ",
+    "masdar": "اَلزَّيْغُ",
+    "meaning": "to deviate",
+    "mudari": "يَزِيْغُ",
+    "nahi": "لَا تَزِغْ",
+    "root": "ز ي غ",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 381
+  },
+  {
+   "answers": {
+    "amr": "سِرْ",
+    "bab": "daraba",
+    "ism_fail": "سَائِرٌ",
+    "madi": "سَارَ",
+    "masdar": "اَلسَّيْرُ",
+    "meaning": "to travel, to walk",
+    "mudari": "يَسِيْرُ",
+    "nahi": "لَا تَسِرْ",
+    "root": "س ي ر",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 382
+  },
+  {
+   "answers": {
+    "amr": "سِلْ",
+    "bab": "daraba",
+    "ism_fail": "سَائِلٌ",
+    "madi": "سَالَ",
+    "masdar": "اَلسَّيَلَانُ",
+    "meaning": "to flow",
+    "mudari": "يَسِيْلُ",
+    "nahi": "لَا تَسِلْ",
+    "root": "س ي ل",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 383
+  },
+  {
+   "answers": {
+    "amr": "شِدْ",
+    "bab": "daraba",
+    "ism_fail": "شَائِدٌ",
+    "madi": "شَادَ",
+    "masdar": "اَلشَّيْدُ",
+    "meaning": "to erect, to plaster",
+    "mudari": "يَشِيْدُ",
+    "nahi": "لَا تَشِدْ",
+    "root": "ش ي د",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 384
+  },
+  {
+   "answers": {
+    "amr": "صِحْ",
+    "bab": "daraba",
+    "ism_fail": "صَائِحٌ",
+    "madi": "صَاحَ",
+    "masdar": "اَلصَّيْحَةُ",
+    "meaning": "to shout",
+    "mudari": "يَصِيْحُ",
+    "nahi": "لَا تَصِحْ",
+    "root": "ص ي ح",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 385
+  },
+  {
+   "answers": {
+    "amr": "ضِقْ",
+    "bab": "daraba",
+    "ism_fail": "ضَائِقٌ",
+    "madi": "ضَاقَ",
+    "masdar": "اَلضِّيْقُ",
+    "meaning": "to become narrow",
+    "mudari": "يَضِيْقُ",
+    "nahi": "لَا تَضِقْ",
+    "root": "ض ي ق",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 386
+  },
+  {
+   "answers": {
+    "amr": "طِرْ",
+    "bab": "daraba",
+    "ism_fail": "طَائِرٌ",
+    "madi": "طَارَ",
+    "masdar": "اَلطَّيَرَانُ",
+    "meaning": "to fly",
+    "mudari": "يَطِيْرُ",
+    "nahi": "لَا تَطِرْ",
+    "root": "ط ي ر",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 387
+  },
+  {
+   "answers": {
+    "amr": "عِشْ",
+    "bab": "daraba",
+    "ism_fail": "عَائِشٌ",
+    "madi": "عَاشَ",
+    "masdar": "اَلْعَيْشُ",
+    "meaning": "to live",
+    "mudari": "يَعِيْشُ",
+    "nahi": "لَا تَعِشْ",
+    "root": "ع ي ش",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 388
+  },
+  {
+   "answers": {
+    "amr": "غِبْ",
+    "bab": "daraba",
+    "ism_fail": "غَائِبٌ",
+    "madi": "غَابَ",
+    "masdar": "اَلْغَيْبُ",
+    "meaning": "to be absent",
+    "mudari": "يَغِيْبُ",
+    "nahi": "لَا تَغِبْ",
+    "root": "غ ي ب",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 389
+  },
+  {
+   "answers": {
+    "amr": "كِلْ",
+    "bab": "daraba",
+    "ism_fail": "كَائِلٌ",
+    "madi": "كَالَ",
+    "masdar": "اَلْكَيْلُ",
+    "meaning": "to measure",
+    "mudari": "يَكِيْلُ",
+    "nahi": "لَا تَكِلْ",
+    "root": "ك ي ل",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 390
+  },
+  {
+   "answers": {
+    "amr": "لِنْ",
+    "bab": "daraba",
+    "ism_fail": "لَائِنٌ",
+    "madi": "لَانَ",
+    "masdar": "اَللِّيْنُ",
+    "meaning": "to be soft",
+    "mudari": "يَلِيْنُ",
+    "nahi": "لَا تَلِنْ",
+    "root": "ل ي ن",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 391
+  },
+  {
+   "answers": {
+    "amr": "مِلْ",
+    "bab": "daraba",
+    "ism_fail": "مَائِلٌ",
+    "madi": "مَالَ",
+    "masdar": "اَلْمَيْلُ",
+    "meaning": "to incline, to bend",
+    "mudari": "يَمِيْلُ",
+    "nahi": "لَا تَمِلْ",
+    "root": "م ي ل",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 392
+  },
+  {
+   "answers": {
+    "amr": "نَلْ",
+    "bab": "samia",
+    "ism_fail": "نَائِلٌ",
+    "madi": "نَالَ",
+    "masdar": "اَلنَّيْلُ",
+    "meaning": "to receive",
+    "mudari": "يَنَالُ",
+    "nahi": "لَا تَنَلْ",
+    "root": "ن ي ل",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 393
+  },
+  {
+   "answers": {
+    "amr": "هَبْ",
+    "bab": "samia",
+    "ism_fail": "هَائِبٌ",
+    "madi": "هَابَ",
+    "masdar": "اَلْهَيْبَةُ",
+    "meaning": "to fear",
+    "mudari": "يَهَابُ",
+    "nahi": "لَا تَهَبْ",
+    "root": "ه ي ب",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 394
+  },
+  {
+   "answers": {
+    "amr": "شَأْ",
+    "bab": "fataha",
+    "ism_fail": "شَاءٍ",
+    "madi": "شَاءَ",
+    "masdar": "اَلْمَشِيْئَةُ",
+    "meaning": "to want",
+    "mudari": "يَشَاءُ",
+    "nahi": "لَا تَشَأْ",
+    "root": "ش ي ء",
+    "verb_type": "ajwaf_yai"
+   },
+   "entry_id": 395
+  },
+  {
+   "answers": {
+    "amr": "اُبْدُ",
+    "bab": "nasara",
+    "ism_fail": "بَادٍ",
+    "madi": "بَدَا",
+    "masdar": "اَلْبُدُوُّ",
+    "meaning": "to appear",
+    "mudari": "يَبْدُوْ",
+    "nahi": "لَا تَبْدُ",
+    "root": "ب د و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 396
+  },
+  {
+   "answers": {
+    "amr": "اُبْلُ",
+    "bab": "nasara",
+    "ism_fail": "بَالٍ",
+    "madi": "بَلَا",
+    "masdar": "اَلْبَلَاءُ",
+    "meaning": "to test",
+    "mudari": "يَبْلُوْ",
+    "nahi": "لَا تَبْلُ",
+    "root": "ب ل و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 397
+  },
+  {
+   "answers": {
+    "amr": "اُتْلُ",
+    "bab": "nasara",
+    "ism_fail": "تَالٍ",
+    "madi": "تَلَا",
+    "masdar": "اَلتِّلَاوَةُ / اَلتُّلُوُّ",
+    "meaning": "to recite, to walk behind",
+    "mudari": "يَتْلُوْ",
+    "nahi": "لَا تَتْلُ",
+    "root": "ت ل و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 398
+  },
+  {
+   "answers": {
+    "amr": "اُخْلُ",
+    "bab": "nasara",
+    "ism_fail": "خَالٍ",
+    "madi": "خَلَا",
+    "masdar": "اَلْخُلُوُّ",
+    "meaning": "to be empty",
+    "mudari": "يَخْلُوْ",
+    "nahi": "لَا تَخْلُ",
+    "root": "خ ل و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 399
+  },
+  {
+   "answers": {
+    "amr": "اُدْعُ",
+    "bab": "nasara",
+    "ism_fail": "دَاعٍ",
+    "madi": "دَعَا",
+    "masdar": "اَلدُّعَاءُ / اَلدَّعْوَةُ",
+    "meaning": "to call",
+    "mudari": "يَدْعُوْ",
+    "nahi": "لَا تَدْعُ",
+    "root": "د ع و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 400
+  },
+  {
+   "answers": {
+    "amr": "اُدْنُ",
+    "bab": "nasara",
+    "ism_fail": "دَانٍ",
+    "madi": "دَنَا",
+    "masdar": "اَلدُّنُوُّ",
+    "meaning": "to be near",
+    "mudari": "يَدْنُوْ",
+    "nahi": "لَا تَدْنُ",
+    "root": "د ن و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 401
+  },
+  {
+   "answers": {
+    "amr": "اُرْجُ",
+    "bab": "nasara",
+    "ism_fail": "رَاجٍ",
+    "madi": "رَجَا",
+    "masdar": "اَلرَّجَاءُ",
+    "meaning": "to hope",
+    "mudari": "يَرْجُوْ",
+    "nahi": "لَا تَرْجُ",
+    "root": "ر ج و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 402
+  },
+  {
+   "answers": {
+    "amr": "اُسْهُ",
+    "bab": "nasara",
+    "ism_fail": "سَاهٍ",
+    "madi": "سَهَا",
+    "masdar": "اَلسَّهْوُ",
+    "meaning": "to be inattentive",
+    "mudari": "يَسْهُوْ",
+    "nahi": "لَا تَسْهُ",
+    "root": "س ه و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 403
+  },
+  {
+   "answers": {
+    "amr": "اُعْتُ",
+    "bab": "nasara",
+    "ism_fail": "عَاتٍ",
+    "madi": "عَتَا",
+    "masdar": "اَلْعُتُوُّ",
+    "meaning": "to be violent",
+    "mudari": "يَعْتُوْ",
+    "nahi": "لَا تَعْتُ",
+    "root": "ع ت و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 404
+  },
+  {
+   "answers": {
+    "amr": "اُعْدُ",
+    "bab": "nasara",
+    "ism_fail": "عَادٍ",
+    "madi": "عَدَا",
+    "masdar": "اَلْعَدْوُ",
+    "meaning": "to run",
+    "mudari": "يَعْدُوْ",
+    "nahi": "لَا تَعْدُ",
+    "root": "ع د و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 405
+  },
+  {
+   "answers": {
+    "amr": "اُعْفُ",
+    "bab": "nasara",
+    "ism_fail": "عَافٍ",
+    "madi": "عَفَا",
+    "masdar": "اَلْعَفْوُ",
+    "meaning": "to wipe out, to forgive",
+    "mudari": "يَعْفُوْ",
+    "nahi": "لَا تَعْفُ",
+    "root": "ع ف و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 406
+  },
+  {
+   "answers": {
+    "amr": "اُعْلُ",
+    "bab": "nasara",
+    "ism_fail": "عَالٍ",
+    "madi": "عَلَا",
+    "masdar": "اَلْعُلُوُّ",
+    "meaning": "to be high",
+    "mudari": "يَعْلُوْ",
+    "nahi": "لَا تَعْلُ",
+    "root": "ع ل و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 407
+  },
+  {
+   "answers": {
+    "amr": "اُكْسُ",
+    "bab": "nasara",
+    "ism_fail": "كَاسٍ",
+    "madi": "كَسَا",
+    "masdar": "اَلْكَسْوُ",
+    "meaning": "to clothe",
+    "mudari": "يَكْسُوْ",
+    "nahi": "لَا تَكْسُ",
+    "root": "ك س و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 408
+  },
+  {
+   "answers": {
+    "amr": "اُمْحُ",
+    "bab": "nasara",
+    "ism_fail": "مَاحٍ",
+    "madi": "مَحَا",
+    "masdar": "اَلْمَحْوُ",
+    "meaning": "to wipe off",
+    "mudari": "يَمْحُوْ",
+    "nahi": "لَا تَمْحُ",
+    "root": "م ح و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 409
+  },
+  {
+   "answers": {
+    "amr": "اُنْجُ",
+    "bab": "nasara",
+    "ism_fail": "نَاجٍ",
+    "madi": "نَجَا",
+    "masdar": "اَلنَّجَاةُ",
+    "meaning": "to save",
+    "mudari": "يَنْجُوْ",
+    "nahi": "لَا تَنْجُ",
+    "root": "ن ج و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 410
+  },
+  {
+   "answers": {
+    "amr": "اِجْثِ",
+    "bab": "daraba",
+    "ism_fail": "جَاثٍ",
+    "madi": "جَثَا",
+    "masdar": "اَلْجُثُوُّ",
+    "meaning": "to kneel",
+    "mudari": "يَجْثِيْ",
+    "nahi": "لَا تَجْثِ",
+    "root": "ج ث و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 411
+  },
+  {
+   "answers": {
+    "amr": "اِرْضَ",
+    "bab": "samia",
+    "ism_fail": "رَاضٍ",
+    "madi": "رَضِيَ",
+    "masdar": "اَلرِّضْوَانُ",
+    "meaning": "to be content",
+    "mudari": "يَرْضٰى",
+    "nahi": "لَا تَرْضَ",
+    "root": "ر ض و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 412
+  },
+  {
+   "answers": {
+    "amr": "اِمْحَ",
+    "bab": "fataha",
+    "ism_fail": "مَاحٍ",
+    "madi": "مَحَا",
+    "masdar": "اَلْمَحْوُ",
+    "meaning": "to eradicate",
+    "mudari": "يَمْحٰى",
+    "nahi": "لَا تَمْحَ",
+    "root": "م ح و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 413
+  },
+  {
+   "answers": {
+    "amr": "اُرْخُ",
+    "bab": "karuma",
+    "ism_fail": "رَاخٍ",
+    "madi": "رَخُوَ",
+    "masdar": "اَلرِّخْوَةُ",
+    "meaning": "to become loose",
+    "mudari": "يَرْخُوْ",
+    "nahi": "لَا تَرْخُ",
+    "root": "ر خ و",
+    "verb_type": "naqis_wawi"
+   },
+   "entry_id": 414
+  },
+  {
+   "answers": {
+    "amr": "اُكْنُ",
+    "bab": "nasara",
+    "ism_fail": "كَانٍ",
+    "madi": "كَنٰى",
+    "masdar": "اَلْكِنَايَةُ",
+    "meaning": "to express indirectly",
+    "mudari": "يَكْنُوْ",
+    "nahi": "لَا تَكْنُ",
+    "root": "ك ن ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 415
+  },
+  {
+   "answers": {
+    "amr": "اِبْغِ",
+    "bab": "daraba",
+    "ism_fail": "بَاغٍ",
+    "madi": "بَغٰى",
+    "masdar": "اَلْبَغْيُ",
+    "meaning": "to treat unjustly",
+    "mudari": "يَبْغِيْ",
+    "nahi": "لَا تَبْغِ",
+    "root": "ب غ ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 416
+  },
+  {
+   "answers": {
+    "amr": "اِبْكِ",
+    "bab": "daraba",
+    "ism_fail": "بَاكٍ",
+    "madi": "بَكٰى",
+    "masdar": "اَلْبُكَاءُ",
+    "meaning": "to cry",
+    "mudari": "يَبْكِيْ",
+    "nahi": "لَا تَبْكِ",
+    "root": "ب ك ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 417
+  },
+  {
+   "answers": {
+    "amr": "اِبْنِ",
+    "bab": "daraba",
+    "ism_fail": "بَانٍ",
+    "madi": "بَنٰى",
+    "masdar": "اَلْبِنَاءُ",
+    "meaning": "to build",
+    "mudari": "يَبْنِيْ",
+    "nahi": "لَا تَبْنِ",
+    "root": "ب ن ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 418
+  },
+  {
+   "answers": {
+    "amr": "اِثْنِ",
+    "bab": "daraba",
+    "ism_fail": "ثَانٍ",
+    "madi": "ثَنٰى",
+    "masdar": "اَلثَّنَاءُ",
+    "meaning": "to praise",
+    "mudari": "يَثْنِيْ",
+    "nahi": "لَا تَثْنِ",
+    "root": "ث ن ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 419
+  },
+  {
+   "answers": {
+    "amr": "اِجْرِ",
+    "bab": "daraba",
+    "ism_fail": "جَارٍ",
+    "madi": "جَرٰى",
+    "masdar": "اَلْجَرْيُ",
+    "meaning": "to flow",
+    "mudari": "يَجْرِيْ",
+    "nahi": "لَا تَجْرِ",
+    "root": "ج ر ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 420
+  },
+  {
+   "answers": {
+    "amr": "اِجْزِ",
+    "bab": "daraba",
+    "ism_fail": "جَازٍ",
+    "madi": "جَزٰى",
+    "masdar": "اَلْجَزَاءُ",
+    "meaning": "to reward, to be sufficient",
+    "mudari": "يَجْزِيْ",
+    "nahi": "لَا تَجْزِ",
+    "root": "ج ز ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 421
+  },
+  {
+   "answers": {
+    "amr": "اِحْكِ",
+    "bab": "daraba",
+    "ism_fail": "حَاكٍ",
+    "madi": "حَكٰى",
+    "masdar": "اَلْحِكَايَةُ",
+    "meaning": "to narrate",
+    "mudari": "يَحْكِيْ",
+    "nahi": "لَا تَحْكِ",
+    "root": "ح ك ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 422
+  },
+  {
+   "answers": {
+    "amr": "اِدْرِ",
+    "bab": "daraba",
+    "ism_fail": "دَارٍ",
+    "madi": "دَرٰى",
+    "masdar": "اَلدِّرَايَةُ",
+    "meaning": "to know",
+    "mudari": "يَدْرِيْ",
+    "nahi": "لَا تَدْرِ",
+    "root": "د ر ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 423
+  },
+  {
+   "answers": {
+    "amr": "اِرْمِ",
+    "bab": "daraba",
+    "ism_fail": "رَامٍ",
+    "madi": "رَمٰى",
+    "masdar": "اَلرَّمْيُ",
+    "meaning": "to throw",
+    "mudari": "يَرْمِيْ",
+    "nahi": "لَا تَرْمِ",
+    "root": "ر م ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 424
+  },
+  {
+   "answers": {
+    "amr": "اِسْبِ",
+    "bab": "daraba",
+    "ism_fail": "سَابٍ",
+    "madi": "سَبٰى",
+    "masdar": "اَلسَّبْيُ",
+    "meaning": "to capture",
+    "mudari": "يَسْبِيْ",
+    "nahi": "لَا تَسْبِ",
+    "root": "س ب ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 425
+  },
+  {
+   "answers": {
+    "amr": "اِسْقِ",
+    "bab": "daraba",
+    "ism_fail": "سَاقٍ",
+    "madi": "سَقٰى",
+    "masdar": "اَلسَّقْيُ",
+    "meaning": "to irrigate",
+    "mudari": "يَسْقِيْ",
+    "nahi": "لَا تَسْقِ",
+    "root": "س ق ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 426
+  },
+  {
+   "answers": {
+    "amr": "اِشْفِ",
+    "bab": "daraba",
+    "ism_fail": "شَافٍ",
+    "madi": "شَفٰى",
+    "masdar": "اَلشِّفَاءُ",
+    "meaning": "to cure",
+    "mudari": "يَشْفِيْ",
+    "nahi": "لَا تَشْفِ",
+    "root": "ش ف ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 427
+  },
+  {
+   "answers": {
+    "amr": "اِعْصِ",
+    "bab": "daraba",
+    "ism_fail": "عَاصٍ",
+    "madi": "عَصٰى",
+    "masdar": "اَلْمَعْصِيَةُ",
+    "meaning": "to disobey",
+    "mudari": "يَعْصِيْ",
+    "nahi": "لَا تَعْصِ",
+    "root": "ع ص ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 428
+  },
+  {
+   "answers": {
+    "amr": "اِغْلِ",
+    "bab": "daraba",
+    "ism_fail": "غَالٍ",
+    "madi": "غَلٰى",
+    "masdar": "اَلْغَلْيُ",
+    "meaning": "to ferment",
+    "mudari": "يَغْلِيْ",
+    "nahi": "لَا تَغْلِ",
+    "root": "غ ل ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 429
+  },
+  {
+   "answers": {
+    "amr": "اِقْضِ",
+    "bab": "daraba",
+    "ism_fail": "قَاضٍ",
+    "madi": "قَضٰى",
+    "masdar": "اَلْقَضَاءُ",
+    "meaning": "to decide, to complete",
+    "mudari": "يَقْضِيْ",
+    "nahi": "لَا تَقْضِ",
+    "root": "ق ض ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 430
+  },
+  {
+   "answers": {
+    "amr": "اِكْفِ",
+    "bab": "daraba",
+    "ism_fail": "كَافٍ",
+    "madi": "كَفٰى",
+    "masdar": "اَلْكِفَايَةُ",
+    "meaning": "to be sufficient",
+    "mudari": "يَكْفِيْ",
+    "nahi": "لَا تَكْفِ",
+    "root": "ك ف ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 431
+  },
+  {
+   "answers": {
+    "amr": "اِمْشِ",
+    "bab": "daraba",
+    "ism_fail": "مَاشٍ",
+    "madi": "مَشٰى",
+    "masdar": "اَلْمَشْيُ",
+    "meaning": "to walk",
+    "mudari": "يَمْشِيْ",
+    "nahi": "لَا تَمْشِ",
+    "root": "م ش ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 432
+  },
+  {
+   "answers": {
+    "amr": "اِمْضِ",
+    "bab": "daraba",
+    "ism_fail": "مَاضٍ",
+    "madi": "مَضٰى",
+    "masdar": "اَلْمُضِيُّ",
+    "meaning": "to expire",
+    "mudari": "يَمْضِيْ",
+    "nahi": "لَا تَمْضِ",
+    "root": "م ض ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 433
+  },
+  {
+   "answers": {
+    "amr": "اِهْدِ",
+    "bab": "daraba",
+    "ism_fail": "هَادٍ",
+    "madi": "هَدٰى",
+    "masdar": "اَلْهِدَايَةُ",
+    "meaning": "to guide",
+    "mudari": "يَهْدِيْ",
+    "nahi": "لَا تَهْدِ",
+    "root": "ه د ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 434
+  },
+  {
+   "answers": {
+    "amr": "اِبْقَ",
+    "bab": "samia",
+    "ism_fail": "بَاقٍ",
+    "madi": "بَقِيَ",
+    "masdar": "اَلْبَقَاءُ",
+    "meaning": "to remain",
+    "mudari": "يَبْقٰى",
+    "nahi": "لَا تَبْقَ",
+    "root": "ب ق ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 435
+  },
+  {
+   "answers": {
+    "amr": "اِخْشَ",
+    "bab": "samia",
+    "ism_fail": "خَاشٍ",
+    "madi": "خَشِيَ",
+    "masdar": "اَلْخَشْيَةُ",
+    "meaning": "to fear",
+    "mudari": "يَخْشٰى",
+    "nahi": "لَا تَخْشَ",
+    "root": "خ ش ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 436
+  },
+  {
+   "answers": {
+    "amr": "اِخْفَ",
+    "bab": "samia",
+    "ism_fail": "خَافٍ",
+    "madi": "خَفِيَ",
+    "masdar": "اَلْخَفَاءُ",
+    "meaning": "to be hidden",
+    "mudari": "يَخْفٰى",
+    "nahi": "لَا تَخْفَ",
+    "root": "خ ف ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 437
+  },
+  {
+   "answers": {
+    "amr": "اِعْمَ",
+    "bab": "samia",
+    "ism_fail": "عَامٍ",
+    "madi": "عَمِيَ",
+    "meaning": "to become blind",
+    "mudari": "يَعْمٰى",
+    "nahi": "لَا تَعْمَ",
+    "root": "ع م ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 438
+  },
+  {
+   "answers": {
+    "amr": "اِغْشَ",
+    "bab": "samia",
+    "ism_fail": "غَاشٍ",
+    "madi": "غَشِيَ",
+    "masdar": "اَلْغَشْيُ",
+    "meaning": "to cover",
+    "mudari": "يَغْشٰى",
+    "nahi": "لَا تَغْشَ",
+    "root": "غ ش ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 439
+  },
+  {
+   "answers": {
+    "amr": "اِنْسَ",
+    "bab": "samia",
+    "ism_fail": "نَاسٍ",
+    "madi": "نَسِيَ",
+    "masdar": "اَلنِّسْيَانُ",
+    "meaning": "to forget",
+    "mudari": "يَنْسٰى",
+    "nahi": "لَا تَنْسَ",
+    "root": "ن س ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 440
+  },
+  {
+   "answers": {
+    "amr": "اِرْعَ",
+    "bab": "fataha",
+    "ism_fail": "رَاعٍ",
+    "madi": "رَعٰى",
+    "masdar": "اَلرِّعَايَةُ",
+    "meaning": "to graze, to watch",
+    "mudari": "يَرْعٰى",
+    "nahi": "لَا تَرْعَ",
+    "root": "ر ع ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 441
+  },
+  {
+   "answers": {
+    "amr": "اِسْعَ",
+    "bab": "fataha",
+    "ism_fail": "سَاعٍ",
+    "madi": "سَعٰى",
+    "masdar": "اَلسَّعْيُ",
+    "meaning": "to run, to strive",
+    "mudari": "يَسْعٰى",
+    "nahi": "لَا تَسْعَ",
+    "root": "س ع ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 442
+  },
+  {
+   "answers": {
+    "amr": "اِطْغَ",
+    "bab": "fataha",
+    "ism_fail": "طَاغٍ",
+    "madi": "طَغٰى",
+    "masdar": "اَلطُّغْيَانُ",
+    "meaning": "to be excessive",
+    "mudari": "يَطْغٰى",
+    "nahi": "لَا تَطْغَ",
+    "root": "ط غ ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 443
+  },
+  {
+   "answers": {
+    "amr": "اِنْهَ",
+    "bab": "fataha",
+    "ism_fail": "نَاهٍ",
+    "madi": "نَهٰى",
+    "masdar": "اَلنَّهْيُ",
+    "meaning": "to prohibit",
+    "mudari": "يَنْهٰى",
+    "nahi": "لَا تَنْهَ",
+    "root": "ن ه ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 444
+  },
+  {
+   "answers": {
+    "amr": "اُنْهُ",
+    "bab": "karuma",
+    "ism_fail": "نَاهٍ",
+    "madi": "نَهُوَ",
+    "masdar": "اَلنِّهَايَةُ",
+    "meaning": "to terminate, to reach completion",
+    "mudari": "يَنْهُوْ",
+    "nahi": "لَا تَنْهُ",
+    "root": "ن ه ي",
+    "verb_type": "naqis_yai"
+   },
+   "entry_id": 445
+  },
+  {
+   "answers": {
+    "amr": "عِ",
+    "bab": "daraba",
+    "ism_fail": "وَاعٍ",
+    "madi": "وَعٰى",
+    "masdar": "اَلْوَعْيُ",
+    "meaning": "to contain",
+    "mudari": "يَعِيْ",
+    "nahi": "لَا تَعِ",
+    "root": "و ع ي",
+    "verb_type": "lafif_mafruq"
+   },
+   "entry_id": 446
+  },
+  {
+   "answers": {
+    "amr": "فِ",
+    "bab": "daraba",
+    "ism_fail": "وَافٍ",
+    "madi": "وَفٰى",
+    "masdar": "اَلْوَفَاءُ",
+    "meaning": "to fulfill",
+    "mudari": "يَفِيْ",
+    "nahi": "لَا تَفِ",
+    "root": "و ف ي",
+    "verb_type": "lafif_mafruq"
+   },
+   "entry_id": 447
+  },
+  {
+   "answers": {
+    "amr": "قِ",
+    "bab": "daraba",
+    "ism_fail": "وَاقٍ",
+    "madi": "وَقٰى",
+    "masdar": "اَلْوِقَايَةُ",
+    "meaning": "to protect, to guard",
+    "mudari": "يَقِيْ",
+    "nahi": "لَا تَقِ",
+    "root": "و ق ي",
+    "verb_type": "lafif_mafruq"
+   },
+   "entry_id": 448
+  },
+  {
+   "answers": {
+    "amr": "اِيْجَ",
+    "bab": "samia",
+    "ism_fail": "وَاجٍ",
+    "madi": "وَجِيَ",
+    "meaning": "to wear down (hooves)",
+    "mudari": "يَوْجٰى",
+    "nahi": "لَا تَوْجَ",
+    "root": "و ج ي",
+    "verb_type": "lafif_mafruq"
+   },
+   "entry_id": 449
+  },
+  {
+   "answers": {
+    "amr": "لِ",
+    "bab": "hasiba",
+    "ism_fail": "وَالٍ",
+    "madi": "وَلِيَ",
+    "masdar": "اَلْوَلْيُ",
+    "meaning": "to be close",
+    "mudari": "يَلِيْ",
+    "nahi": "لَا تَلِ",
+    "root": "و ل ي",
+    "verb_type": "lafif_mafruq"
+   },
+   "entry_id": 450
+  },
+  {
+   "answers": {
+    "amr": "اِرْوِ",
+    "bab": "daraba",
+    "ism_fail": "رَاوٍ",
+    "madi": "رَوٰى",
+    "masdar": "اَلرِّوَايَةُ",
+    "meaning": "to transmit",
+    "mudari": "يَرْوِيْ",
+    "nahi": "لَا تَرْوِ",
+    "root": "ر و ي",
+    "verb_type": "lafif_maqrun"
+   },
+   "entry_id": 451
+  },
+  {
+   "answers": {
+    "amr": "اِطْوِ",
+    "bab": "daraba",
+    "ism_fail": "طَاوٍ",
+    "madi": "طَوٰى",
+    "masdar": "اَلطَّيُّ",
+    "meaning": "to fold, to bend",
+    "mudari": "يَطْوِيْ",
+    "nahi": "لَا تَطْوِ",
+    "root": "ط و ي",
+    "verb_type": "lafif_maqrun"
+   },
+   "entry_id": 452
+  },
+  {
+   "answers": {
+    "amr": "اِغْوِ",
+    "bab": "daraba",
+    "ism_fail": "غَاوٍ",
+    "madi": "غَوٰى",
+    "masdar": "اَلْغَيُّ / اَلْغَوَايَةُ",
+    "meaning": "to misguide",
+    "mudari": "يَغْوِيْ",
+    "nahi": "لَا تَغْوِ",
+    "root": "غ و ي",
+    "verb_type": "lafif_maqrun"
+   },
+   "entry_id": 453
+  },
+  {
+   "answers": {
+    "amr": "اِعْيَ",
+    "bab": "samia",
+    "ism_fail": "عَايٍ",
+    "madi": "عَيِيَ",
+    "masdar": "اَلْعَيُّ",
+    "meaning": "to be incapable, to be exhausted",
+    "nahi": "لَا تَعْيَ",
+    "root": "ع ي ي",
+    "verb_type": "lafif_maqrun"
+   },
+   "entry_id": 454
+  },
+  {
+   "answers": {
+    "amr": "اِقْوَ",
+    "bab": "samia",
+    "ism_fail": "قَوِيٌّ",
+    "madi": "قَوِيَ",
+    "masdar": "اَلْقُوَّةُ",
+    "meaning": "to be strong",
+    "mudari": "يَقْوٰى",
+    "nahi": "لَا تَقْوَ",
+    "root": "ق و ي",
+    "verb_type": "lafif_maqrun"
+   },
+   "entry_id": 455
+  }
+ ],
+ "entry_count": 455,
+ "question_generator_version": "1",
+ "release_id": "safwa-2.2.0-2b053aa72340a9d3",
+ "schema_version": "2.2.0"
+}
