@@ -16,8 +16,10 @@
     Codex execution failure is NEVER treated as approval.
 
 .PARAMETER BaseBranch
-    Base branch to review against. Defaults to the repository's detected
-    primary branch (origin/HEAD), falling back to 'main'.
+    Base ref to review against. Defaults to the repository's detected
+    remote primary branch (origin/HEAD), falling back to 'origin/main'.
+    Prefer remote-qualified refs (origin/main): a stale local main would
+    otherwise make the review include unrelated upstream changes.
 
 .PARAMETER RequirementsFile
     Optional path to a file containing the phase requirements (objective,
@@ -46,6 +48,10 @@ function Fail([string]$Message) {
     exit 1
 }
 
+# Shared content-level workspace fingerprint (also used by /phase-loop to
+# verify the Claude reviewer changed nothing).
+. (Join-Path $PSScriptRoot "workspace-fingerprint.ps1")
+
 # --- Locate the repository root -------------------------------------------
 # (No stderr redirection: under EAP=Stop, PS 5.1 turns redirected native
 # stderr into terminating NativeCommandError.)
@@ -66,14 +72,16 @@ if ($null -eq $codexCmd) {
 if ([string]::IsNullOrWhiteSpace($BaseBranch)) {
     $originHead = & git symbolic-ref --quiet --short refs/remotes/origin/HEAD
     if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($originHead)) {
-        $BaseBranch = $originHead.Trim() -replace "^origin/", ""
+        # Keep the remote-qualified ref (origin/<branch>) so the review base
+        # matches the branch-creation base even when local main is stale.
+        $BaseBranch = $originHead.Trim()
     } else {
-        $BaseBranch = "main"
+        $BaseBranch = "origin/main"
     }
 }
 & git rev-parse --verify --quiet $BaseBranch | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    Fail "Base branch '$BaseBranch' does not exist locally. Fetch it first."
+    Fail "Base ref '$BaseBranch' does not exist. Run 'git fetch origin' first."
 }
 
 # --- Paths ------------------------------------------------------------------
@@ -102,7 +110,7 @@ if (-not [string]::IsNullOrWhiteSpace($RequirementsFile)) {
 $prompt = $prompt.Replace("{{PHASE_REQUIREMENTS}}", $requirementsText)
 
 # --- Snapshot the working tree so we can prove Codex changed nothing --------
-$statusBefore = (& git status --porcelain) -join "`n"
+$fingerprintBefore = Get-WorkspaceFingerprint
 
 # --- Run Codex ---------------------------------------------------------------
 Write-Host "Running Codex review against base branch '$BaseBranch'..." -ForegroundColor Cyan
@@ -115,9 +123,9 @@ $prompt | & codex exec --ephemeral --sandbox read-only --output-schema $schemaPa
 $codexExit = $LASTEXITCODE
 
 # --- Verify Codex made no working-tree changes -------------------------------
-$statusAfter = (& git status --porcelain) -join "`n"
-if ($statusBefore -ne $statusAfter) {
-    Fail "The working tree changed while Codex was running. Codex must be strictly read-only. Inspect 'git status' before trusting this review."
+$fingerprintAfter = Get-WorkspaceFingerprint
+if ($fingerprintBefore -ne $fingerprintAfter) {
+    Fail "Workspace content changed while Codex was running (HEAD, staged/unstaged tracked content, or untracked file bytes differ). The review does not describe the current tree; rerun it."
 }
 
 if ($codexExit -ne 0) {
@@ -170,9 +178,12 @@ foreach ($f in $findings) {
     Write-Host ""
 }
 
-# --- Consistency check: APPROVED must not carry actionable findings ----------
+# --- Consistency checks: decision and severities must agree both ways --------
 if ($result.decision -eq "APPROVED" -and $actionable.Count -gt 0) {
     Fail "Inconsistent review: decision is APPROVED but $($actionable.Count) P0/P1/P2 finding(s) exist. Treating as NOT approved."
+}
+if ($result.decision -eq "CHANGES_REQUIRED" -and $actionable.Count -eq 0) {
+    Fail "Inconsistent review: decision is CHANGES_REQUIRED but no P0/P1/P2 findings exist (P3 findings alone are non-blocking). Rerun the review; this is a failure, not an approval."
 }
 
 Write-Host "Full result saved to: $resultPath" -ForegroundColor DarkGray

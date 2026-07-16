@@ -218,11 +218,31 @@ Use P1 when the change could cause:
 
 Do not classify cosmetic issues, optional refactors or subjective improvements as P0 or P1.
 
+### P2 — Medium
+
+Use P2 for actionable defects with real but bounded impact:
+
+- Flawed or missing error handling on paths users can plausibly hit.
+
+- Accessibility failures in changed user-facing behaviour.
+
+- Meaningful gaps in test coverage for changed behaviour that is not high-risk.
+
+- Misleading states, labels or messages that cause real confusion.
+
+- Performance problems with a plausible meaningful impact.
+
+P2 findings block approval: they must be fixed or explicitly rebutted before the change is approved.
+
+### P3 — Low
+
+Use P3 for worthwhile but non-blocking improvements: minor robustness hardening, small maintainability issues, optional test additions and documentation gaps. P3 findings must still be reported, but they alone do not prevent approval.
+
 ## Final review decision
 
 Approve the pull request when:
 
-- No P0 or P1 defects remain.
+- No actionable P0, P1 or P2 defects remain.
 
 - The changed behaviour is adequately tested.
 
