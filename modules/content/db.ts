@@ -113,6 +113,26 @@ function entryRowsFor(release: LearnerRelease): ContentEntryRecord[] {
 }
 
 /**
+ * Compare EVERY field of an indexed row against the artifact-derived
+ * expectation — including the denormalised index fields (bab, verbType,
+ * bookPage), because Dexie queries filter on those independently of the
+ * embedded entry. Any drift marks the whole row set inconsistent.
+ */
+export function entryRowMatchesExpected(
+  actual: ContentEntryRecord,
+  expected: ContentEntryRecord,
+): boolean {
+  return (
+    actual.releaseId === expected.releaseId &&
+    actual.entryId === expected.entryId &&
+    actual.bab === expected.bab &&
+    actual.verbType === expected.verbType &&
+    actual.bookPage === expected.bookPage &&
+    JSON.stringify(actual.entry) === JSON.stringify(expected.entry)
+  );
+}
+
+/**
  * Cache one release transactionally from its EXACT serialized text. The
  * text is hash-verified and schema-validated before the transaction opens;
  * release row, exact artifact, entry rows and active metadata commit
@@ -208,10 +228,8 @@ export async function readVerifiedCachedRelease(
   const expectedRows = entryRowsFor(release);
   const rowsConsistent =
     rows.length === expectedRows.length &&
-    rows.every(
-      (row, index) =>
-        row.entryId === expectedRows[index].entryId &&
-        JSON.stringify(row.entry) === JSON.stringify(expectedRows[index].entry),
+    rows.every((row, index) =>
+      entryRowMatchesExpected(row, expectedRows[index]),
     );
   if (!rowsConsistent) {
     await db.transaction("rw", [db.contentEntries], async () => {
