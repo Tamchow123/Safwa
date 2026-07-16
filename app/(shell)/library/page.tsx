@@ -1,6 +1,7 @@
-import { ContentFoundationStatus } from "@/components/content/content-foundation-status";
+import { Suspense } from "react";
+
+import { LibraryPageClient } from "@/components/library/library-page-client";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 
 export default function LibraryPage() {
   return (
@@ -9,13 +10,9 @@ export default function LibraryPage() {
         title="Library"
         description="Browse and search the full vocabulary."
       />
-      <Card>
-        <CardContent className="text-muted-foreground text-sm">
-          The vocabulary library arrives with the library phase; below is the
-          Phase 3 content-foundation demonstration.
-        </CardContent>
-      </Card>
-      <ContentFoundationStatus />
+      <Suspense>
+        <LibraryPageClient />
+      </Suspense>
     </div>
   );
 }
