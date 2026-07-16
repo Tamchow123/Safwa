@@ -33,6 +33,16 @@ test.describe("accessibility", () => {
     await expectNoSeriousViolations(page);
   });
 
+  test("library with loaded content in light mode", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/library");
+    await expect(page.getByTestId("content-status")).toHaveText(
+      /entries loaded/,
+      { timeout: 15_000 },
+    );
+    await expectNoSeriousViolations(page);
+  });
+
   test("settings page in dark mode", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("theme", "dark");
