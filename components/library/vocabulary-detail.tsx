@@ -108,7 +108,7 @@ function EntryDetail({ entry }: { entry: LearnerEntry }) {
       <header className="space-y-1">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <ArabicText
-            as="p"
+            as="h1"
             className="text-4xl font-medium"
             data-testid="detail-madi"
           >

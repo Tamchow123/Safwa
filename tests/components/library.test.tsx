@@ -207,6 +207,15 @@ describe("ContentSourceNotice", () => {
 });
 
 describe("VocabularyDetail", () => {
+  it("renders the entry title as the level-one page heading", () => {
+    const entry = entries.find((candidate) => candidate.id === 1)!;
+    render(<VocabularyDetail idParam="1" />);
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading.textContent).toContain(entry.madi);
+    expect(heading).toHaveAttribute("lang", "ar");
+    expect(heading).toHaveAttribute("dir", "rtl");
+  });
+
   it("maps every field to its own eligibility boolean (entry 30)", () => {
     // Entry 30: masdar is quiz-ineligible while other fields stay quizzed.
     render(<VocabularyDetail idParam="30" />);

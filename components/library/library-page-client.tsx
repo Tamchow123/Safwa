@@ -1,17 +1,11 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
 import { LibraryToolbar } from "@/components/library/library-toolbar";
+import { useLibraryQuery } from "@/components/library/use-library-query";
 import { VirtualisedEntryList } from "@/components/library/virtualised-entry-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,10 +15,7 @@ import type { LearnerEntry } from "@/modules/content/schema";
 import {
   createLibrarySearchIndex,
   deriveLibraryFilterOptions,
-  parseLibrarySearchParams,
   queryLibraryEntries,
-  serializeLibrarySearchParams,
-  type LibraryQuery,
 } from "@/modules/content/query";
 
 export function LibraryPageClient() {
@@ -83,20 +74,13 @@ function LoadedLibrary({
   fallbackReason?: FallbackReason;
   onRefresh: () => void;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const options = useMemo(() => deriveLibraryFilterOptions(entries), [entries]);
   const searchIndex = useMemo(
     () => createLibrarySearchIndex(entries),
     [entries],
   );
 
-  const query = useMemo(
-    () => parseLibrarySearchParams(new URLSearchParams(searchParams), options),
-    [searchParams, options],
-  );
+  const { query, updateQuery, resetFilters } = useLibraryQuery(options);
 
   const deferredSearch = useDeferredValue(query.search);
   const results = useMemo(
@@ -104,23 +88,6 @@ function LoadedLibrary({
       queryLibraryEntries(searchIndex, { ...query, search: deferredSearch }),
     [searchIndex, query, deferredSearch],
   );
-
-  const updateQuery = useCallback(
-    (partial: Partial<LibraryQuery>, history: "push" | "replace" = "push") => {
-      const params = serializeLibrarySearchParams({ ...query, ...partial });
-      const url = params.size > 0 ? `${pathname}?${params}` : pathname;
-      if (history === "replace") {
-        router.replace(url, { scroll: false });
-      } else {
-        router.push(url, { scroll: false });
-      }
-    },
-    [query, pathname, router],
-  );
-
-  const resetFilters = useCallback(() => {
-    router.push(pathname, { scroll: false });
-  }, [router, pathname]);
 
   // Filter/sort changes (not search typing) reset scroll to the top of the
   // results so the virtual list starts at the first match.
