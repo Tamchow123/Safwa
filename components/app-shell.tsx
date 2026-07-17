@@ -2,6 +2,7 @@ import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/navigation/app-sidebar";
 import { MobileNav } from "@/components/navigation/mobile-nav";
 import { ArabicFontScaleInitializer } from "@/components/preferences/arabic-font-scale-initializer";
+import { ThemeInitializer } from "@/components/preferences/theme-initializer";
 
 /**
  * Responsive application shell: skip link, desktop sidebar, top header,
@@ -18,6 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <ArabicFontScaleInitializer />
+      <ThemeInitializer />
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />

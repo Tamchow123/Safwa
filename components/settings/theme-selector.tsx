@@ -1,10 +1,10 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useAppTheme } from "@/lib/preferences/use-app-theme";
 
 const THEME_OPTIONS = [
   { value: "system", label: "System", icon: Monitor },
@@ -32,7 +32,7 @@ function useMounted(): boolean {
  * during SSR.
  */
 export function ThemeSelector() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useAppTheme();
   const mounted = useMounted();
 
   return (

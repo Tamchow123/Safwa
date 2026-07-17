@@ -15,10 +15,10 @@
 import { ACTIVE_POINTER_URL } from "@/modules/content/constants";
 import {
   cacheLearnerRelease,
-  getContentDb,
+  getSafwaDb,
   readVerifiedActiveCachedRelease,
   readVerifiedCachedRelease,
-  type SafwaContentDb,
+  type SafwaDb,
 } from "@/modules/content/db";
 import {
   activePointerSchema,
@@ -107,7 +107,7 @@ function success(
 }
 
 async function fallbackToVerifiedCache(
-  db: SafwaContentDb,
+  db: SafwaDb,
   reason: FallbackReason,
   failure: LoadContentFailure,
 ): Promise<LoadContentResult> {
@@ -124,7 +124,7 @@ async function fallbackToVerifiedCache(
  * transactionally. A corrupt matching cache triggers a clean redownload.
  */
 export async function loadActiveContent(
-  db: SafwaContentDb = getContentDb(),
+  db: SafwaDb = getSafwaDb(),
 ): Promise<LoadContentResult> {
   let pointer: ActivePointer;
   try {
