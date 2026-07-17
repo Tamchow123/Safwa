@@ -1,6 +1,5 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
 import { ArabicText } from "@/components/arabic-text";
@@ -16,10 +15,11 @@ import {
 } from "@/components/ui/card";
 import { ARABIC_DEMO_TEXT } from "@/lib/arabic-demo";
 import { ARABIC_FONT_SCALE_LABELS } from "@/lib/preferences/arabic-font-scale";
+import { useAppTheme } from "@/lib/preferences/use-app-theme";
 import { useArabicFontScale } from "@/lib/preferences/use-arabic-font-scale";
 
 export function AppearanceSettings() {
-  const { setTheme } = useTheme();
+  const { setTheme } = useAppTheme();
   const { scale, setScale, reset: resetScale } = useArabicFontScale();
 
   function resetAppearance() {

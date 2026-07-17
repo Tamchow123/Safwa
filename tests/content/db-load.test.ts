@@ -8,10 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import {
   cacheLearnerRelease,
-  CONTENT_DB_VERSION,
   readVerifiedActiveCachedRelease,
   readVerifiedCachedRelease,
-  SafwaContentDb,
+  SAFWA_DB_VERSION,
+  SafwaDb,
 } from "@/modules/content/db";
 import { loadActiveContent, sha256HexBrowser } from "@/modules/content/load";
 
@@ -29,7 +29,7 @@ const LEARNER_TEXT = built.serialized.learner;
 const LEARNER_SHA = built.checksums.learner;
 
 let dbCounter = 0;
-let db: SafwaContentDb;
+let db: SafwaDb;
 
 function pointerResponse(overrides: Partial<Record<string, unknown>> = {}) {
   return { ...built.activePointer, ...overrides };
@@ -59,7 +59,7 @@ function mockFetch(options: {
 
 beforeEach(() => {
   dbCounter += 1;
-  db = new SafwaContentDb(`safwa-content-test-${dbCounter}`);
+  db = new SafwaDb(`safwa-content-test-${dbCounter}`);
 });
 
 afterEach(async () => {
@@ -67,14 +67,23 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe("Dexie content schema v1", () => {
-  it("creates the expected stores at version 1", async () => {
+describe("Dexie schema v2", () => {
+  it("creates the content and learner-state stores at version 2", async () => {
     await db.open();
-    expect(db.verno).toBe(CONTENT_DB_VERSION);
+    expect(db.verno).toBe(SAFWA_DB_VERSION);
     expect(db.tables.map((table) => table.name).sort()).toEqual([
+      "bookmarks",
       "contentEntries",
       "contentMetadata",
       "contentReleases",
+      "lists",
+      "mutation_queue",
+      "profile",
+      "review_events",
+      "sessions",
+      "settings",
+      "study_attempts",
+      "study_components",
     ]);
   });
 

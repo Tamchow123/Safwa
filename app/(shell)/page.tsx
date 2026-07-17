@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { RegisterPrompt } from "@/components/register-prompt";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function DashboardPage() {
@@ -8,6 +9,7 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Your study overview will live here."
       />
+      <RegisterPrompt />
       <Card>
         <CardContent className="text-muted-foreground text-sm">
           Progress, streaks and due reviews arrive with the progress dashboard
