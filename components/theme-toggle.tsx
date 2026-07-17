@@ -1,7 +1,6 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +10,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAppTheme } from "@/lib/preferences/use-app-theme";
 
 /**
  * Icon-button theme switcher for the app header. The three options are
@@ -18,7 +18,7 @@ import {
  * by state, not colour.
  */
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useAppTheme();
 
   return (
     <DropdownMenu>
