@@ -9,7 +9,10 @@ import {
   parseArabicFontScale,
   readArabicFontScale,
 } from "@/lib/preferences/arabic-font-scale";
-import { useArabicFontScale } from "@/lib/preferences/use-arabic-font-scale";
+import {
+  forgetClientArabicFontScaleForTests,
+  useArabicFontScale,
+} from "@/lib/preferences/use-arabic-font-scale";
 
 describe("arabic font scale (pure logic)", () => {
   it("uses a namespaced, versioned storage key", () => {
@@ -55,6 +58,9 @@ describe("useArabicFontScale (hook)", () => {
     document.documentElement.style.removeProperty(
       ARABIC_FONT_SCALE_CSS_PROPERTY,
     );
+    // Each test simulates a fresh page load: the module-level snapshot must
+    // re-seed from the mirror, not carry over from the previous test.
+    forgetClientArabicFontScaleForTests();
   });
 
   it("defaults when storage is empty", () => {

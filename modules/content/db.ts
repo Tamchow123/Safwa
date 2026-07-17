@@ -1,14 +1,21 @@
 /**
- * Dexie content cache — schema version 1 (content stores only; study,
- * profile and settings stores arrive in later phases with new versions).
+ * Dexie (IndexedDB) mirror — schema version 2.
  *
- * INTEGRITY MODEL: the exact serialized learner artifact is stored and is
- * authoritative. Every write recomputes SHA-256 over the exact bytes and
- * fully validates the parsed release before anything is persisted; every
- * read re-verifies hash + schema + metadata before any cached Arabic value
- * is returned. Indexed entry rows exist for future queries only — if they
- * are missing or inconsistent they are rebuilt transactionally from the
- * verified artifact and can never override it.
+ * v1: content cache stores only. v2 (Phase 5) adds the local learner-state
+ * stores from DATA_MODEL.md §9: study components (keyed by the shared
+ * natural key string), attempts, review events, sessions, bookmarks, lists,
+ * settings, the outbound mutation queue and the anonymous device profile.
+ * Content and learning state live in separate stores of one database:
+ * cached content releases are immutable verified artifacts, never editable
+ * copies.
+ *
+ * INTEGRITY MODEL (content stores): the exact serialized learner artifact
+ * is stored and is authoritative. Every write recomputes SHA-256 over the
+ * exact bytes and fully validates the parsed release before anything is
+ * persisted; every read re-verifies hash + schema + metadata before any
+ * cached Arabic value is returned. Indexed entry rows exist for future
+ * queries only — if they are missing or inconsistent they are rebuilt
+ * transactionally from the verified artifact and can never override it.
  *
  * BROWSER-ONLY: server components must never import or instantiate this.
  * Creation is lazy; tests use fake-indexeddb.
@@ -25,34 +32,149 @@ import {
 } from "@/modules/content/schema";
 import { sha256HexBrowser } from "@/modules/content/sha256-browser";
 
-export const CONTENT_DB_NAME = "safwa-content";
-export const CONTENT_DB_VERSION = 1;
+/**
+ * On-disk database name. Kept from v1 ("safwa-content") even though the
+ * database now also holds learner state — renaming an IndexedDB database
+ * would strand existing v1 caches instead of migrating them.
+ */
+export const SAFWA_DB_NAME = "safwa-content";
+export const SAFWA_DB_VERSION = 2;
 
-export class SafwaContentDb extends Dexie {
+/* ------------------------------------------------------------------ */
+/* Learner-state records (schema v2)                                   */
+/*                                                                     */
+/* Dexie fixes only key paths and indexes. The identity/index fields   */
+/* below are the durable contract; the phases that first WRITE each    */
+/* store (study engine 6, scheduler 7, sync 16+) extend the record     */
+/* bodies additively without a schema version bump.                    */
+/* ------------------------------------------------------------------ */
+
+/** Anonymous local device profile — singleton row under key "device". */
+export type DeviceProfileRecord = {
+  key: "device";
+  /** Random UUID minted lazily on first durable learner-state write. */
+  deviceId: string;
+  createdAt: number;
+  /** navigator.storage.persist() outcome; null until first requested. */
+  persistenceRequestedAt: number | null;
+  persistenceGranted: boolean | null;
+};
+
+export type SettingRecord = {
+  key: string;
+  value: unknown;
+  updatedAt: number;
+};
+
+export type BookmarkRecord = {
+  entryId: number;
+  createdAt: number;
+};
+
+export type CustomListRecord = {
+  id: string;
+  name: string;
+  entryIds: number[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+/** Local FSRS card state; identity is the shared natural key string. */
+export type StudyComponentRecord = {
+  componentKey: string;
+  entryId: number;
+};
+
+export type StudyAttemptRecord = {
+  id: string;
+  componentKey: string;
+  sessionId: string;
+  attemptedAt: number;
+};
+
+export type ReviewEventRecord = {
+  eventId: string;
+  componentKey: string;
+  /** Head of the local causal chain (null for a chain root). */
+  parentEventId: string | null;
+  clientComponentRevision: number;
+  syncStatus: "local" | "pushed" | "accepted" | "demoted" | "rejected";
+  createdAt: number;
+};
+
+export type StudySessionRecord = {
+  id: string;
+  startedAt: number;
+};
+
+export type MutationQueueRecord = {
+  /** Auto-incremented outbound order; assigned by Dexie on add. */
+  seq?: number;
+  idempotencyKey: string;
+  type: string;
+  payload: unknown;
+  createdAt: number;
+};
+
+export class SafwaDb extends Dexie {
   contentReleases!: EntityTable<ContentReleaseRecord, "releaseId">;
   contentEntries!: EntityTable<ContentEntryRecord, "releaseId">;
   contentMetadata!: EntityTable<ContentMetadataRecord, "key">;
+  studyComponents!: EntityTable<StudyComponentRecord, "componentKey">;
+  studyAttempts!: EntityTable<StudyAttemptRecord, "id">;
+  reviewEvents!: EntityTable<ReviewEventRecord, "eventId">;
+  sessions!: EntityTable<StudySessionRecord, "id">;
+  bookmarks!: EntityTable<BookmarkRecord, "entryId">;
+  lists!: EntityTable<CustomListRecord, "id">;
+  settings!: EntityTable<SettingRecord, "key">;
+  mutationQueue!: EntityTable<MutationQueueRecord, "seq">;
+  profile!: EntityTable<DeviceProfileRecord, "key">;
 
-  constructor(name: string = CONTENT_DB_NAME) {
+  constructor(name: string = SAFWA_DB_NAME) {
     super(name);
-    this.version(CONTENT_DB_VERSION).stores({
+    this.version(1).stores({
       contentReleases: "releaseId",
-      // Compound primary key + indexes needed by the upcoming library phase.
+      // Compound primary key + indexes needed by the library phase.
       contentEntries:
         "[releaseId+entryId], releaseId, entryId, bab, verbType, bookPage",
       contentMetadata: "key",
     });
+    // v2 is purely additive: new learner-state stores, no upgrade function
+    // needed — Dexie carries every v1 store and its data forward untouched.
+    // Physical store names follow the documented schema contract
+    // (DATA_MODEL.md §9: snake_case). The v1 content stores keep their
+    // shipped camelCase names — renaming an already-deployed store would
+    // need a data-copying migration, an explicit migration decision.
+    this.version(SAFWA_DB_VERSION).stores({
+      study_components: "componentKey, entryId",
+      study_attempts: "id, componentKey, sessionId, attemptedAt",
+      review_events: "eventId, componentKey, parentEventId, syncStatus",
+      sessions: "id, startedAt",
+      bookmarks: "entryId, createdAt",
+      lists: "id, name",
+      settings: "key",
+      mutation_queue: "++seq, &idempotencyKey",
+      profile: "key",
+    });
+    // Code-facing accessors stay camelCase per TS convention; the mapping
+    // to the snake_case physical stores lives here and nowhere else.
+    this.studyComponents = this.table("study_components");
+    this.studyAttempts = this.table("study_attempts");
+    this.reviewEvents = this.table("review_events");
+    this.mutationQueue = this.table("mutation_queue");
   }
 }
 
-let singleton: SafwaContentDb | null = null;
+let singleton: SafwaDb | null = null;
 
 /** Lazy browser singleton. Never call during server rendering. */
-export function getContentDb(): SafwaContentDb {
+export function getSafwaDb(): SafwaDb {
   if (typeof indexedDB === "undefined") {
-    throw new Error("content cache requires IndexedDB (browser context only)");
+    throw new Error(
+      "local persistence requires IndexedDB (browser context only)",
+    );
   }
-  singleton ??= new SafwaContentDb();
+  singleton ??= new SafwaDb();
   return singleton;
 }
 
@@ -139,7 +261,7 @@ export function entryRowMatchesExpected(
  * together or not at all.
  */
 export async function cacheLearnerRelease(
-  db: SafwaContentDb,
+  db: SafwaDb,
   serializedLearner: string,
   expectedChecksum: string,
   now: number = Date.now(),
@@ -192,7 +314,7 @@ export async function cacheLearnerRelease(
  * absent or fails verification — corrupted caches are never surfaced.
  */
 export async function readVerifiedCachedRelease(
-  db: SafwaContentDb,
+  db: SafwaDb,
   releaseId: string,
   expectedChecksum?: string,
 ): Promise<CachedRelease | null> {
@@ -244,7 +366,7 @@ export async function readVerifiedCachedRelease(
 
 /** Read the active cached release with full verification; null if invalid. */
 export async function readVerifiedActiveCachedRelease(
-  db: SafwaContentDb,
+  db: SafwaDb,
 ): Promise<CachedRelease | null> {
   const metadata = await db.contentMetadata.get("active");
   if (!metadata) return null;
