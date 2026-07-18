@@ -31,6 +31,7 @@ export type ActiveContentState =
       entries: LearnerEntry[];
       releaseId: string;
       contentVersion: string;
+      questionGeneratorVersion: string;
       entryCount: number;
       source: ContentSource;
       fallbackReason?: FallbackReason;
@@ -60,6 +61,7 @@ export function useActiveContent() {
             entries: result.entries,
             releaseId: result.releaseId,
             contentVersion: result.contentVersion,
+            questionGeneratorVersion: result.questionGeneratorVersion,
             entryCount: result.entryCount,
             source: result.source,
             fallbackReason: result.fallbackReason,

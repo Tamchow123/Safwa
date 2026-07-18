@@ -29,6 +29,25 @@ export async function peekDeviceProfile(
 }
 
 /**
+ * Build a fresh device-profile record for a given id, WITHOUT writing it. Lets a
+ * caller create the profile inside another store's transaction (e.g. atomically
+ * with the first durable learner-state write) so a failed write leaves no
+ * orphaned identity. The profile shape stays owned here, not at the call site.
+ */
+export function newDeviceProfile(
+  deviceId: string,
+  now: number,
+): DeviceProfileRecord {
+  return {
+    key: DEVICE_PROFILE_KEY,
+    deviceId,
+    createdAt: now,
+    persistenceRequestedAt: null,
+    persistenceGranted: null,
+  };
+}
+
+/**
  * Get the device profile, minting it on first use. The check-then-add runs
  * in a readwrite transaction on the profile store, so concurrent callers
  * (including other tabs) serialize and every caller observes the same
