@@ -7,6 +7,10 @@
 "use client";
 
 import { ArabicText } from "@/components/arabic-text";
+import {
+  SOURCE_FORM_METADATA,
+  SOURCE_QUIZ_FORM_FIELDS,
+} from "@/lib/form-metadata";
 import type {
   AnswerField,
   SourceQuizFormField,
@@ -15,29 +19,37 @@ import type { LearnerEntry } from "@/modules/content/schema";
 import type { AttemptClock } from "@/modules/study-engine/attempts";
 import { isSourceFormField } from "@/modules/study-engine/fields";
 
-/** English labels for the source forms and meaning (UI chrome, not source Arabic). */
+/** Source-form labels DERIVED from the single shared metadata map — never a
+ * second hand-maintained copy that could drift from it. */
+const SOURCE_FORM_LABELS = Object.fromEntries(
+  SOURCE_QUIZ_FORM_FIELDS.map((field) => [
+    field,
+    SOURCE_FORM_METADATA[field].label,
+  ]),
+) as Record<SourceQuizFormField, string>;
+
+/**
+ * English labels for every answer field (UI chrome, not source Arabic). The
+ * release's `meaning` is the BASE lexical meaning of the verb entry — not a
+ * literal translation of each inflected form — so it is labelled as such.
+ */
 export const FIELD_LABELS: Record<AnswerField, string> = {
-  madi: "Past (māḍī)",
-  mudari: "Present (muḍāriʿ)",
-  masdar: "Verbal noun (maṣdar)",
-  ism_fail: "Active participle (ism al-fāʿil)",
-  amr: "Command (amr)",
-  nahi: "Prohibition (nahī)",
-  meaning: "Meaning",
+  ...SOURCE_FORM_LABELS,
+  meaning: "Base meaning",
   root: "Root",
   bab: "Bāb",
   verb_type: "Verb type",
 };
 
-/** Short form names for the post-answer reveal, e.g. "This was the maṣdar form." */
-export const FORM_REVEAL_NAMES: Record<SourceQuizFormField, string> = {
-  madi: "māḍī",
-  mudari: "muḍāriʿ",
-  masdar: "maṣdar",
-  ism_fail: "ism al-fāʿil",
-  amr: "amr",
-  nahi: "nahī",
-};
+/** Short transliterated form name (e.g. "maṣdar") from the shared metadata. */
+export function formName(field: SourceQuizFormField): string {
+  return SOURCE_FORM_METADATA[field].name;
+}
+
+/** Full form label (e.g. "Verbal noun (maṣdar)") from the shared metadata. */
+export function formLabel(field: SourceQuizFormField): string {
+  return SOURCE_FORM_METADATA[field].label;
+}
 
 /**
  * The browser's wall clock + IANA timezone, injected into the pure engine so it

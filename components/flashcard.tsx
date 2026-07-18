@@ -7,9 +7,16 @@ export type FlashcardProps = {
   front: React.ReactNode;
   /** The answer face content (revealed after flipping). */
   back: React.ReactNode;
-  /** Small caption above each face, e.g. "Arabic form" / "Meaning". */
+  /** Small caption above each face, e.g. "Past (māḍī)" / "Base meaning". */
   frontCaption: string;
   backCaption: string;
+  /**
+   * Optional small line under a face's value — e.g. the En→Ar front's
+   * "Target form: Present (muḍāriʿ)", so the learner knows which Arabic form
+   * to recall from a base meaning BEFORE flipping.
+   */
+  frontDetail?: string;
+  backDetail?: string;
   /** Whether the answer face is showing. */
   flipped: boolean;
   /** Toggle the face (click/tap/Space/Enter). */
@@ -25,11 +32,14 @@ export type FlashcardProps = {
 
 function Face({
   caption,
+  detail,
   children,
   hidden = false,
   className,
 }: {
   caption: string;
+  /** Optional small line under the value (e.g. the target-form name). */
+  detail?: string;
   children: React.ReactNode;
   /** Excluded from the accessibility tree when its face is not showing. */
   hidden?: boolean;
@@ -49,6 +59,14 @@ function Face({
       <div className="flex min-w-0 items-center justify-center break-words">
         {children}
       </div>
+      {detail ? (
+        <span
+          className="text-muted-foreground text-xs"
+          data-testid="flashcard-face-detail"
+        >
+          {detail}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -67,6 +85,8 @@ export function Flashcard({
   back,
   frontCaption,
   backCaption,
+  frontDetail,
+  backDetail,
   flipped,
   onFlip,
   reducedMotion,
@@ -84,7 +104,10 @@ export function Flashcard({
       className="border-border bg-card text-card-foreground focus-visible:ring-ring/50 focus-visible:border-ring block w-full rounded-xl border shadow-sm outline-none focus-visible:ring-3"
     >
       {reducedMotion ? (
-        <Face caption={flipped ? backCaption : frontCaption}>
+        <Face
+          caption={flipped ? backCaption : frontCaption}
+          detail={flipped ? backDetail : frontDetail}
+        >
           {flipped ? back : front}
         </Face>
       ) : (
@@ -95,6 +118,7 @@ export function Flashcard({
           >
             <Face
               caption={frontCaption}
+              detail={frontDetail}
               hidden={flipped}
               className="[backface-visibility:hidden]"
             >
@@ -102,6 +126,7 @@ export function Flashcard({
             </Face>
             <Face
               caption={backCaption}
+              detail={backDetail}
               hidden={!flipped}
               className="absolute inset-0 [transform:rotateY(180deg)] [backface-visibility:hidden]"
             >
