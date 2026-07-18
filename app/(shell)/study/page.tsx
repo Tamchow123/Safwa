@@ -36,9 +36,27 @@ export default function StudyPage() {
         </CardContent>
       </Card>
       <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2 className="text-base font-semibold">Multiple choice</h2>
+          </CardTitle>
+          <CardDescription>
+            Choose the correct answer from four options, in either direction
+            (Arabic → English or English → Arabic). Your progress is saved on
+            this device.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="min-h-11">
+            <Link href="/study/mc" data-testid="start-mc-quiz">
+              Start multiple choice
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
         <CardContent className="text-muted-foreground text-sm">
-          Multiple-choice quizzes, bāb and root drills, and mixed revision
-          arrive in later phases.
+          Bāb and root drills, and mixed revision arrive in later phases.
         </CardContent>
       </Card>
     </div>
