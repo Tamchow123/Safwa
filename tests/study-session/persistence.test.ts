@@ -6,9 +6,9 @@ import { SafwaDb } from "@/modules/content/db";
 import { newDeviceProfile } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine";
 import {
-  recordFlashcardAttempt,
+  recordGradedAttempt,
   SupersededUndoError,
-  undoFlashcardAttempt,
+  undoGradedAttempt,
 } from "@/modules/study-session/persistence";
 
 import { makeAttempt } from "../scheduler/fixtures";
@@ -47,10 +47,10 @@ afterEach(async () => {
   await db.delete();
 });
 
-describe("recordFlashcardAttempt", () => {
+describe("recordGradedAttempt", () => {
   it("persists an attempt, a scheduling event and the projected card for a first 'I know'", async () => {
     const attempt = flashcardAttempt({ id: "a1", isCorrect: true });
-    const persisted = await recordFlashcardAttempt(db, attempt, {
+    const persisted = await recordGradedAttempt(db, attempt, {
       eventId: "e1",
       now: 1000,
     });
@@ -86,7 +86,7 @@ describe("recordFlashcardAttempt", () => {
   });
 
   it("records the session start time (not the first-grade time) on the session row", async () => {
-    await recordFlashcardAttempt(
+    await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", sessionId: "s1", isCorrect: true }),
       { eventId: "e1", now: 1000, sessionStartedAt: 400 },
@@ -96,7 +96,7 @@ describe("recordFlashcardAttempt", () => {
 
   it("maps 'I don't know' to an Again event", async () => {
     const attempt = flashcardAttempt({ id: "a1", isCorrect: false });
-    await recordFlashcardAttempt(db, attempt, { eventId: "e1", now: 1000 });
+    await recordGradedAttempt(db, attempt, { eventId: "e1", now: 1000 });
     const event = await db.reviewEvents.get("e1");
     expect(event?.rating).toBe("again");
     // An Again with no clean success has not started learning.
@@ -106,7 +106,7 @@ describe("recordFlashcardAttempt", () => {
 
   it("writes an attempt but NO event for a reinforcement recovery", async () => {
     // First attempt (wrong) creates the event.
-    await recordFlashcardAttempt(
+    await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", isCorrect: false }),
       { eventId: "e1", now: 1000 },
@@ -119,7 +119,7 @@ describe("recordFlashcardAttempt", () => {
       isFirstAttempt: false,
       isReinforcement: true,
     });
-    const persisted = await recordFlashcardAttempt(db, recovery, {
+    const persisted = await recordGradedAttempt(db, recovery, {
       eventId: "e2",
       now: 2000,
     });
@@ -134,12 +134,12 @@ describe("recordFlashcardAttempt", () => {
   });
 
   it("links a sequential chain across sessions with monotonic revisions", async () => {
-    await recordFlashcardAttempt(
+    await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", sessionId: "s1", isCorrect: true }),
       { eventId: "e1", now: 1000 },
     );
-    await recordFlashcardAttempt(
+    await recordGradedAttempt(
       db,
       flashcardAttempt({
         id: "a2",
@@ -160,15 +160,15 @@ describe("recordFlashcardAttempt", () => {
   });
 });
 
-describe("undoFlashcardAttempt", () => {
+describe("undoGradedAttempt", () => {
   it("removes the attempt, its event and the component when it was the only one", async () => {
-    const persisted = await recordFlashcardAttempt(
+    const persisted = await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", isCorrect: true }),
       { eventId: "e1", now: 1000 },
     );
 
-    await undoFlashcardAttempt(db, persisted, 1500);
+    await undoGradedAttempt(db, persisted, 1500);
 
     expect(await db.studyAttempts.get("a1")).toBeUndefined();
     expect(await db.reviewEvents.get("e1")).toBeUndefined();
@@ -177,12 +177,12 @@ describe("undoFlashcardAttempt", () => {
   });
 
   it("restores the prior card when undoing the latest of a chain", async () => {
-    await recordFlashcardAttempt(
+    await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", sessionId: "s1", isCorrect: true }),
       { eventId: "e1", now: 1000 },
     );
-    const second = await recordFlashcardAttempt(
+    const second = await recordGradedAttempt(
       db,
       flashcardAttempt({
         id: "a2",
@@ -193,7 +193,7 @@ describe("undoFlashcardAttempt", () => {
       { eventId: "e2", now: 2000 },
     );
 
-    await undoFlashcardAttempt(db, second, 2500);
+    await undoGradedAttempt(db, second, 2500);
 
     expect(await db.studyAttempts.get("a2")).toBeUndefined();
     expect(await db.reviewEvents.get("e2")).toBeUndefined();
@@ -206,12 +206,12 @@ describe("undoFlashcardAttempt", () => {
   it("rejects undo of a superseded (non-head) event, leaving both rows intact", async () => {
     // e1 then e2 (child of e1) — as if the same component were graded again in
     // another tab sharing this IndexedDB before the first action's undo.
-    const first = await recordFlashcardAttempt(
+    const first = await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", sessionId: "s1", isCorrect: true }),
       { eventId: "e1", now: 1000 },
     );
-    await recordFlashcardAttempt(
+    await recordGradedAttempt(
       db,
       flashcardAttempt({
         id: "a2",
@@ -223,7 +223,7 @@ describe("undoFlashcardAttempt", () => {
     );
 
     // Undoing e1 is rejected (e2 still depends on it) and rolls back atomically.
-    await expect(undoFlashcardAttempt(db, first, 2500)).rejects.toBeInstanceOf(
+    await expect(undoGradedAttempt(db, first, 2500)).rejects.toBeInstanceOf(
       SupersededUndoError,
     );
 
@@ -236,12 +236,12 @@ describe("undoFlashcardAttempt", () => {
   });
 
   it("removes only the attempt for a reinforcement recovery (no event to undo)", async () => {
-    await recordFlashcardAttempt(
+    await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", isCorrect: false }),
       { eventId: "e1", now: 1000 },
     );
-    const recovery = await recordFlashcardAttempt(
+    const recovery = await recordGradedAttempt(
       db,
       flashcardAttempt({
         id: "a2",
@@ -252,7 +252,7 @@ describe("undoFlashcardAttempt", () => {
       { eventId: "e2", now: 2000 },
     );
 
-    await undoFlashcardAttempt(db, recovery, 2500);
+    await undoGradedAttempt(db, recovery, 2500);
 
     expect(await db.studyAttempts.get("a2")).toBeUndefined();
     // The first attempt's event is untouched.
@@ -262,9 +262,9 @@ describe("undoFlashcardAttempt", () => {
   });
 });
 
-describe("recordFlashcardAttempt device-profile binding", () => {
+describe("recordGradedAttempt device-profile binding", () => {
   it("creates the device profile atomically with the first attempt", async () => {
-    const persisted = await recordFlashcardAttempt(
+    const persisted = await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", deviceId: "prov-1", isCorrect: true }),
       {
@@ -287,7 +287,7 @@ describe("recordFlashcardAttempt device-profile binding", () => {
   it("reuses an already-bound profile id, ignoring the provisional one", async () => {
     await db.profile.add(newDeviceProfile("existing", 500));
 
-    const persisted = await recordFlashcardAttempt(
+    const persisted = await recordGradedAttempt(
       db,
       flashcardAttempt({ id: "a1", deviceId: "prov-1", isCorrect: true }),
       {
@@ -320,7 +320,7 @@ describe("recordFlashcardAttempt device-profile binding", () => {
     });
 
     await expect(
-      recordFlashcardAttempt(
+      recordGradedAttempt(
         db,
         flashcardAttempt({ id: "a1", deviceId: "prov-1", isCorrect: true }),
         {
