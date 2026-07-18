@@ -17,7 +17,13 @@
  *  - the REMAINING daily budgets for the current local date
  *    (`remainingDailyTargets`), recomputed from the persisted scheduling
  *    events so repeated same-day sessions share one daily allowance
- *    (§4.4: 10 new/day · 20 reviews/day by default).
+ *    (§4.4: 10 new/day · 20 reviews/day by default);
+ *  - the PEDAGOGICAL ordering of the new tier (`newRank`): an explicit,
+ *    typed component-priority policy — recognition before recall before
+ *    ṣarf identification — spread across distinct entries (round-robin,
+ *    breadth before depth), never raw component-key order. An entry with no
+ *    prior component history always starts with an Arabic→English
+ *    recognition component (māḍī preferred).
  *
  * Every function is a pure function of its inputs (the clock instant is
  * injected); the impure Dexie read lives in `persistence.ts`.
@@ -35,7 +41,10 @@ import {
 } from "@/modules/scheduler/due";
 import type { SchedulerCard } from "@/modules/scheduler/fsrs";
 import type { LearnerState } from "@/modules/scheduler/states";
-import { deriveAllComponents } from "@/modules/study-engine/components";
+import {
+  deriveAllComponents,
+  type DerivedComponent,
+} from "@/modules/study-engine/components";
 import { isFieldEligible } from "@/modules/study-engine/fields";
 import { DEFAULT_ENTRY_LEVEL_PROMPT_FORM } from "@/modules/study-engine/generator";
 import type { ComponentIdentity } from "@/modules/study-engine/natural-key";
@@ -155,6 +164,139 @@ export type MixedPlanItem = {
   promptForm?: SourceQuizFormField;
 };
 
+/* ------------------------------------------------------------------ */
+/* New-component pedagogical priority (Phase 10 correction)            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The EXPLICIT priority classes for never-studied components, lower studied
+ * first (§4.3 "sensible zero-configuration session"). The progression moves
+ * from recognising a word to producing and analysing it:
+ *
+ *   māḍī recognition → other essential recognition (muḍāriʿ/maṣdar) →
+ *   essential māḍī recall → bāb → root → remaining translation components →
+ *   extended verb-type material.
+ *
+ * A typed policy — never alphabetical skill names and never raw component-key
+ * order, which interleaves skills arbitrarily and sorts unpadded entry ids as
+ * strings (entry:100 before entry:1).
+ */
+export const NEW_COMPONENT_PRIORITY = {
+  madi_recognition: 0,
+  essential_recognition: 1,
+  essential_recall: 2,
+  bab_identification: 3,
+  root_identification: 4,
+  remaining_translation: 5,
+  verb_type_identification: 6,
+} as const;
+
+export type NewComponentPriorityClass = keyof typeof NEW_COMPONENT_PRIORITY;
+
+/** Classify a derived component under the new-item priority policy. */
+export function newComponentPriorityClass(
+  component: DerivedComponent,
+): NewComponentPriorityClass {
+  switch (component.skillType) {
+    case "meaning_recognition":
+      if (component.sourceField === "madi") return "madi_recognition";
+      return component.essential
+        ? "essential_recognition"
+        : "remaining_translation";
+    case "meaning_recall":
+      // The essential recall set is māḍī only (§5).
+      return component.essential ? "essential_recall" : "remaining_translation";
+    case "bab_identification":
+      return "bab_identification";
+    case "root_identification":
+      return "root_identification";
+    case "verb_type_identification":
+      return "verb_type_identification";
+  }
+}
+
+/** The numeric priority (lower studied first) for a derived component. */
+export function newComponentPriority(component: DerivedComponent): number {
+  return NEW_COMPONENT_PRIORITY[newComponentPriorityClass(component)];
+}
+
+/** One entry's not-yet-studied component, ready for rank assignment. */
+type NewCandidate = {
+  componentKey: string;
+  priority: number;
+  /** Stable derivation position within the entry (deterministic tiebreak). */
+  order: number;
+  isRecognition: boolean;
+};
+
+/**
+ * Assign the pedagogical `newRank` for every selectable new component:
+ *
+ *  1. Within an entry, candidates run in priority-class order (recognition
+ *     before recall before bāb/root, verb-type last).
+ *  2. Entries take turns round-robin — at most one new component per entry
+ *     per round — so a session spreads across distinct words while enough
+ *     entries are available (breadth before depth).
+ *  3. Entries with fewer already-materialised components go first, tiebroken
+ *     by source order (the release's entry order — numeric, never string
+ *     order of unpadded ids).
+ *  4. An entry with NO component history always STARTS with a recognition
+ *     component: its earliest recognition candidate is hoisted to the queue
+ *     head even when only a non-essential recognition is eligible (which
+ *     would otherwise rank behind bāb/root). In the (structurally possible,
+ *     currently unreachable) case that such an entry has no recognition
+ *     component at all, its components are left out of this session's new
+ *     tier rather than opening with recall or ṣarf analysis.
+ *
+ * Returns a total rank per component key — raw key order never decides.
+ */
+function assignNewRanks(
+  newByEntry: ReadonlyMap<number, NewCandidate[]>,
+  materialisedCountByEntry: ReadonlyMap<number, number>,
+  entrySourceIndexById: ReadonlyMap<number, number>,
+): Map<string, number> {
+  const queues: { entryId: number; queue: NewCandidate[] }[] = [];
+  for (const [entryId, candidates] of newByEntry) {
+    const queue = [...candidates].sort(
+      (a, b) => a.priority - b.priority || a.order - b.order,
+    );
+    const unseen = (materialisedCountByEntry.get(entryId) ?? 0) === 0;
+    if (unseen) {
+      const recognitionIndex = queue.findIndex(
+        (candidate) => candidate.isRecognition,
+      );
+      if (recognitionIndex < 0) continue; // never open with recall/ṣarf
+      if (recognitionIndex > 0) {
+        const [firstRecognition] = queue.splice(recognitionIndex, 1);
+        queue.unshift(firstRecognition);
+      }
+    }
+    queues.push({ entryId, queue });
+  }
+  queues.sort(
+    (a, b) =>
+      (materialisedCountByEntry.get(a.entryId) ?? 0) -
+        (materialisedCountByEntry.get(b.entryId) ?? 0) ||
+      entrySourceIndexById.get(a.entryId)! -
+        entrySourceIndexById.get(b.entryId)!,
+  );
+
+  const ranks = new Map<string, number>();
+  let rank = 0;
+  let remaining = queues.reduce((sum, item) => sum + item.queue.length, 0);
+  while (remaining > 0) {
+    for (const item of queues) {
+      const next = item.queue.shift();
+      if (next) {
+        ranks.set(next.componentKey, rank);
+        rank += 1;
+        remaining -= 1;
+      }
+    }
+  }
+  return ranks;
+}
+
 /**
  * The deterministic prompt form for an entry-level component in a
  * zero-configuration session: the default māḍī when eligible, else the first
@@ -201,12 +343,17 @@ export function buildMixedPlan(
     );
   }
   const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+  const entrySourceIndexById = new Map(
+    entries.map((entry, index) => [entry.id, index]),
+  );
   const storedByKey = new Map(
     stored.map((record) => [record.componentKey, record]),
   );
 
   const items: SchedulableItem[] = [];
   const planByKey = new Map<string, MixedPlanItem>();
+  const newByEntry = new Map<number, NewCandidate[]>();
+  const materialisedCountByEntry = new Map<number, number>();
   for (const component of deriveAllComponents(entries)) {
     const identity: ComponentIdentity = {
       entryId: component.entryId,
@@ -223,14 +370,48 @@ export function buildMixedPlan(
       if (resolved === null) continue;
       promptForm = resolved;
     }
-    const record = storedByKey.get(component.key);
-    items.push({
-      componentKey: component.key,
-      card: record?.fsrs ?? null,
-      state: record?.learnerState ?? "not_started",
-      weakScore: weakScores.get(component.key) ?? 0,
-    });
     planByKey.set(component.key, { identity, promptForm });
+
+    const record = storedByKey.get(component.key);
+    const card = record?.fsrs ?? null;
+    if (card !== null) {
+      // Already materialised (has a scheduling card): a due/weak candidate.
+      materialisedCountByEntry.set(
+        component.entryId,
+        (materialisedCountByEntry.get(component.entryId) ?? 0) + 1,
+      );
+      items.push({
+        componentKey: component.key,
+        card,
+        state: record?.learnerState ?? "not_started",
+        weakScore: weakScores.get(component.key) ?? 0,
+      });
+    } else {
+      // Never studied: collect for pedagogical rank assignment.
+      const candidates = newByEntry.get(component.entryId);
+      const candidate: NewCandidate = {
+        componentKey: component.key,
+        priority: newComponentPriority(component),
+        order: candidates?.length ?? 0,
+        isRecognition: component.skillType === "meaning_recognition",
+      };
+      if (candidates) candidates.push(candidate);
+      else newByEntry.set(component.entryId, [candidate]);
+    }
+  }
+
+  const newRanks = assignNewRanks(
+    newByEntry,
+    materialisedCountByEntry,
+    entrySourceIndexById,
+  );
+  for (const [componentKey, newRank] of newRanks) {
+    items.push({
+      componentKey,
+      card: null,
+      state: "not_started",
+      newRank,
+    });
   }
 
   // Take the first `sessionLimit` of the (priority-ordered) daily allocation:
