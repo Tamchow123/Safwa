@@ -300,17 +300,23 @@ chain.ts,states.ts,due.ts}` + tests.
 
 - **Objective:** Ar→En and En→Ar MC modes.
 - **Scope:** quiz session UI (4 options, immediate-feedback + test modes,
-  timed mode with per-question countdown); form revealed after answering
-  ("This was the maṣdar form."); wrong answers re-queued in-session;
-  optimistic correctness from shared logic; session results screen
-  (first-attempt accuracy, hinted, recovered).
+  timed mode with per-question countdown); prompt wording treats `meaning` as
+  the BASE lexical meaning ("Choose the base meaning"), never as an exact
+  form translation. Ar→En: the quizzed form may stay hidden until the
+  feedback, which shows the base meaning and names the form ("Form: Verbal
+  noun (maṣdar)"). En→Ar: the requested form is named before answering
+  ("Choose the muḍāriʿ form") — while only a base gloss exists the base
+  meaning cannot identify the wanted form — and the feedback confirms it;
+  wrong answers re-queued in-session; optimistic correctness from shared
+  logic; session results screen (first-attempt accuracy, hinted, recovered).
 - **Non-goals:** bāb/root quizzes; hints UI beyond basic (first letter +
   root + bāb hints included here if trivial, else Phase 11).
 - **Prerequisites:** Phase 8.
 - **Testing checkpoint:** Playwright: complete Ar→En and En→Ar sessions;
   test-mode feedback withheld until end; timed expiry counts as incorrect;
-  reveal shows correct form name; engine tests already cover generation —
-  E2E asserts wiring only; axe scan.
+  Ar→En feedback reveals the correct form name; En→Ar names the requested
+  form before answering; engine tests already cover generation — E2E asserts
+  wiring only; axe scan.
 - **Acceptance criteria:** §4.5 generation rules observable in UI; results
   distinguish first-attempt vs recovered.
 - **Demonstrate:** one full session each direction, one test-mode session.

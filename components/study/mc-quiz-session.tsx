@@ -8,8 +8,9 @@ import { useActiveContent } from "@/components/content/use-active-content";
 import {
   FieldValue,
   FIELD_LABELS,
-  FORM_REVEAL_NAMES,
   browserClock,
+  formLabel,
+  formName,
   isArabicField,
 } from "@/components/study/study-shared";
 import { Button } from "@/components/ui/button";
@@ -96,19 +97,32 @@ function sessionConfigForDelivery(
   }
 }
 
-/** Prompt caption that never names the quizzed source form (§4.5). */
+/**
+ * The prompt caption. The release's `meaning` is a BASE lexical meaning, not a
+ * per-form translation, so the two directions differ deliberately (§4.5):
+ * - Arabic→English (recognition): "Choose the base meaning" — the quizzed form
+ *   is NOT named before answering (revealed with the feedback).
+ * - English→Arabic (recall): the requested form IS named before answering,
+ *   because the base meaning alone cannot distinguish māḍī from maṣdar etc.
+ */
 function promptCaption(instance: QuestionInstance): string {
-  return instance.answerField === "meaning"
-    ? "Choose the meaning"
+  if (instance.answerField === "meaning") return "Choose the base meaning";
+  return instance.sourceField !== null
+    ? `Choose the ${formName(instance.sourceField)} form`
     : "Choose the correct Arabic form";
 }
 
-/** The reveal shown only AFTER answering, naming the quizzed source form. */
-function formRevealText(
+/**
+ * The post-answer form line. For Ar→En this is the reveal of the previously
+ * hidden form; for En→Ar it merely confirms the form already named in the
+ * caption — neutral "Form: …" wording covers both without pretending the
+ * En→Ar form had been hidden.
+ */
+function formFeedbackText(
   sourceField: SourceQuizFormField | null,
 ): string | null {
   if (sourceField === null) return null;
-  return `This was the ${FORM_REVEAL_NAMES[sourceField]} form.`;
+  return `Form: ${formLabel(sourceField)}`;
 }
 
 /** Top-level: loads content, hosts the options bar, and mounts the runner. */
@@ -609,7 +623,7 @@ function QuestionView({
     return () => clearInterval(interval);
   }, [isTimed, perQuestionLimitMs, answered, onAnswer]);
 
-  const reveal = formRevealText(instance.sourceField);
+  const formLine = formFeedbackText(instance.sourceField);
   const remainingSeconds = Math.ceil(remainingMs / 1000);
 
   return (
@@ -640,9 +654,22 @@ function QuestionView({
 
       <Card>
         <CardContent className="space-y-2 py-8 text-center">
-          <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          <span
+            className="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+            data-testid="mc-prompt-caption"
+          >
             {promptCaption(instance)}
           </span>
+          {instance.promptField === "meaning" ? (
+            // The En→Ar prompt shows the entry's BASE lexical meaning — label
+            // it so the gloss is never read as a translation of one form.
+            <p
+              className="text-muted-foreground text-xs"
+              data-testid="mc-base-meaning-label"
+            >
+              Base meaning
+            </p>
+          ) : null}
           <div className="flex items-center justify-center">
             <FieldValue entry={entry} field={instance.promptField} />
           </div>
@@ -694,12 +721,20 @@ function QuestionView({
                   ? "Correct"
                   : "Incorrect"}
             </p>
-            {reveal ? (
+            {/* The answer is the entry's BASE meaning paired with the quizzed
+                form — never presented as an exact translation of that form. */}
+            <p
+              className="text-muted-foreground text-sm"
+              data-testid="mc-base-meaning"
+            >
+              Base meaning: {entry.meaning}
+            </p>
+            {formLine ? (
               <p
                 className="text-muted-foreground text-sm"
                 data-testid="mc-form-reveal"
               >
-                {reveal}
+                {formLine}
               </p>
             ) : null}
           </CardContent>
@@ -892,8 +927,8 @@ function ResultsScreen({
                 // Test mode withholds correctness inline; the quizzed form is
                 // still revealed here (per direction) so criterion 3/4's "reveal
                 // shows the form" holds in test mode too.
-                const formName = attempt.sourceField
-                  ? FORM_REVEAL_NAMES[attempt.sourceField]
+                const rowFormLabel = attempt.sourceField
+                  ? formLabel(attempt.sourceField)
                   : null;
                 return (
                   <li
@@ -904,14 +939,19 @@ function ResultsScreen({
                     className="flex items-center justify-between gap-3"
                   >
                     <span>
-                      {answerEntry?.meaning ?? `Entry ${attempt.entryId}`}
-                      {formName ? (
+                      {/* Test mode defers ALL feedback to this screen, so the
+                          gloss must be labelled here too — never presented as
+                          the exact translation of the named form. */}
+                      {answerEntry
+                        ? `Base meaning: ${answerEntry.meaning}`
+                        : `Entry ${attempt.entryId}`}
+                      {rowFormLabel ? (
                         <span
                           className="text-muted-foreground"
                           data-testid="mc-result-form"
                         >
                           {" "}
-                          · {formName}
+                          · Form: {rowFormLabel}
                         </span>
                       ) : null}
                     </span>

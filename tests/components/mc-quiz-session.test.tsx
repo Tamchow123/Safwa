@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
+import { SOURCE_FORM_METADATA } from "@/lib/form-metadata";
+import type { SourceQuizFormField } from "@/modules/content/constants";
 import type { AttemptRecord } from "@/modules/study-engine";
 import type {
   PersistedAttempt,
@@ -139,6 +141,32 @@ function anIncorrectOption(session: HTMLElement): HTMLElement {
   return found;
 }
 
+/** The learner entry backing the current question (programmatic, by id). */
+function entryFor(session: HTMLElement) {
+  const entryId = Number(session.getAttribute("data-entry-id"));
+  const entry = built.learner.entries.find(
+    (candidate) => candidate.id === entryId,
+  );
+  if (!entry) throw new Error(`entry ${entryId} not in built release`);
+  return entry;
+}
+
+/** Switch to an English→Arabic session for one specific source form. */
+async function startRecallSession(
+  user: ReturnType<typeof userEvent.setup>,
+  field: SourceQuizFormField,
+): Promise<HTMLElement> {
+  await user.click(screen.getByRole("button", { name: "English → Arabic" }));
+  await user.selectOptions(screen.getByLabelText("Form"), field);
+  return waitFor(() => {
+    const el = screen.getByTestId("mc-quiz-session");
+    if (el.getAttribute("data-source-field") !== field) {
+      throw new Error(`not a ${field} session yet`);
+    }
+    return el;
+  });
+}
+
 describe("McQuizSession", () => {
   it("auto-starts and shows a question with four options", async () => {
     render(<McQuizSession />);
@@ -148,6 +176,12 @@ describe("McQuizSession", () => {
     // §4.5: exactly four options, and the quizzed form is not named yet.
     expect(options()).toHaveLength(4);
     expect(screen.queryByTestId("mc-form-reveal")).toBeNull();
+    // Ar→En asks for the BASE meaning — never "the translation" of the form —
+    // and does not label the Arabic prompt with a base-meaning label.
+    expect(screen.getByTestId("mc-prompt-caption")).toHaveTextContent(
+      "Choose the base meaning",
+    );
+    expect(screen.queryByTestId("mc-base-meaning-label")).toBeNull();
   });
 
   it("answering correctly shows immediate feedback and reveals the form", async () => {
@@ -163,17 +197,22 @@ describe("McQuizSession", () => {
     expect(attempt.mode).toBe("mc");
     expect(attempt.isCorrect).toBe(true);
 
-    // Feedback marks the outcome correct and reveals the source form by name.
+    // Feedback marks the outcome correct, shows the entry's BASE meaning
+    // labelled as such, and reveals the quizzed form via the shared metadata —
+    // never wording that claims an exact form translation.
     const feedback = await screen.findByTestId("mc-feedback");
     expect(within(feedback).getByTestId("mc-feedback-outcome")).toHaveAttribute(
       "data-correct",
       "true",
     );
-    const reveal = screen.getByTestId("mc-form-reveal");
-    // The reveal names the actual quizzed source form (read from the DOM, not a
-    // hand-typed Arabic literal).
-    expect(reveal.textContent).toMatch(/This was the .+ form\./);
     expect(sourceField).toBeTruthy();
+    const reveal = screen.getByTestId("mc-form-reveal");
+    expect(reveal.textContent).toBe(
+      `Form: ${SOURCE_FORM_METADATA[sourceField as SourceQuizFormField].label}`,
+    );
+    expect(screen.getByTestId("mc-base-meaning").textContent).toBe(
+      `Base meaning: ${entryFor(session).meaning}`,
+    );
 
     // A Next control advances the session.
     expect(screen.getByTestId("mc-next")).toBeEnabled();
@@ -230,6 +269,108 @@ describe("McQuizSession", () => {
     // Recall: the prompt is the meaning, the answer is a source form.
     expect(session.getAttribute("data-prompt-field")).toBe("meaning");
     expect(session.getAttribute("data-answer-field")).not.toBe("meaning");
+    // The requested form is named BEFORE answering (the base meaning alone
+    // cannot distinguish forms), and the prompt gloss is labelled as a base
+    // meaning taken verbatim from the learner release.
+    const sourceField = session.getAttribute(
+      "data-source-field",
+    ) as SourceQuizFormField;
+    expect(screen.getByTestId("mc-prompt-caption").textContent).toBe(
+      `Choose the ${SOURCE_FORM_METADATA[sourceField].name} form`,
+    );
+    expect(screen.getByTestId("mc-base-meaning-label")).toHaveTextContent(
+      "Base meaning",
+    );
+    expect(session.textContent).toContain(entryFor(session).meaning);
+  });
+
+  it.each(["mudari", "masdar"] as const)(
+    "a selected %s component asks for that form, constrains options and records sourceField",
+    async (field) => {
+      const user = userEvent.setup();
+      render(<McQuizSession />);
+      await waitForQuestion();
+
+      const session = await startRecallSession(user, field);
+      // The requested form is named before answering, from shared metadata.
+      expect(screen.getByTestId("mc-prompt-caption").textContent).toBe(
+        `Choose the ${SOURCE_FORM_METADATA[field].name} form`,
+      );
+      // Every option is the SAME eligible source field.
+      expect(options()).toHaveLength(4);
+      for (const option of options()) {
+        expect(option.getAttribute("data-answer-ref")).toMatch(
+          new RegExp(`:field:${field}$`),
+        );
+      }
+
+      await user.click(optionWithRef(correctRef(session)));
+      await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+      // The attempt still records the quizzed source field.
+      expect(recordGradedAttempt.mock.calls[0][1].sourceField).toBe(field);
+    },
+  );
+
+  it("keeps amr and nahy visibly distinct in prompts and metadata", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    await waitForQuestion();
+
+    await startRecallSession(user, "amr");
+    const amrCaption = screen.getByTestId("mc-prompt-caption").textContent!;
+    expect(amrCaption).toBe(`Choose the ${SOURCE_FORM_METADATA.amr.name} form`);
+
+    await startRecallSession(user, "nahi");
+    const nahiCaption = screen.getByTestId("mc-prompt-caption").textContent!;
+    expect(nahiCaption).toBe(
+      `Choose the ${SOURCE_FORM_METADATA.nahi.name} form`,
+    );
+
+    // The two prompts (and their metadata) can never read the same.
+    expect(nahiCaption).not.toBe(amrCaption);
+    expect(SOURCE_FORM_METADATA.amr.description).not.toBe(
+      SOURCE_FORM_METADATA.nahi.description,
+    );
+  });
+
+  it("random-form English→Arabic questions update the visible form label per question", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    await waitForQuestion();
+
+    // En→Ar with the default "Any eligible form" (random) field choice.
+    await user.click(screen.getByRole("button", { name: "English → Arabic" }));
+    await waitFor(() => {
+      const el = screen.getByTestId("mc-quiz-session");
+      if (el.getAttribute("data-prompt-field") !== "meaning") {
+        throw new Error("still recognition");
+      }
+    });
+
+    const seen = new Set<string>();
+    // 8 questions: the chance a seeded random plan draws a single form eight
+    // times is negligible, so the >1-forms assertion below is stable.
+    for (let position = 1; position <= 8; position++) {
+      const session = screen.getByTestId("mc-quiz-session");
+      const sourceField = session.getAttribute(
+        "data-source-field",
+      ) as SourceQuizFormField;
+      seen.add(sourceField);
+      // The caption always names THIS question's form.
+      expect(screen.getByTestId("mc-prompt-caption").textContent).toBe(
+        `Choose the ${SOURCE_FORM_METADATA[sourceField].name} form`,
+      );
+      await user.click(optionWithRef(correctRef(session)));
+      await user.click(await screen.findByTestId("mc-next"));
+      await waitFor(() =>
+        expect(
+          screen.getByText(new RegExp(`Question ${position + 1} of`)),
+        ).toBeInTheDocument(),
+      );
+    }
+    // Across several random questions more than one form appeared, so the
+    // label demonstrably tracked the per-question source field.
+    expect(seen.size).toBeGreaterThan(1);
   });
 
   it("test mode withholds per-question feedback but reveals it in the results", async () => {
@@ -268,10 +409,17 @@ describe("McQuizSession", () => {
       // Every answer above was the correct option.
       expect(outcome).toHaveAttribute("data-correct", "true");
       // The quizzed source form is revealed for every row (test mode reveals it
-      // at the end rather than inline — §4.3/§4.4).
+      // at the end rather than inline — §4.3/§4.4). Because this screen is the
+      // ONLY feedback in test mode, the gloss must be labelled as a base
+      // meaning here too, with the form label from the shared metadata.
       const sourceField = outcome.getAttribute("data-source-field");
       expect(sourceField).toBeTruthy();
-      expect(within(outcome).getByTestId("mc-result-form")).toBeInTheDocument();
+      expect(outcome.textContent).toContain("Base meaning: ");
+      expect(
+        within(outcome).getByTestId("mc-result-form").textContent,
+      ).toContain(
+        `Form: ${SOURCE_FORM_METADATA[sourceField as SourceQuizFormField].label}`,
+      );
     }
   });
 

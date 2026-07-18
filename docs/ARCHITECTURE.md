@@ -85,8 +85,19 @@ One publishing pipeline (Phase 3) reads the validated enriched JSON and emits
 three immutable, checksummed artifacts sharing a `release_id`:
 
 1. **Learner content release** (public, cached by clients): display fields,
-   eligibility booleans, bāb/verb-type/page metadata. Excludes internal review
-   provenance, generated additional forms and mazīd candidates.
+   eligibility booleans, bāb/verb-type/page metadata. The `meaning` display
+   field is the entry's BASE lexical gloss — not a literal English translation
+   of each supplied inflected form; the UI labels it "Base meaning", and
+   learner-facing form labels/grammatical descriptions come from one shared
+   source-form metadata map (`lib/form-metadata.ts`). Every study consumer
+   must honour the direction-specific contract: Arabic→English currently
+   tests base-meaning recognition (the quizzed form may stay hidden until
+   feedback), while English→Arabic must pair the base meaning with an
+   explicit target-form instruction named BEFORE answering — the base gloss
+   alone cannot identify which form is wanted. Exact form-specific English
+   glosses would be a separately verified future content field. Excludes
+   internal review provenance, generated additional forms and mazīd
+   candidates.
 2. **Validation manifest** (server): entry ids, per-entry field eligibility,
    allowed skills/directions/component shapes, bāb + verb-type ids, release
    status, checksums.

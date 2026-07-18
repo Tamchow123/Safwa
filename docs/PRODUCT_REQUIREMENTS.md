@@ -89,18 +89,37 @@ Learning is tracked per **study component**, not per word:
 
 ### 4.3 Learning modes
 
+**Base-meaning semantics.** Each entry's `meaning` is the lexical/base gloss
+of the verb entry (e.g. "to sleep"), NOT necessarily a literal English
+translation of every supplied inflected form — māḍī is a past 3rd-person
+masculine singular, muḍāriʿ an imperfect 3rd-person masculine singular,
+maṣdar a verbal noun, ism al-fāʿil an active participle, amr a 2nd-person
+masculine singular command and nahy a 2nd-person masculine singular
+prohibition. The UI labels the gloss **"Base meaning"**, never presents it as
+the exact translation of a displayed form, and never generates English
+conjugations ("he slept", "do not sleep") from it. Arabic→English modes test
+base-meaning recognition; English→Arabic modes pair the base meaning with an
+explicit target-form instruction. Exact form-specific English glosses require
+separately verified content and are deferred. Learner-facing grammatical form
+labels and descriptions come from one shared source-form metadata map.
+
 **Flashcards** — direction choice (Ar→En / En→Ar); study a selected field or a
 random eligible field; flip via tap/click/keyboard; swipe left/right on touch
 plus accessible button/keyboard equivalents; "I know" / "I don't know";
 single-step undo. "I know" carries the same learning weight as a correct quiz
-answer; "I don't know" schedules the item to return soon.
+answer; "I don't know" schedules the item to return soon. The English side is
+labelled "Base meaning"; an En→Ar card names the target form before the flip
+so the learner always knows which Arabic form to recall.
 
 **Arabic→English MC** — shows an eligible Arabic form (form deliberately not
-named in the question), 4 options, plausible distractors; after answering, the
-form is revealed ("This was the maṣdar form.").
+named in the question), 4 base-meaning options ("Choose the base meaning"),
+plausible distractors; the feedback after answering shows the base meaning
+labelled as such and reveals the quizzed form ("Form: Verbal noun (maṣdar)").
 
-**English→Arabic MC** — shows the meaning, asks for the correct Arabic form,
-4 options, respects form filters, reveals the form type after answering.
+**English→Arabic MC** — names the requested form before answering ("Choose
+the muḍāriʿ form"), shows the entry's base meaning labelled as such, 4 options
+all drawn from that source field, respects form filters; the post-answer
+feedback confirms the form (it was never hidden in this direction).
 
 **Identify the bāb** — default prompt is the māḍī; configurable to muḍāriʿ,
 ism al-fāʿil, another eligible form, or random eligible forms. Answer options
@@ -138,7 +157,10 @@ per attempt.
   identical surface forms are excluded from each other's option sets.
 - Distractors prefer plausibility: same field, similar bāb/verb type/page.
 - The answer must be unambiguous; the correct option is unique in the set.
-- The prompt's form is not named in the question; it is revealed afterwards.
+- Arabic→English: the prompt's form is not named in the question; it is
+  revealed with the feedback. English→Arabic: the requested target form IS
+  named before answering — while only a base gloss exists, the base meaning
+  alone cannot identify which form is wanted.
 - Bāb questions display only the selected form (harder/easier configurations
   may come later).
 

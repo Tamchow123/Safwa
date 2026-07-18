@@ -6,10 +6,15 @@ import Link from "next/link";
 import { ArabicText } from "@/components/arabic-text";
 import { useActiveContent } from "@/components/content/use-active-content";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
+import { EligibilityBadge } from "@/components/library/eligibility-badge";
 import { VocabularyField } from "@/components/library/vocabulary-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  SOURCE_FORM_METADATA,
+  SOURCE_QUIZ_FORM_FIELDS,
+} from "@/lib/form-metadata";
 import type { LearnerEntry } from "@/modules/content/schema";
 
 function BackToLibrary() {
@@ -118,6 +123,14 @@ function EntryDetail({ entry }: { entry: LearnerEntry }) {
             Entry #{entry.id}
           </span>
         </div>
+        {/* The entry's ONE base lexical meaning — shown once, here, labelled as
+            such. It is not a literal translation of each supplied form. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            Base meaning
+          </span>
+          <EligibilityBadge eligible={entry.quiz_eligibility.meaning} />
+        </div>
         <p className="text-lg" data-testid="detail-meaning">
           {entry.meaning}
         </p>
@@ -131,50 +144,23 @@ function EntryDetail({ entry }: { entry: LearnerEntry }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Each supplied form with its shared-metadata label and
+                grammatical description. The base meaning is NOT repeated here
+                (it appears once in the header) and no English rendering of any
+                individual form is generated from it. */}
             <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <VocabularyField
-                label="Madi (past)"
-                value={entry.madi}
-                arabic
-                eligible={entry.quiz_eligibility.madi}
-              />
-              <VocabularyField
-                label="Mudari (present)"
-                value={entry.mudari}
-                arabic
-                eligible={entry.quiz_eligibility.mudari}
-                testId="detail-mudari"
-              />
-              <VocabularyField
-                label="Masdar"
-                value={entry.masdar}
-                arabic
-                eligible={entry.quiz_eligibility.masdar}
-                testId="detail-masdar"
-              />
-              <VocabularyField
-                label="Ism al-fail"
-                value={entry.ism_fail}
-                arabic
-                eligible={entry.quiz_eligibility.ism_fail}
-              />
-              <VocabularyField
-                label="Amr (command)"
-                value={entry.amr}
-                arabic
-                eligible={entry.quiz_eligibility.amr}
-              />
-              <VocabularyField
-                label="Nahy (prohibition)"
-                value={entry.nahi}
-                arabic
-                eligible={entry.quiz_eligibility.nahi}
-              />
-              <VocabularyField
-                label="Meaning"
-                value={entry.meaning}
-                eligible={entry.quiz_eligibility.meaning}
-              />
+              {SOURCE_QUIZ_FORM_FIELDS.map((field) => (
+                <VocabularyField
+                  key={field}
+                  label={SOURCE_FORM_METADATA[field].label}
+                  description={SOURCE_FORM_METADATA[field].description}
+                  value={entry[field]}
+                  arabic
+                  eligible={entry.quiz_eligibility[field]}
+                  // The header's madi already carries data-testid="detail-madi".
+                  testId={field === "madi" ? undefined : `detail-${field}`}
+                />
+              ))}
             </dl>
           </CardContent>
         </Card>

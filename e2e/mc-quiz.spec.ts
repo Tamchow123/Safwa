@@ -57,6 +57,35 @@ function idbRatings(page: Page): Promise<string[]> {
   });
 }
 
+/** The `sourceField` recorded on each persisted study attempt. */
+function idbAttemptSourceFields(page: Page): Promise<(string | null)[]> {
+  return page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("safwa-content");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      if (!database.objectStoreNames.contains("study_attempts")) return [];
+      return await new Promise<(string | null)[]>((resolve, reject) => {
+        const request = database
+          .transaction("study_attempts", "readonly")
+          .objectStore("study_attempts")
+          .getAll();
+        request.onsuccess = () =>
+          resolve(
+            (
+              request.result as { attempt?: { sourceField?: string | null } }[]
+            ).map((row) => row.attempt?.sourceField ?? null),
+          );
+        request.onerror = () => reject(request.error);
+      });
+    } finally {
+      database.close();
+    }
+  });
+}
+
 /** The serialized ref of the current question's correct option — always the
  * prompt entry's answer field (distractors are drawn from OTHER entries). */
 async function correctOptionRef(page: Page): Promise<string> {
@@ -145,12 +174,12 @@ test.describe("multiple-choice quizzes", () => {
   });
 
   /**
-   * Independent expectation of the reveal name per source form — hard-coded here
-   * (NOT imported from the component's FORM_REVEAL_NAMES) so a swap or typo in
-   * that map is caught. These are Latin transliteration labels, not dataset
-   * Arabic, so hard rule 3 does not apply.
+   * Independent expectations per source form — hard-coded here (NOT imported
+   * from the app's shared metadata map) so a swap or typo in that map is
+   * caught. These are Latin transliteration labels, not dataset Arabic, so
+   * hard rule 3 does not apply.
    */
-  const EXPECTED_FORM_REVEAL: Record<string, string> = {
+  const EXPECTED_FORM_NAMES: Record<string, string> = {
     madi: "māḍī",
     mudari: "muḍāriʿ",
     masdar: "maṣdar",
@@ -158,18 +187,52 @@ test.describe("multiple-choice quizzes", () => {
     amr: "amr",
     nahi: "nahī",
   };
+  const EXPECTED_FORM_LABELS: Record<string, string> = {
+    madi: "Past (māḍī)",
+    mudari: "Present (muḍāriʿ)",
+    masdar: "Verbal noun (maṣdar)",
+    ism_fail: "Active participle (ism al-fāʿil)",
+    amr: "Command (amr)",
+    nahi: "Prohibition (nahī)",
+  };
 
-  /** Answer the current question correctly and assert the reveal names EXACTLY
-   * the quizzed source form (not merely "some" form). */
-  async function assertRevealMatchesSourceForm(page: Page) {
+  /**
+   * Answer the current question correctly and assert the base-meaning
+   * semantics for its direction: Ar→En keeps the form hidden until the
+   * feedback; En→Ar names the requested form BEFORE answering. Both show the
+   * base meaning labelled as such (never as an exact form translation) plus
+   * the exact form label in the feedback.
+   */
+  async function assertBaseMeaningSemantics(
+    page: Page,
+    direction: "recognition" | "recall",
+  ) {
     const session = page.getByTestId("mc-quiz-session");
     const sourceField = await session.getAttribute("data-source-field");
     expect(sourceField, "source field is present").toBeTruthy();
-    const expected = EXPECTED_FORM_REVEAL[sourceField!];
-    expect(expected, `a known reveal name for ${sourceField}`).toBeTruthy();
+    const expectedName = EXPECTED_FORM_NAMES[sourceField!];
+    const expectedLabel = EXPECTED_FORM_LABELS[sourceField!];
+    expect(expectedName, `a known form name for ${sourceField}`).toBeTruthy();
 
-    // The form is NOT named before answering (§4.5).
+    // No feedback yet in either direction.
     await expect(page.getByTestId("mc-form-reveal")).toHaveCount(0);
+    if (direction === "recognition") {
+      // Ar→En: the quizzed form is NOT named before answering (§4.5); the
+      // options are base meanings.
+      await expect(page.getByTestId("mc-prompt-caption")).toHaveText(
+        "Choose the base meaning",
+      );
+      await expect(page.getByTestId("mc-base-meaning-label")).toHaveCount(0);
+    } else {
+      // En→Ar: the requested form IS named before answering, and the prompt
+      // gloss is visibly labelled as a base meaning.
+      await expect(page.getByTestId("mc-prompt-caption")).toHaveText(
+        `Choose the ${expectedName} form`,
+      );
+      await expect(page.getByTestId("mc-base-meaning-label")).toHaveText(
+        "Base meaning",
+      );
+    }
 
     // The quizzed source form is eligible for the prompt entry (hard rule 2).
     const entryId = Number(await session.getAttribute("data-entry-id"));
@@ -182,30 +245,34 @@ test.describe("multiple-choice quizzes", () => {
     ).toBe(true);
 
     await answerCorrectly(page);
+    // Feedback: the entry's base meaning labelled as such, plus the exact
+    // form label from the independent expectation for THIS source form.
+    await expect(page.getByTestId("mc-base-meaning")).toHaveText(
+      `Base meaning: ${entry.meaning}`,
+    );
     const reveal = page.getByTestId("mc-form-reveal");
     await expect(reveal).toBeVisible();
-    // Exact match against the independent expectation for THIS source form.
-    await expect(reveal).toHaveText(`This was the ${expected} form.`);
+    await expect(reveal).toHaveText(`Form: ${expectedLabel}`);
     await expect(page.getByTestId("mc-feedback-outcome")).toHaveAttribute(
       "data-correct",
       "true",
     );
   }
 
-  test("Arabic→English reveal names the exact quizzed form", async ({
+  test("Arabic→English hides the form until feedback, then names it with the base meaning", async ({
     page,
   }) => {
     await page.goto("/study/mc");
     await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
     // Sample several successive questions so more than one source form is checked.
     for (let i = 0; i < 4; i++) {
-      await assertRevealMatchesSourceForm(page);
+      await assertBaseMeaningSemantics(page, "recognition");
       await page.getByTestId("mc-next").click();
       await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
     }
   });
 
-  test("English→Arabic reveal names the exact quizzed form", async ({
+  test("English→Arabic names the requested form before answering, per question", async ({
     page,
   }) => {
     await page.goto("/study/mc");
@@ -216,10 +283,48 @@ test.describe("multiple-choice quizzes", () => {
       "meaning",
     );
     for (let i = 0; i < 4; i++) {
-      await assertRevealMatchesSourceForm(page);
+      await assertBaseMeaningSemantics(page, "recall");
       await page.getByTestId("mc-next").click();
       await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
     }
+  });
+
+  test("a selected English→Arabic form is named before answering, constrains options and is recorded", async ({
+    page,
+  }) => {
+    await page.goto("/study/mc");
+    await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
+    await page.getByRole("button", { name: "English → Arabic" }).click();
+    await page.getByLabel("Form").selectOption("mudari");
+
+    const session = page.getByTestId("mc-quiz-session");
+    await expect(session).toHaveAttribute("data-source-field", "mudari");
+    // 1. The requested form label is visible BEFORE answering.
+    await expect(page.getByTestId("mc-prompt-caption")).toHaveText(
+      `Choose the ${EXPECTED_FORM_NAMES.mudari} form`,
+    );
+    await expect(page.getByTestId("mc-form-reveal")).toHaveCount(0);
+    // 4. The prompt gloss is visibly labelled as a base meaning and is the
+    // entry's verbatim release meaning.
+    await expect(page.getByTestId("mc-base-meaning-label")).toHaveText(
+      "Base meaning",
+    );
+    const entryId = Number(await session.getAttribute("data-entry-id"));
+    const entry = loadLearnerRelease().entries.find((e) => e.id === entryId);
+    if (!entry) throw new Error(`entry ${entryId} not in release`);
+    await expect(session).toContainText(entry.meaning);
+    // 2. All four options use exactly that source field.
+    const options = page.getByTestId("mc-option");
+    await expect(options).toHaveCount(4);
+    const refs = await options.evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("data-answer-ref")),
+    );
+    for (const ref of refs) {
+      expect(ref).toMatch(/:field:mudari$/);
+    }
+    // 3. The persisted attempt records that source field.
+    await answerCorrectly(page);
+    await expect.poll(() => idbAttemptSourceFields(page)).toEqual(["mudari"]);
   });
 
   test("test mode withholds feedback until the results screen", async ({
@@ -255,12 +360,23 @@ test.describe("multiple-choice quizzes", () => {
     await expect(page.getByTestId("mc-results")).toBeVisible();
     // Per-question outcomes are revealed only now.
     const outcomes = page.getByTestId("mc-result-outcome");
-    expect(await outcomes.count()).toBeGreaterThan(0);
+    const outcomeCount = await outcomes.count();
+    expect(outcomeCount).toBeGreaterThan(0);
     // Test mode still reveals the quizzed form (per row) — it withholds
-    // correctness, not the form identity (§4.3/§4.4).
-    expect(await page.getByTestId("mc-result-form").count()).toBe(
-      await outcomes.count(),
-    );
+    // correctness, not the form identity (§4.3/§4.4). This screen is the ONLY
+    // feedback in test mode, so every row labels the gloss as a base meaning
+    // and names the form with its label.
+    expect(await page.getByTestId("mc-result-form").count()).toBe(outcomeCount);
+    for (let i = 0; i < outcomeCount; i++) {
+      const row = outcomes.nth(i);
+      await expect(row).toContainText("Base meaning: ");
+      const sourceField = await row.getAttribute("data-source-field");
+      const label = EXPECTED_FORM_LABELS[sourceField ?? ""];
+      expect(label, `a known form label for ${sourceField}`).toBeTruthy();
+      await expect(row.getByTestId("mc-result-form")).toContainText(
+        `Form: ${label}`,
+      );
+    }
   });
 
   test("timed-mode expiry counts the question as incorrect", async ({
