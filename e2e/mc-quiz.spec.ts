@@ -494,6 +494,10 @@ test.describe("multiple-choice quizzes", () => {
     await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
     await answerCorrectly(page);
     await expect(page.getByTestId("mc-feedback")).toBeVisible();
+    // The just-enabled Undo button animates opacity (transition-all on the
+    // shared button); a mid-transition frame reads as a spurious contrast
+    // violation. Scan the steady state (same guard as bab-root-mixed.spec).
+    await expect(page.getByTestId("undo")).toHaveCSS("opacity", "1");
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });

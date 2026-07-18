@@ -94,7 +94,9 @@ describe("mixed session ordering (due → weak → new)", () => {
 
   it("never lists a component in more than one tier (no double-add)", () => {
     // A due wrong-only card is `not_started` (no clean success yet) but HAS a
-    // card — it must appear only in the due tier, never also as 'new'.
+    // card — it must appear only in the due tier, never also as 'new'. The
+    // non-due wrong-only card carries its weakness evidence (score from the
+    // incorrect first attempt), which is what makes it a weak-tier member.
     const items: SchedulableItem[] = [
       {
         componentKey: "wrong-due",
@@ -105,16 +107,75 @@ describe("mixed session ordering (due → weak → new)", () => {
         componentKey: "wrong-not-due",
         card: cardDueAt(NOW + 100000),
         state: "not_started",
+        weakScore: 1,
       },
       { componentKey: "truly-new", card: null, state: "not_started" },
     ];
     const session = buildMixedSession(items, NOW);
     expect(new Set(session).size).toBe(session.length); // no duplicates
     expect(session).toContain("wrong-due"); // due
-    expect(session).toContain("wrong-not-due"); // weak (has a card, not mastered)
+    expect(session).toContain("wrong-not-due"); // weak (evidence: score > 0)
     expect(session).toContain("truly-new"); // new (no card)
     // The due wrong-only card appears exactly once.
     expect(session.filter((k) => k === "wrong-due")).toHaveLength(1);
+  });
+
+  it("weak membership needs evidence: a score-zero learning card is not re-drilled", () => {
+    const items: SchedulableItem[] = [
+      // Answered correctly, not yet due, no weakness evidence: NOT selected.
+      {
+        componentKey: "fine-not-due",
+        card: cardDueAt(NOW + 100000),
+        state: "learning",
+        weakScore: 0,
+      },
+      // Recent incorrect first attempt: weak.
+      {
+        componentKey: "weak-evidence",
+        card: cardDueAt(NOW + 100000),
+        state: "learning",
+        weakScore: 0.4,
+      },
+      // Projected needs_review qualifies even without a computed score.
+      {
+        componentKey: "needs-review",
+        card: cardDueAt(NOW + 100000),
+        state: "needs_review",
+      },
+      // Mastered non-due never qualifies, whatever the score says.
+      {
+        componentKey: "mastered",
+        card: cardDueAt(NOW + 100000),
+        state: "mastered",
+        weakScore: 1,
+      },
+      // Due stays the top tier even at score zero.
+      {
+        componentKey: "due-score-zero",
+        card: cardDueAt(NOW - 1000),
+        state: "learning",
+        weakScore: 0,
+      },
+    ];
+    const session = buildMixedSession(items, NOW);
+    expect(session).toEqual([
+      "due-score-zero",
+      "weak-evidence",
+      "needs-review",
+    ]);
+  });
+
+  it("orders new items by the caller's rank, never raw key order", () => {
+    const items: SchedulableItem[] = [
+      // Raw key order would run a-first; the caller's ranks say otherwise.
+      { componentKey: "new-a", card: null, state: "not_started", newRank: 2 },
+      { componentKey: "new-b", card: null, state: "not_started", newRank: 0 },
+      { componentKey: "new-c", card: null, state: "not_started", newRank: 1 },
+      // Unranked new items run after every ranked one.
+      { componentKey: "new-0-unranked", card: null, state: "not_started" },
+    ];
+    const session = buildMixedSession(items, NOW);
+    expect(session).toEqual(["new-b", "new-c", "new-a", "new-0-unranked"]);
   });
 
   it("caps reviews (due+weak) at the review target", () => {
