@@ -15,6 +15,7 @@ const activeState: { current: ActiveContentState } = {
     entries,
     releaseId: built.releaseId,
     contentVersion: built.learner.content_version,
+    questionGeneratorVersion: built.learner.question_generator_version,
     entryCount: entries.length,
     source: "cache",
   },

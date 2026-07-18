@@ -49,6 +49,7 @@ export type LoadContentSuccess = {
   fallbackReason?: FallbackReason;
   releaseId: string;
   contentVersion: string;
+  questionGeneratorVersion: string;
   entryCount: number;
   entries: LearnerEntry[];
 };
@@ -89,7 +90,12 @@ export async function fetchLearnerReleaseText(
 
 function success(
   cached: {
-    release: { releaseId: string; contentVersion: string; entryCount: number };
+    release: {
+      releaseId: string;
+      contentVersion: string;
+      questionGeneratorVersion: string;
+      entryCount: number;
+    };
     entries: LearnerEntry[];
   },
   source: ContentSource,
@@ -101,6 +107,7 @@ function success(
     ...(fallbackReason ? { fallbackReason } : {}),
     releaseId: cached.release.releaseId,
     contentVersion: cached.release.contentVersion,
+    questionGeneratorVersion: cached.release.questionGeneratorVersion,
     entryCount: cached.release.entryCount,
     entries: cached.entries,
   };
@@ -213,6 +220,7 @@ export async function loadActiveContent(
     source: "network",
     releaseId: release.release_id,
     contentVersion: release.content_version,
+    questionGeneratorVersion: release.question_generator_version,
     entryCount: release.entry_count,
     entries: release.entries,
   };

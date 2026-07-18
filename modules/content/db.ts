@@ -31,6 +31,7 @@ import {
   type LearnerRelease,
 } from "@/modules/content/schema";
 import { sha256HexBrowser } from "@/modules/content/sha256-browser";
+import type { AttemptRecord } from "@/modules/study-engine/attempts";
 
 /**
  * On-disk database name. Kept from v1 ("safwa-content") even though the
@@ -112,6 +113,14 @@ export type StudyAttemptRecord = {
   componentKey: string;
   sessionId: string;
   attemptedAt: number;
+  /**
+   * The full engine attempt payload (Phase 8+), stored so scheduling events can
+   * be (re)derived, an attempt undone, and — later — the attempt synced. Added
+   * additively over the Phase-5 store contract: the indexed fields above are
+   * unchanged, so no schema-version bump or index change is needed. Optional so
+   * any pre-Phase-8 rows (there are none in practice) remain readable.
+   */
+  attempt?: AttemptRecord;
 };
 
 /**
