@@ -3,23 +3,22 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ArabicText } from "@/components/arabic-text";
 import { useActiveContent } from "@/components/content/use-active-content";
 import { Flashcard } from "@/components/flashcard";
+import {
+  FieldValue,
+  FIELD_LABELS,
+  browserClock,
+} from "@/components/study/study-shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useReducedMotion } from "@/lib/preferences/use-reduced-motion";
 import { uuidv7 } from "@/lib/uuid";
-import type {
-  AnswerField,
-  SourceQuizFormField,
-} from "@/modules/content/constants";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { newDeviceProfile, peekDeviceProfile } from "@/modules/profile/device";
 import { ensureDurableGuestState } from "@/modules/profile/persistence";
-import { isSourceFormField } from "@/modules/study-engine/fields";
 import {
   createQuestionContext,
   type QuestionContext,
@@ -35,7 +34,6 @@ import {
   type SessionState,
 } from "@/modules/study-engine/session";
 import type { FlashcardSelfGrade } from "@/modules/study-engine/correctness";
-import type { AttemptClock } from "@/modules/study-engine/attempts";
 import {
   buildFlashcardPlan,
   DEFAULT_FLASHCARD_CONFIG,
@@ -44,25 +42,11 @@ import {
   type FlashcardFieldChoice,
 } from "@/modules/study-session/flashcards";
 import {
-  recordFlashcardAttempt,
+  recordGradedAttempt,
   SupersededUndoError,
-  undoFlashcardAttempt,
+  undoGradedAttempt,
   type PersistedAttempt,
 } from "@/modules/study-session/persistence";
-
-/** English labels for the source forms and meaning (UI chrome, not source Arabic). */
-const FIELD_LABELS: Record<AnswerField, string> = {
-  madi: "Past (māḍī)",
-  mudari: "Present (muḍāriʿ)",
-  masdar: "Verbal noun (maṣdar)",
-  ism_fail: "Active participle (ism al-fāʿil)",
-  amr: "Command (amr)",
-  nahi: "Prohibition (nahī)",
-  meaning: "Meaning",
-  root: "Root",
-  bab: "Bāb",
-  verb_type: "Verb type",
-};
 
 const DIRECTION_OPTIONS: { value: FlashcardDirectionChoice; label: string }[] =
   [
@@ -82,40 +66,6 @@ const FIELD_OPTIONS: { value: FlashcardFieldChoice; label: string }[] = [
 ];
 
 const SWIPE_THRESHOLD_PX = 48;
-
-function browserClock(): AttemptClock {
-  let timezone = "UTC";
-  try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    timezone = "UTC";
-  }
-  return {
-    now: () => Date.now(),
-    timezone,
-    timezoneSource: "browser_detected",
-  };
-}
-
-/** Is this field an Arabic value (a source form) rather than the English meaning? */
-function isArabicField(field: AnswerField): boolean {
-  return isSourceFormField(field as SourceQuizFormField);
-}
-
-/** Render a field's value, wrapping Arabic forms in <ArabicText>. */
-function FieldValue({
-  entry,
-  field,
-}: {
-  entry: LearnerEntry;
-  field: AnswerField;
-}) {
-  const value = field === "meaning" ? entry.meaning : entry[field];
-  if (isArabicField(field)) {
-    return <ArabicText className="text-3xl">{String(value ?? "")}</ArabicText>;
-  }
-  return <span className="text-2xl font-medium">{String(value ?? "")}</span>;
-}
 
 /** Top-level: loads content, hosts the options bar, and mounts the runner. */
 export function FlashcardSession() {
@@ -343,7 +293,7 @@ function FlashcardRunner({
         // orphaned identity (the profile is not committed in a separate
         // transaction). The adapter returns the effective (committed) device id.
         const bindNow = !deviceBound.current;
-        const persisted = await recordFlashcardAttempt(db, result.attempt, {
+        const persisted = await recordGradedAttempt(db, result.attempt, {
           eventId: uuidv7(),
           now: clock.now(),
           sessionStartedAt: sessionStartedAt.current || clock.now(),
@@ -395,7 +345,7 @@ function FlashcardRunner({
     setActionError(null);
     try {
       if (persisted) {
-        await undoFlashcardAttempt(getSafwaDb(), persisted, Date.now());
+        await undoGradedAttempt(getSafwaDb(), persisted, Date.now());
       }
       // Only advance the engine state once the DB reversal succeeded, so a
       // failed undo leaves attempt, event and UI consistent.
