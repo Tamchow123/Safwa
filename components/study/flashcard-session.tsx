@@ -9,6 +9,7 @@ import {
   FieldValue,
   FIELD_LABELS,
   browserClock,
+  formLabel,
 } from "@/components/study/study-shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -560,6 +561,23 @@ function CardView({
           back={<FieldValue entry={entry} field={instance.answerField} />}
           frontCaption={FIELD_LABELS[instance.promptField]}
           backCaption={FIELD_LABELS[instance.answerField]}
+          // En→Ar recall: the front shows only the BASE meaning, which cannot
+          // by itself distinguish māḍī from maṣdar etc. — name the requested
+          // form before the flip so the learner knows what to recall.
+          frontDetail={
+            instance.promptField === "meaning" && instance.sourceField
+              ? `Target form: ${formLabel(instance.sourceField)}`
+              : undefined
+          }
+          // Ar→En recognition: the revealed English side must keep the form
+          // context (base meaning + form) — without this the form label would
+          // live only on the now-hidden Arabic face (and, under reduced
+          // motion, leave the DOM entirely once flipped).
+          backDetail={
+            instance.answerField === "meaning" && instance.sourceField
+              ? `Form: ${formLabel(instance.sourceField)}`
+              : undefined
+          }
           flipped={flipped}
           onFlip={flip}
           reducedMotion={reducedMotion}

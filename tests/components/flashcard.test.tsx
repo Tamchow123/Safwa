@@ -12,7 +12,7 @@ function setup(
     front: <span>PROMPT</span>,
     back: <span>ANSWER</span>,
     frontCaption: "Arabic form",
-    backCaption: "Meaning",
+    backCaption: "Base meaning",
     flipped: false,
     onFlip,
     reducedMotion: false,
@@ -77,5 +77,42 @@ describe("Flashcard", () => {
     setup({ reducedMotion: true, flipped: true });
     expect(screen.getByText("ANSWER")).toBeInTheDocument();
     expect(screen.queryByText("PROMPT")).not.toBeInTheDocument();
+  });
+
+  it("shows a front detail line on the visible face (animated)", () => {
+    setup({ frontDetail: "Target form: TEST-FORM", flipped: false });
+    const detail = screen.getByTestId("flashcard-face-detail");
+    expect(detail).toHaveTextContent("Target form: TEST-FORM");
+    // It belongs to the visible prompt face, not the hidden answer face.
+    expect(detail.closest("[aria-hidden='true']")).toBeNull();
+  });
+
+  it("reduced-motion variant shows the front detail only while unflipped", () => {
+    setup({
+      reducedMotion: true,
+      frontDetail: "Target form: TEST-FORM",
+      flipped: false,
+    });
+    expect(screen.getByTestId("flashcard-face-detail")).toHaveTextContent(
+      "Target form: TEST-FORM",
+    );
+  });
+
+  it("reduced-motion variant keeps the back detail on the revealed answer face", () => {
+    setup({
+      reducedMotion: true,
+      backDetail: "Form: TEST-FORM",
+      flipped: true,
+    });
+    // The reveal must not lose the form context under reduced motion (where
+    // only the visible face exists in the DOM).
+    expect(screen.getByTestId("flashcard-face-detail")).toHaveTextContent(
+      "Form: TEST-FORM",
+    );
+  });
+
+  it("renders no detail element when none is provided", () => {
+    setup();
+    expect(screen.queryByTestId("flashcard-face-detail")).toBeNull();
   });
 });
