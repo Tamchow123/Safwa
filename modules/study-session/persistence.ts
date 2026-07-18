@@ -25,6 +25,11 @@ import type {
 } from "@/modules/content/db";
 import { DEVICE_PROFILE_KEY } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
+import type {
+  SchedulingEventSummary,
+  StoredComponentState,
+  WeaknessAttempt,
+} from "@/modules/study-session/mixed";
 import {
   chainHead,
   createReviewEvent,
@@ -371,6 +376,64 @@ export async function undoGradedAttempt(
         );
       }
       await db.studyAttempts.delete(persisted.attemptId);
+    },
+  );
+}
+
+/** The stored scheduling inputs the mixed-revision planner consumes. */
+export type SchedulingSnapshot = {
+  components: StoredComponentState[];
+  attempts: WeaknessAttempt[];
+  /** Scheduling review events, for the daily-target accounting. */
+  events: SchedulingEventSummary[];
+};
+
+/**
+ * Read the mixed-revision planning inputs in one consistent view: every stored
+ * component's scheduling state, the attempt slices the weak-item heuristic
+ * consumes, and the review-event slices the daily-target accounting consumes.
+ * All three stores are read inside a single read transaction so a concurrent
+ * grade in another tab can never yield a view that disagrees with itself. Rows
+ * without an embedded attempt payload (pre-Phase-8 shape; none exist in
+ * practice) are skipped.
+ */
+export async function readSchedulingSnapshot(
+  db: SafwaDb,
+): Promise<SchedulingSnapshot> {
+  return db.transaction(
+    "r",
+    [db.studyComponents, db.studyAttempts, db.reviewEvents],
+    async () => {
+      const componentRecords = await db.studyComponents.toArray();
+      const attemptRows = await db.studyAttempts.toArray();
+      const eventRows = await db.reviewEvents.toArray();
+      const components: StoredComponentState[] = componentRecords.map(
+        (record: StudyComponentRecord) => ({
+          componentKey: record.componentKey,
+          fsrs: record.fsrs,
+          learnerState: record.learnerState,
+        }),
+      );
+      const attempts: WeaknessAttempt[] = [];
+      for (const row of attemptRows) {
+        if (!row.attempt) continue;
+        attempts.push({
+          id: row.id,
+          componentKey: row.componentKey,
+          isFirstAttempt: row.attempt.isFirstAttempt,
+          isCorrect: row.attempt.isCorrect,
+          attemptedAt: row.attemptedAt,
+        });
+      }
+      const events: SchedulingEventSummary[] = eventRows.map(
+        (record: ReviewEventRecord) => ({
+          componentKey: record.componentKey,
+          parentEventId: record.parentEventId,
+          status: record.status ?? null,
+          localDateAtEvent: record.localDateAtEvent ?? null,
+        }),
+      );
+      return { components, attempts, events };
     },
   );
 }
