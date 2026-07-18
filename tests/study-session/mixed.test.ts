@@ -400,6 +400,212 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
     ).toThrow();
   });
 
+  it("spreads a brand-new session across distinct entries — recognition first, māḍī preferred", () => {
+    // Tests 1/3/4 of the correction: multiple distinct entries, every unseen
+    // entry starting with an Arabic→English recognition component, māḍī when
+    // eligible (it is, for every entry in the release).
+    const plan = buildMixedPlan(learnerEntries, [], new Map(), NOW);
+    expect(plan).toHaveLength(DEFAULT_DAILY_TARGETS.newLimit);
+    const entryIds = new Set(plan.map((item) => item.identity.entryId));
+    expect(entryIds.size).toBe(DEFAULT_DAILY_TARGETS.newLimit); // one per entry
+    for (const item of plan) {
+      expect(item.identity.skillType).toBe("meaning_recognition");
+      expect(item.identity.direction).toBe("arabic_to_english");
+      expect(item.identity.sourceField).toBe("madi");
+    }
+  });
+
+  it("with ten available entries, the ten new questions never concentrate on one entry", () => {
+    const tenEntries = learnerEntries.slice(0, 10);
+    const plan = buildMixedPlan(tenEntries, [], new Map(), NOW);
+    expect(plan).toHaveLength(10);
+    expect(new Set(plan.map((item) => item.identity.entryId)).size).toBe(10);
+  });
+
+  it("recall, bāb, root and verb type are never an entry's first-ever component", () => {
+    // Only two entries: the plan must go multiple components deep per entry,
+    // and each entry's FIRST planned component must still be recognition.
+    const twoEntries = learnerEntries.slice(0, 2);
+    const plan = buildMixedPlan(
+      twoEntries,
+      [],
+      new Map(),
+      NOW,
+      { newLimit: 40, reviewLimit: 0 },
+      40,
+    );
+    expect(plan.length).toBeGreaterThan(10); // several components per entry
+    const firstByEntry = new Map<number, string>();
+    for (const item of plan) {
+      if (!firstByEntry.has(item.identity.entryId)) {
+        firstByEntry.set(item.identity.entryId, item.identity.skillType!);
+      }
+    }
+    expect(firstByEntry.size).toBe(2);
+    for (const skill of firstByEntry.values()) {
+      expect(skill).toBe("meaning_recognition");
+    }
+    // The disallowed openers do appear later in the plan — the assertion
+    // above is not vacuous.
+    const skills = new Set(plan.map((item) => item.identity.skillType));
+    expect(skills).toContain("bab_identification");
+    expect(skills).toContain("meaning_recall");
+  });
+
+  it("entry order follows source order, not raw key string order (1/10/100/101)", () => {
+    // Unpadded ids sort entry:100 before entry:10 before entry:1 as strings;
+    // the policy must follow the release's source order instead.
+    const wanted = new Set([1, 10, 100, 101]);
+    const subset = learnerEntries.filter((source) => wanted.has(source.id));
+    expect(subset.map((source) => source.id)).toEqual([1, 10, 100, 101]);
+    const plan = buildMixedPlan(subset, [], new Map(), NOW, {
+      newLimit: 4,
+      reviewLimit: 0,
+    });
+    const planEntryOrder = plan.map((item) => item.identity.entryId);
+    expect(planEntryOrder).toEqual([1, 10, 100, 101]);
+    // …which is NOT what raw (codepoint) key order would produce: ":" sorts
+    // above "0", so entry:100/101 keys precede entry:10 and entry:1 keys.
+    const keyOrder = plan
+      .map((item) => buildComponentKey(item.identity))
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .map((key) => Number(/^entry:(\d+):/.exec(key)![1]));
+    expect(keyOrder).toEqual([100, 101, 10, 1]);
+    expect(planEntryOrder).not.toEqual(keyOrder);
+  });
+
+  it("an unseen entry with only NON-essential recognition still starts with recognition", () => {
+    // Synthetic (currently unreachable) release state: every essential
+    // recognition field ineligible, ism al-fāʿil the only recognition left.
+    // Without hoisting, bāb (priority 3) would outrank the non-essential
+    // recognition (priority 5) and open the entry — the policy forbids that.
+    const base = entry(1);
+    const synthetic = {
+      ...base,
+      quiz_eligibility: {
+        ...base.quiz_eligibility,
+        madi: false,
+        mudari: false,
+        masdar: false,
+        amr: false,
+        nahi: false,
+        ism_fail: true,
+      },
+    };
+    const plan = buildMixedPlan([synthetic], [], new Map(), NOW, {
+      newLimit: 10,
+      reviewLimit: 0,
+    });
+    expect(plan.length).toBeGreaterThan(1);
+    expect(plan[0].identity.skillType).toBe("meaning_recognition");
+    expect(plan[0].identity.sourceField).toBe("ism_fail");
+    // The ṣarf components follow — they were deferred, not dropped.
+    expect(plan.map((item) => item.identity.skillType)).toContain(
+      "bab_identification",
+    );
+  });
+
+  it("a score-zero, non-due learning component is not selected as weak", () => {
+    const fine = recognitionKey(1);
+    const stored: StoredComponentState[] = [
+      {
+        componentKey: fine,
+        fsrs: cardDueAt(NOW + 100_000),
+        learnerState: "learning",
+      },
+    ];
+    // No weakness evidence, new budget zero: nothing to study.
+    const plan = buildMixedPlan(learnerEntries, stored, new Map(), NOW, {
+      newLimit: 0,
+      reviewLimit: 10,
+    });
+    expect(plan).toHaveLength(0);
+  });
+
+  it("a non-due component with a recent incorrect first attempt IS selected as weak", () => {
+    const struggling = recognitionKey(1);
+    const stored: StoredComponentState[] = [
+      {
+        componentKey: struggling,
+        fsrs: cardDueAt(NOW + 100_000),
+        learnerState: "learning",
+      },
+    ];
+    const weakScores = computeWeakScores([
+      attempt(struggling, { attemptedAt: 1, isCorrect: false, id: "w1" }),
+    ]);
+    const plan = buildMixedPlan(learnerEntries, stored, weakScores, NOW, {
+      newLimit: 0,
+      reviewLimit: 10,
+    });
+    expect(plan.map((item) => buildComponentKey(item.identity))).toEqual([
+      struggling,
+    ]);
+  });
+
+  it("a due score-zero component is still selected — due outranks the weak rule", () => {
+    const due = recognitionKey(1);
+    const stored: StoredComponentState[] = [
+      {
+        componentKey: due,
+        fsrs: cardDueAt(NOW - 1000),
+        learnerState: "learning",
+      },
+    ];
+    const plan = buildMixedPlan(learnerEntries, stored, new Map(), NOW, {
+      newLimit: 0,
+      reviewLimit: 10,
+    });
+    expect(plan.map((item) => buildComponentKey(item.identity))).toEqual([due]);
+  });
+
+  it("a non-due needs_review component qualifies as weak even at score zero", () => {
+    const lapsed = recognitionKey(1);
+    const stored: StoredComponentState[] = [
+      {
+        componentKey: lapsed,
+        fsrs: cardDueAt(NOW + 100_000),
+        learnerState: "needs_review",
+      },
+    ];
+    const plan = buildMixedPlan(learnerEntries, stored, new Map(), NOW, {
+      newLimit: 0,
+      reviewLimit: 10,
+    });
+    expect(plan.map((item) => buildComponentKey(item.identity))).toEqual([
+      lapsed,
+    ]);
+  });
+
+  it("a correct reinforcement recovery does not erase the weakness evidence", () => {
+    const struggled = recognitionKey(1);
+    const stored: StoredComponentState[] = [
+      {
+        componentKey: struggled,
+        fsrs: cardDueAt(NOW + 100_000),
+        learnerState: "learning",
+      },
+    ];
+    const weakScores = computeWeakScores([
+      attempt(struggled, { attemptedAt: 1, isCorrect: false, id: "w1" }),
+      // Same-session recovery: correct but not a first attempt.
+      attempt(struggled, {
+        attemptedAt: 2,
+        isCorrect: true,
+        isFirstAttempt: false,
+        id: "w2",
+      }),
+    ]);
+    expect(weakScores.get(struggled)).toBe(1);
+    const plan = buildMixedPlan(learnerEntries, stored, weakScores, NOW, {
+      newLimit: 0,
+      reviewLimit: 10,
+    });
+    expect(plan.map((item) => buildComponentKey(item.identity))).toEqual([
+      struggled,
+    ]);
+  });
+
   it("is deterministic in its inputs", () => {
     const stored: StoredComponentState[] = [
       {
