@@ -234,15 +234,16 @@ async function writeComponentProjection(
 }
 
 /**
- * Persist one graded flashcard attempt. Writes the attempt row (and lazily the
- * session row); when the attempt is scheduling-relevant it also derives the next
- * chain event, writes it, and updates the component's replayed card + state.
- * On first progress (`context.bindProfile`) the device profile is created in the
- * SAME transaction, so device identity is atomic with the write — a failure
- * leaves no orphaned profile. Everything commits in one read-write transaction.
- * Returns the undo unit plus the effective (committed) device id.
+ * Persist one graded study attempt (flashcard OR multiple-choice — the wiring is
+ * identical in every mode). Writes the attempt row (and lazily the session row);
+ * when the attempt is scheduling-relevant it also derives the next chain event,
+ * writes it, and updates the component's replayed card + state. On first progress
+ * (`context.bindProfile`) the device profile is created in the SAME transaction,
+ * so device identity is atomic with the write — a failure leaves no orphaned
+ * profile. Everything commits in one read-write transaction. Returns the undo
+ * unit plus the effective (committed) device id.
  */
-export async function recordFlashcardAttempt(
+export async function recordGradedAttempt(
   db: SafwaDb,
   attempt: AttemptRecord,
   context: RecordAttemptContext,
@@ -332,9 +333,10 @@ export async function recordFlashcardAttempt(
  * this IndexedDB), the undo is REJECTED: the transaction throws
  * `SupersededUndoError`, rolling back so both rows stay intact and consistent
  * (rebasing a superseded branch is Phase 19). A reinforcement-recovery attempt
- * (no event) always undoes. Idempotent on an already-undone attempt.
+ * (no event) always undoes. Idempotent on an already-undone attempt. Mode-
+ * agnostic — the undo unit is the same for flashcards and multiple choice.
  */
-export async function undoFlashcardAttempt(
+export async function undoGradedAttempt(
   db: SafwaDb,
   persisted: PersistedAttempt,
   now: number,

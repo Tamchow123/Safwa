@@ -65,7 +65,7 @@ vi.mock("@/modules/profile/persistence", async (importOriginal) => {
   };
 });
 
-const recordFlashcardAttempt = vi.fn(
+const recordGradedAttempt = vi.fn(
   async (
     _db: unknown,
     attempt: AttemptRecord,
@@ -77,7 +77,7 @@ const recordFlashcardAttempt = vi.fn(
     deviceId: attempt.deviceId,
   }),
 );
-const undoFlashcardAttempt = vi.fn(async () => {});
+const undoGradedAttempt = vi.fn(async () => {});
 
 vi.mock("@/modules/study-session/persistence", async (importActual) => {
   // Keep the REAL module surface (notably SupersededUndoError, which the UI uses
@@ -86,11 +86,10 @@ vi.mock("@/modules/study-session/persistence", async (importActual) => {
     await importActual<typeof import("@/modules/study-session/persistence")>();
   return {
     ...actual,
-    recordFlashcardAttempt: (
-      ...args: Parameters<typeof recordFlashcardAttempt>
-    ) => recordFlashcardAttempt(...args),
-    undoFlashcardAttempt: (...args: Parameters<typeof undoFlashcardAttempt>) =>
-      undoFlashcardAttempt(...args),
+    recordGradedAttempt: (...args: Parameters<typeof recordGradedAttempt>) =>
+      recordGradedAttempt(...args),
+    undoGradedAttempt: (...args: Parameters<typeof undoGradedAttempt>) =>
+      undoGradedAttempt(...args),
   };
 });
 
@@ -98,8 +97,8 @@ import { FlashcardSession } from "@/components/study/flashcard-session";
 import { SupersededUndoError } from "@/modules/study-session/persistence";
 
 afterEach(() => {
-  recordFlashcardAttempt.mockClear();
-  undoFlashcardAttempt.mockClear();
+  recordGradedAttempt.mockClear();
+  undoGradedAttempt.mockClear();
   ensureDurableGuestStateSpy.mockClear();
 });
 
@@ -130,10 +129,8 @@ describe("FlashcardSession", () => {
     expect(screen.getByTestId("rate-know")).toBeEnabled();
     await user.click(screen.getByTestId("rate-know"));
 
-    await waitFor(() =>
-      expect(recordFlashcardAttempt).toHaveBeenCalledTimes(1),
-    );
-    const [, attempt] = recordFlashcardAttempt.mock.calls[0];
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
     expect(attempt.mode).toBe("flashcard");
     expect(attempt.isCorrect).toBe(true);
     // Advanced to the next card.
@@ -153,10 +150,8 @@ describe("FlashcardSession", () => {
     await user.click(card);
     await user.click(screen.getByTestId("rate-dont-know"));
 
-    await waitFor(() =>
-      expect(recordFlashcardAttempt).toHaveBeenCalledTimes(1),
-    );
-    const [, attempt] = recordFlashcardAttempt.mock.calls[0];
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
     expect(attempt.isCorrect).toBe(false);
     // A wrong first attempt adds one reinforcement item to the plan.
     await waitFor(() => {
@@ -187,7 +182,7 @@ describe("FlashcardSession", () => {
     expect(undoButton).toBeEnabled();
     await user.click(undoButton);
 
-    await waitFor(() => expect(undoFlashcardAttempt).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(undoGradedAttempt).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(screen.getByText(/Card 1 of/)).toBeInTheDocument(),
     );
@@ -197,7 +192,7 @@ describe("FlashcardSession", () => {
 
   it("surfaces a retryable error and does not advance when persistence fails", async () => {
     const user = userEvent.setup();
-    recordFlashcardAttempt.mockImplementationOnce(async () => {
+    recordGradedAttempt.mockImplementationOnce(async () => {
       throw new Error("indexeddb unavailable");
     });
     render(<FlashcardSession />);
@@ -214,7 +209,7 @@ describe("FlashcardSession", () => {
 
     // The failed first grade still asked the adapter to bind the profile
     // atomically (bindProfile passed), so nothing was committed out of band.
-    expect(recordFlashcardAttempt.mock.calls[0][2].bindProfile).toBeDefined();
+    expect(recordGradedAttempt.mock.calls[0][2].bindProfile).toBeDefined();
 
     // A retry (persistence now succeeds) advances normally, and — because the
     // first write failed before binding was latched — the retry still passes
@@ -223,7 +218,7 @@ describe("FlashcardSession", () => {
     await waitFor(() =>
       expect(screen.getByText(/Card 2 of/)).toBeInTheDocument(),
     );
-    expect(recordFlashcardAttempt.mock.calls[1][2].bindProfile).toBeDefined();
+    expect(recordGradedAttempt.mock.calls[1][2].bindProfile).toBeDefined();
 
     // Once bound, a later grade no longer re-binds.
     await user.click(screen.getByTestId("flashcard"));
@@ -231,7 +226,7 @@ describe("FlashcardSession", () => {
     await waitFor(() =>
       expect(screen.getByText(/Card 3 of/)).toBeInTheDocument(),
     );
-    expect(recordFlashcardAttempt.mock.calls[2][2].bindProfile).toBeUndefined();
+    expect(recordGradedAttempt.mock.calls[2][2].bindProfile).toBeUndefined();
   });
 
   it("requests durable storage after every successful grade (retries denials)", async () => {
@@ -271,7 +266,7 @@ describe("FlashcardSession", () => {
     expect(undoButton).toBeEnabled();
 
     // The reversal is rejected because a later review superseded the event.
-    undoFlashcardAttempt.mockRejectedValueOnce(
+    undoGradedAttempt.mockRejectedValueOnce(
       new SupersededUndoError("superseded"),
     );
     await user.click(undoButton);
@@ -287,7 +282,7 @@ describe("FlashcardSession", () => {
     await waitFor(() => expect(screen.getByTestId("undo")).toBeDisabled());
     await user.click(screen.getByTestId("undo"));
     expect(screen.getByText(/Card 2 of/)).toBeInTheDocument();
-    expect(undoFlashcardAttempt).toHaveBeenCalledTimes(1);
+    expect(undoGradedAttempt).toHaveBeenCalledTimes(1);
   });
 
   it("rates via the keyboard arrow keys once revealed", async () => {
@@ -297,10 +292,8 @@ describe("FlashcardSession", () => {
     await user.click(card);
     card.focus();
     await user.keyboard("{ArrowRight}");
-    await waitFor(() =>
-      expect(recordFlashcardAttempt).toHaveBeenCalledTimes(1),
-    );
-    const [, attempt] = recordFlashcardAttempt.mock.calls[0];
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
     expect(attempt.isCorrect).toBe(true);
   });
 
@@ -319,10 +312,8 @@ describe("FlashcardSession", () => {
     fireEvent.touchEnd(touchTarget, {
       changedTouches: [{ identifier: 1, clientX: 220, clientY: 100 }],
     });
-    await waitFor(() =>
-      expect(recordFlashcardAttempt).toHaveBeenCalledTimes(1),
-    );
-    expect(recordFlashcardAttempt.mock.calls[0][1].isCorrect).toBe(true);
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    expect(recordGradedAttempt.mock.calls[0][1].isCorrect).toBe(true);
   });
 
   it("does not grade on a tiny swipe below the threshold", async () => {
@@ -339,7 +330,7 @@ describe("FlashcardSession", () => {
       changedTouches: [{ identifier: 1, clientX: 110, clientY: 100 }],
     });
     // 10px < 48px threshold: treated as a tap, not a grade.
-    expect(recordFlashcardAttempt).not.toHaveBeenCalled();
+    expect(recordGradedAttempt).not.toHaveBeenCalled();
   });
 
   it("does not grade on a diagonal/vertical drift (page scroll), only horizontal swipes", async () => {
@@ -356,7 +347,7 @@ describe("FlashcardSession", () => {
     fireEvent.touchEnd(touchTarget, {
       changedTouches: [{ identifier: 1, clientX: 200, clientY: 300 }],
     });
-    expect(recordFlashcardAttempt).not.toHaveBeenCalled();
+    expect(recordGradedAttempt).not.toHaveBeenCalled();
 
     // A predominantly-horizontal swipe still grades.
     fireEvent.touchStart(touchTarget, {
@@ -366,9 +357,7 @@ describe("FlashcardSession", () => {
     fireEvent.touchEnd(touchTarget, {
       changedTouches: [{ identifier: 2, clientX: 200, clientY: 130 }],
     });
-    await waitFor(() =>
-      expect(recordFlashcardAttempt).toHaveBeenCalledTimes(1),
-    );
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
   });
 
   it("does not grade a multi-touch (pinch) gesture", async () => {
@@ -388,21 +377,19 @@ describe("FlashcardSession", () => {
     fireEvent.touchEnd(touchTarget, {
       changedTouches: [{ identifier: 1, clientX: 300, clientY: 100 }],
     });
-    expect(recordFlashcardAttempt).not.toHaveBeenCalled();
+    expect(recordGradedAttempt).not.toHaveBeenCalled();
   });
 
   it("keeps the durable device id across an undo + re-grade (concurrent bind)", async () => {
     const user = userEvent.setup();
     // The adapter reports a DIFFERENT committed device id than the provisional
     // one (as if another tab bound the profile first).
-    recordFlashcardAttempt.mockImplementationOnce(
-      async (_db, attempt, ctx) => ({
-        attemptId: attempt.id,
-        componentKey: attempt.studyComponentId,
-        eventId: ctx.eventId,
-        deviceId: "committed-A",
-      }),
-    );
+    recordGradedAttempt.mockImplementationOnce(async (_db, attempt, ctx) => ({
+      attemptId: attempt.id,
+      componentKey: attempt.studyComponentId,
+      eventId: ctx.eventId,
+      deviceId: "committed-A",
+    }));
     render(<FlashcardSession />);
     const card = await waitForCard();
 
@@ -426,9 +413,7 @@ describe("FlashcardSession", () => {
     );
 
     const lastCall =
-      recordFlashcardAttempt.mock.calls[
-        recordFlashcardAttempt.mock.calls.length - 1
-      ];
+      recordGradedAttempt.mock.calls[recordGradedAttempt.mock.calls.length - 1];
     expect(lastCall[1].deviceId).toBe("committed-A");
   });
 });

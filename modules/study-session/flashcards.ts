@@ -16,24 +16,23 @@
  *
  * Pure TypeScript: no React, DOM or DB imports (docs/ARCHITECTURE.md §2).
  */
-import type {
-  Direction,
-  SourceQuizFormField,
-} from "@/modules/content/constants";
 import type { LearnerEntry } from "@/modules/content/schema";
 
-import {
-  deriveAllComponents,
-  type DerivedComponent,
-} from "@/modules/study-engine/components";
+import type { DerivedComponent } from "@/modules/study-engine/components";
 import type { ComponentIdentity } from "@/modules/study-engine/natural-key";
 import { createRng } from "@/modules/study-engine/rng";
+import {
+  eligibleTranslationComponents,
+  translationComponentToIdentity,
+  type TranslationDirectionChoice,
+  type TranslationFieldChoice,
+} from "@/modules/study-session/translation-components";
 
 /** Direction choice: a specific translation direction or a random mix of both. */
-export type FlashcardDirectionChoice = Direction | "random";
+export type FlashcardDirectionChoice = TranslationDirectionChoice;
 
 /** Field choice: a specific source form or any random eligible source form. */
-export type FlashcardFieldChoice = SourceQuizFormField | "random";
+export type FlashcardFieldChoice = TranslationFieldChoice;
 
 export type FlashcardConfig = {
   direction: FlashcardDirectionChoice;
@@ -53,54 +52,23 @@ export const DEFAULT_FLASHCARD_CONFIG: FlashcardConfig = {
   field: "random",
 };
 
-/** The recognition (Ar→En) direction studies the meaning-recognition skill. */
-function skillMatchesDirection(
-  component: DerivedComponent,
-  direction: FlashcardDirectionChoice,
-): boolean {
-  if (direction === "random") return true;
-  return component.direction === direction;
-}
-
-function fieldMatches(
-  component: DerivedComponent,
-  field: FlashcardFieldChoice,
-): boolean {
-  if (field === "random") return true;
-  return component.sourceField === field;
-}
-
 /**
  * Every eligible flashcard component for the loaded entries matching the
  * config, in stable derivation order. Only `form_direction` (translation)
  * components qualify; entry-level (bāb/root/verb-type) components are never
- * flashcards.
+ * flashcards. Delegates to the shared translation-component choke point.
  */
 export function eligibleFlashcardComponents(
   entries: readonly LearnerEntry[],
   config: FlashcardConfig,
 ): DerivedComponent[] {
-  return deriveAllComponents(entries).filter(
-    (component) =>
-      component.componentShape === "form_direction" &&
-      skillMatchesDirection(component, config.direction) &&
-      fieldMatches(component, config.field),
-  );
+  return eligibleTranslationComponents(entries, config.direction, config.field);
 }
 
 /** A planned flashcard item — a component identity for `createSession`. */
 export type FlashcardPlanItem = {
   identity: ComponentIdentity;
 };
-
-function toIdentity(component: DerivedComponent): ComponentIdentity {
-  return {
-    entryId: component.entryId,
-    skillType: component.skillType,
-    sourceField: component.sourceField,
-    direction: component.direction,
-  };
-}
 
 /**
  * Build a deterministic flashcard plan: filter to eligible components matching
@@ -121,6 +89,6 @@ export function buildFlashcardPlan(
   const eligible = eligibleFlashcardComponents(entries, config);
   const shuffled = createRng(seed).shuffle(eligible);
   return shuffled.slice(0, count).map((component) => ({
-    identity: toIdentity(component),
+    identity: translationComponentToIdentity(component),
   }));
 }
