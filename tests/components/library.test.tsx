@@ -40,6 +40,10 @@ import { VocabularyDetail } from "@/components/library/vocabulary-detail";
 import { VocabularyEntryCard } from "@/components/library/vocabulary-entry-card";
 import { VocabularyField } from "@/components/library/vocabulary-field";
 import {
+  SOURCE_FORM_METADATA,
+  SOURCE_QUIZ_FORM_FIELDS,
+} from "@/lib/form-metadata";
+import {
   DEFAULT_LIBRARY_QUERY,
   deriveLibraryFilterOptions,
 } from "@/modules/content/query";
@@ -224,6 +228,36 @@ describe("VocabularyDetail", () => {
     expect(within(masdarField).getByText("Not quizzed")).toBeInTheDocument();
     const mudariField = screen.getByTestId("detail-mudari");
     expect(within(mudariField).getByText("Quizzed")).toBeInTheDocument();
+  });
+
+  it("shows the base meaning exactly once, labelled as a base meaning", () => {
+    const entry = entries.find((candidate) => candidate.id === 1)!;
+    const { container } = render(<VocabularyDetail idParam="1" />);
+    expect(screen.getByText("Base meaning")).toBeInTheDocument();
+    expect(screen.getByTestId("detail-meaning").textContent).toBe(
+      entry.meaning,
+    );
+    // The gloss appears exactly ONCE on the page — it is never repeated as a
+    // per-form "translation" and never expanded into generated English
+    // conjugations ("he slept", "do not sleep").
+    const occurrences = container.textContent!.split(entry.meaning).length - 1;
+    expect(occurrences).toBe(1);
+  });
+
+  it("describes each supplied form with the shared metadata (label + description)", () => {
+    render(<VocabularyDetail idParam="1" />);
+    const descriptions = screen
+      .getAllByTestId("field-description")
+      .map((element) => element.textContent);
+    // One grammatical description per supplied form, sourced from the single
+    // shared metadata map — not duplicated per component.
+    expect(descriptions).toHaveLength(SOURCE_QUIZ_FORM_FIELDS.length);
+    for (const field of SOURCE_QUIZ_FORM_FIELDS) {
+      expect(descriptions).toContain(SOURCE_FORM_METADATA[field].description);
+      expect(
+        screen.getByText(SOURCE_FORM_METADATA[field].label),
+      ).toBeInTheDocument();
+    }
   });
 
   it("shows the transcription note only when present", () => {

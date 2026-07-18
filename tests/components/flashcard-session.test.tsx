@@ -1,11 +1,19 @@
 import { readFileSync } from "node:fs";
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
+import { SOURCE_FORM_METADATA } from "@/lib/form-metadata";
+import type { SourceQuizFormField } from "@/modules/content/constants";
 import type { AttemptRecord } from "@/modules/study-engine";
 import type {
   PersistedAttempt,
@@ -283,6 +291,88 @@ describe("FlashcardSession", () => {
     await user.click(screen.getByTestId("undo"));
     expect(screen.getByText(/Card 2 of/)).toBeInTheDocument();
     expect(undoGradedAttempt).toHaveBeenCalledTimes(1);
+  });
+
+  it("English→Arabic cards name the target form before the flip and label the base meaning", async () => {
+    const user = userEvent.setup();
+    render(<FlashcardSession />);
+    await waitForCard();
+
+    await user.click(screen.getByRole("button", { name: "English → Arabic" }));
+    const sessionEl = await waitFor(() => {
+      const el = screen.getByTestId("flashcard-session");
+      if (el.getAttribute("data-prompt-field") !== "meaning") {
+        throw new Error("not a recall card yet");
+      }
+      return el;
+    });
+    const card = within(screen.getByTestId("flashcard"));
+    const answerField = sessionEl.getAttribute(
+      "data-answer-field",
+    ) as SourceQuizFormField;
+
+    // BEFORE flipping: the English side is labelled as the base meaning and
+    // names the target form (from shared metadata) — the learner always knows
+    // which Arabic form to recall.
+    expect(card.getByText("Base meaning")).toBeInTheDocument();
+    const detail = card.getByTestId("flashcard-face-detail");
+    expect(detail.textContent).toBe(
+      `Target form: ${SOURCE_FORM_METADATA[answerField].label}`,
+    );
+    // The visible front face (not the hidden answer face) carries the label.
+    expect(detail.closest("[aria-hidden='true']")).toBeNull();
+
+    // The front shows the entry's verbatim base meaning from the built release
+    // (programmatic lookup by id — never hand-typed values).
+    const entryId = Number(sessionEl.getAttribute("data-entry-id"));
+    const entry = built.learner.entries.find(
+      (candidate) => candidate.id === entryId,
+    )!;
+    expect(card.getByText(entry.meaning)).toBeInTheDocument();
+  });
+
+  it("Arabic→English cards label the English answer side as the base meaning", async () => {
+    const user = userEvent.setup();
+    render(<FlashcardSession />);
+    await waitForCard();
+
+    await user.click(screen.getByRole("button", { name: "Arabic → English" }));
+    const sessionEl = await waitFor(() => {
+      const el = screen.getByTestId("flashcard-session");
+      if (el.getAttribute("data-answer-field") !== "meaning") {
+        throw new Error("not a recognition card yet");
+      }
+      return el;
+    });
+    const card = within(screen.getByTestId("flashcard"));
+    const promptField = sessionEl.getAttribute(
+      "data-prompt-field",
+    ) as SourceQuizFormField;
+
+    // The Arabic front is captioned with the form's shared-metadata label; the
+    // English side says "Base meaning" (not "Meaning"/"Translation") and stays
+    // out of the accessibility tree until the card is flipped.
+    expect(
+      card.getByText(SOURCE_FORM_METADATA[promptField].label),
+    ).toBeInTheDocument();
+    expect(
+      card.getByText("Base meaning").closest("[aria-hidden='true']"),
+    ).not.toBeNull();
+    // The answer face keeps the form context alongside the base meaning, so
+    // the reveal shows BOTH (base meaning + form) — hidden until flipped.
+    const detail = card.getByTestId("flashcard-face-detail");
+    expect(detail.textContent).toBe(
+      `Form: ${SOURCE_FORM_METADATA[promptField].label}`,
+    );
+    expect(detail.closest("[aria-hidden='true']")).not.toBeNull();
+
+    await user.click(screen.getByTestId("flashcard"));
+    expect(
+      card.getByText("Base meaning").closest("[aria-hidden='true']"),
+    ).toBeNull();
+    expect(
+      card.getByTestId("flashcard-face-detail").closest("[aria-hidden='true']"),
+    ).toBeNull();
   });
 
   it("rates via the keyboard arrow keys once revealed", async () => {

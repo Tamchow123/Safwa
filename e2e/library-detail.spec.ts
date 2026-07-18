@@ -69,6 +69,32 @@ test.describe("vocabulary detail", () => {
     await expect(page).toHaveURL(/\/library$/);
   });
 
+  test("shows the base meaning once with grammatical form descriptions", async ({
+    page,
+  }) => {
+    const first = loadLearnerRelease().entries[0];
+    await page.goto(`/library/${first.id}`);
+    await expect(page.getByTestId("detail-meaning")).toHaveText(first.meaning, {
+      timeout: 15_000,
+    });
+    // The gloss is labelled as the BASE meaning...
+    await expect(page.getByText("Base meaning", { exact: true })).toBeVisible();
+    // ...and appears exactly once — never repeated per form and never expanded
+    // into generated English conjugations.
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    expect(bodyText.split(first.meaning).length - 1).toBe(1);
+    // Each supplied form carries a grammatical description (shared metadata).
+    await expect(page.getByTestId("field-description")).toHaveCount(6);
+    for (const description of [
+      "Third-person masculine singular · past",
+      "Third-person masculine singular · present/future",
+      "Second-person masculine singular · command",
+      "Second-person masculine singular · prohibition",
+    ]) {
+      await expect(page.getByText(description, { exact: true })).toBeVisible();
+    }
+  });
+
   test("shows the printed-source note and marks the ineligible field", async ({
     page,
   }) => {
