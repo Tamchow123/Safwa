@@ -79,10 +79,32 @@ export type CustomListRecord = {
   updatedAt: number;
 };
 
-/** Local FSRS card state; identity is the shared natural key string. */
+/**
+ * Local FSRS card state; identity is the shared natural key string. The Phase-7
+ * scheduler fields are added additively (no schema-version bump — no index
+ * change): they are absent until the component's first review. Shapes mirror
+ * `modules/scheduler` (`SchedulerCard` / `LearnerState`); the scheduler stays
+ * pure and does the writing via a thin adapter in later phases.
+ */
 export type StudyComponentRecord = {
   componentKey: string;
   entryId: number;
+  /** FSRS card fields (present once the component has been reviewed). */
+  fsrs?: {
+    stability: number;
+    difficulty: number;
+    dueAtMs: number;
+    state: "new" | "learning" | "review" | "relearning";
+    reps: number;
+    lapses: number;
+    scheduledDays: number;
+    learningSteps: number;
+    lastReviewAtMs: number | null;
+  };
+  /** Projected learner state (recomputed from replay). */
+  learnerState?: "not_started" | "learning" | "mastered" | "needs_review";
+  /** Head client_component_revision of the local chain (0 = none). */
+  revision?: number;
 };
 
 export type StudyAttemptRecord = {
@@ -92,6 +114,12 @@ export type StudyAttemptRecord = {
   attemptedAt: number;
 };
 
+/**
+ * A stored review event. `syncStatus` is the LOCAL sync lifecycle; the Phase-7
+ * scheduler fields (added additively, no index change) capture the causal
+ * lineage + rating + event lifecycle `status` + immutable event-time dates that
+ * `modules/scheduler` produces (`ReviewEvent`). Optional until first written.
+ */
 export type ReviewEventRecord = {
   eventId: string;
   componentKey: string;
@@ -100,6 +128,25 @@ export type ReviewEventRecord = {
   clientComponentRevision: number;
   syncStatus: "local" | "pushed" | "accepted" | "demoted" | "rejected";
   createdAt: number;
+  attemptId?: string;
+  rating?: "again" | "hard" | "good" | "easy";
+  status?:
+    | "scheduling"
+    | "reinforcement"
+    | "conflict_demoted"
+    | "revoked"
+    | "pending_parent";
+  baseServerRevision?: number;
+  clientSequence?: number;
+  occurredAtClient?: string;
+  deviceId?: string;
+  sessionId?: string;
+  releaseId?: string;
+  contentVersion?: string;
+  timezoneAtEvent?: string;
+  utcOffsetMinutesAtEvent?: number;
+  localDateAtEvent?: string;
+  timezoneSource?: "browser_detected" | "user_setting" | "server_fallback";
 };
 
 export type StudySessionRecord = {
