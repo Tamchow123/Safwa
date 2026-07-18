@@ -15,8 +15,26 @@ export default function StudyPage() {
     <div className="space-y-6">
       <PageHeader
         title="Study"
-        description="Choose a study mode. More modes arrive in upcoming phases."
+        description="Start a zero-setup mixed session, or choose a specific study mode."
       />
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2 className="text-base font-semibold">Start studying</h2>
+          </CardTitle>
+          <CardDescription>
+            One tap, no setup: due reviews first, then weak items, then new
+            words — within your daily targets.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="min-h-11">
+            <Link href="/study/mixed" data-testid="start-studying">
+              Start studying
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>
@@ -28,7 +46,7 @@ export default function StudyPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild className="min-h-11">
+          <Button asChild variant="outline" className="min-h-11">
             <Link href="/study/flashcards" data-testid="start-flashcards">
               Start flashcards
             </Link>
@@ -47,7 +65,7 @@ export default function StudyPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild className="min-h-11">
+          <Button asChild variant="outline" className="min-h-11">
             <Link href="/study/mc" data-testid="start-mc-quiz">
               Start multiple choice
             </Link>
@@ -55,8 +73,38 @@ export default function StudyPage() {
         </CardContent>
       </Card>
       <Card>
-        <CardContent className="text-muted-foreground text-sm">
-          Bāb and root drills, and mixed revision arrive in later phases.
+        <CardHeader>
+          <CardTitle>
+            <h2 className="text-base font-semibold">Bāb quiz</h2>
+          </CardTitle>
+          <CardDescription>
+            Identify which bāb each verb follows — answers shown as Arabic
+            pattern pairs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/study/bab" data-testid="start-bab-quiz">
+              Start bāb quiz
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2 className="text-base font-semibold">Root quiz</h2>
+          </CardTitle>
+          <CardDescription>
+            Identify each verb&apos;s three-radical root from four options.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/study/root" data-testid="start-root-quiz">
+              Start root quiz
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

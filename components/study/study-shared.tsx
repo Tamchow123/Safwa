@@ -17,7 +17,7 @@ import type {
 } from "@/modules/content/constants";
 import type { LearnerEntry } from "@/modules/content/schema";
 import type { AttemptClock } from "@/modules/study-engine/attempts";
-import { isSourceFormField } from "@/modules/study-engine/fields";
+import { fieldValue } from "@/modules/study-engine/fields";
 
 /** Source-form labels DERIVED from the single shared metadata map — never a
  * second hand-maintained copy that could drift from it. */
@@ -70,12 +70,20 @@ export function browserClock(): AttemptClock {
   };
 }
 
-/** Is this field an Arabic value (a source form) rather than the English meaning? */
+/**
+ * Is this field an Arabic value rather than the English meaning? Source forms,
+ * the root, and the bāb / verb-type pairs (which always display as their
+ * Arabic pair — CLAUDE.md hard rule 5) are all Arabic.
+ */
 export function isArabicField(field: AnswerField): boolean {
-  return isSourceFormField(field as SourceQuizFormField);
+  return field !== "meaning";
 }
 
-/** Render a field's value, wrapping Arabic forms in <ArabicText>. */
+/**
+ * Render a field's value, wrapping Arabic values in <ArabicText>. Resolution
+ * goes through the engine's `fieldValue` so bāb and verb type display their
+ * Arabic pair (`bab_arabic` / `verb_type_arabic`), never an internal id.
+ */
 export function FieldValue({
   entry,
   field,
@@ -85,17 +93,9 @@ export function FieldValue({
   field: AnswerField;
   className?: string;
 }) {
-  const value = field === "meaning" ? entry.meaning : entry[field];
+  const value = fieldValue(entry, field);
   if (isArabicField(field)) {
-    return (
-      <ArabicText className={className ?? "text-3xl"}>
-        {String(value ?? "")}
-      </ArabicText>
-    );
+    return <ArabicText className={className ?? "text-3xl"}>{value}</ArabicText>;
   }
-  return (
-    <span className={className ?? "text-2xl font-medium"}>
-      {String(value ?? "")}
-    </span>
-  );
+  return <span className={className ?? "text-2xl font-medium"}>{value}</span>;
 }
