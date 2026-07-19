@@ -11,4 +11,5 @@ export * from "@/modules/study-session/flashcards";
 export * from "@/modules/study-session/quizzes";
 export * from "@/modules/study-session/entry-quizzes";
 export * from "@/modules/study-session/mixed";
+export * from "@/modules/study-session/custom";
 export * from "@/modules/study-session/persistence";

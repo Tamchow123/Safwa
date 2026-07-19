@@ -79,6 +79,24 @@ export type AttemptRecord = {
   responseTimeMs: number;
   questionPosition: number;
   mode: AttemptMode;
+  /**
+   * MC option count the question was generated with (§4.4, Phase 11) — a
+   * QUESTION-IDENTITY input, persisted so a recorded attempt regenerates its
+   * exact question even after the learner changes the option-count setting.
+   * Records written before Phase 11 lack this field: absent means 4 (the
+   * only count that existed).
+   */
+  optionCount: number;
+  /**
+   * The per-question limit (ms) this TIMED attempt was graded against, null
+   * for untimed/flashcard attempts (§4.4, Phase 11 configurable limit).
+   * Persisted so the future authoritative server (Phase 16) can re-derive
+   * timed correctness from `response_time_ms >= limit` without trusting the
+   * client. Records written before Phase 11 lack this field: absent means
+   * 20000 for timed-mode attempts (the only limit that existed), null
+   * otherwise.
+   */
+  perQuestionLimitMs: number | null;
   questionInstanceId: string;
   questionSeed: string;
   questionGeneratorVersion: string;
@@ -155,6 +173,8 @@ export type CreateAttemptInput = {
   isReinforcement: boolean;
   hint: HintState;
   responseTimeMs: number;
+  /** The per-question limit the attempt was graded against (null = untimed). */
+  perQuestionLimitMs: number | null;
   // NOTE: the delivery mode is NOT accepted here — it is taken from
   // `instance.deliveryMode`, which was folded into the instance id. A separate
   // mode input could contradict the identity the id was derived from.
@@ -194,6 +214,8 @@ export function createAttemptRecord(
     questionPosition: instance.position,
     // Always the instance's delivery mode — never a contradictory input.
     mode: instance.deliveryMode,
+    optionCount: instance.optionCount,
+    perQuestionLimitMs: input.perQuestionLimitMs,
     questionInstanceId: instance.questionInstanceId,
     questionSeed: instance.questionSeed,
     questionGeneratorVersion: instance.questionGeneratorVersion,
