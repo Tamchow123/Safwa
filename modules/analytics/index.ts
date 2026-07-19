@@ -9,3 +9,6 @@ export * from "@/modules/analytics/dates";
 export * from "@/modules/analytics/activity";
 export * from "@/modules/analytics/streaks";
 export * from "@/modules/analytics/progress";
+export * from "@/modules/analytics/weakness-evidence";
+export * from "@/modules/analytics/weakness";
+export * from "@/modules/analytics/weakness-groups";
