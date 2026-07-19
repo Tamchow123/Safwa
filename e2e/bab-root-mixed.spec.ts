@@ -464,13 +464,30 @@ test.describe("mixed revision — Start studying", () => {
             },
           ];
           // The weakness evidence: a persisted incorrect FIRST attempt (the
-          // slice the weak-score heuristic reads).
+          // slice the Phase 13 weakness heuristic v2 reads). Every one of
+          // these fields is required — prepareWeaknessEvidence excludes an
+          // attempt whose entryId/skillType/occurredAtUtc is missing, so a
+          // partial seed here would silently produce ZERO weakness evidence
+          // rather than the "one non-due weak component" this test expects.
+          const occurredAt = new Date(Date.now() - dayMs);
           const attemptRow = {
             id: "seeded-weak-attempt-1",
             componentKey: weakKey,
             sessionId: "seeded-session",
-            attemptedAt: Date.now() - dayMs,
-            attempt: { isFirstAttempt: true, isCorrect: false },
+            attemptedAt: occurredAt.getTime(),
+            attempt: {
+              isFirstAttempt: true,
+              isCorrect: false,
+              isReinforcement: false,
+              entryId: weakEntryId,
+              skillTypeId: "meaning_recognition",
+              direction: "arabic_to_english",
+              sourceField: "madi",
+              promptField: null,
+              occurredAtUtc: occurredAt.toISOString(),
+              localDateAtEvent: occurredAt.toISOString().slice(0, 10),
+              responseTimeMs: 1500,
+            },
           };
           await new Promise<void>((resolve, reject) => {
             const tx = database.transaction(

@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
+import { loadWeakScores } from "@/modules/analytics/weakness-persistence";
 import { getSafwaDb } from "@/modules/content/db";
 import { readEffectiveClock } from "@/modules/profile/timezone";
 import {
@@ -47,6 +48,7 @@ import {
 } from "@/modules/content/constants";
 import type { LearnerEntry } from "@/modules/content/schema";
 import type { AttemptClock } from "@/modules/study-engine/attempts";
+import { deriveAllComponents } from "@/modules/study-engine/components";
 import { DEFAULT_TIMED_LIMIT_MS } from "@/modules/study-engine/session";
 import {
   buildCustomPlan,
@@ -61,10 +63,7 @@ import {
   type CustomSessionMode,
   type LooseningSuggestion,
 } from "@/modules/study-session/custom";
-import {
-  computeWeakScores,
-  type StoredComponentState,
-} from "@/modules/study-session/mixed";
+import type { StoredComponentState } from "@/modules/study-session/mixed";
 import { readSchedulingSnapshot } from "@/modules/study-session/persistence";
 import type { QuizDelivery } from "@/modules/study-session/quizzes";
 import type { TranslationDirectionChoice } from "@/modules/study-session/translation-components";
@@ -96,7 +95,7 @@ const STATE_LABELS: Record<ComponentStateFilter, string> = {
 /** The state snapshot captured when a session starts (plan determinism). */
 type StartSnapshot = {
   stored: Map<string, StoredComponentState>;
-  weakScores: Map<string, number>;
+  weakScores: ReadonlyMap<string, number>;
   /**
    * The session's ONE resolved effective clock (§10.6): resolved here at
    * Start, used for the state-filter evaluation below, and handed to the
@@ -203,19 +202,24 @@ export function CustomSession() {
     setGuard(null);
     setStartError(null);
     try {
-      const snapshot = await readSchedulingSnapshot(getSafwaDb());
+      const db = getSafwaDb();
+      const snapshot = await readSchedulingSnapshot(db);
       const stored = new Map(
         snapshot.components.map((component) => [
           component.componentKey,
           component,
         ]),
       );
-      const weakScores = computeWeakScores(snapshot.attempts);
       // The session's ONE effective-clock resolution (§10.6): this clock is
       // frozen into the snapshot and later handed to the runner, so the
       // state-filter evaluation here and the graded events share one zone.
-      const clock = await readEffectiveClock(getSafwaDb());
+      const clock = await readEffectiveClock(db);
       const nowMs = clock.now();
+      // Phase 13 weakness v2: the ONE authoritative score, shared with Weak
+      // Areas and mixed revision (never a second/parallel weakness
+      // computation for the Custom Session weak filter — §22 agreement).
+      const derived = deriveAllComponents(state.entries);
+      const weakScores = await loadWeakScores(db, derived, nowMs);
       const resolved = effectiveFilters();
 
       const matching = filterByStates(

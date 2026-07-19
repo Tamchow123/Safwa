@@ -9,9 +9,12 @@
  *    (`deriveAllComponents`), so an ineligible component can never be planned
  *    (CLAUDE.md hard rule 2) — a stored card whose component is no longer
  *    derivable from the loaded release is silently dropped;
- *  - the weak-item heuristic v1: a per-component weakness score computed from
- *    RECENT first-attempt accuracy (the last `WEAK_SCORE_RECENT_WINDOW` first
- *    attempts; reinforcement recoveries never count) — higher = weaker;
+ *  - the weak-item score: the caller-injected `weakScores` map — higher =
+ *    weaker, 0 = not weak. As of Phase 13, this is the ONE authoritative
+ *    weakness heuristic v2 (`modules/analytics/weakness.ts`
+ *    `computeComponentWeakness`, adapted through `qualifyingWeaknessScore`),
+ *    the same score Weak Areas and the Custom Session weak filter read — this
+ *    module has no weakness algorithm of its own, only the injected number;
  *  - a deterministic prompt form for entry-level components (māḍī when
  *    eligible, else the first eligible source form);
  *  - the REMAINING daily budgets for the current local date
@@ -63,51 +66,6 @@ export type StoredComponentState = {
   /** Projected learner state (present once the component has been reviewed). */
   learnerState?: LearnerState;
 };
-
-/** The slice of one persisted attempt the weak-item heuristic consumes. */
-export type WeaknessAttempt = {
-  /** Attempt id — the deterministic tiebreak for equal timestamps. */
-  id: string;
-  componentKey: string;
-  isFirstAttempt: boolean;
-  isCorrect: boolean;
-  /** When the attempt was recorded (epoch ms). */
-  attemptedAt: number;
-};
-
-/** How many recent first attempts the weak-score heuristic v1 considers. */
-export const WEAK_SCORE_RECENT_WINDOW = 5;
-
-/**
- * Weak-item heuristic v1: per component, the fraction of its most recent
- * first attempts (up to `WEAK_SCORE_RECENT_WINDOW`) that were INCORRECT —
- * 0 (all recent first attempts correct) to 1 (all incorrect). Only first
- * attempts count: a within-session reinforcement recovery is reinforcement
- * only (§4.6) and must not launder a weak component into a strong one.
- */
-export function computeWeakScores(
-  attempts: readonly WeaknessAttempt[],
-): Map<string, number> {
-  const byComponent = new Map<string, WeaknessAttempt[]>();
-  for (const attempt of attempts) {
-    if (!attempt.isFirstAttempt) continue;
-    const list = byComponent.get(attempt.componentKey);
-    if (list) list.push(attempt);
-    else byComponent.set(attempt.componentKey, [attempt]);
-  }
-  const scores = new Map<string, number>();
-  for (const [componentKey, list] of byComponent) {
-    const recent = [...list]
-      .sort(
-        (a, b) =>
-          b.attemptedAt - a.attemptedAt || b.id.localeCompare(a.id, "en"),
-      )
-      .slice(0, WEAK_SCORE_RECENT_WINDOW);
-    const incorrect = recent.filter((attempt) => !attempt.isCorrect).length;
-    scores.set(componentKey, incorrect / recent.length);
-  }
-  return scores;
-}
 
 /**
  * The slice of one persisted scheduling review event the daily-target

@@ -69,8 +69,10 @@ function componentSlice(record: StudyComponentRecord): ProgressComponentState {
 /**
  * Map one stored attempt row to its analytics slice. A row without the
  * embedded full attempt payload (pre-Phase-8 shape; none exist in practice)
- * maps to an intentionally-invalid slice (NaN response time) so the pure
- * validity gate excludes it — corrupted legacy rows never become activity.
+ * maps to an intentionally-invalid slice (NaN response time, null instant,
+ * `isFirstAttempt`/`isReinforcement`/`isCorrect` false) so the pure validity
+ * gates (activity AND Phase 13 weakness evidence) both exclude it —
+ * corrupted legacy rows never become activity or weakness evidence.
  */
 function attemptSlice(row: StudyAttemptRecord): AnalyticsAttempt {
   return {
@@ -78,6 +80,15 @@ function attemptSlice(row: StudyAttemptRecord): AnalyticsAttempt {
     componentKey: row.componentKey,
     localDateAtEvent: row.attempt?.localDateAtEvent ?? null,
     responseTimeMs: row.attempt?.responseTimeMs ?? Number.NaN,
+    occurredAtUtc: row.attempt?.occurredAtUtc ?? null,
+    entryId: row.attempt?.entryId ?? null,
+    skillType: row.attempt?.skillTypeId ?? null,
+    direction: row.attempt?.direction ?? null,
+    sourceField: row.attempt?.sourceField ?? null,
+    promptField: row.attempt?.promptField ?? null,
+    isFirstAttempt: row.attempt?.isFirstAttempt ?? false,
+    isReinforcement: row.attempt?.isReinforcement ?? false,
+    isCorrect: row.attempt?.isCorrect ?? false,
   };
 }
 
@@ -146,6 +157,32 @@ export async function rebuildDailyActivity(
   return derived;
 }
 
+/** The raw component/attempt/event slices, before any daily-activity work. */
+export type AnalyticsRawRead = {
+  components: ProgressComponentState[];
+  attempts: AnalyticsAttempt[];
+  events: AnalyticsEvent[];
+};
+
+/**
+ * The ONE consistent read-only transaction over the three raw stores every
+ * analytics consumer shares — component scheduling state and attempt/event
+ * slices. No write; callers that need the derived+cached daily activity
+ * compose this with `deriveDailyActivity` + `writeDailyActivityCache`
+ * themselves (see `readAnalyticsSnapshot` below).
+ */
+async function readAnalyticsRaw(db: SafwaDb): Promise<AnalyticsRawRead> {
+  return db.transaction(
+    "r",
+    [db.studyComponents, db.studyAttempts, db.reviewEvents],
+    async () => ({
+      components: (await db.studyComponents.toArray()).map(componentSlice),
+      attempts: (await db.studyAttempts.toArray()).map(attemptSlice),
+      events: (await db.reviewEvents.toArray()).map(eventSlice),
+    }),
+  );
+}
+
 /**
  * Read the complete analytics snapshot (§15): component scheduling state and
  * attempt/event slices from ONE consistent read-only transaction, the daily
@@ -158,16 +195,22 @@ export async function readAnalyticsSnapshot(
   db: SafwaDb,
   now: number,
 ): Promise<AnalyticsPersistenceSnapshot> {
-  const { components, attempts, events } = await db.transaction(
-    "r",
-    [db.studyComponents, db.studyAttempts, db.reviewEvents],
-    async () => ({
-      components: (await db.studyComponents.toArray()).map(componentSlice),
-      attempts: (await db.studyAttempts.toArray()).map(attemptSlice),
-      events: (await db.reviewEvents.toArray()).map(eventSlice),
-    }),
-  );
+  const { components, attempts, events } = await readAnalyticsRaw(db);
   const dailyActivity = deriveDailyActivity(attempts, events);
   await writeDailyActivityCache(db, dailyActivity, now);
   return { components, attempts, events, dailyActivity };
+}
+
+/**
+ * Read-only variant for consumers that need the raw components/attempts/
+ * events but NOT the derived daily-activity cache rebuild (Phase 13 §7, §30
+ * weakness analytics on the mixed/custom session-start hot path — those
+ * consumers never read `dailyActivity`). Never writes, so it is safe to call
+ * far more often than the dashboard's cache-rewriting load without growing
+ * IndexedDB write traffic on the app's busiest entry points.
+ */
+export async function readAnalyticsRawSnapshot(
+  db: SafwaDb,
+): Promise<AnalyticsRawRead> {
+  return readAnalyticsRaw(db);
 }

@@ -22,6 +22,12 @@
  *
  * Pure TypeScript: no React, Dexie, DOM or ambient clocks.
  */
+import type {
+  AnswerField,
+  Direction,
+  SkillType,
+  SourceQuizFormField,
+} from "@/modules/content/constants";
 import { classifySchedulingEvent } from "@/modules/scheduler/events";
 
 import { isIsoDate } from "@/modules/analytics/dates";
@@ -37,13 +43,36 @@ export type DailyActivity = {
 
 /** The slice of one stored attempt the derivation consumes. The field name
  * matches the canonical stored `localDateAtEvent` everywhere else a stored
- * record is sliced (ReviewEvent, AttemptRecord, SchedulingEventSummary). */
+ * record is sliced (ReviewEvent, AttemptRecord, SchedulingEventSummary).
+ *
+ * The fields below `responseTimeMs` are additive (Phase 13 §7–9): the ONE
+ * attempt slice every analytics consumer shares now also carries what
+ * weakness evidence preparation needs, so activity/progress and weakness
+ * can never read two different projections of the same stored row. A
+ * payload-less legacy attempt row (no embedded `attempt`) maps every one of
+ * these to their safe/absent value, exactly like `localDateAtEvent: null`
+ * and `responseTimeMs: NaN` already do — such a row can create daily
+ * activity for nothing and weakness evidence for nothing.
+ */
 export type AnalyticsAttempt = {
   id: string;
   componentKey: string;
   /** The attempt's immutable stored local date, or null when unreadable. */
   localDateAtEvent: string | null;
   responseTimeMs: number;
+  /** The attempt's immutable stored UTC instant, or null when unreadable. */
+  occurredAtUtc: string | null;
+  entryId: number | null;
+  skillType: SkillType | null;
+  direction: Direction | null;
+  /** Set only for translation (form_direction) components. */
+  sourceField: SourceQuizFormField | null;
+  /** The field actually prompted/answered — the §9 form-attribution source
+   * for entry-level components (bāb/root/verb-type). */
+  promptField: AnswerField | null;
+  isFirstAttempt: boolean;
+  isReinforcement: boolean;
+  isCorrect: boolean;
 };
 
 /** The slice of one stored review event the derivation consumes. */

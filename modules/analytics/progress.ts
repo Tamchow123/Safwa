@@ -273,6 +273,28 @@ export function bookPageGroup(entry: LearnerEntry): string | null {
 }
 
 /**
+ * The ONE group-value -> Arabic-display-pair lookup (hard rules 3 & 5):
+ * dedups by first-seen group id while iterating `entries` in release order.
+ * Shared by `use-analytics-snapshot.ts`'s `groupCompletions` (bāb/verb-type
+ * progress bars) and `use-weakness-snapshot.ts` (bāb/verb-type weak-area
+ * labels) so there is exactly one place that resolves a group id to its
+ * Arabic pair — never two independently-maintained copies that could drift.
+ */
+export function groupArabicLookup(
+  entries: readonly LearnerEntry[],
+  groupOf: (entry: LearnerEntry) => string | null,
+  arabicOf: (entry: LearnerEntry) => string,
+): ReadonlyMap<string, string> {
+  const map = new Map<string, string>();
+  for (const entry of entries) {
+    const id = groupOf(entry);
+    if (id === null || map.has(id)) continue;
+    map.set(id, arabicOf(entry));
+  }
+  return map;
+}
+
+/**
  * Reviews due today (§11): eligible materialised components whose FSRS due
  * INSTANT falls on or before the end of the CURRENT local calendar date in
  * the effective zone — computed by mapping each due instant to its local
