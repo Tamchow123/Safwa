@@ -30,6 +30,7 @@ export const SETTING_KEYS = {
   registerPromptDismissed: "register-prompt-dismissed",
   sessionDefaults: "session-defaults",
   theme: "theme",
+  timezone: "timezone",
 } as const;
 
 export async function readSetting(db: SafwaDb, key: string): Promise<unknown> {

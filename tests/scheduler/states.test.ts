@@ -271,6 +271,8 @@ describe("effectiveLearnerState (§5 due/lapsed after mastery, Phase 12 §7.2)",
   it("preserves a valid non-mastered projection (due-ness never promotes)", () => {
     const due = makeCard({ dueAtMs: T0 - 1 });
     expect(effectiveLearnerState("learning", due, T0)).toBe("learning");
+    // §21.6: learning + NOT due (default future-due card) stays learning.
+    expect(effectiveLearnerState("learning", makeCard(), T0)).toBe("learning");
     expect(effectiveLearnerState("needs_review", makeCard(), T0)).toBe(
       "needs_review",
     );

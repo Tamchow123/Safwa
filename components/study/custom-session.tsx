@@ -25,7 +25,7 @@ import {
   QuizRunner,
   type QuizPlanBuilder,
 } from "@/components/study/quiz-runner";
-import { browserClock, FIELD_LABELS } from "@/components/study/study-shared";
+import { FIELD_LABELS } from "@/components/study/study-shared";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -37,6 +37,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import { getSafwaDb } from "@/modules/content/db";
+import { readEffectiveClock } from "@/modules/profile/timezone";
 import {
   BAB_IDS,
   SOURCE_QUIZ_FORM_FIELDS,
@@ -45,6 +46,7 @@ import {
   type VerbTypeId,
 } from "@/modules/content/constants";
 import type { LearnerEntry } from "@/modules/content/schema";
+import type { AttemptClock } from "@/modules/study-engine/attempts";
 import { DEFAULT_TIMED_LIMIT_MS } from "@/modules/study-engine/session";
 import {
   buildCustomPlan,
@@ -95,6 +97,16 @@ const STATE_LABELS: Record<ComponentStateFilter, string> = {
 type StartSnapshot = {
   stored: Map<string, StoredComponentState>;
   weakScores: Map<string, number>;
+  /**
+   * The session's ONE resolved effective clock (§10.6): resolved here at
+   * Start, used for the state-filter evaluation below, and handed to the
+   * runner (`presetClock`) so grading stamps events with the SAME zone and
+   * source — a custom session never resolves the clock twice.
+   */
+  clock: AttemptClock;
+  /** The instant captured from `clock` at Start; the state filters and the
+   * built plan both evaluate against it so the setup-screen guard and the
+   * session can never disagree about what matched. */
   nowMs: number;
 };
 
@@ -199,7 +211,11 @@ export function CustomSession() {
         ]),
       );
       const weakScores = computeWeakScores(snapshot.attempts);
-      const nowMs = browserClock().now();
+      // The session's ONE effective-clock resolution (§10.6): this clock is
+      // frozen into the snapshot and later handed to the runner, so the
+      // state-filter evaluation here and the graded events share one zone.
+      const clock = await readEffectiveClock(getSafwaDb());
+      const nowMs = clock.now();
       const resolved = effectiveFilters();
 
       const matching = filterByStates(
@@ -247,7 +263,7 @@ export function CustomSession() {
       };
       setRunning((current) => ({
         config,
-        snapshot: { stored, weakScores, nowMs },
+        snapshot: { stored, weakScores, clock, nowMs },
         token: (current?.token ?? 0) + 1,
       }));
     } catch {
@@ -640,6 +656,13 @@ function RunningCustomSession({
   const { config, snapshot } = running;
 
   const buildPlan: QuizPlanBuilder & FlashcardPlanBuilder = useCallback(
+    // The clock the runner would pass here IS snapshot.clock — threaded back
+    // to it via `presetClock` below, so a custom session performs exactly ONE
+    // effective-clock resolution (§10.6). This planner deliberately does not
+    // take the clock parameter: the plan evaluates state filters at the
+    // instant CAPTURED from that same clock at Start (snapshot.nowMs), never
+    // a live re-read, so the setup-screen guard and the built plan can never
+    // disagree about what matched.
     (planEntries: LearnerEntry[], seed: string) =>
       buildCustomPlan(
         planEntries,
@@ -684,6 +707,7 @@ function RunningCustomSession({
           contentVersion={contentVersion}
           questionGeneratorVersion={questionGeneratorVersion}
           buildPlan={buildPlan}
+          presetClock={snapshot.clock}
           emptyMessage={emptyMessage}
           onStudyAgain={onStudyAgain}
         />
@@ -699,6 +723,7 @@ function RunningCustomSession({
             config.timed ? config.perQuestionLimitMs : undefined
           }
           optionCount={optionCount}
+          presetClock={snapshot.clock}
           emptyMessage={emptyMessage}
           onStudyAgain={onStudyAgain}
         />

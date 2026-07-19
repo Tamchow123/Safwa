@@ -15,7 +15,11 @@
  */
 import { replayChain, type ChainReplay } from "@/modules/scheduler/chain";
 import type { ReviewEvent } from "@/modules/scheduler/events";
-import { isDue, type SchedulerCard } from "@/modules/scheduler/fsrs";
+import {
+  FSRS_STATE_VALUES,
+  isDue,
+  type SchedulerCard,
+} from "@/modules/scheduler/fsrs";
 
 export const MASTERY_DAYS_REQUIRED = 3;
 
@@ -29,24 +33,19 @@ const LEARNER_STATE_VALUES: readonly LearnerState[] = [
   "needs_review",
 ];
 
-const FSRS_STATE_VALUES: readonly SchedulerCard["state"][] = [
-  "new",
-  "learning",
-  "review",
-  "relearning",
-];
-
 /** Runtime guard for stored learner-state strings (IndexedDB rows may lie). */
 function isStoredLearnerState(value: unknown): value is LearnerState {
   return LEARNER_STATE_VALUES.includes(value as LearnerState);
 }
 
 /**
- * A stored FSRS card usable for effective-state decisions: a finite due
- * instant and a known lifecycle state. A corrupt row fails safe (treated as
- * no card), so damaged data can never inflate mastery.
+ * A stored FSRS card usable for effective-state (and due) decisions: a finite
+ * due instant and a known lifecycle state. A corrupt row fails safe (treated
+ * as no card), so damaged data can never inflate mastery — and consumers that
+ * tag components "due" must apply this same guard so a corrupt card is never
+ * simultaneously untrusted for state yet trusted for due-ness.
  */
-function isUsableCard(card: SchedulerCard): boolean {
+export function isUsableCard(card: SchedulerCard): boolean {
   return (
     Number.isFinite(card.dueAtMs) && FSRS_STATE_VALUES.includes(card.state)
   );

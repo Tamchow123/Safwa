@@ -93,6 +93,27 @@ vi.mock("@/modules/study-session/persistence", async (importActual) => {
   };
 });
 
+// The session-frozen effective clock (Phase 12): deterministic by default;
+// individual tests override with mockResolvedValueOnce to prove the resolved
+// zone reaches the persisted attempt.
+const readEffectiveClock = vi.fn(
+  async (): Promise<import("@/modules/study-engine").AttemptClock> => ({
+    now: () => Date.now(),
+    timezone: "UTC",
+    timezoneSource: "browser_detected",
+  }),
+);
+
+vi.mock("@/modules/profile/timezone", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/modules/profile/timezone")>();
+  return {
+    ...actual,
+    readEffectiveClock: (...args: Parameters<typeof readEffectiveClock>) =>
+      readEffectiveClock(...args),
+  };
+});
+
 import { McQuizSession } from "@/components/study/mc-quiz-session";
 
 afterEach(() => {
@@ -102,6 +123,7 @@ afterEach(() => {
   recordGradedAttempt.mockClear();
   undoGradedAttempt.mockClear();
   ensureDurableGuestStateSpy.mockClear();
+  readEffectiveClock.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -168,6 +190,32 @@ async function startRecallSession(
 }
 
 describe("McQuizSession", () => {
+  it("stamps attempts from the session-frozen effective clock (§10.5/§10.6)", async () => {
+    // 2026-07-17T20:00Z is already 2026-07-18 05:00 in Asia/Tokyo (+09:00) —
+    // the attempt's immutable event-time fields must follow the RESOLVED
+    // user-setting zone, not UTC and not the test environment's zone.
+    const fixedNowMs = Date.UTC(2026, 6, 17, 20, 0, 0);
+    readEffectiveClock.mockResolvedValueOnce({
+      now: () => fixedNowMs,
+      timezone: "Asia/Tokyo",
+      timezoneSource: "user_setting",
+    });
+
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+    await user.click(optionWithRef(correctRef(session)));
+
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    expect(readEffectiveClock).toHaveBeenCalledTimes(1); // frozen per mount
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
+    expect(attempt.timezoneAtEvent).toBe("Asia/Tokyo");
+    expect(attempt.timezoneSource).toBe("user_setting");
+    expect(attempt.localDateAtEvent).toBe("2026-07-18");
+    expect(attempt.utcOffsetMinutesAtEvent).toBe(540);
+    expect(attempt.occurredAtUtc).toBe(new Date(fixedNowMs).toISOString());
+  });
+
   it("auto-starts and shows a question with four options", async () => {
     render(<McQuizSession />);
     const session = await waitForQuestion();

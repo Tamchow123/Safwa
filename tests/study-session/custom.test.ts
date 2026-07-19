@@ -385,6 +385,20 @@ describe("custom session filters — targeted behaviour", () => {
         NOW_MS,
       ),
     ).toEqual(["weak"]);
+    // A structurally corrupt stored card matches NO state class — not even
+    // "due", although its dueAtMs is in the past: corrupt data must never
+    // satisfy an explicit state selection.
+    expect(
+      componentStateClasses(
+        {
+          componentKey: "k",
+          fsrs: { ...dueCard, state: "zombie" as SchedulerCard["state"] },
+          learnerState: "mastered",
+        },
+        0.9,
+        NOW_MS,
+      ),
+    ).toEqual([]);
   });
 
   it("filterByStates unions the selected states", () => {

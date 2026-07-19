@@ -32,7 +32,10 @@ import {
 import type { LearnerEntry } from "@/modules/content/schema";
 
 import { isDue } from "@/modules/scheduler/fsrs";
-import { effectiveLearnerState } from "@/modules/scheduler/states";
+import {
+  effectiveLearnerState,
+  isUsableCard,
+} from "@/modules/scheduler/states";
 import {
   deriveAllComponents,
   type DerivedComponent,
@@ -255,12 +258,19 @@ export function componentStateClasses(
     classes.push("new");
     return classes;
   }
+  // A structurally corrupt stored card matches NO state class — not even
+  // "new" (a card row exists; it just cannot be trusted). Corrupt data must
+  // never satisfy an explicit state selection, including "due".
+  if (!isUsableCard(card)) return classes;
   const state = effectiveLearnerState(stored?.learnerState, card, nowMs);
   if (state === "learning") classes.push("learning");
   if (state === "mastered") classes.push("mastered");
   if (state !== "mastered" && (weakScore > 0 || state === "needs_review")) {
     classes.push("weak");
   }
+  // effectiveLearnerState re-checks due-ness internally for the mastered
+  // case; this second isDue call is INTENTIONAL — the shared helper stays
+  // self-contained for its other consumers, and the cost is one comparison.
   if (isDue(card, nowMs)) classes.push("due");
   return classes;
 }
