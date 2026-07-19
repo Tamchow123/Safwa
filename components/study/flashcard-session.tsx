@@ -336,7 +336,8 @@ export function FlashcardRunner({
         const db = getSafwaDb();
         // The session-frozen clock; the fallback (unreachable while a session
         // is active) still goes through the shared resolver, never an
-        // unconditional browser clock.
+        // unconditional browser clock. MIRRORED in quiz-runner.tsx — keep the
+        // two fallback blocks in sync.
         const clock =
           sessionClock.current ??
           resolveEffectiveClock(DEFAULT_TIMEZONE_PREFERENCE);
