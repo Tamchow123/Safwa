@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { uuidv7 } from "@/lib/uuid";
+import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
 import {
   serializeAnswerReference,
   type AnswerReference,
@@ -243,12 +244,23 @@ export function QuizRunner({
   useEffect(() => {
     if (!context) return;
     let cancelled = false;
-    void (async () => {
-      try {
+    // Bounded (REL-P101): a hung IndexedDB open (e.g. blocked behind another
+    // tab's schema upgrade) must not strand this session on the "Preparing
+    // session" skeleton forever with no retry. These are pure reads before
+    // any write occurs, so racing them against a timer carries none of the
+    // duplicate-write risk that rules out bounding the grading write below.
+    // The timeout is made TERMINAL by setting `cancelled` in the catch (not
+    // just on unmount): Promise.race cannot stop the IIFE below, so without
+    // this a slow-then-eventually-resolves read would silently flip the
+    // shown error back to an active/empty session with no user action.
+    // MIRRORED in flashcard-session.tsx — keep the two in sync.
+    void withTimeout(
+      (async () => {
         const db = getSafwaDb();
         sessionStartedAt.current = Date.now();
-        sessionClock.current = presetClock ?? (await readEffectiveClock(db));
+        const clock = presetClock ?? (await readEffectiveClock(db));
         if (cancelled) return;
+        sessionClock.current = clock;
         const existing = await peekDeviceProfile(db);
         if (cancelled) return;
         if (existing) deviceBound.current = true;
@@ -282,10 +294,15 @@ export function QuizRunner({
         if (cancelled) return;
         setSession(state);
         setStatus("active");
-      } catch {
-        if (!cancelled) setStatus("error");
+      })(),
+      DB_READ_TIMEOUT_MS,
+      "session initialization timed out",
+    ).catch(() => {
+      if (!cancelled) {
+        cancelled = true;
+        setStatus("error");
       }
-    })();
+    });
     return () => {
       cancelled = true;
     };
@@ -341,6 +358,16 @@ export function QuizRunner({
           clock,
         });
         const bindNow = !deviceBound.current;
+        // Deliberately UNBOUNDED (unlike the read-side loads, which race a
+        // watchdog via lib/with-timeout.ts): Promise.race cannot cancel the
+        // underlying Dexie transaction, so racing this write against a timer
+        // would let a merely-queued write (e.g. behind an analytics scan in
+        // another tab — the same contention as T5/REL-002) commit AFTER the
+        // UI already told the learner to retry, producing a second
+        // review_events/study_attempts row and a double FSRS replay for one
+        // real answer. A queued write only delays the busy state; it can
+        // never silently duplicate. MIRRORED in flashcard-session.tsx — keep
+        // the two write paths in sync.
         const persisted = await recordGradedAttempt(db, result.attempt, {
           eventId: uuidv7(),
           now: clock.now(),

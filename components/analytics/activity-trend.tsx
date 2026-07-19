@@ -44,9 +44,14 @@ export function ActivityTrend({
     attempts: byDate.get(date)?.attempts ?? 0,
   }));
   const max = Math.max(1, ...bars.map((bar) => bar.attempts));
-  const total = bars.reduce((sum, bar) => sum + bar.attempts, 0);
+  const windowTotal = bars.reduce((sum, bar) => sum + bar.attempts, 0);
 
-  if (total === 0) {
+  // "Never studied" is judged on the learner's FULL history, not this
+  // window: a returning learner whose activity predates the window must
+  // never be told "No activity yet" next to their real progress numbers.
+  // Derived activity only has rows for dates with real recorded activity,
+  // so an empty array IS the genuine all-time zero state (§18).
+  if (activity.length === 0) {
     return (
       <p className="text-muted-foreground text-sm" data-testid="trend-empty">
         No activity yet. Your study days will show up here.
@@ -77,6 +82,17 @@ export function ActivityTrend({
           <span>{readableDate(bars[0].date)}</span>
           <span>{readableDate(bars[bars.length - 1].date)}</span>
         </div>
+        {windowTotal === 0 ? (
+          // History exists outside this window: keep every zero bar
+          // represented (§13) and say so honestly, window-scoped — never
+          // "No activity yet".
+          <p
+            className="text-muted-foreground mt-2 text-sm"
+            data-testid="trend-window-empty"
+          >
+            No attempts in the last {days} days.
+          </p>
+        ) : null}
       </div>
       <table className="sr-only">
         <caption>{label}</caption>

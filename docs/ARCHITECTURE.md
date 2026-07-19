@@ -57,6 +57,11 @@ apps (single Next.js app)
 │                          distractors, session state machine, attempts
 ├── modules/scheduler      PURE TS: ts-fsrs integration, rating mapping,
 │                          event creation, causal chain, state projections
+├── modules/study-session  session orchestration: plan builders/filters for
+│                          the study modes + the learner-state Dexie adapter
+├── modules/profile        device profile, settings, session defaults, data
+│                          export, timezone preference + THE effective-clock
+│                          resolver (resolveEffectiveClock)
 ├── modules/sync           mutation queue, event push/pull, rebase handling
 ├── modules/auth           Better Auth config, email adapter
 ├── modules/analytics      PURE TS: date/activity/streak/progress formulas

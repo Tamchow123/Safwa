@@ -63,7 +63,12 @@ export function addDays(date: string, days: number): string {
   return formatUtcDate(new Date(Date.UTC(year, month - 1, day + days)));
 }
 
-/** Whole calendar days from `from` to `to` (positive when `to` is later). */
+/**
+ * Whole calendar days from `from` to `to` (positive when `to` is later).
+ * No Phase 12 consumer — kept (and tested) as the label-arithmetic
+ * primitive the Phase 13 weak-areas recency window builds on, so that
+ * phase never hand-rolls a second date-distance implementation.
+ */
 export function daysBetween(from: string, to: string): number {
   assertIsoDate(from, "from");
   assertIsoDate(to, "to");

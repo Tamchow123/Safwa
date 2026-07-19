@@ -14,9 +14,12 @@ and timezone is injected):
 | `dates.ts`    | ISO date-label validity + calendar arithmetic (never 24-hour-ms maths; DST-safe), instant→local date. |
 | `activity.ts` | Daily-activity derivation from raw attempts + scheduling events (the `daily_activity` cache formula). |
 | `streaks.ts`  | Study days, current streak (today/yesterday grace), longest streak.                                   |
+| `progress.ts` | §7 exact-ratio formulas: word/component mastery, per-skill/per-form/group completion, due-today.      |
+| `index.ts`    | Pure-only barrel (the Dexie adapter is deliberately NOT re-exported).                                 |
 
-The browser-only persistence adapter (one consistent snapshot read + atomic
-`daily_activity` cache rebuild) and the §6 progress formulas arrive with the
-Phase 12 dashboard slices. The authoritative learner truth remains
-`study_attempts` + `review_events`; everything here is derived and
-rebuildable.
+The ONE impure exception is `persistence.ts` — the browser-only Dexie
+adapter (one consistent snapshot read + atomic `daily_activity` cache
+rebuild), exempted by name from the ESLint purity guard and imported
+directly, never via the barrel. All of the above shipped with the Phase 12
+dashboard slices. The authoritative learner truth remains `study_attempts`
+and `review_events`; everything here is derived and rebuildable.

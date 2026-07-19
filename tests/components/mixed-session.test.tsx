@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
 import type { SessionDefaults } from "@/modules/profile/session-defaults";
+import type { AttemptClock } from "@/modules/study-engine/attempts";
 import type { SchedulingSnapshot } from "@/modules/study-session/persistence";
 
 const built = buildArtifacts(readFileSync(SOURCE_DATASET_PATH, "utf8"));
@@ -40,6 +41,21 @@ vi.mock("@/modules/content/db", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@/modules/content/db")>();
   return { ...original, getSafwaDb: () => ({}) as never };
+});
+
+// Per-test effective clock; null = the real browser-detected fallback.
+let mockedClock: AttemptClock | null = null;
+vi.mock("@/modules/profile/timezone", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/modules/profile/timezone")>();
+  return {
+    ...original,
+    readEffectiveClock: vi.fn(
+      async () =>
+        mockedClock ??
+        original.resolveEffectiveClock(original.DEFAULT_TIMEZONE_PREFERENCE),
+    ),
+  };
 });
 
 vi.mock("@/modules/profile/device", async (importOriginal) => {
@@ -98,6 +114,7 @@ afterEach(() => {
     reviewsPerDay: 20,
   };
   mockedSnapshot = { components: [], attempts: [], events: [] };
+  mockedClock = null;
 });
 
 async function waitForSession(): Promise<HTMLElement> {
@@ -184,5 +201,44 @@ describe("MixedSession — session defaults consumption (§4.4)", () => {
     // review.
     expect(screen.getByText("Question 1 of 1")).toBeInTheDocument();
     expect(session).toHaveAttribute("data-skill-type", "root_identification");
+  });
+
+  it("computes today's budget in the EFFECTIVE zone, not UTC (§10.5/§12)", async () => {
+    // Frozen instant: 2026-07-18 20:00 UTC = 2026-07-19 05:00 Asia/Tokyo.
+    // Two chain-root scheduling events dated Tokyo-today have consumed the
+    // whole new budget; a UTC misread ("2026-07-18") would not count them
+    // and would render a session of new items instead of the empty state.
+    mockedClock = {
+      now: () => Date.UTC(2026, 6, 18, 20, 0, 0),
+      timezone: "Asia/Tokyo",
+      timezoneSource: "user_setting",
+    };
+    mockedDefaults = { ...mockedDefaults, newPerDay: 2, reviewsPerDay: 0 };
+    mockedSnapshot = {
+      components: [],
+      attempts: [],
+      events: [
+        {
+          componentKey: "entry:1:skill:bab_identification",
+          parentEventId: null,
+          status: "scheduling",
+          localDateAtEvent: "2026-07-19",
+        },
+        {
+          componentKey: "entry:2:skill:bab_identification",
+          parentEventId: null,
+          status: "scheduling",
+          localDateAtEvent: "2026-07-19",
+        },
+      ],
+    };
+    render(<MixedSession />);
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(/Nothing to study right now/),
+        ).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
   });
 });
