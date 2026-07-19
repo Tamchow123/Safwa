@@ -2,12 +2,54 @@ import { describe, expect, it } from "vitest";
 
 import { computeEventTimeFields } from "@/modules/study-engine";
 import {
+  classifySchedulingEvent,
   createReviewEvent,
   deriveLineage,
   shouldCreateEvent,
 } from "@/modules/scheduler/events";
 
 import { makeAttempt } from "./fixtures";
+
+describe("classifySchedulingEvent (shared daily-target/activity rule)", () => {
+  it("classifies a scheduling chain root as a new item", () => {
+    expect(
+      classifySchedulingEvent({ status: "scheduling", parentEventId: null }),
+    ).toBe("new_item");
+  });
+
+  it("classifies a scheduling non-root as a review", () => {
+    expect(
+      classifySchedulingEvent({ status: "scheduling", parentEventId: "e1" }),
+    ).toBe("review");
+  });
+
+  it("never classifies non-scheduling lifecycle statuses", () => {
+    for (const status of [
+      "reinforcement",
+      "conflict_demoted",
+      "revoked",
+      "pending_parent",
+      null,
+      undefined,
+    ]) {
+      expect(classifySchedulingEvent({ status, parentEventId: null })).toBe(
+        null,
+      );
+      expect(classifySchedulingEvent({ status, parentEventId: "e1" })).toBe(
+        null,
+      );
+    }
+  });
+
+  it("fails safe on a corrupt row without a readable parent link", () => {
+    expect(
+      classifySchedulingEvent({
+        status: "scheduling",
+        parentEventId: undefined,
+      }),
+    ).toBe(null);
+  });
+});
 
 describe("event-creation rule (§5)", () => {
   it("creates an event only for a scheduling-relevant first attempt", () => {

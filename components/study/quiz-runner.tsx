@@ -14,7 +14,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArabicText } from "@/components/arabic-text";
 import {
   FieldValue,
-  browserClock,
   formLabel,
   formName,
   isArabicField,
@@ -24,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { uuidv7 } from "@/lib/uuid";
+import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
 import {
   serializeAnswerReference,
   type AnswerReference,
@@ -33,6 +33,12 @@ import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { newDeviceProfile, peekDeviceProfile } from "@/modules/profile/device";
 import { ensureDurableGuestState } from "@/modules/profile/persistence";
+import {
+  DEFAULT_TIMEZONE_PREFERENCE,
+  readEffectiveClock,
+  resolveEffectiveClock,
+} from "@/modules/profile/timezone";
+import type { AttemptClock } from "@/modules/study-engine/attempts";
 import { isSourceFormField } from "@/modules/study-engine/fields";
 import {
   createQuestionContext,
@@ -70,10 +76,15 @@ export type QuizPlanEntry = {
   promptForm?: SourceQuizFormField;
 };
 
-/** Build the session plan for one mount. May read local state (async). */
+/**
+ * Build the session plan for one mount. May read local state (async). The
+ * clock is the session's FROZEN effective clock (§10.6) — planners that need
+ * "today" or "now" must use it, never an ambient clock of their own.
+ */
 export type QuizPlanBuilder = (
   entries: LearnerEntry[],
   seed: string,
+  clock: AttemptClock,
 ) => QuizPlanEntry[] | Promise<QuizPlanEntry[]>;
 
 /** Map the learner's delivery choice to the engine's session config (§4.4). */
@@ -157,6 +168,7 @@ export function QuizRunner({
   delivery,
   perQuestionLimitMs,
   optionCount,
+  presetClock,
   emptyMessage,
   onStudyAgain,
 }: {
@@ -171,6 +183,13 @@ export function QuizRunner({
   perQuestionLimitMs?: number;
   /** MC options per question (§4.4 — engine default 4 if omitted). */
   optionCount?: number;
+  /**
+   * An ALREADY-RESOLVED effective clock to freeze for this session. Callers
+   * that resolve the clock before mounting (Custom Session resolves it during
+   * setup-screen state filtering) pass it here so one session never resolves
+   * the clock twice; when omitted the runner resolves it once at mount.
+   */
+  presetClock?: AttemptClock;
   emptyMessage: string;
   onStudyAgain: () => void;
 }) {
@@ -213,20 +232,41 @@ export function QuizRunner({
   const lastPersisted = useRef<PersistedAttempt | null>(null);
   const deviceBound = useRef(false);
   const sessionStartedAt = useRef<number>(0);
+  // The session's FROZEN effective clock (§10.6): resolved ONCE per session
+  // (either supplied pre-resolved via `presetClock`, or read at mount from
+  // the stored timezone preference), then used for planning AND every graded
+  // attempt, so all events in one session share the same zone + source. A
+  // preference change applies to sessions started afterwards. MIRRORED in
+  // flashcard-session.tsx — keep the two implementations in sync.
+  const sessionClock = useRef<AttemptClock | null>(null);
 
   // Build the session once per mount (a fresh mount == a fresh session).
   useEffect(() => {
     if (!context) return;
     let cancelled = false;
-    void (async () => {
-      try {
+    // Bounded (REL-P101): a hung IndexedDB open (e.g. blocked behind another
+    // tab's schema upgrade) must not strand this session on the "Preparing
+    // session" skeleton forever with no retry. These are pure reads before
+    // any write occurs, so racing them against a timer carries none of the
+    // duplicate-write risk that rules out bounding the grading write below.
+    // The timeout is made TERMINAL by setting `cancelled` in the catch (not
+    // just on unmount): Promise.race cannot stop the IIFE below, so without
+    // this a slow-then-eventually-resolves read would silently flip the
+    // shown error back to an active/empty session with no user action.
+    // MIRRORED in flashcard-session.tsx — keep the two in sync.
+    void withTimeout(
+      (async () => {
         const db = getSafwaDb();
         sessionStartedAt.current = Date.now();
+        const clock = presetClock ?? (await readEffectiveClock(db));
+        if (cancelled) return;
+        sessionClock.current = clock;
         const existing = await peekDeviceProfile(db);
+        if (cancelled) return;
         if (existing) deviceBound.current = true;
         const deviceId = existing?.deviceId ?? uuidv7();
         const seed = uuidv7();
-        const plan = await buildPlan(entries, seed);
+        const plan = await buildPlan(entries, seed, sessionClock.current);
         if (cancelled) return;
         if (plan.length === 0) {
           setStatus("empty");
@@ -254,14 +294,27 @@ export function QuizRunner({
         if (cancelled) return;
         setSession(state);
         setStatus("active");
-      } catch {
-        if (!cancelled) setStatus("error");
+      })(),
+      DB_READ_TIMEOUT_MS,
+      "session initialization timed out",
+    ).catch(() => {
+      if (!cancelled) {
+        cancelled = true;
+        setStatus("error");
       }
-    })();
+    });
     return () => {
       cancelled = true;
     };
-  }, [context, entries, buildPlan, delivery, perQuestionLimitMs, optionCount]);
+  }, [
+    context,
+    entries,
+    buildPlan,
+    delivery,
+    perQuestionLimitMs,
+    optionCount,
+    presetClock,
+  ]);
 
   // Render-time question generation is guarded: a generation failure (e.g. a
   // pool unable to fill the configured option count in an unforeseen case)
@@ -289,7 +342,13 @@ export function QuizRunner({
       setActionError(null);
       try {
         const db = getSafwaDb();
-        const clock = browserClock();
+        // The session-frozen clock; the fallback (unreachable while a session
+        // is active) still goes through the shared resolver, never an
+        // unconditional browser clock. MIRRORED in flashcard-session.tsx —
+        // keep the two fallback blocks in sync.
+        const clock =
+          sessionClock.current ??
+          resolveEffectiveClock(DEFAULT_TIMEZONE_PREFERENCE);
         const result = submitAnswer(session, context, {
           attemptId: uuidv7(),
           questionInstanceId: instance.questionInstanceId,
@@ -299,6 +358,16 @@ export function QuizRunner({
           clock,
         });
         const bindNow = !deviceBound.current;
+        // Deliberately UNBOUNDED (unlike the read-side loads, which race a
+        // watchdog via lib/with-timeout.ts): Promise.race cannot cancel the
+        // underlying Dexie transaction, so racing this write against a timer
+        // would let a merely-queued write (e.g. behind an analytics scan in
+        // another tab — the same contention as T5/REL-002) commit AFTER the
+        // UI already told the learner to retry, producing a second
+        // review_events/study_attempts row and a double FSRS replay for one
+        // real answer. A queued write only delays the busy state; it can
+        // never silently duplicate. MIRRORED in flashcard-session.tsx — keep
+        // the two write paths in sync.
         const persisted = await recordGradedAttempt(db, result.attempt, {
           eventId: uuidv7(),
           now: clock.now(),

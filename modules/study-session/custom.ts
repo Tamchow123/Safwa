@@ -33,6 +33,10 @@ import type { LearnerEntry } from "@/modules/content/schema";
 
 import { isDue } from "@/modules/scheduler/fsrs";
 import {
+  effectiveLearnerState,
+  isUsableCard,
+} from "@/modules/scheduler/states";
+import {
   deriveAllComponents,
   type DerivedComponent,
 } from "@/modules/study-engine/components";
@@ -238,8 +242,10 @@ export function eligibleCustomComponents(
  * written, so it can be STALE relative to the clock: a card stored as
  * `mastered` whose due date has since passed (or that lapsed into
  * relearning) is `needs_review` NOW (§5 "due/lapsed after mastery"). The
- * EFFECTIVE state is therefore re-derived here against the injected instant
- * — a due or lapsed card is never classified mastered.
+ * EFFECTIVE state is therefore re-derived against the injected instant
+ * through the ONE shared helper (`effectiveLearnerState`) that dashboard
+ * and progress analytics also use — a due or lapsed card is never
+ * classified mastered.
  */
 export function componentStateClasses(
   stored: StoredComponentState | undefined,
@@ -252,19 +258,20 @@ export function componentStateClasses(
     classes.push("new");
     return classes;
   }
-  const storedState = stored?.learnerState ?? "not_started";
-  const due = isDue(card, nowMs);
-  const lapsed = card.state === "relearning";
-  const state =
-    storedState === "mastered" && (due || lapsed)
-      ? "needs_review"
-      : storedState;
+  // A structurally corrupt stored card matches NO state class — not even
+  // "new" (a card row exists; it just cannot be trusted). Corrupt data must
+  // never satisfy an explicit state selection, including "due".
+  if (!isUsableCard(card)) return classes;
+  const state = effectiveLearnerState(stored?.learnerState, card, nowMs);
   if (state === "learning") classes.push("learning");
   if (state === "mastered") classes.push("mastered");
   if (state !== "mastered" && (weakScore > 0 || state === "needs_review")) {
     classes.push("weak");
   }
-  if (due) classes.push("due");
+  // effectiveLearnerState re-checks due-ness internally for the mastered
+  // case; this second isDue call is INTENTIONAL — the shared helper stays
+  // self-contained for its other consumers, and the cost is one comparison.
+  if (isDue(card, nowMs)) classes.push("due");
   return classes;
 }
 

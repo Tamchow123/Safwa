@@ -154,6 +154,18 @@ describe("remainingDailyTargets (per-day accounting)", () => {
     expect(remainingDailyTargets(events, TODAY)).toEqual(DEFAULT_DAILY_TARGETS);
   });
 
+  it("a corrupt scheduling row without a readable parent link consumes nothing", () => {
+    // readSchedulingSnapshot passes parentEventId through unmapped, so a
+    // malformed Dexie row surfaces here as undefined (not null). The shared
+    // classifier must refuse to count it as either a new item or a review.
+    const events = [
+      schedulingEvent({
+        parentEventId: undefined as unknown as string | null,
+      }),
+    ];
+    expect(remainingDailyTargets(events, TODAY)).toEqual(DEFAULT_DAILY_TARGETS);
+  });
+
   it("clamps at zero once a day's budget is exhausted", () => {
     const events = Array.from({ length: 15 }, (_, index) =>
       schedulingEvent({ componentKey: `c-${index}` }),
