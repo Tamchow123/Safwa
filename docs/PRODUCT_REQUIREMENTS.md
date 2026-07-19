@@ -236,12 +236,43 @@ are never touched by progress resets.
   answers count; difficult days keep the streak. Streak = consecutive stored
   local dates. Timezone changes affect future events only; history is
   immutable.
+- **Current streak (implemented, Phase 12):** anchored at the learner's
+  current effective local date — activity today counts back from today;
+  none today but activity yesterday keeps the streak alive through today
+  (an unfinished today never breaks it); otherwise zero. **Longest streak**
+  is the longest run of consecutive study-day dates anywhere in history.
+  All date succession uses calendar-date labels, never 24-hour millisecond
+  spans, so DST days cannot corrupt a streak.
+- **Study time (implemented):** the sum of valid attempts' recorded
+  `response_time_ms` — active question-response time, never wall-clock
+  app-open time.
+- **Effective state (implemented):** a component stored Mastered whose FSRS
+  card has since become due (or lapsed into relearning) counts as Needs
+  review in every progress formula and session filter — one shared helper,
+  never per-consumer reimplementations.
+- **Reviews due today (implemented):** eligible materialised components
+  whose FSRS due instant maps to a local calendar date ≤ the current local
+  date in the effective zone. Overdue counts; later today counts; tomorrow
+  does not; a missing or corrupt card never counts. Mastery calculations
+  compare exact instants, not end-of-day.
+- **Timezone preference (implemented):** `{ mode: "browser" }` (default) or
+  `{ mode: "iana", timezone }`, stored as one durable settings row and
+  sanitised on read and write. Study sessions freeze the effective zone at
+  session start (a change applies to sessions started afterwards); the
+  dashboard re-resolves it on every load. Recorded `local_date_at_event`
+  values are never re-keyed.
 - **Mastery days:** distinct stored `local_date_at_event` values of accepted
   scheduling-authoritative Good/Easy scheduled reviews only.
-- Dashboard shows: overall completion, words mastered/learning, streak, study
-  time, reviews due today, daily-target progress, weak areas, trend charts.
-  No user-facing full answer-history page (attempt data powers analytics
-  internally).
+- Dashboard (`/`, implemented Phase 12) shows: overall completion and word
+  counts, current streak, study time today, reviews due today, daily-target
+  progress against the learner's session defaults, a 14-day activity trend
+  and the study actions. Detailed Progress (`/progress`) adds component
+  mastery, per-skill / per-form / bāb / verb-type completion with exact
+  numerator/denominator text, longest streak and a longer activity summary.
+  Weak areas arrive in Phase 13. No user-facing full answer-history page
+  (attempt data powers analytics internally). This completes the Guest
+  Alpha milestone: the full guest journey — study, scheduling, progress,
+  streaks, settings, export — works locally without an account.
 
 ## 7. Non-functional requirements
 

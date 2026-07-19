@@ -1,29 +1,16 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
-import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useAppTheme } from "@/lib/preferences/use-app-theme";
+import { useMounted } from "@/lib/preferences/use-mounted";
 
 const THEME_OPTIONS = [
   { value: "system", label: "System", icon: Monitor },
   { value: "light", label: "Light", icon: Sun },
   { value: "dark", label: "Dark", icon: Moon },
 ] as const;
-
-function subscribeNoop(): () => void {
-  return () => {};
-}
-
-/** True after hydration; SSR renders false so output stays hydration-safe. */
-function useMounted(): boolean {
-  return useSyncExternalStore(
-    subscribeNoop,
-    () => true,
-    () => false,
-  );
-}
 
 /**
  * Segmented theme control for the settings page. Selection is communicated

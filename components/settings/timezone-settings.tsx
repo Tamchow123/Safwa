@@ -8,6 +8,15 @@
  * copy so the learner knows what changing it does. A native <select> keeps the
  * long zone list keyboard- and mobile-accessible without a custom combobox.
  * No network request is involved; the list comes from Intl.
+ *
+ * HYDRATION: the detected zone and the zone list come from the RUNTIME's
+ * Intl, which differs between the prerendering server and the browser
+ * (different host zones, different zone databases). Both are therefore
+ * rendered only after mount (the shared `useMounted` gate) — the server and
+ * first client render agree on the environment-free markup, then the real
+ * values fill in. The regression net for this is the E2E console guard
+ * (e2e/fixtures.ts), which fails any spec visiting /settings on the
+ * hydration-mismatch error this gate exists to prevent.
  */
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -19,6 +28,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useMounted } from "@/lib/preferences/use-mounted";
 import { useTimezonePreference } from "@/lib/preferences/use-timezone";
 import { availableTimezones } from "@/modules/profile/timezone";
 
@@ -31,10 +41,12 @@ export function TimezoneSettings() {
   const { preference, loaded, detectedTimezone, update } =
     useTimezonePreference();
   const [saving, setSaving] = useState(false);
+  const mounted = useMounted();
   const selectId = useId();
 
-  // The runtime's zone list, computed once per mount.
-  const zones = useMemo(() => availableTimezones(), []);
+  // The BROWSER's zone list, computed once after mount (never during SSR —
+  // the server's Intl would render a different list and detected zone).
+  const zones = useMemo(() => (mounted ? availableTimezones() : []), [mounted]);
 
   const selectedValue =
     preference.mode === "iana" ? preference.timezone : BROWSER_VALUE;
@@ -91,7 +103,7 @@ export function TimezoneSettings() {
           onChange={(event) => void save(event.target.value)}
         >
           <option value={BROWSER_VALUE}>
-            Browser timezone — {detectedTimezone}
+            Browser timezone{mounted ? ` — ${detectedTimezone}` : ""}
           </option>
           {extraZone !== null && <option value={extraZone}>{extraZone}</option>}
           {zones.map((zone) => (
@@ -103,7 +115,9 @@ export function TimezoneSettings() {
         <p className="text-muted-foreground text-xs" role="status">
           {saving
             ? "Saving…"
-            : `Detected browser timezone: ${detectedTimezone}`}
+            : mounted
+              ? `Detected browser timezone: ${detectedTimezone}`
+              : "Detecting browser timezone…"}
         </p>
       </CardContent>
     </Card>
