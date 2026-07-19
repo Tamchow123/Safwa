@@ -3,10 +3,11 @@
 /**
  * The zero-configuration "Start studying" mixed-revision session (Phase 10,
  * §4.3). No options bar: the plan is due reviews first, then weak items
- * (recent first-attempt accuracy heuristic v1), then new items, within
- * whatever remains of TODAY's daily targets (repeated same-day sessions share
- * one daily allowance). A brand-new guest with no history gets a plan of new
- * items — a sensible session with zero configuration.
+ * (Phase 13 weakness heuristic v2 — the same score Weak Areas and the Custom
+ * Session weak filter use), then new items, within whatever remains of
+ * TODAY's daily targets (repeated same-day sessions share one daily
+ * allowance). A brand-new guest with no history gets a plan of new items — a
+ * sensible session with zero configuration.
  */
 import { useCallback, useState } from "react";
 
@@ -17,15 +18,16 @@ import {
   type QuizPlanEntry,
 } from "@/components/study/quiz-runner";
 import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
+import { loadWeakScores } from "@/modules/analytics/weakness-persistence";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import {
   computeEventTimeFields,
   type AttemptClock,
 } from "@/modules/study-engine/attempts";
+import { deriveAllComponents } from "@/modules/study-engine/components";
 import {
   buildMixedPlan,
-  computeWeakScores,
   remainingDailyTargets,
 } from "@/modules/study-session/mixed";
 import { readSchedulingSnapshot } from "@/modules/study-session/persistence";
@@ -45,8 +47,8 @@ export function MixedSession() {
       _seed: string,
       clock: AttemptClock,
     ): Promise<QuizPlanEntry[]> => {
-      const snapshot = await readSchedulingSnapshot(getSafwaDb());
-      const weakScores = computeWeakScores(snapshot.attempts);
+      const db = getSafwaDb();
+      const snapshot = await readSchedulingSnapshot(db);
       // Today's REMAINING budgets: the runner's session-frozen EFFECTIVE
       // clock (timezone preference aware) decides what "today" means, the
       // same clock/zone that stamps this session's events — so consumption
@@ -58,6 +60,11 @@ export function MixedSession() {
         newLimit: defaults.newPerDay,
         reviewLimit: defaults.reviewsPerDay,
       });
+      // Phase 13 weakness v2: the ONE authoritative score, shared with Weak
+      // Areas and the Custom Session weak filter (never a second/parallel
+      // weakness computation for the mixed-revision weak tier).
+      const derived = deriveAllComponents(entries);
+      const weakScores = await loadWeakScores(db, derived, nowMs);
       return buildMixedPlan(
         entries,
         snapshot.components,

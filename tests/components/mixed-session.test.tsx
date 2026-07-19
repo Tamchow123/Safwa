@@ -91,7 +91,6 @@ vi.mock("@/lib/preferences/use-session-defaults", () => ({
 // Per-test stored scheduling snapshot.
 let mockedSnapshot: SchedulingSnapshot = {
   components: [],
-  attempts: [],
   events: [],
 };
 vi.mock("@/modules/study-session/persistence", async (importActual) => {
@@ -104,6 +103,20 @@ vi.mock("@/modules/study-session/persistence", async (importActual) => {
   };
 });
 
+// Phase 13: no seeded weakness history in these session-defaults tests — an
+// empty score map means every component's weak score is 0, exactly matching
+// the prior v1 fixture's always-empty attempt list.
+vi.mock("@/modules/analytics/weakness-persistence", async (importActual) => {
+  const actual =
+    await importActual<
+      typeof import("@/modules/analytics/weakness-persistence")
+    >();
+  return {
+    ...actual,
+    loadWeakScores: vi.fn(async () => new Map()),
+  };
+});
+
 import { MixedSession } from "@/components/study/mixed-session";
 
 afterEach(() => {
@@ -113,7 +126,7 @@ afterEach(() => {
     newPerDay: 10,
     reviewsPerDay: 20,
   };
-  mockedSnapshot = { components: [], attempts: [], events: [] };
+  mockedSnapshot = { components: [], events: [] };
   mockedClock = null;
 });
 
@@ -159,7 +172,6 @@ describe("MixedSession — session defaults consumption (§4.4)", () => {
           learnerState: "learning",
         },
       ],
-      attempts: [],
       events: [],
     };
     mockedDefaults = { ...mockedDefaults, newPerDay: 2, reviewsPerDay: 0 };
@@ -191,7 +203,6 @@ describe("MixedSession — session defaults consumption (§4.4)", () => {
           learnerState: "learning",
         },
       ],
-      attempts: [],
       events: [],
     };
     mockedDefaults = { ...mockedDefaults, newPerDay: 0, reviewsPerDay: 5 };
@@ -216,7 +227,6 @@ describe("MixedSession — session defaults consumption (§4.4)", () => {
     mockedDefaults = { ...mockedDefaults, newPerDay: 2, reviewsPerDay: 0 };
     mockedSnapshot = {
       components: [],
-      attempts: [],
       events: [
         {
           componentKey: "entry:1:skill:bab_identification",
