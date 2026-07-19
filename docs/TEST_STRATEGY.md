@@ -150,6 +150,20 @@ integration; the E2E matrix runs on main and before releases.
   `daily_activity` cache-corruption recovery (missing/extra/incorrect rows,
   undo, cache deletion, atomic rollback, read/write transaction split);
   dashboard/progress component suites in `tests/components/`.
+- Weak areas (Phase 13, implemented in `tests/analytics/weakness*.test.ts`,
+  `tests/study-session/weak-drill.test.ts`, `tests/components/`): the v2
+  heuristic against every documented property (first-attempt-only accuracy,
+  reinforcement exclusion, recency decay, the FSRS lapse signal, the
+  qualification threshold, mastered/due exclusion, untouched-is-never-weak);
+  source-form attribution (`sourceField` for translation components,
+  `promptField` for entry-level components, never collapsing two prompt
+  forms onto one); group aggregation across all six dimensions with the
+  minimum-evidence bar; a cross-consumer agreement suite proving the Weak
+  Areas page, the mixed-revision weak tier and the Custom Session `weak`
+  filter never disagree under one snapshot; the exact weak-set drill planner
+  (entry-level prompt-form eligibility, no silent fallback, deterministic
+  ranking); the Weak Areas page and weak-drill session components (empty
+  states, priority labels, accessible semantics, no raw component keys).
 - Long-offline (Phases 16/19): events from an old supported release accepted
   via retained manifests; old release + new protocol requires client upgrade
   but content stays valid; revoked release ⇒ scheduling rejected, local
@@ -176,6 +190,20 @@ zone with `user_setting`); a DST streak fixture; due-today seeding (overdue +
 later-today count, tomorrow + stale-ineligible excluded); daily-target
 settings changing denominators only; the full 320px mobile journey; axe on
 empty/populated/dark/mobile dashboard, progress and timezone settings.
+
+Phase 13 weak-areas suite (`e2e/weak-areas.spec.ts`, implemented): the
+no-evidence state with a Study action; the full bāb-weakness acceptance
+journey through a real session (fail first attempts, complete reinforcement,
+see it weak, drill exactly it — no strong/unseen component enters the
+drill); prompt-form-varied bāb accuracy attributed from the persisted
+`promptField`; entries 369/372 protected from verb-type weakness even with
+valid non-verb-type evidence; direction ranking without cross-contamination;
+reinforcement never inflating the accuracy denominator; recency and FSRS
+lapse ranking; "Study again" recomputing the drill plan and excluding
+resolved components; mixed-revision due→weak→new ordering; Custom Session
+`weak` filter agreement with the Weak Areas engine under one snapshot; the
+full 320px mobile journey; axe on the no-evidence, populated, per-dimension,
+drill, mobile and dark-mode states.
 
 ## 11. Additional testing
 

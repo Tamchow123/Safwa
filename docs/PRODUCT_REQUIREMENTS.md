@@ -268,11 +268,26 @@ are never touched by progress resets.
   progress against the learner's session defaults, a 14-day activity trend
   and the study actions. Detailed Progress (`/progress`) adds component
   mastery, per-skill / per-form / bāb / verb-type completion with exact
-  numerator/denominator text, longest streak and a longer activity summary.
-  Weak areas arrive in Phase 13. No user-facing full answer-history page
-  (attempt data powers analytics internally). This completes the Guest
-  Alpha milestone: the full guest journey — study, scheduling, progress,
-  streaks, settings, export — works locally without an account.
+  numerator/denominator text, longest streak, a longer activity summary and
+  a concise Weak Areas summary (top three priorities, linking to the full
+  page). No user-facing full answer-history page (attempt data powers
+  analytics internally). This completes the Guest Alpha milestone: the full
+  guest journey — study, scheduling, progress, streaks, settings, export —
+  works locally without an account.
+- **Weak areas (implemented Phase 13):** a weakness heuristic v2 score —
+  recency-decayed first-attempt accuracy (30-day half-life) plus an FSRS
+  lapse signal plus a recent-failure-recency signal (14-day half-life),
+  weighted 0.65/0.25/0.10 and clamped to 0–1 — qualifies a component as weak
+  only when it is not mastered, has real failure evidence (an incorrect
+  first attempt or a lapse), and clears a documented threshold. Reinforcement
+  attempts never count as evidence; only the first attempt on a component
+  does. `/progress/weak-areas` aggregates by bāb, eligible verb type, source
+  form, direction, skill and current state, ranked by score/lapse/recency,
+  with a minimum-evidence bar per group; `/study/weak?dimension=...&value=...`
+  drills the EXACT qualifying set for one group through the existing shared
+  quiz runner — never a broader content filter. The mixed-revision weak tier
+  and the Custom Session `weak` filter read the same score, so all three
+  agree under one snapshot. No new analytics leave the device.
 
 ## 7. Non-functional requirements
 
