@@ -77,11 +77,13 @@ apps (single Next.js app)
 `study-engine`, `scheduler` and `analytics` are **pure TypeScript packages** —
 no React, no DB imports, no ambient clocks (enforced by an ESLint purity
 guard) — so they are unit-testable and importable by both the browser and the
-server (which re-runs them for validation and replay). The one sanctioned
-exception is `modules/analytics/persistence.ts`, the browser-only Dexie
-adapter that reads the analytics snapshot and atomically rebuilds the
-`daily_activity` derived cache (DATA_MODEL.md §9); the pure analytics barrel
-never re-exports it.
+server (which re-runs them for validation and replay). Two sanctioned
+exceptions live in `modules/analytics`: `persistence.ts`, the browser-only
+Dexie adapter that reads the analytics snapshot and atomically rebuilds the
+`daily_activity` derived cache (DATA_MODEL.md §9), and `weakness-persistence.ts`
+(Phase 13), the browser-only Dexie adapter that reads weakness evidence (no
+cache write). Both are listed in `eslint.config.mjs`'s purity-guard ignores,
+and the pure analytics barrel never re-exports either.
 
 ### Client/server responsibilities
 

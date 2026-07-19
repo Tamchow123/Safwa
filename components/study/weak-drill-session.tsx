@@ -44,12 +44,12 @@ import {
 } from "@/components/study/quiz-runner";
 import { Card, CardContent } from "@/components/ui/card";
 import { resolveWeaknessGroupLabel } from "@/components/weakness/weakness-group-label";
+import { deriveAllComponentsCached } from "@/lib/derived-components-cache";
 import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import { loadWeaknessEvidence } from "@/modules/analytics/weakness-persistence";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import type { AttemptClock } from "@/modules/study-engine/attempts";
-import { deriveAllComponents } from "@/modules/study-engine/components";
 import {
   buildWeakDrillPlan,
   validateWeakDrillRequest,
@@ -172,7 +172,7 @@ export function WeakDrillSession({
       if (request === null) return [];
       const db = getSafwaDb();
       const nowMs = clock.now();
-      const derived = deriveAllComponents(entries);
+      const derived = deriveAllComponentsCached(entries);
       const { weaknessEvidence, componentWeakness } =
         await loadWeaknessEvidence(db, derived, nowMs);
       return buildWeakDrillPlan(
