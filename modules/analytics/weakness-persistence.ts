@@ -131,3 +131,24 @@ export async function loadWeakScores(
   }
   return scores;
 }
+
+/**
+ * Read weakness evidence and per-component scores WITHOUT the §12-14 group
+ * aggregation — for the weak-drill session's `buildPlan` (§17-19), which
+ * needs `buildWeakDrillPlan`'s exact `weaknessEvidence`/`componentWeakness`
+ * inputs on every fresh session mount (including "Study again", so a
+ * component that is no longer weak is excluded from the rebuilt plan) but
+ * never the ranked-group output the Weak Areas page needs. Same shared
+ * read-and-score step as `loadWeaknessView`/`loadWeakScores` — never a
+ * fourth independent implementation.
+ */
+export async function loadWeaknessEvidence(
+  db: SafwaDb,
+  derived: readonly DerivedComponent[],
+  nowMs: number,
+): Promise<{
+  weaknessEvidence: ReadonlyMap<string, WeaknessComponentEvidence>;
+  componentWeakness: ReadonlyMap<string, ComponentWeakness>;
+}> {
+  return readComponentWeakness(db, derived, nowMs);
+}
