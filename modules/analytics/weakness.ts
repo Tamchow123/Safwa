@@ -21,7 +21,10 @@
  *
  * Pure TypeScript: no React, Dexie, DOM or ambient clocks.
  */
-import type { WeaknessComponentEvidence } from "@/modules/analytics/weakness-evidence";
+import type {
+  WeaknessAttemptEvidence,
+  WeaknessComponentEvidence,
+} from "@/modules/analytics/weakness-evidence";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -62,6 +65,16 @@ export type ComponentWeakness = {
   lastAttemptAtMs: number | null;
   lastIncorrectAtMs: number | null;
   qualifiesAsWeak: boolean;
+  /**
+   * The exact windowed (≤ RECENT_FIRST_ATTEMPT_WINDOW, newest-first)
+   * attempt set the signals above were computed from — exposed so any
+   * consumer needing a per-attempt breakdown (e.g. the source-form
+   * dimension in modules/analytics/weakness-groups.ts, which splits one
+   * component's evidence across more than one form) reads the SAME
+   * evidence window the score itself is based on, instead of
+   * re-deriving or accidentally using the full unbounded attempt history.
+   */
+  consideredFirstAttempts: readonly WeaknessAttemptEvidence[];
 };
 
 /** Recency-decayed weight for one attempt at `nowMs` (§10, clamped age ≥ 0). */
@@ -175,6 +188,7 @@ export function computeComponentWeakness(
     lastAttemptAtMs,
     lastIncorrectAtMs: latestIncorrectMs,
     qualifiesAsWeak,
+    consideredFirstAttempts: considered,
   };
 }
 

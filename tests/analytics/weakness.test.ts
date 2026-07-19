@@ -362,4 +362,28 @@ describe("computeComponentWeakness — recent-attempt window (§24.23)", () => {
     expect(withEleventh.firstAttemptCount).toBe(RECENT_FIRST_ATTEMPT_WINDOW);
     expect(withEleventh).toEqual(withoutEleventh);
   });
+
+  it("consideredFirstAttempts exposes exactly the windowed, newest-first set the score was computed from", () => {
+    const eleven = Array.from(
+      { length: RECENT_FIRST_ATTEMPT_WINDOW + 1 },
+      (_, i) => firstAttempt({ isCorrect: true, occurredAtMs: daysAgo(i) }),
+    );
+    const result = computeComponentWeakness(
+      evidence({ firstAttempts: eleven }),
+      NOW,
+    );
+    expect(result.consideredFirstAttempts).toHaveLength(
+      RECENT_FIRST_ATTEMPT_WINDOW,
+    );
+    expect(result.consideredFirstAttempts.length).toBe(
+      result.firstAttemptCount,
+    );
+    // Newest-first: the most recent (daysAgo(0)) attempt leads.
+    expect(result.consideredFirstAttempts[0].occurredAtMs).toBe(daysAgo(0));
+    // The ancient (11th) attempt is excluded from the considered set.
+    const ancientMs = daysAgo(RECENT_FIRST_ATTEMPT_WINDOW);
+    expect(
+      result.consideredFirstAttempts.some((a) => a.occurredAtMs === ancientMs),
+    ).toBe(false);
+  });
 });
