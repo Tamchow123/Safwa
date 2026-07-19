@@ -5,4 +5,5 @@
 export * from "@/modules/profile/device";
 export * from "@/modules/profile/persistence";
 export * from "@/modules/profile/settings";
+export * from "@/modules/profile/session-defaults";
 export * from "@/modules/profile/export";

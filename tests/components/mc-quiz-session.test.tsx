@@ -678,3 +678,131 @@ describe("McQuizSession", () => {
     expect(screen.queryByTestId("mc-feedback")).toBeNull();
   });
 });
+
+describe("McQuizSession — hints (§4.4, Phase 11)", () => {
+  it("offers hints, reveals the taken hint, and records it on the attempt", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+
+    // The hint bar offers at least the first-letter hint (always derivable
+    // for a base-meaning answer).
+    const hintButton = screen.getByTestId("hint-first_letter");
+    await user.click(hintButton);
+
+    // The revealed hint replaces the offer bar and warns about reduced credit.
+    const display = await screen.findByTestId("hint-display");
+    expect(display).toHaveAttribute("data-hint-type", "first_letter");
+    expect(display.textContent).toMatch(/partial credit/i);
+    // The (focused) hint button just disappeared: focus moves to the display
+    // card so keyboard users keep a visible position.
+    await waitFor(() => expect(display).toHaveFocus());
+    expect(screen.queryByTestId("hint-first_letter")).toBeNull();
+    expect(session).toHaveAttribute("data-hint-used", "true");
+    expect(session).toHaveAttribute("data-hint-type", "first_letter");
+
+    // A correct answer after the hint records hint usage on the attempt —
+    // the scheduler maps hinted-correct to Hard from exactly these fields.
+    await user.click(optionWithRef(correctRef(session)));
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
+    expect(attempt.hintUsed).toBe(true);
+    expect(attempt.hintType).toBe("first_letter");
+    expect(attempt.isCorrect).toBe(true);
+  });
+
+  it("records hint usage on an incorrect answer too (hinted incorrect ⇒ Again)", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+
+    await user.click(screen.getByTestId("hint-first_letter"));
+    await screen.findByTestId("hint-display");
+    await user.click(anIncorrectOption(session));
+
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
+    expect(attempt.hintUsed).toBe(true);
+    expect(attempt.hintType).toBe("first_letter");
+    expect(attempt.isCorrect).toBe(false);
+  });
+
+  it("a fresh question starts with no hint taken", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    let session = await waitForQuestion();
+
+    await user.click(screen.getByTestId("hint-first_letter"));
+    await screen.findByTestId("hint-display");
+    await user.click(optionWithRef(correctRef(session)));
+    await screen.findByTestId("mc-feedback");
+    await user.click(screen.getByTestId("mc-next"));
+
+    session = await waitFor(() => {
+      const el = screen.getByTestId("mc-quiz-session");
+      if (el.getAttribute("data-hint-used") !== "false") {
+        throw new Error("hint state not reset yet");
+      }
+      return el;
+    });
+    // The offer bar is back; the second attempt records no hint.
+    expect(screen.getByTestId("hint-first_letter")).toBeInTheDocument();
+    await user.click(optionWithRef(correctRef(session)));
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(2));
+    const [, attempt] = recordGradedAttempt.mock.calls[1];
+    expect(attempt.hintUsed).toBe(false);
+    expect(attempt.hintType).toBeNull();
+  });
+});
+
+describe("McQuizSession — hint state survives a failed persistence write", () => {
+  it("a timed retry after a failed write stays hinted (Hard, never upgraded to Good)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<McQuizSession />);
+    await waitFor(() => screen.getByTestId("mc-quiz-session"), {
+      timeout: 4000,
+    });
+    await user.selectOptions(screen.getByTestId("mc-delivery-select"), "timed");
+    await waitFor(() => {
+      const el = screen.getByTestId("mc-quiz-session");
+      if (el.getAttribute("data-delivery") !== "timed") {
+        throw new Error("not timed yet");
+      }
+      return el;
+    });
+
+    // Take a hint, then answer on time — but the write fails transiently.
+    await user.click(screen.getByTestId("hint-first_letter"));
+    await screen.findByTestId("hint-display");
+    recordGradedAttempt.mockImplementationOnce(async () => {
+      throw new Error("indexeddb unavailable");
+    });
+    const session = screen.getByTestId("mc-quiz-session");
+    await user.click(optionWithRef(correctRef(session)));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/couldn't save/i),
+    );
+
+    // The view remounted for a fresh countdown, but the hint exposure is
+    // learning state owned by the runner: still displayed, still recorded.
+    expect(screen.getByTestId("hint-display")).toBeInTheDocument();
+    expect(screen.getByTestId("mc-quiz-session")).toHaveAttribute(
+      "data-hint-used",
+      "true",
+    );
+
+    recordGradedAttempt.mockClear();
+    await user.click(
+      optionWithRef(correctRef(screen.getByTestId("mc-quiz-session"))),
+    );
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
+    // Hinted correct: the retry must persist the hint (the scheduler maps
+    // exactly these fields to Hard) — a transient failure can never upgrade
+    // a hinted answer to full credit.
+    expect(attempt.isCorrect).toBe(true);
+    expect(attempt.hintUsed).toBe(true);
+    expect(attempt.hintType).toBe("first_letter");
+  });
+});
