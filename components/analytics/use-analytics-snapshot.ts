@@ -38,6 +38,7 @@ import {
   countDueToday,
   effectiveComponents,
   essentialGroupProgress,
+  groupArabicLookup,
   isIsoDate,
   isNextDay,
   verbTypeGroup,
@@ -117,14 +118,11 @@ function groupCompletions(
   arabicOf: (entry: LearnerEntry) => string,
 ): GroupCompletion[] {
   const ratios = essentialGroupProgress(effective, entries, groupOf);
+  const arabicById = groupArabicLookup(entries, groupOf, arabicOf);
   const completions: GroupCompletion[] = [];
-  const seen = new Set<string>();
-  for (const entry of entries) {
-    const id = groupOf(entry);
-    if (id === null || seen.has(id)) continue;
-    seen.add(id);
+  for (const [id, arabic] of arabicById) {
     const ratio = ratios.get(id);
-    if (ratio) completions.push({ id, arabic: arabicOf(entry), ratio });
+    if (ratio) completions.push({ id, arabic, ratio });
   }
   return completions;
 }
