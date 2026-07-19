@@ -12,11 +12,17 @@
  * stale, missing, corrupted or hand-edited cache row can never survive into
  * what the learner sees, and deleting the cache loses nothing.
  *
- * TRANSACTION SHAPE (§14.3): reads run in a short read-only transaction (so
- * a concurrent grading write in another tab is never blocked behind an
- * analytics scan — see recordGradedAttempt's overlapping store set), the
- * pure derivation runs outside any transaction, and the cache rewrite runs
- * in a NARROW read-write transaction over `daily_activity` alone. The
+ * TRANSACTION SHAPE (§14.3): reads run in a short read-only transaction,
+ * the pure derivation runs outside any transaction, and the cache rewrite
+ * runs in a NARROW read-write transaction over `daily_activity` alone — so
+ * the REWRITE never holds a lock on the raw stores grading writes to.
+ * IndexedDB still serialises a concurrent grading write behind the READ
+ * transaction while its scan runs (overlapping store set — see
+ * recordGradedAttempt); the study runners deliberately do NOT bound that
+ * wait with a timeout (Promise.race cannot cancel the underlying Dexie
+ * transaction — see quiz-runner.tsx/flashcard-session.tsx), so a queued
+ * write only delays the busy state and can never silently duplicate.
+ * Shrinking the scan itself is tracked debt (T5/REL-002). The
  * clear + rewrite still commit or roll back together, so a crash can never
  * leave a partially rebuilt cache. A write landing in the tiny window
  * between the read and the rewrite can make the persisted rows trail the
@@ -93,7 +99,10 @@ function eventSlice(record: ReviewEventRecord): AnalyticsEvent {
  * THE one writer of the `daily_activity` cache: clear + complete rewrite in
  * a single read-write transaction scoped to the cache store alone, so the
  * replacement is atomic (a failure rolls back to the previous cache) and no
- * lock is ever held on the raw stores grading writes to.
+ * lock is ever held on the raw stores grading writes to. This full rebuild
+ * is exactly the "idempotent, authoritative-for-nothing" shape that makes it
+ * safe for callers (loadAnalyticsView) to race behind lib/with-timeout.ts —
+ * see that helper's docstring for the invariant this relies on.
  */
 async function writeDailyActivityCache(
   db: SafwaDb,
@@ -112,6 +121,13 @@ async function writeDailyActivityCache(
  * Atomically rebuild the `daily_activity` cache from the raw stores and
  * return the derived rows (§14.3): read-only scan, pure derivation, then
  * the atomic cache rewrite. The raw attempt/event rows are never modified.
+ *
+ * No Phase 12 production caller — the dashboard path uses
+ * `readAnalyticsSnapshot`, which performs the same rebuild inline via the
+ * ONE shared cache writer below. Kept exported as the §14.4 standalone
+ * rebuild entry point for later phases (a settings "recompute" action and
+ * the post-merge refresh); both paths share `writeDailyActivityCache`, so
+ * they cannot silently diverge on the write side.
  */
 export async function rebuildDailyActivity(
   db: SafwaDb,

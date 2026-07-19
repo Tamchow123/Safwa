@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
+import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
 import { getSafwaDb } from "@/modules/content/db";
 import {
   DEFAULT_SESSION_DEFAULTS,
@@ -32,7 +33,14 @@ export function useSessionDefaults(): {
     let cancelled = false;
     void (async () => {
       try {
-        const stored = await readSessionDefaults(getSafwaDb());
+        // Bounded: a read that never settles (e.g. a blocked schema-upgrade
+        // open) must not gate a page on `loaded` forever — it falls back to
+        // the documented defaults like any other read failure.
+        const stored = await withTimeout(
+          readSessionDefaults(getSafwaDb()),
+          DB_READ_TIMEOUT_MS,
+          "session-defaults read timed out",
+        );
         if (!cancelled) setDefaults(stored);
       } catch {
         // Unreadable settings fall back to the documented defaults.

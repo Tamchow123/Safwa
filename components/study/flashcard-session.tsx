@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useReducedMotion } from "@/lib/preferences/use-reduced-motion";
 import { uuidv7 } from "@/lib/uuid";
+import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { newDeviceProfile, peekDeviceProfile } from "@/modules/profile/device";
@@ -279,12 +280,23 @@ export function FlashcardRunner({
   useEffect(() => {
     if (!context) return;
     let cancelled = false;
-    void (async () => {
-      try {
+    // Bounded (REL-P101): a hung IndexedDB open (e.g. blocked behind another
+    // tab's schema upgrade) must not strand this session on the "Preparing
+    // session" skeleton forever with no retry. These are pure reads before
+    // any write occurs, so racing them against a timer carries none of the
+    // duplicate-write risk that rules out bounding the grading write below.
+    // The timeout is made TERMINAL by setting `cancelled` in the catch (not
+    // just on unmount): Promise.race cannot stop the IIFE below, so without
+    // this a slow-then-eventually-resolves read would silently flip the
+    // shown error back to an active/empty session with no user action.
+    // MIRRORED in quiz-runner.tsx — keep the two in sync.
+    void withTimeout(
+      (async () => {
         const db = getSafwaDb();
         sessionStartedAt.current = Date.now();
-        sessionClock.current = presetClock ?? (await readEffectiveClock(db));
+        const clock = presetClock ?? (await readEffectiveClock(db));
         if (cancelled) return;
+        sessionClock.current = clock;
         // READ-ONLY at init: reuse an existing device id if the guest already
         // has durable state, else a provisional in-memory id that never touches
         // disk. The real, persisted id is bound on the first grade (see
@@ -313,10 +325,15 @@ export function FlashcardRunner({
         if (cancelled) return;
         setSession(state);
         setStatus("active");
-      } catch {
-        if (!cancelled) setStatus("error");
+      })(),
+      DB_READ_TIMEOUT_MS,
+      "session initialization timed out",
+    ).catch(() => {
+      if (!cancelled) {
+        cancelled = true;
+        setStatus("error");
       }
-    })();
+    });
     return () => {
       cancelled = true;
     };
@@ -353,6 +370,12 @@ export function FlashcardRunner({
         // orphaned identity (the profile is not committed in a separate
         // transaction). The adapter returns the effective (committed) device id.
         const bindNow = !deviceBound.current;
+        // Deliberately UNBOUNDED — racing this write against a timer
+        // (Promise.race cannot cancel the underlying Dexie transaction)
+        // would let a merely-queued write commit AFTER the UI already told
+        // the learner to retry, duplicating the review row. See
+        // quiz-runner.tsx for the full rationale — MIRRORED here, keep the
+        // two write paths in sync.
         const persisted = await recordGradedAttempt(db, result.attempt, {
           eventId: uuidv7(),
           now: clock.now(),

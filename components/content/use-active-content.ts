@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import type { LearnerEntry } from "@/modules/content/schema";
 import {
   loadActiveContent,
@@ -23,6 +24,20 @@ const FAILURE_MESSAGES: Record<
   "invalid-release": "The downloaded content was invalid. Please retry.",
   "pointer-invalid": "The content index looks inconsistent. Please retry.",
 };
+
+/**
+ * A content load that never settles (e.g. the local database open blocked
+ * behind another tab's connection during a schema upgrade) must not strand
+ * every content-gated page on a skeleton with no retry — it fails over to
+ * the recoverable error state instead. Generous, because a legitimate
+ * first download over a slow connection may take a while.
+ */
+export const CONTENT_WATCHDOG_MS = 30_000;
+
+const WATCHDOG_ERROR = "content-load-watchdog-timeout";
+
+const WATCHDOG_MESSAGE =
+  "Loading is taking longer than expected. If Safwa is open in another tab, close it and retry.";
 
 export type ActiveContentState =
   | { status: "loading" }
@@ -52,7 +67,7 @@ export function useActiveContent() {
 
   useEffect(() => {
     let cancelled = false;
-    loadActiveContent()
+    withTimeout(loadActiveContent(), CONTENT_WATCHDOG_MS, WATCHDOG_ERROR)
       .then((result) => {
         if (cancelled) return;
         if (result.ok) {
@@ -70,11 +85,14 @@ export function useActiveContent() {
           setState({ status: "error", message: FAILURE_MESSAGES[result.code] });
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
           setState({
             status: "error",
-            message: "Something went wrong loading content. Please retry.",
+            message:
+              error instanceof TimeoutError
+                ? WATCHDOG_MESSAGE
+                : "Something went wrong loading content. Please retry.",
           });
         }
       });

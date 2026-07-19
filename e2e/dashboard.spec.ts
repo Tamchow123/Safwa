@@ -436,6 +436,20 @@ test.describe("DST streak fixture (§26.6)", () => {
     ]);
     await page.goto("/progress");
     await expect(statValue(page, /^Longest streak$/)).toHaveText("3 days");
+    // Real history outside the 30-day window is NEVER "No activity yet"
+    // (that would contradict the streak shown above): every zero bar stays
+    // represented with the honest window-scoped note instead. Unlike §26.7
+    // (which pins timezoneId: "UTC" and anchors instants off Date.now()),
+    // this relies on the REAL wall clock being more than 30 days past the
+    // fixed 2026-03 fixture dates — true for the lifetime of this suite,
+    // since real time only advances — rather than a mocked/frozen clock. If
+    // these fixture dates are ever moved to a later DST transition, re-check
+    // this assumption.
+    await expect(page.getByTestId("trend-empty")).toHaveCount(0);
+    await expect(page.locator("[data-date]")).toHaveCount(30);
+    await expect(page.getByTestId("trend-window-empty")).toHaveText(
+      "No attempts in the last 30 days.",
+    );
   });
 });
 

@@ -24,12 +24,13 @@
  * A load that never settles (e.g. the Dexie v2→v3 upgrade blocked behind a
  * stale tab's connection — Dexie's default `versionchange` handler closes
  * old connections, but a hung open must still not strand the page on the
- * skeleton) is bounded by a watchdog that fails over to the same
- * recoverable error state.
+ * skeleton) is bounded by the shared read-side watchdog (lib/with-timeout.ts)
+ * that fails over to the same recoverable error state.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
+import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import {
   babGroup,
   computeProgressSummary,
@@ -38,6 +39,7 @@ import {
   effectiveComponents,
   essentialGroupProgress,
   isIsoDate,
+  isNextDay,
   verbTypeGroup,
   type DailyActivity,
   type EffectiveComponent,
@@ -138,13 +140,34 @@ async function loadAnalyticsView(
   // (session freezing per §10.6 applies to study runners only).
   const clock = await readEffectiveClock(db);
   const nowMs = clock.now();
-  const todayLocalDate = computeEventTimeFields(nowMs, clock).localDateAtEvent;
+  let todayLocalDate = computeEventTimeFields(nowMs, clock).localDateAtEvent;
   // Fail INSIDE the guarded load, not later in a consumer's render (§18):
   // ActivityTrend's date arithmetic fail-louds on a malformed label.
   if (!isIsoDate(todayLocalDate)) {
     throw new Error("effective clock produced an invalid local date");
   }
   const persisted = await readAnalyticsSnapshot(db, nowMs);
+
+  // §10.6 reconciliation: a study session freezes its zone at session start,
+  // so a mid-session preference change to a zone a calendar day BEHIND can
+  // leave just-recorded activity dated after the freshly-resolved today.
+  // The learner's own recorded day wins — otherwise the streak, today's
+  // totals and due-today would call a just-finished session "tomorrow" and
+  // report a falsely broken streak. Rows are sorted ascending by date and
+  // pre-validated by the derivation, so the last row is the latest date.
+  // Bounded to exactly one calendar day ahead: that is the entire real
+  // scenario (one zone-offset midnight crossing between the session's
+  // frozen clock and the freshly-resolved preference). A row further ahead
+  // cannot come from a legitimate session freeze and would only mean a
+  // corrupt stored date or a skewed device clock — trusting it would
+  // silently inflate the streak/due-today count from a bogus future date.
+  const latestStoredDate = persisted.dailyActivity.at(-1)?.localDate;
+  if (
+    latestStoredDate !== undefined &&
+    isNextDay(todayLocalDate, latestStoredDate)
+  ) {
+    todayLocalDate = latestStoredDate;
+  }
 
   // ONE join shared by every consumer below (§28).
   const effective = effectiveComponents(derived, persisted.components, nowMs);
@@ -201,38 +224,31 @@ export function useAnalyticsSnapshot(): {
     if (content.status !== "ready" || derived === null) return;
     const entries = content.entries;
     let cancelled = false;
-    let watchdog: ReturnType<typeof setTimeout> | undefined;
     inFlight.current = true;
     void (async () => {
       try {
-        const view = await Promise.race([
+        const view = await withTimeout(
           loadAnalyticsView(getSafwaDb(), derived, entries),
-          new Promise<never>((_, reject) => {
-            watchdog = setTimeout(
-              () => reject(new Error(WATCHDOG_ERROR)),
-              SNAPSHOT_WATCHDOG_MS,
-            );
-          }),
-        ]);
+          SNAPSHOT_WATCHDOG_MS,
+          WATCHDOG_ERROR,
+        );
         if (!cancelled) setSnapshot({ status: "ready", view });
       } catch (error) {
         if (!cancelled) {
           setSnapshot({
             status: "error",
             message:
-              error instanceof Error && error.message === WATCHDOG_ERROR
+              error instanceof TimeoutError
                 ? SNAPSHOT_TIMEOUT_MESSAGE
                 : SNAPSHOT_FAILURE_MESSAGE,
           });
         }
       } finally {
         inFlight.current = false;
-        if (watchdog !== undefined) clearTimeout(watchdog);
       }
     })();
     return () => {
       cancelled = true;
-      if (watchdog !== undefined) clearTimeout(watchdog);
     };
   }, [content, derived, attempt]);
 

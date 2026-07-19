@@ -262,6 +262,58 @@ describe("dashboard seeded progress (§16, §25)", () => {
     await screen.findAllByText(/1 of 455/);
     expect(document.body.textContent).not.toContain(masteredComponents[0].key);
   });
+
+  it("counts a session frozen in a zone AHEAD of the preference as today (§10.6)", async () => {
+    // A mid-session preference change can leave just-recorded activity
+    // dated one day after the freshly-resolved local date; the learner's
+    // own recorded day wins, so the streak and today's totals never call a
+    // just-finished session "tomorrow".
+    readAnalyticsSnapshot.mockResolvedValue({
+      ...seededSnapshot,
+      dailyActivity: [
+        ...seededSnapshot.dailyActivity,
+        {
+          localDate: "2026-07-20",
+          attempts: 4,
+          reviews: 1,
+          newItems: 2,
+          studyMs: 240_000,
+        },
+      ],
+    });
+    render(<DashboardPage />);
+    // Anchored at the recorded 2026-07-20: the run 20→19→18 is 3 days.
+    expect(await screen.findByText("3 days")).toBeInTheDocument();
+    // Today's totals are the frozen-zone session's, not zeros.
+    expect(screen.getByText("4 min")).toBeInTheDocument();
+    expect(screen.getByText("2 of 10")).toBeInTheDocument();
+  });
+
+  it("ignores a stored date more than one day ahead as anomalous clock skew (§10.6 bound)", async () => {
+    // A row two calendar days ahead cannot come from a legitimate zone-skew
+    // session freeze (that scenario spans at most one midnight crossing) —
+    // it must not be trusted as "today", or a corrupt date/skewed device
+    // clock could silently inflate the streak and today's totals.
+    readAnalyticsSnapshot.mockResolvedValue({
+      ...seededSnapshot,
+      dailyActivity: [
+        ...seededSnapshot.dailyActivity,
+        {
+          localDate: "2026-07-21",
+          attempts: 9,
+          reviews: 4,
+          newItems: 5,
+          studyMs: 999_000,
+        },
+      ],
+    });
+    render(<DashboardPage />);
+    // Unchanged from the baseline seeded snapshot (today stays 2026-07-19):
+    // the anomalous +2-day row is never adopted as "today".
+    expect(await screen.findByText("2 days")).toBeInTheDocument();
+    expect(screen.getByText("2 min")).toBeInTheDocument();
+    expect(screen.getByTestId("due-today-count")).toHaveTextContent(/^1$/);
+  });
 });
 
 describe("visibility refresh (§14.4)", () => {

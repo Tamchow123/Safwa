@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
 import { getSafwaDb } from "@/modules/content/db";
 import {
   DEFAULT_TIMEZONE_PREFERENCE,
@@ -38,7 +39,13 @@ export function useTimezonePreference(): {
     let cancelled = false;
     void (async () => {
       try {
-        const stored = await readTimezonePreference(getSafwaDb());
+        // Bounded: a read that never settles must not keep the picker
+        // disabled forever — it falls back to browser detection.
+        const stored = await withTimeout(
+          readTimezonePreference(getSafwaDb()),
+          DB_READ_TIMEOUT_MS,
+          "timezone-preference read timed out",
+        );
         if (!cancelled) setPreference(stored);
       } catch {
         // An unreadable setting falls back to browser detection.

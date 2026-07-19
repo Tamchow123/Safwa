@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
 import { SOURCE_FORM_METADATA } from "@/lib/form-metadata";
+import { DB_READ_TIMEOUT_MS } from "@/lib/with-timeout";
 import type { SourceQuizFormField } from "@/modules/content/constants";
 import type { AttemptRecord } from "@/modules/study-engine";
 import type {
@@ -43,13 +44,15 @@ vi.mock("@/modules/content/db", async (importOriginal) => {
   return { ...original, getSafwaDb: () => ({}) as never };
 });
 
+// Fresh guest: no durable profile at init (read-only), bound on first grade.
+const peekDeviceProfile = vi.fn(async () => null);
 vi.mock("@/modules/profile/device", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@/modules/profile/device")>();
   return {
     ...original,
-    // Fresh guest: no durable profile at init (read-only), bound on first grade.
-    peekDeviceProfile: vi.fn(async () => null),
+    peekDeviceProfile: (...args: Parameters<typeof peekDeviceProfile>) =>
+      peekDeviceProfile(...args),
   };
 });
 
@@ -124,6 +127,7 @@ afterEach(() => {
   undoGradedAttempt.mockClear();
   ensureDurableGuestStateSpy.mockClear();
   readEffectiveClock.mockClear();
+  peekDeviceProfile.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -724,6 +728,119 @@ describe("McQuizSession", () => {
     // The session stays on question 1 with no feedback shown.
     expect(screen.getByText(/Question 1 of/)).toBeInTheDocument();
     expect(screen.queryByTestId("mc-feedback")).toBeNull();
+  });
+
+  it("never artificially times out a slow-but-eventually-successful grading write (P1 regression guard)", async () => {
+    // Regression guard: quiz-runner.tsx's grading write is explicitly
+    // MIRRORED with flashcard-session.tsx's (see its own "P1 regression
+    // guard" test) — this proves the same guarantee holds here too, since
+    // the two write paths must never drift out of sync. Promise.race can't
+    // cancel the underlying Dexie transaction, so a "timed out" write can
+    // still commit later, duplicating the review row.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let resolveWrite: (() => void) | undefined;
+    recordGradedAttempt.mockImplementationOnce(
+      (_db, attempt, ctx) =>
+        new Promise<PersistedAttempt>((resolve) => {
+          resolveWrite = () =>
+            resolve({
+              attemptId: attempt.id,
+              componentKey: attempt.studyComponentId,
+              eventId: attempt.isReinforcement ? null : ctx.eventId,
+              deviceId: attempt.deviceId,
+            });
+        }),
+    );
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+    await user.click(optionWithRef(correctRef(session)));
+
+    // No timer exists on this path at all today (that is the fix) — this
+    // advance is a tripwire against a FUTURE re-wrap, not an exercise of a
+    // currently-live timeout. Still queued well past the OLD (removed) 15s
+    // DB_WRITE_TIMEOUT_MS: no artificial failure may ever be surfaced while
+    // the real write is still in flight.
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText(/Question 1 of/)).toBeInTheDocument();
+    expect(screen.queryByTestId("mc-feedback")).toBeNull();
+
+    // The write finally lands, successfully.
+    resolveWrite?.();
+    await waitFor(() =>
+      expect(screen.getByTestId("mc-feedback")).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("bounds a hung session-init read, and a late resolution never revives it (REL-P101)", async () => {
+    // A blocked IndexedDB open (e.g. another tab mid schema-upgrade) must
+    // surface the recoverable error within DB_READ_TIMEOUT_MS — and once
+    // shown, that error is TERMINAL: the connection clearing moments later
+    // must never silently flip the screen back to a live session with no
+    // user action (MIRRORED in flashcard-session.test.tsx).
+    vi.useFakeTimers();
+    let resolveClock: (() => void) | undefined;
+    readEffectiveClock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveClock = () =>
+            resolve({
+              now: () => Date.now(),
+              timezone: "UTC",
+              timezoneSource: "browser_detected",
+            });
+        }),
+    );
+    render(<McQuizSession />);
+    // Flush the (fast) useSessionDefaults settle first so QuizRunner mounts
+    // and starts its OWN session-init read before advancing its budget.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DB_READ_TIMEOUT_MS + 1);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+
+    // The blocked connection finally clears — but the timeout already fired.
+    resolveClock?.();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+    expect(screen.queryByTestId("mc-quiz-session")).toBeNull();
+  });
+
+  it("makes the timeout terminal regardless of WHICH init read hangs (checkpoint-agnostic, REL-P101)", async () => {
+    // The guard is one shared `cancelled` flag checked before every side
+    // effect, not a special case for the first await — prove a hang further
+    // into initialisation (peekDeviceProfile) is bounded the same way
+    // (MIRRORED in flashcard-session.test.tsx).
+    vi.useFakeTimers();
+    let resolveProfile: (() => void) | undefined;
+    peekDeviceProfile.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveProfile = () => resolve(null);
+        }),
+    );
+    render(<McQuizSession />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DB_READ_TIMEOUT_MS + 1);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+
+    resolveProfile?.();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+    expect(screen.queryByTestId("mc-quiz-session")).toBeNull();
   });
 });
 

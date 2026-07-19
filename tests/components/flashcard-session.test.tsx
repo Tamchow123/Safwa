@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -13,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
 import { SOURCE_FORM_METADATA } from "@/lib/form-metadata";
+import { DB_READ_TIMEOUT_MS } from "@/lib/with-timeout";
 import type { SourceQuizFormField } from "@/modules/content/constants";
 import type { AttemptRecord } from "@/modules/study-engine";
 import type {
@@ -49,13 +51,15 @@ vi.mock("@/modules/content/db", async (importOriginal) => {
   return { ...original, getSafwaDb: () => ({}) as never };
 });
 
+// Fresh guest: no durable profile at init (read-only), bound on first grade.
+const peekDeviceProfile = vi.fn(async () => null);
 vi.mock("@/modules/profile/device", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@/modules/profile/device")>();
   return {
     ...original,
-    // Fresh guest: no durable profile at init (read-only), bound on first grade.
-    peekDeviceProfile: vi.fn(async () => null),
+    peekDeviceProfile: (...args: Parameters<typeof peekDeviceProfile>) =>
+      peekDeviceProfile(...args),
     getOrCreateDeviceProfile: vi.fn(async () => ({ deviceId: "dev-1" })),
   };
 });
@@ -130,6 +134,8 @@ afterEach(() => {
   undoGradedAttempt.mockClear();
   ensureDurableGuestStateSpy.mockClear();
   readEffectiveClock.mockClear();
+  peekDeviceProfile.mockClear();
+  vi.useRealTimers();
 });
 
 /** Wait for the first card, returning the flashcard button element. */
@@ -554,5 +560,123 @@ describe("FlashcardSession", () => {
     const lastCall =
       recordGradedAttempt.mock.calls[recordGradedAttempt.mock.calls.length - 1];
     expect(lastCall[1].deviceId).toBe("committed-A");
+  });
+
+  it("never artificially times out a slow-but-eventually-successful grading write (P1 regression guard)", async () => {
+    // Regression guard: the grading write must NEVER be raced against a
+    // timer (Promise.race cannot cancel the underlying Dexie transaction —
+    // a "timed out" write can still commit later, duplicating the review
+    // row once the learner retries). This proves a write that is merely
+    // slow/queued — even well past the OLD, removed 15s DB_WRITE_TIMEOUT_MS
+    // — is always awaited to its real outcome, never abandoned mid-flight.
+    vi.useFakeTimers();
+    let resolveWrite: (() => void) | undefined;
+    recordGradedAttempt.mockImplementationOnce(
+      (_db, attempt, ctx) =>
+        new Promise<PersistedAttempt>((resolve) => {
+          resolveWrite = () =>
+            resolve({
+              attemptId: attempt.id,
+              componentKey: attempt.studyComponentId,
+              eventId: ctx.eventId,
+              deviceId: attempt.deviceId,
+            });
+        }),
+    );
+    render(<FlashcardSession />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(screen.getByTestId("flashcard"));
+    fireEvent.click(screen.getByTestId("rate-know"));
+
+    // No timer exists on this path at all today (that is the fix) — this
+    // advance is a tripwire against a FUTURE re-wrap, not an exercise of a
+    // currently-live timeout: it would only matter if grading were ever
+    // raced against a timer shorter than this again.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    // Still queued: no error, no advance — and critically, no artificial
+    // failure was ever surfaced while the real write was still in flight.
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText(/Card 1 of/)).toBeInTheDocument();
+
+    // The write finally lands, successfully.
+    resolveWrite?.();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText(/Card 2 of/)).toBeInTheDocument();
+  });
+
+  it("bounds a hung session-init read, and a late resolution never revives it (REL-P101)", async () => {
+    // A blocked IndexedDB open (e.g. another tab mid schema-upgrade) must
+    // surface the recoverable error within DB_READ_TIMEOUT_MS — and once
+    // shown, that error is TERMINAL: the connection clearing moments later
+    // must never silently flip the screen back to a live session with no
+    // user action (MIRRORED in mc-quiz-session.test.tsx).
+    vi.useFakeTimers();
+    let resolveClock: (() => void) | undefined;
+    readEffectiveClock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveClock = () =>
+            resolve({
+              now: () => Date.now(),
+              timezone: "UTC",
+              timezoneSource: "browser_detected",
+            });
+        }),
+    );
+    render(<FlashcardSession />);
+    // Flush the (fast) useSessionDefaults settle first so the runner mounts
+    // and starts its OWN session-init read before advancing its budget.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DB_READ_TIMEOUT_MS + 1);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+
+    // The blocked connection finally clears — but the timeout already fired.
+    resolveClock?.();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+    expect(screen.queryByTestId("flashcard-session")).toBeNull();
+  });
+
+  it("makes the timeout terminal regardless of WHICH init read hangs (checkpoint-agnostic, REL-P101)", async () => {
+    // The guard is one shared `cancelled` flag checked before every side
+    // effect, not a special case for the first await — prove a hang further
+    // into initialisation (peekDeviceProfile) is bounded the same way
+    // (MIRRORED in mc-quiz-session.test.tsx).
+    vi.useFakeTimers();
+    let resolveProfile: (() => void) | undefined;
+    peekDeviceProfile.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveProfile = () => resolve(null);
+        }),
+    );
+    render(<FlashcardSession />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DB_READ_TIMEOUT_MS + 1);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+
+    resolveProfile?.();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not start/i);
+    expect(screen.queryByTestId("flashcard-session")).toBeNull();
   });
 });

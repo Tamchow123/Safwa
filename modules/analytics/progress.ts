@@ -262,7 +262,12 @@ export function verbTypeGroup(entry: LearnerEntry): string | null {
   return entry.quiz_eligibility.verb_type ? entry.verb_type : null;
 }
 
-/** Source/book-page grouping. */
+/**
+ * Source/book-page grouping. DELIBERATELY unconsumed by the Phase 12 UI —
+ * the dashboard ships bāb and verb-type sections only; a book-page progress
+ * view is deferred to a later phase, and this stays exported (and tested)
+ * so that view reuses the ONE group formula instead of re-deriving it.
+ */
 export function bookPageGroup(entry: LearnerEntry): string | null {
   return String(entry.book_page);
 }
