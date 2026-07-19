@@ -10,13 +10,10 @@ import { isComponentEligible } from "@/modules/study-engine/components";
 import { buildComponentKey } from "@/modules/study-engine/natural-key";
 import {
   buildMixedPlan,
-  computeWeakScores,
   defaultEntryPromptForm,
   remainingDailyTargets,
-  WEAK_SCORE_RECENT_WINDOW,
   type SchedulingEventSummary,
   type StoredComponentState,
-  type WeaknessAttempt,
 } from "@/modules/study-session/mixed";
 
 import { entriesById, entry, learnerEntries } from "../study-engine/fixtures";
@@ -29,87 +26,6 @@ function cardDueAt(dueAtMs: number): SchedulerCard {
     dueAtMs,
   };
 }
-
-function attempt(
-  componentKey: string,
-  overrides: Partial<WeaknessAttempt> = {},
-): WeaknessAttempt {
-  return {
-    id: overrides.id ?? `${componentKey}:${overrides.attemptedAt ?? 0}`,
-    componentKey,
-    isFirstAttempt: true,
-    isCorrect: true,
-    attemptedAt: 0,
-    ...overrides,
-  };
-}
-
-describe("computeWeakScores (heuristic v1: recent first-attempt accuracy)", () => {
-  it("scores the fraction of recent first attempts that were incorrect", () => {
-    const scores = computeWeakScores([
-      attempt("c", { attemptedAt: 1, isCorrect: false, id: "a1" }),
-      attempt("c", { attemptedAt: 2, isCorrect: true, id: "a2" }),
-      attempt("c", { attemptedAt: 3, isCorrect: false, id: "a3" }),
-      attempt("c", { attemptedAt: 4, isCorrect: true, id: "a4" }),
-    ]);
-    expect(scores.get("c")).toBe(0.5);
-  });
-
-  it("ignores reinforcement recoveries — they never launder weakness", () => {
-    const scores = computeWeakScores([
-      attempt("c", { attemptedAt: 1, isCorrect: false, id: "a1" }),
-      // A same-session recovery: correct, but NOT a first attempt.
-      attempt("c", {
-        attemptedAt: 2,
-        isCorrect: true,
-        isFirstAttempt: false,
-        id: "a2",
-      }),
-    ]);
-    expect(scores.get("c")).toBe(1);
-  });
-
-  it("only the most recent window counts (old failures age out)", () => {
-    const oldFailures = Array.from(
-      { length: WEAK_SCORE_RECENT_WINDOW },
-      (_, index) =>
-        attempt("c", {
-          attemptedAt: index,
-          isCorrect: false,
-          id: `old-${index}`,
-        }),
-    );
-    const recentSuccesses = Array.from(
-      { length: WEAK_SCORE_RECENT_WINDOW },
-      (_, index) =>
-        attempt("c", {
-          attemptedAt: 100 + index,
-          isCorrect: true,
-          id: `new-${index}`,
-        }),
-    );
-    const scores = computeWeakScores([...oldFailures, ...recentSuccesses]);
-    expect(scores.get("c")).toBe(0);
-  });
-
-  it("is insensitive to input order (deterministic recency sort)", () => {
-    const attempts = [
-      attempt("c", { attemptedAt: 3, isCorrect: false, id: "a3" }),
-      attempt("c", { attemptedAt: 1, isCorrect: true, id: "a1" }),
-      attempt("c", { attemptedAt: 2, isCorrect: false, id: "a2" }),
-    ];
-    const forward = computeWeakScores(attempts);
-    const reversed = computeWeakScores([...attempts].reverse());
-    expect(forward).toEqual(reversed);
-  });
-
-  it("a component with no first attempts has no score", () => {
-    const scores = computeWeakScores([
-      attempt("c", { isFirstAttempt: false, isCorrect: false }),
-    ]);
-    expect(scores.has("c")).toBe(false);
-  });
-});
 
 describe("remainingDailyTargets (per-day accounting)", () => {
   const TODAY = "2026-07-17";
@@ -336,7 +252,11 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
     expect(translationItem.promptForm).toBeUndefined();
   });
 
-  it("weak scores from attempt history feed the ordering end-to-end", () => {
+  it("a higher injected weak score outranks a lower one within the weak tier", () => {
+    // buildMixedPlan has no weakness algorithm of its own (Phase 13): the
+    // caller (mixed-session.tsx) injects the v2 score via `qualifyingWeaknessScore`
+    // — this test only proves the plan orders the weak tier by whatever score
+    // it is given.
     const often = babKey(4);
     const rarely = babKey(5);
     const stored: StoredComponentState[] = [
@@ -351,11 +271,9 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
         learnerState: "learning",
       },
     ];
-    const weakScores = computeWeakScores([
-      attempt(often, { attemptedAt: 1, isCorrect: false, id: "o1" }),
-      attempt(often, { attemptedAt: 2, isCorrect: false, id: "o2" }),
-      attempt(rarely, { attemptedAt: 1, isCorrect: false, id: "r1" }),
-      attempt(rarely, { attemptedAt: 2, isCorrect: true, id: "r2" }),
+    const weakScores = new Map([
+      [often, 1],
+      [rarely, 0.5],
     ]);
     const plan = buildMixedPlan(learnerEntries, stored, weakScores, NOW, {
       newLimit: 0,
@@ -543,9 +461,7 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
         learnerState: "learning",
       },
     ];
-    const weakScores = computeWeakScores([
-      attempt(struggling, { attemptedAt: 1, isCorrect: false, id: "w1" }),
-    ]);
+    const weakScores = new Map([[struggling, 1]]);
     const plan = buildMixedPlan(learnerEntries, stored, weakScores, NOW, {
       newLimit: 0,
       reviewLimit: 10,
@@ -571,11 +487,15 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
     expect(plan.map((item) => buildComponentKey(item.identity))).toEqual([due]);
   });
 
-  it("a non-due needs_review component qualifies as weak even at score zero", () => {
-    const lapsed = recognitionKey(1);
+  it("a non-due needs_review component at score zero is NOT falsely selected as weak", () => {
+    // Phase 13: needs_review alone is no longer a second, independent weak
+    // trigger — an ordinary due-again mastered card with a clean history
+    // (no real lapse/failure evidence, hence weakScore 0) must not be
+    // mislabelled weak (phases-13.md §10 test 21, §12.6).
+    const dueAgain = recognitionKey(1);
     const stored: StoredComponentState[] = [
       {
-        componentKey: lapsed,
+        componentKey: dueAgain,
         fsrs: cardDueAt(NOW + 100_000),
         learnerState: "needs_review",
       },
@@ -584,12 +504,35 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
       newLimit: 0,
       reviewLimit: 10,
     });
+    expect(plan.map((item) => buildComponentKey(item.identity))).not.toContain(
+      dueAgain,
+    );
+  });
+
+  it("a non-due needs_review component WITH real weak-score evidence is selected as weak", () => {
+    const lapsed = recognitionKey(1);
+    const stored: StoredComponentState[] = [
+      {
+        componentKey: lapsed,
+        fsrs: cardDueAt(NOW + 100_000),
+        learnerState: "needs_review",
+      },
+    ];
+    const weakScores = new Map([[lapsed, 0.6]]);
+    const plan = buildMixedPlan(learnerEntries, stored, weakScores, NOW, {
+      newLimit: 0,
+      reviewLimit: 10,
+    });
     expect(plan.map((item) => buildComponentKey(item.identity))).toEqual([
       lapsed,
     ]);
   });
 
-  it("a correct reinforcement recovery does not erase the weakness evidence", () => {
+  it("a non-due, non-mastered component with a positive injected weak score is selected as weak", () => {
+    // Whether reinforcement erases weakness evidence is now decided entirely
+    // upstream (modules/analytics/weakness-evidence.ts §8,
+    // modules/analytics/weakness.ts §24.4) — this pure planner only proves it
+    // honours whatever score the caller injects.
     const struggled = recognitionKey(1);
     const stored: StoredComponentState[] = [
       {
@@ -598,17 +541,7 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
         learnerState: "learning",
       },
     ];
-    const weakScores = computeWeakScores([
-      attempt(struggled, { attemptedAt: 1, isCorrect: false, id: "w1" }),
-      // Same-session recovery: correct but not a first attempt.
-      attempt(struggled, {
-        attemptedAt: 2,
-        isCorrect: true,
-        isFirstAttempt: false,
-        id: "w2",
-      }),
-    ]);
-    expect(weakScores.get(struggled)).toBe(1);
+    const weakScores = new Map([[struggled, 1]]);
     const plan = buildMixedPlan(learnerEntries, stored, weakScores, NOW, {
       newLimit: 0,
       reviewLimit: 10,

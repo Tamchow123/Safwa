@@ -347,11 +347,22 @@ describe("custom session filters — targeted behaviour", () => {
         NOW_MS,
       ),
     ).toEqual(["learning", "weak", "due"]);
-    // needs_review is weakness evidence even at score zero.
+    // Phase 13: a needs_review projection with NO score evidence is no
+    // longer auto-weak — an ordinary due-again mastered card with a clean
+    // history must not be falsely called weak (phases-13.md §10 test 21).
     expect(
       componentStateClasses(
         { componentKey: "k", fsrs: futureCard, learnerState: "needs_review" },
         0,
+        NOW_MS,
+      ),
+    ).toEqual([]);
+    // ...but a needs_review projection WITH genuine score evidence (Phase 13
+    // v2 already reflects a real lapse/failure in the score) still qualifies.
+    expect(
+      componentStateClasses(
+        { componentKey: "k", fsrs: futureCard, learnerState: "needs_review" },
+        0.5,
         NOW_MS,
       ),
     ).toEqual(["weak"]);
@@ -364,16 +375,32 @@ describe("custom session filters — targeted behaviour", () => {
       ),
     ).toEqual(["mastered"]);
     // A STALE stored `mastered` whose due date has since passed is
-    // needs_review NOW (§5): due + weak, never mastered — the stored
-    // projection is only refreshed on writes, so the clock decides.
+    // needs_review NOW (§5) — due, but NOT weak at score zero: an ordinary
+    // due mastered card with no real lapse must not be falsely called weak.
+    // The stored projection is only refreshed on writes, so the clock
+    // decides state; weakness still requires genuine evidence.
     expect(
       componentStateClasses(
         { componentKey: "k", fsrs: dueCard, learnerState: "mastered" },
         0,
         NOW_MS,
       ),
-    ).toEqual(["weak", "due"]);
-    // Same for a lapse into relearning, even before the next due date.
+    ).toEqual(["due"]);
+    // A genuine lapse into relearning, with real score evidence, before the
+    // next due date IS weak.
+    expect(
+      componentStateClasses(
+        {
+          componentKey: "k",
+          fsrs: { ...futureCard, state: "relearning" },
+          learnerState: "mastered",
+        },
+        0.3,
+        NOW_MS,
+      ),
+    ).toEqual(["weak"]);
+    // The same relearning card at score zero (e.g. stale/unavailable
+    // evidence) is NOT falsely called weak.
     expect(
       componentStateClasses(
         {
@@ -384,7 +411,7 @@ describe("custom session filters — targeted behaviour", () => {
         0,
         NOW_MS,
       ),
-    ).toEqual(["weak"]);
+    ).toEqual([]);
     // A structurally corrupt stored card matches NO state class — not even
     // "due", although its dueAtMs is in the past: corrupt data must never
     // satisfy an explicit state selection.

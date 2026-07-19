@@ -65,9 +65,12 @@ export function addDays(date: string, days: number): string {
 
 /**
  * Whole calendar days from `from` to `to` (positive when `to` is later).
- * No Phase 12 consumer — kept (and tested) as the label-arithmetic
- * primitive the Phase 13 weak-areas recency window builds on, so that
- * phase never hand-rolls a second date-distance implementation.
+ * No current consumer — kept (and tested) as the DST-safe label-arithmetic
+ * primitive for any future calendar-day distance need. Phase 13's weak-areas
+ * recency decay (`modules/analytics/weakness.ts`) deliberately does NOT
+ * build on this: it needs continuous real-elapsed-millisecond exponential
+ * decay between two epoch instants, a different computation from whole
+ * calendar days between date labels — see that module's own doc comment.
  */
 export function daysBetween(from: string, to: string): number {
   assertIsoDate(from, "from");

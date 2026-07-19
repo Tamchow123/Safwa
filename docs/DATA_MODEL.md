@@ -149,6 +149,17 @@ server resolves them via the assessment manifest. Indexes:
 `(user_id, occurred_at_utc)`, `(user_id, entry_id)`,
 `(user_id, local_date_at_event)`.
 
+Phase 13 weakness attribution reads `is_first_attempt` (reinforcement and
+non-first attempts are excluded from evidence), `entry_id`/`skill_type_id`,
+and the source form: a `form_direction` component (translation skills)
+attributes to its own `source_field`; an entry-level component (bāb/root/
+verb-type) has no source field of its own and attributes instead to
+`prompt_field`, but only when that field is one of the six source forms —
+this is how a bāb attempt prompted with māḍī and a later one prompted with
+muḍāriʿ produce separately-attributed evidence instead of collapsing onto
+one default form. FSRS lapse counts come from `study_components`, not from
+this table.
+
 ## 6. `review_events` (immutable causal DAG)
 
 ```

@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SafwaDb } from "@/modules/content/db";
 import {
+  readAnalyticsRawSnapshot,
   readAnalyticsSnapshot,
   rebuildDailyActivity,
 } from "@/modules/analytics/persistence";
@@ -54,6 +55,15 @@ async function seedAttempt(
           attempt: {
             localDateAtEvent: overrides.localDateAtEvent ?? "2026-07-17",
             responseTimeMs: overrides.responseTimeMs ?? 1500,
+            occurredAtUtc: "2026-07-17T12:00:00.000Z",
+            entryId: 1,
+            skillTypeId: "bab_identification",
+            direction: null,
+            sourceField: null,
+            promptField: "madi",
+            isFirstAttempt: true,
+            isReinforcement: false,
+            isCorrect: true,
             // Only the fields the analytics slice reads are relevant here;
             // the cast keeps the fixture honest about being a partial row.
           } as never,
@@ -216,6 +226,15 @@ describe("readAnalyticsSnapshot (§15)", () => {
         componentKey: KEY,
         localDateAtEvent: "2026-07-17",
         responseTimeMs: 1500,
+        occurredAtUtc: "2026-07-17T12:00:00.000Z",
+        entryId: 1,
+        skillType: "bab_identification",
+        direction: null,
+        sourceField: null,
+        promptField: "madi",
+        isFirstAttempt: true,
+        isReinforcement: false,
+        isCorrect: true,
       },
     ]);
     expect(snapshot.events).toHaveLength(1);
@@ -244,6 +263,10 @@ describe("readAnalyticsSnapshot (§15)", () => {
     const snapshot = await readAnalyticsSnapshot(db, NOW);
     expect(snapshot.attempts[0].localDateAtEvent).toBeNull();
     expect(Number.isNaN(snapshot.attempts[0].responseTimeMs)).toBe(true);
+    expect(snapshot.attempts[0].occurredAtUtc).toBeNull();
+    expect(snapshot.attempts[0].isFirstAttempt).toBe(false);
+    expect(snapshot.attempts[0].isReinforcement).toBe(false);
+    expect(snapshot.attempts[0].isCorrect).toBe(false);
     expect(snapshot.dailyActivity).toEqual([]);
   });
 
@@ -283,6 +306,45 @@ describe("readAnalyticsSnapshot (§15)", () => {
     expect(await db.dailyActivity.get("2026-07-17")).toMatchObject({
       attempts: 1,
     });
+  });
+});
+
+describe("readAnalyticsRawSnapshot (Phase 13 §7, §30 — read-only, no cache write)", () => {
+  it("returns the same components/attempts/events as readAnalyticsSnapshot, without touching the cache", async () => {
+    await db.studyComponents.put({
+      componentKey: KEY,
+      entryId: 1,
+      learnerState: "learning",
+    });
+    const attemptId = await seedAttempt();
+    await seedEvent({ attemptId, parentEventId: null });
+
+    const raw = await readAnalyticsRawSnapshot(db);
+    const full = await readAnalyticsSnapshot(db, NOW);
+    expect(raw.components).toEqual(full.components);
+    expect(raw.attempts).toEqual(full.attempts);
+    expect(raw.events).toEqual(full.events);
+    // readAnalyticsSnapshot's own call above is what wrote the cache; a
+    // fresh db proves readAnalyticsRawSnapshot alone never does.
+  });
+
+  it("never writes the daily_activity cache", async () => {
+    await seedAttempt();
+    await readAnalyticsRawSnapshot(db);
+    expect(await db.dailyActivity.count()).toBe(0);
+  });
+
+  it("opens exactly one read-only transaction over the three raw stores", async () => {
+    await seedAttempt();
+    const transactionSpy = vi.spyOn(db, "transaction");
+    await readAnalyticsRawSnapshot(db);
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
+    expect(transactionSpy.mock.calls[0][0]).toBe("r");
+    expect(transactionSpy.mock.calls[0][1]).toEqual([
+      db.studyComponents,
+      db.studyAttempts,
+      db.reviewEvents,
+    ]);
   });
 });
 

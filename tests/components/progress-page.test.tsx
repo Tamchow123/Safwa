@@ -1,9 +1,11 @@
 /**
- * Detailed Progress route (Phase 12 §17, §25): exact numerator/denominator
- * text against the real release denominators (§21.1), per-skill and per-form
- * completion, restrained bāb/verb-type sections labelled by Arabic display
- * pairs from the release, streaks, the longer activity summary, word states,
- * loading/error states, and no weak-area output or raw component keys.
+ * Detailed Progress route (Phase 12 §17, §25; Phase 13 §15): exact
+ * numerator/denominator text against the real release denominators (§21.1),
+ * per-skill and per-form completion, restrained bāb/verb-type sections
+ * labelled by Arabic display pairs from the release, streaks, the longer
+ * activity summary, word states, loading/error states, no raw component
+ * keys, and a concise integrated Weak Areas section (top priorities + link
+ * to the full page — never the complete ranked/tabbed analysis).
  */
 import { readFileSync } from "node:fs";
 
@@ -13,7 +15,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ProgressPage from "@/app/(shell)/progress/page";
 import type { ActiveContentState } from "@/components/content/use-active-content";
-import type { AnalyticsPersistenceSnapshot } from "@/modules/analytics/persistence";
+import type {
+  AnalyticsPersistenceSnapshot,
+  AnalyticsRawRead,
+} from "@/modules/analytics/persistence";
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { SchedulerCard } from "@/modules/scheduler/fsrs";
 import { deriveAllComponents } from "@/modules/study-engine/components";
@@ -68,9 +73,12 @@ vi.mock("@/modules/profile/timezone", async (importOriginal) => {
 
 const readAnalyticsSnapshot =
   vi.fn<(db: unknown, now: number) => Promise<AnalyticsPersistenceSnapshot>>();
+const readAnalyticsRawSnapshot =
+  vi.fn<(db: unknown) => Promise<AnalyticsRawRead>>();
 vi.mock("@/modules/analytics/persistence", () => ({
   readAnalyticsSnapshot: (db: unknown, now: number) =>
     readAnalyticsSnapshot(db, now),
+  readAnalyticsRawSnapshot: (db: unknown) => readAnalyticsRawSnapshot(db),
   rebuildDailyActivity: vi.fn(),
 }));
 
@@ -116,6 +124,14 @@ beforeEach(() => {
   activeContent = readyState;
   readAnalyticsSnapshot.mockReset();
   readAnalyticsSnapshot.mockResolvedValue(seededSnapshot);
+  readAnalyticsRawSnapshot.mockReset();
+  // Default: no attempts at all — the Weak Areas section shows its
+  // no-evidence state unless a test seeds otherwise.
+  readAnalyticsRawSnapshot.mockResolvedValue({
+    components: seededSnapshot.components,
+    attempts: seededSnapshot.attempts,
+    events: seededSnapshot.events,
+  });
 });
 
 describe("progress overview and denominators (§17, §21.1)", () => {
@@ -244,18 +260,118 @@ describe("streaks, activity and navigation (§17)", () => {
     ).toBeInTheDocument();
   });
 
-  it("links to Study and never fakes weak-area output", async () => {
+  it("links to Study", async () => {
     render(<ProgressPage />);
     expect(
       await screen.findByRole("link", { name: "Go to Study" }),
     ).toHaveAttribute("href", "/study");
-    expect(screen.queryByText(/weak/i)).toBeNull();
   });
 
   it("never renders a raw component key", async () => {
     render(<ProgressPage />);
     await screen.findByText("Started");
     expect(document.body.textContent).not.toContain(masteredComponents[0].key);
+  });
+});
+
+describe("integrated Weak Areas section (Phase 13 §15)", () => {
+  const babEntry = built.learner.entries.find(
+    (e) =>
+      e.quiz_eligibility.bab &&
+      derived.some(
+        (c) => c.entryId === e.id && c.skillType === "bab_identification",
+      ),
+  )!;
+  const babComponent = derived.find(
+    (c) => c.entryId === babEntry.id && c.skillType === "bab_identification",
+  )!;
+
+  function isoAt(daysAgo: number): string {
+    return new Date(Date.UTC(2026, 6, 19 - daysAgo, 10, 0, 0)).toISOString();
+  }
+  function localDate(daysAgo: number): string {
+    return isoAt(daysAgo).slice(0, 10);
+  }
+
+  const weakRawSnapshot: AnalyticsRawRead = {
+    components: [
+      {
+        componentKey: babComponent.key,
+        learnerState: "learning",
+        fsrs: {
+          stability: 5,
+          difficulty: 6,
+          dueAtMs: NOW_MS + 5 * 86_400_000,
+          state: "review",
+          reps: 3,
+          lapses: 1,
+          scheduledDays: 5,
+          learningSteps: 0,
+          lastReviewAtMs: NOW_MS - 2 * 86_400_000,
+        },
+      },
+    ],
+    attempts: [0, 1, 2, 3, 4].map((daysAgo, i) => ({
+      id: `weak-attempt-${daysAgo}`,
+      componentKey: babComponent.key,
+      localDateAtEvent: localDate(daysAgo),
+      responseTimeMs: 1_000,
+      occurredAtUtc: isoAt(daysAgo),
+      entryId: babEntry.id,
+      skillType: "bab_identification" as const,
+      direction: null,
+      sourceField: null,
+      promptField: "madi" as const,
+      isFirstAttempt: true,
+      isReinforcement: false,
+      isCorrect: i % 2 === 0,
+    })),
+    events: [],
+  };
+
+  it("shows the no-evidence state by default", async () => {
+    render(<ProgressPage />);
+    await screen.findByText("Started");
+    expect(await screen.findByText("Weak areas")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Study a few items to discover which areas need more practice.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "See all weak areas" }),
+    ).toHaveAttribute("href", "/progress/weak-areas");
+  });
+
+  it("shows the top priorities and links to the full page", async () => {
+    readAnalyticsRawSnapshot.mockResolvedValue(weakRawSnapshot);
+    render(<ProgressPage />);
+    await screen.findByText("Weak areas");
+    expect(await screen.findByText(babEntry.bab_arabic)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "See all weak areas" }),
+    ).toHaveAttribute("href", "/progress/weak-areas");
+    // Never a raw component key, even in the weak-area cards.
+    expect(document.body.textContent).not.toContain(babComponent.key);
+  });
+
+  it("shows a per-section loading state without blocking the rest of the page", async () => {
+    readAnalyticsRawSnapshot.mockImplementation(() => new Promise(() => {}));
+    render(<ProgressPage />);
+    // The exact-ratio content above it renders normally...
+    await screen.findByText("Started");
+    // ...while only the Weak Areas section shows its own loading state.
+    expect(
+      screen.getByRole("status", { name: "Loading weak areas" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a per-section recoverable error without blocking the rest of the page", async () => {
+    readAnalyticsRawSnapshot.mockRejectedValue(new Error("boom"));
+    render(<ProgressPage />);
+    await screen.findByText("Started");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).not.toContain("boom");
   });
 });
 

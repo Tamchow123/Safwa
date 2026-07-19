@@ -28,7 +28,6 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
 import type {
   SchedulingEventSummary,
   StoredComponentState,
-  WeaknessAttempt,
 } from "@/modules/study-session/mixed";
 import {
   chainHead,
@@ -383,29 +382,40 @@ export async function undoGradedAttempt(
 /** The stored scheduling inputs the mixed-revision planner consumes. */
 export type SchedulingSnapshot = {
   components: StoredComponentState[];
-  attempts: WeaknessAttempt[];
   /** Scheduling review events, for the daily-target accounting. */
   events: SchedulingEventSummary[];
 };
 
 /**
- * Read the mixed-revision planning inputs in one consistent view: every stored
- * component's scheduling state, the attempt slices the weak-item heuristic
- * consumes, and the review-event slices the daily-target accounting consumes.
- * All three stores are read inside a single read transaction so a concurrent
- * grade in another tab can never yield a view that disagrees with itself. Rows
- * without an embedded attempt payload (pre-Phase-8 shape; none exist in
- * practice) are skipped.
+ * Read the mixed-revision planning inputs in one consistent view: every
+ * stored component's scheduling state, and the review-event slices the
+ * daily-target accounting consumes. Both stores are read inside a single
+ * read transaction so a concurrent grade in another tab can never yield a
+ * view that disagrees with itself — WITHIN this snapshot's own two fields.
+ *
+ * As of Phase 13, weakness scores come from `modules/analytics/weakness.ts`
+ * via `modules/analytics/weakness-persistence.ts`'s `loadWeaknessView` (the
+ * one authoritative weakness pipeline, shared with Weak Areas and the Custom
+ * Session weak filter) — this snapshot no longer reads `study_attempts` at
+ * all, retiring the Phase 10 v1 weak-item heuristic's independent attempt
+ * scan. Callers (mixed-session.tsx, custom-session.tsx) therefore now
+ * compose this read with a SEPARATE `loadWeaknessView` call: the combined
+ * view is no longer atomic end to end — a grade landing in the gap between
+ * the two reads (a genuinely rare cross-tab race, bounded to one event's
+ * worth of skew) could pair this snapshot's card/state for a component with
+ * a weakness score computed from a slightly different moment. Accepted:
+ * `loadWeaknessView` is read-only (§14.4-style, via
+ * `readAnalyticsRawSnapshot` — no cache write), so the only cost is this
+ * narrowed consistency window, never a lost or corrupted write.
  */
 export async function readSchedulingSnapshot(
   db: SafwaDb,
 ): Promise<SchedulingSnapshot> {
   return db.transaction(
     "r",
-    [db.studyComponents, db.studyAttempts, db.reviewEvents],
+    [db.studyComponents, db.reviewEvents],
     async () => {
       const componentRecords = await db.studyComponents.toArray();
-      const attemptRows = await db.studyAttempts.toArray();
       const eventRows = await db.reviewEvents.toArray();
       const components: StoredComponentState[] = componentRecords.map(
         (record: StudyComponentRecord) => ({
@@ -414,17 +424,6 @@ export async function readSchedulingSnapshot(
           learnerState: record.learnerState,
         }),
       );
-      const attempts: WeaknessAttempt[] = [];
-      for (const row of attemptRows) {
-        if (!row.attempt) continue;
-        attempts.push({
-          id: row.id,
-          componentKey: row.componentKey,
-          isFirstAttempt: row.attempt.isFirstAttempt,
-          isCorrect: row.attempt.isCorrect,
-          attemptedAt: row.attemptedAt,
-        });
-      }
       const events: SchedulingEventSummary[] = eventRows.map(
         (record: ReviewEventRecord) => ({
           componentKey: record.componentKey,
@@ -433,7 +432,7 @@ export async function readSchedulingSnapshot(
           localDateAtEvent: record.localDateAtEvent ?? null,
         }),
       );
-      return { components, attempts, events };
+      return { components, events };
     },
   );
 }

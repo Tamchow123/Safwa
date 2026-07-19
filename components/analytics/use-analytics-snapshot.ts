@@ -30,6 +30,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
+import { deriveAllComponentsCached } from "@/lib/derived-components-cache";
 import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import {
   babGroup,
@@ -38,6 +39,7 @@ import {
   countDueToday,
   effectiveComponents,
   essentialGroupProgress,
+  groupArabicLookup,
   isIsoDate,
   isNextDay,
   verbTypeGroup,
@@ -52,10 +54,7 @@ import { getSafwaDb, type SafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { readEffectiveClock } from "@/modules/profile/timezone";
 import { computeEventTimeFields } from "@/modules/study-engine/attempts";
-import {
-  deriveAllComponents,
-  type DerivedComponent,
-} from "@/modules/study-engine/components";
+import type { DerivedComponent } from "@/modules/study-engine/components";
 
 /** One group's completion with its Arabic display pair from the release. */
 export type GroupCompletion = {
@@ -117,14 +116,11 @@ function groupCompletions(
   arabicOf: (entry: LearnerEntry) => string,
 ): GroupCompletion[] {
   const ratios = essentialGroupProgress(effective, entries, groupOf);
+  const arabicById = groupArabicLookup(entries, groupOf, arabicOf);
   const completions: GroupCompletion[] = [];
-  const seen = new Set<string>();
-  for (const entry of entries) {
-    const id = groupOf(entry);
-    if (id === null || seen.has(id)) continue;
-    seen.add(id);
+  for (const [id, arabic] of arabicById) {
     const ratio = ratios.get(id);
-    if (ratio) completions.push({ id, arabic: arabicOf(entry), ratio });
+    if (ratio) completions.push({ id, arabic, ratio });
   }
   return completions;
 }
@@ -216,7 +212,9 @@ export function useAnalyticsSnapshot(): {
   // The eligible universe, derived ONCE per loaded release (§28).
   const derived = useMemo<DerivedComponent[] | null>(
     () =>
-      content.status === "ready" ? deriveAllComponents(content.entries) : null,
+      content.status === "ready"
+        ? deriveAllComponentsCached(content.entries)
+        : null,
     [content],
   );
 

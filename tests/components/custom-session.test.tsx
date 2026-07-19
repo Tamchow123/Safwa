@@ -68,10 +68,24 @@ vi.mock("@/modules/profile/persistence", async (importOriginal) => {
 
 const emptySnapshot: SchedulingSnapshot = {
   components: [],
-  attempts: [],
   events: [],
 };
 const readSchedulingSnapshot = vi.fn(async () => emptySnapshot);
+
+// Phase 13: no seeded weakness history by default — an empty score map
+// means every component's weak score is 0.
+const loadWeakScores = vi.fn(async () => new Map());
+vi.mock("@/modules/analytics/weakness-persistence", async (importActual) => {
+  const actual =
+    await importActual<
+      typeof import("@/modules/analytics/weakness-persistence")
+    >();
+  return {
+    ...actual,
+    loadWeakScores: (...args: Parameters<typeof loadWeakScores>) =>
+      loadWeakScores(...args),
+  };
+});
 
 const recordGradedAttempt = vi.fn(
   async (
@@ -127,6 +141,7 @@ afterEach(() => {
   readSchedulingSnapshot.mockClear();
   recordGradedAttempt.mockClear();
   readEffectiveClock.mockClear();
+  loadWeakScores.mockClear();
 });
 
 async function renderSetup() {
