@@ -9,12 +9,11 @@
     changes to files that were ALREADY modified or untracked - the normal
     state during a phase, since reviews run before the phase commit.
 
-    Dot-source this file to use the function (the Codex runner does), or
-    invoke it directly to print a single SHA-256 digest line. The /phase-loop
-    skill captures the digest before and after the Claude reviewer runs:
-    subagent permission modes are not guaranteed to survive every parent
-    permission mode, so reviewer read-onlyness is verified by detection, the
-    same way the Codex runner verifies its sandbox.
+    Dot-source this file to use the function, or invoke it directly to print
+    a single SHA-256 digest line. The /phase-loop skill captures the digest
+    before and after the Claude reviewer runs: subagent permission modes are
+    not guaranteed to survive every parent permission mode, so reviewer
+    read-onlyness is verified by detection, not assumed.
 #>
 
 function Get-WorkspaceFingerprint {

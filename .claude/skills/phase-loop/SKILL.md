@@ -1,17 +1,16 @@
 ---
 name: phase-loop
 description: >-
-  Autonomous phase implementation and dual-review loop for Safwa: implement a
-  phase on a new branch, pass the quality gate, iterate through the read-only
-  Claude reviewer and the independent read-only Codex reviewer until both
-  approve, then push and open a DRAFT pull request. Never merges, never
-  deploys.
+  Autonomous phase implementation and review loop for Safwa: implement a
+  phase on a new branch, pass the quality gate, iterate through the
+  read-only Claude reviewer until it approves, then push and open a DRAFT
+  pull request. Never merges, never deploys.
 disable-model-invocation: true
 argument-hint: <phase requirements — e.g. "Phase 5 — guest identity & local persistence" plus any extra constraints>
-allowed-tools: Read, Grep, Glob, Edit, Write, Agent, TaskCreate, TaskUpdate, TaskList, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git merge-base:*), Bash(git ls-files:*), Bash(git fetch origin:*), Bash(git switch -c phase/*), Bash(git switch phase/*), Bash(git switch main), Bash(git add:*), Bash(git commit:*), Bash(git push -u origin phase/*), Bash(git push origin phase/*), Bash(pnpm typecheck:*), Bash(pnpm lint:*), Bash(pnpm format:check:*), Bash(pnpm test:*), Bash(pnpm test:e2e:*), Bash(pnpm build:*), Bash(pnpm content:build:*), Bash(pnpm docs:verify:*), Bash(pnpm install --frozen-lockfile:*), Bash(pnpm exec playwright install chromium), Bash(python scripts/validate-vocabulary.py:*), Bash(python scripts/arabic-extract.py --verify-known:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1), Bash(gh pr create:*), PowerShell(git status:*), PowerShell(git diff:*), PowerShell(git log:*), PowerShell(git show:*), PowerShell(git rev-parse:*), PowerShell(git merge-base:*), PowerShell(git ls-files:*), PowerShell(git fetch origin:*), PowerShell(git switch -c phase/*), PowerShell(git switch phase/*), PowerShell(git switch main), PowerShell(git add:*), PowerShell(git commit:*), PowerShell(git push -u origin phase/*), PowerShell(git push origin phase/*), PowerShell(pnpm typecheck:*), PowerShell(pnpm lint:*), PowerShell(pnpm format:check:*), PowerShell(pnpm test:*), PowerShell(pnpm test:e2e:*), PowerShell(pnpm build:*), PowerShell(pnpm content:build:*), PowerShell(pnpm docs:verify:*), PowerShell(pnpm install --frozen-lockfile:*), PowerShell(pnpm exec playwright install chromium), PowerShell(python scripts/validate-vocabulary.py:*), PowerShell(python scripts/arabic-extract.py --verify-known:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1), PowerShell(gh pr create:*)
+allowed-tools: Read, Grep, Glob, Edit, Write, Agent, TaskCreate, TaskUpdate, TaskList, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git merge-base:*), Bash(git ls-files:*), Bash(git fetch origin:*), Bash(git switch -c phase/*), Bash(git switch phase/*), Bash(git switch main), Bash(git add:*), Bash(git commit:*), Bash(git push -u origin phase/*), Bash(git push origin phase/*), Bash(pnpm typecheck:*), Bash(pnpm lint:*), Bash(pnpm format:check:*), Bash(pnpm test:*), Bash(pnpm test:e2e:*), Bash(pnpm build:*), Bash(pnpm content:build:*), Bash(pnpm docs:verify:*), Bash(pnpm install --frozen-lockfile:*), Bash(pnpm exec playwright install chromium), Bash(python scripts/validate-vocabulary.py:*), Bash(python scripts/arabic-extract.py --verify-known:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), Bash(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1), Bash(gh pr create:*), PowerShell(git status:*), PowerShell(git diff:*), PowerShell(git log:*), PowerShell(git show:*), PowerShell(git rev-parse:*), PowerShell(git merge-base:*), PowerShell(git ls-files:*), PowerShell(git fetch origin:*), PowerShell(git switch -c phase/*), PowerShell(git switch phase/*), PowerShell(git switch main), PowerShell(git add:*), PowerShell(git commit:*), PowerShell(git push -u origin phase/*), PowerShell(git push origin phase/*), PowerShell(pnpm typecheck:*), PowerShell(pnpm lint:*), PowerShell(pnpm format:check:*), PowerShell(pnpm test:*), PowerShell(pnpm test:e2e:*), PowerShell(pnpm build:*), PowerShell(pnpm content:build:*), PowerShell(pnpm docs:verify:*), PowerShell(pnpm install --frozen-lockfile:*), PowerShell(pnpm exec playwright install chromium), PowerShell(python scripts/validate-vocabulary.py:*), PowerShell(python scripts/arabic-extract.py --verify-known:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*), PowerShell(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1), PowerShell(gh pr create:*)
 ---
 
-# /phase-loop — autonomous phase implementation with dual review
+# /phase-loop — autonomous phase implementation with review
 
 The arguments to this skill are the phase requirements. Implement exactly that
 phase following this workflow. Follow every rule in `CLAUDE.md` — especially
@@ -24,7 +23,7 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
 ## 1. Phase preparation
 
 1. Treat the skill arguments as the phase requirements. Read the matching
-   phase section in `docs/IMPLEMENTATION_PHASES.md` (objective, scope,
+   phase section in `docs/phases/IMPLEMENTATION_PHASES.md` (objective, scope,
    non-goals, prerequisites, expected files, testing checkpoint, acceptance
    criteria, risks) and merge it with any extra constraints in the arguments.
 2. Verify the current branch is the base branch (`main`) or an appropriate
@@ -35,10 +34,10 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
    and report this as a **vital escalation** — do not stash, reset or discard
    anything.
 4. `git fetch origin` to get the latest base branch. From here on,
-   `origin/main` is THE base ref for everything — branch creation, both
-   reviews and the final diff inspection — so a stale local `main` can
+   `origin/main` is THE base ref for everything — branch creation, the
+   review and the final diff inspection — so a stale local `main` can
    never leak unrelated upstream changes into a review. Only the pull
-   request base (step 45) uses the branch name `main`.
+   request base (step 37) uses the branch name `main`.
 5. Create the branch as `phase/<number>-<short-kebab-description>` (matching
    the existing convention, e.g. `phase/5-guest-identity`), via
    `git switch -c phase/<...> origin/main`.
@@ -47,8 +46,8 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
    the complete phase requirements (objective, scope, non-goals, acceptance
    criteria, extra user constraints) to
    `.claude/review/results/phase-requirements.md` (gitignored). Every
-   criterion must be verifiable; this exact file is given to BOTH reviewers
-   so they judge against identical criteria.
+   criterion must be verifiable; this exact file is given to the reviewer so
+   it judges against the same criteria as the implementer.
 7. Do not ask the user questions unless a genuinely vital product decision is
    required (see escalation triggers below). Prefer the documented behaviour
    in `docs/PRODUCT_REQUIREMENTS.md` and `docs/ARCHITECTURE.md`.
@@ -80,8 +79,8 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
     stage ONLY the regenerated artifacts
     (`git add public/content content-server`). Staging is not committing —
     the gate's artifact checks compare against the index, and the staged
-    output becomes part of the single phase commit only after dual approval
-    (step 43).
+    output becomes part of the single phase commit only after review
+    approval (step 35).
 16. Fix deterministic failures and rerun until it passes.
 17. Never delete, weaken, skip or hollow out a test to make the gate pass.
 18. Where practical, verify important user-facing behaviour directly (e.g.
@@ -95,10 +94,9 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
     tool, `subagent_type: "phase-code-reviewer"`, `run_in_background: false`).
     Subagent permission modes are not guaranteed to survive every parent
     permission mode, so the reviewer's read-onlyness is verified by
-    detection, exactly as the Codex runner verifies its sandbox.
+    detection, not assumed.
 20. Give it: the base ref (`origin/main`) and the verbatim content of
-    `.claude/review/results/phase-requirements.md` (the same criteria Codex
-    receives).
+    `.claude/review/results/phase-requirements.md`.
 21. Wait for its complete response and read the decision line. Re-run the
     fingerprint command and compare: if the digest changed, the review is
     VOID — investigate what changed, restore/fix as needed, rerun the
@@ -110,64 +108,38 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
 23. After any fix: rerun the full quality gate.
 24. Then rerun the Claude reviewer with the same inputs.
 25. Repeat until the reviewer returns `APPROVED`.
+26. Any code change invalidates the prior approval — there are no stale
+    approvals.
 
-## 5. Codex review loop
+## 5. Loop limits and escalation
 
-26. Run the independent review, always passing the recorded requirements:
-    `powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1 -BaseBranch origin/main -RequirementsFile .claude/review/results/phase-requirements.md`
-    (exit 0 = APPROVED, exit 2 = CHANGES_REQUIRED, exit 1 = failure — a
-    failure is never an approval; diagnose and rerun).
-27. Read `.claude/review/results/latest.json` for the structured findings.
-28. Codex is a reviewer ONLY. Never ask Codex to make changes; never treat
-    its suggested fixes as applied.
-29. For each finding: validate it against the actual code and the acceptance
-    criteria. Fix valid P0/P1/P2 findings yourself, adding or improving tests
-    where appropriate.
-30. Never silently ignore a finding. Every finding is either fixed or
-    explicitly rebutted.
-31. If a finding is demonstrably incorrect, record a concise technical
-    rationale (for the PR description) and continue to the next independent
-    review.
-32. After EVERY Codex-driven correction, in order:
-    a. full quality gate;
-    b. Claude reviewer (must return `APPROVED` again);
-    c. Codex review again.
-33. Any code change invalidates ALL prior approvals from BOTH reviewers —
-    there are no stale approvals.
-34. Final approval state requires, simultaneously: quality gate passing,
-    Claude reviewer `APPROVED`, Codex `APPROVED`, and zero application
-    changes made after either approval.
-
-## 6. Loop limits and escalation
-
-35. Allow at most FIVE combined correction cycles (a cycle = one
-    reviewer-driven round of fixes plus reruns).
-36. STOP and produce a **vital escalation report** (what was attempted, the
+27. Allow at most FIVE correction cycles (a cycle = one reviewer-driven round
+    of fixes plus reruns).
+28. STOP and produce a **vital escalation report** (what was attempted, the
     unresolved findings, your analysis, options for the user) when any of
     these occur:
-    - five legitimate correction cycles have failed to reach dual approval;
-    - Claude and Codex repeatedly disagree about intended product behaviour;
+    - five legitimate correction cycles have failed to reach approval;
     - authentication, authorisation, payments, privacy or destructive data
       behaviour requires a product decision;
     - a database migration could destroy or irreversibly transform existing
       data;
     - a new paid service or major architectural dependency is required;
     - required credentials or external services are unavailable;
-    - a model, authentication or rate-limit error prevents a review from
+    - a model, authentication or rate-limit error prevents the review from
       running.
-37. When escalating: do NOT create a pull request. Leave the branch and
+29. When escalating: do NOT create a pull request. Leave the branch and
     working tree intact for the user.
 
-## 7. Finalisation
+## 6. Finalisation
 
-38. Inspect the final diff (`git diff origin/main...HEAD` plus `git status`) for
+30. Inspect the final diff (`git diff origin/main...HEAD` plus `git status`) for
     accidental or unrelated changes; remove anything out of scope (which
-    invalidates approvals — loop again).
-39. Confirm every recorded acceptance criterion is met.
-40. Run the complete quality gate one final time.
-41. Run one final Claude review and one final Codex review.
-42. Make NO code changes after these final two approvals.
-43. Stage the COMPLETE reviewed change set explicitly (`git add` every
+    invalidates approval — loop again).
+31. Confirm every recorded acceptance criterion is met.
+32. Run the complete quality gate one final time.
+33. Run one final Claude review.
+34. Make NO code changes after this final approval.
+35. Stage the COMPLETE reviewed change set explicitly (`git add` every
     reviewed path — source, tests, docs and any previously staged generated
     artifacts; staging unchanged reviewed bytes does not invalidate
     approval), then commit with a meaningful message following the repo
@@ -176,20 +148,19 @@ deployment, no weakening/skipping/deleting tests to make checks pass.
     `git show --stat HEAD` to confirm the commit contains the full reviewed
     union. A non-empty status or missing files means the commit is partial —
     fix it before pushing.
-44. Push the branch normally: `git push -u origin phase/<...>` — never force.
-45. Create a DRAFT pull request with `gh pr create --draft --base main`, with
+36. Push the branch normally: `git push -u origin phase/<...>` — never force.
+37. Create a DRAFT pull request with `gh pr create --draft --base main`, with
     a body containing ALL of:
     - Phase objective
     - Acceptance criteria (checked off)
     - Implementation summary
     - Files/areas changed
     - Tests and checks run (quality-gate evidence)
-    - Claude review result and number of Claude review cycles
-    - Codex review result and number of Codex review cycles
+    - Claude review result and number of review cycles
     - Rebutted findings with rationales (if any)
     - Known limitations
     - Manual review guidance (what the human should look at most carefully)
-46. NEVER merge the pull request. NEVER deploy.
-47. Finish by giving the user: the draft PR link, a concise implementation
+38. NEVER merge the pull request. NEVER deploy.
+39. Finish by giving the user: the draft PR link, a concise implementation
     summary, the testing evidence, and anything needing particular human
     attention.

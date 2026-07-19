@@ -52,8 +52,7 @@ Read surrounding code (callers, callees, related tests, module contracts)
 whenever correctness depends on context outside the diff. Do not judge a
 change from isolated lines.
 
-Also read `CLAUDE.md` and `AGENTS.md` and enforce the repository hard rules,
-in particular:
+Also read `CLAUDE.md` and enforce the repository hard rules, in particular:
 
 - `data/safwa-mujarrad.original.json` must never be modified.
 - Quiz eligibility gating: no quiz target, distractor or study-component field
