@@ -8,11 +8,11 @@
  *     recovery attempt is flagged `is_reinforcement` so Phase 7 produces NO
  *     second scheduling event;
  *   - single-step undo (exactly the last action, deterministically);
- *   - timed mode (MC only; flashcards self-paced; timed+test rejected until
- *     Phase 11): a timed session always has a positive-finite per-question
- *     limit (default 20s, §4.4); expiry is DERIVED SOLELY from the injected
- *     `responseTimeMs` against that limit (never a caller override) and counts
- *     as incorrect;
+ *   - timed mode (MC only; flashcards self-paced): a timed session always has
+ *     a positive-finite per-question limit (default 20s, §4.4); expiry is
+ *     DERIVED SOLELY from the injected `responseTimeMs` against that limit
+ *     (never a caller override) and counts as incorrect. Timed and test COMBINE
+ *     (Phase 11 custom sessions, §4.4) as the `timed_test` delivery mode;
  *   - test mode: per-question correctness feedback is withheld until the
  *     session ends (reinforcement still happens, per §4.6). The attempt record
  *     still carries `is_correct` (persistence needs it in every mode), but
@@ -44,8 +44,11 @@ import {
 } from "@/modules/study-engine/correctness";
 import {
   assertValidHintState,
+  DEFAULT_OPTION_COUNT,
   freshNoHint,
   generateQuestion,
+  MAX_OPTION_COUNT,
+  MIN_OPTION_COUNT,
   type HintState,
   type QuestionContext,
   type QuestionInstance,
@@ -65,6 +68,8 @@ export type SessionConfig = {
   /** Per-question countdown active; a response past the limit is incorrect. */
   timed: boolean;
   perQuestionLimitMs: number | null;
+  /** MC options per question (§4.4 — default 4, learner-configurable). */
+  optionCount: number;
 };
 
 /** Documented default per-question limit for timed mode (§4.4). */
@@ -75,6 +80,7 @@ export const DEFAULT_SESSION_CONFIG: SessionConfig = {
   testMode: false,
   timed: false,
   perQuestionLimitMs: null,
+  optionCount: DEFAULT_OPTION_COUNT,
 };
 
 export type PlannedItem = {
@@ -145,12 +151,15 @@ export function createSession(
   if (config.testMode && config.mode === "flashcard") {
     throw new SessionError("test mode does not apply to flashcard sessions");
   }
-  // The attempt delivery mode (DATA_MODEL §5) is a single enum; a combined
-  // timed+test session can't be recorded faithfully. Custom compositions are
-  // Phase 11 (§4.4 custom session configuration).
-  if (config.timed && config.testMode) {
+  // Timed + test COMBINE (Phase 11, §4.4): the composition is recorded as the
+  // dedicated `timed_test` delivery mode, so no attempt is mis-labelled.
+  if (
+    !Number.isSafeInteger(config.optionCount) ||
+    config.optionCount < MIN_OPTION_COUNT ||
+    config.optionCount > MAX_OPTION_COUNT
+  ) {
     throw new SessionError(
-      "combined timed + test mode is not supported until Phase 11",
+      `optionCount must be an integer in [${MIN_OPTION_COUNT}, ${MAX_OPTION_COUNT}], got ${String(config.optionCount)}`,
     );
   }
   if (config.timed) {
@@ -242,6 +251,7 @@ export function currentQuestion(
     questionSeed: state.seed,
     position: state.currentIndex,
     promptForm: item.promptForm,
+    optionCount: state.config.optionCount,
   });
 }
 
@@ -282,6 +292,7 @@ export type SubmitAnswerResult = {
 /** The effective delivery mode for this session (question id + attempt record). */
 function deliveryModeFor(config: SessionConfig): AttemptMode {
   if (config.mode === "flashcard") return "flashcard";
+  if (config.timed && config.testMode) return "timed_test";
   if (config.timed) return "timed";
   if (config.testMode) return "test";
   return "mc";
@@ -390,6 +401,12 @@ export function submitAnswer(
       isReinforcement,
       hint,
       responseTimeMs: input.responseTimeMs,
+      // The GRADING limit this attempt was judged against — persisted so the
+      // authoritative server can re-derive timed correctness independently
+      // (the limit is learner-configurable from Phase 11).
+      perQuestionLimitMs: state.config.timed
+        ? state.config.perQuestionLimitMs
+        : null,
     },
     input.clock,
   );

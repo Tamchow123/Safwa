@@ -59,6 +59,15 @@ import {
 } from "@/modules/study-engine/rng";
 
 export const DEFAULT_OPTION_COUNT = 4;
+/**
+ * Learner-configurable option-count bounds (§4.4 "4 options" default,
+ * editable). Two options is the smallest meaningful multiple choice. A
+ * requested count is additionally CLAMPED per question to what the answer
+ * field's eligible distractor pool supports (e.g. a bāb question has at most
+ * six distinct options), deterministically — see `buildQuestion`.
+ */
+export const MIN_OPTION_COUNT = 2;
+export const MAX_OPTION_COUNT = 8;
 /** The default prompt form for entry-level (bāb/root/verb-type) questions. */
 export const DEFAULT_ENTRY_LEVEL_PROMPT_FORM: SourceQuizFormField = "madi";
 
@@ -69,9 +78,11 @@ export type QuestionMode = "mc" | "flashcard";
  * The effective DELIVERY mode — part of the question's identity so a plain-MC,
  * timed, and test question with the same seed/component/position/prompt are
  * distinct instances (they are presented differently even though the structure
- * matches). Structurally, `timed`/`test` are MC.
+ * matches). Structurally, `timed`/`test`/`timed_test` are MC. `timed_test` is
+ * the COMBINED composition (per-question countdown AND feedback withheld),
+ * available from Phase 11 custom sessions (§4.4).
  */
-export type DeliveryMode = "mc" | "flashcard" | "timed" | "test";
+export type DeliveryMode = "mc" | "flashcard" | "timed" | "test" | "timed_test";
 
 /** The question structure implied by a delivery mode. */
 export function questionModeForDelivery(delivery: DeliveryMode): QuestionMode {
@@ -169,8 +180,14 @@ export type QuestionInstance = {
   promptField: AnswerField;
   promptRef: AnswerReference;
   answerField: AnswerField;
-  /** Four options for MC; empty for flashcards. */
+  /** MC options (length = `optionCount`); empty for flashcards. */
   options: QuestionOption[];
+  /**
+   * The number of MC options this instance was built with (§4.4, default 4).
+   * Part of the instance identity for non-default counts; always
+   * DEFAULT_OPTION_COUNT for flashcards (no options are built).
+   */
+  optionCount: number;
   allowedAnswerRefs: AnswerReference[];
   correctAnswerRef: AnswerReference;
   position: number;
@@ -194,6 +211,12 @@ export type QuestionSpec = {
   deliveryMode: DeliveryMode;
   promptField: AnswerField;
   position: number;
+  /**
+   * MC option count the instance was generated with. OPTIONAL on the wire:
+   * specs recorded before Phase 11 carry no `optionCount` and regenerate with
+   * the default 4 — exactly what they were built with.
+   */
+  optionCount?: number;
   allowedAnswerRefs: AnswerReference[];
   correctAnswerRef: AnswerReference;
   hintState: HintState;
@@ -401,8 +424,25 @@ function instanceSeedFrom(
   deliveryMode: DeliveryMode,
   position: number,
   promptField: AnswerField,
+  optionCount: number,
 ): string {
-  return canonicalKey([questionSeed, deliveryMode, position, promptField]);
+  // A NON-DEFAULT option count (§4.4 configurable "4 options") is folded in as
+  // a fifth element; the DEFAULT count deliberately keeps the original
+  // four-element encoding so every question id / spec recorded before option
+  // counts became configurable regenerates byte-identically under generator
+  // version "1" (bumping the version would orphan all recorded attempts
+  // against the pinned releases). `canonicalKey` elements are length-prefixed
+  // and self-delimiting, so the four- and five-element encodings never collide.
+  if (optionCount === DEFAULT_OPTION_COUNT) {
+    return canonicalKey([questionSeed, deliveryMode, position, promptField]);
+  }
+  return canonicalKey([
+    questionSeed,
+    deliveryMode,
+    position,
+    promptField,
+    optionCount,
+  ]);
 }
 
 function determinismKey(
@@ -441,6 +481,7 @@ function buildQuestion(
     questionSeed: string;
     position: number;
     requestedPromptForm?: SourceQuizFormField;
+    requestedOptionCount?: number;
   },
 ): QuestionInstance {
   // Position is part of the identity and is JSON-serialised on the spec; reject
@@ -456,6 +497,21 @@ function buildQuestion(
     );
   }
   const mode = questionModeForDelivery(options.deliveryMode);
+  // Validate a requested option count at the single build choke point. For
+  // flashcards (no options are built) the count is FORCED to the default so a
+  // stray caller value can never perturb flashcard instance identity.
+  const requestedCount = options.requestedOptionCount ?? DEFAULT_OPTION_COUNT;
+  if (
+    !Number.isSafeInteger(requestedCount) ||
+    requestedCount < MIN_OPTION_COUNT ||
+    requestedCount > MAX_OPTION_COUNT
+  ) {
+    throw new QuestionGenerationError(
+      `optionCount must be an integer in [${MIN_OPTION_COUNT}, ${MAX_OPTION_COUNT}], got ${String(options.requestedOptionCount)}`,
+    );
+  }
+  const optionCount =
+    mode === "flashcard" ? DEFAULT_OPTION_COUNT : requestedCount;
   const entry = context.entriesById.get(resolved.entryId);
   if (!entry) {
     throw new QuestionGenerationError(
@@ -493,11 +549,45 @@ function buildQuestion(
   };
   const correctValue = fieldValue(entry, answerField);
 
+  // The distractor pool is a pure function of the release, so the count the
+  // pool can actually SUPPORT is computed up front and the requested option
+  // count is clamped to it deterministically (never a crash mid-session: a
+  // bāb question has at most five distinct distractors — six bābs minus the
+  // correct one — so a learner-configured 7/8 must degrade, not throw). The
+  // availability rule mirrors `selectDistractors` exactly: unique comparison
+  // keys, never the correct entry, never the correct surface, never an
+  // ambiguous value. The CLAMPED count is what folds into the instance
+  // identity below, so regeneration from a recorded spec reproduces the same
+  // clamp from the same release.
+  let effectiveOptionCount = optionCount;
+  let pool: DistractorCandidate[] = [];
+  let excluded = new Set<string>();
+  if (mode === "mc") {
+    pool = candidatePool(context, answerField);
+    excluded = ambiguousAnswerValues(context, entry, promptField, answerField);
+    const correctKey = answerComparisonKey(answerField, correctValue);
+    const availableKeys = new Set<string>();
+    for (const candidate of pool) {
+      if (candidate.entryId === entry.id) continue;
+      const key = answerComparisonKey(answerField, candidate.value);
+      if (key === correctKey || excluded.has(key)) continue;
+      availableKeys.add(key);
+    }
+    effectiveOptionCount = Math.min(optionCount, availableKeys.size + 1);
+    if (effectiveOptionCount < MIN_OPTION_COUNT) {
+      throw new QuestionGenerationError(
+        `insufficient distractors for component ${componentKey} ` +
+          `(pool supports ${availableKeys.size}, need at least ${MIN_OPTION_COUNT - 1})`,
+      );
+    }
+  }
+
   const instanceSeed = instanceSeedFrom(
     options.questionSeed,
     options.deliveryMode,
     options.position,
     promptField,
+    effectiveOptionCount,
   );
   const instanceId = questionInstanceId(instanceSeed, context, componentKey);
 
@@ -519,6 +609,7 @@ function buildQuestion(
     promptRef,
     answerField,
     correctAnswerRef,
+    optionCount: effectiveOptionCount,
     position: options.position,
     hintState: freshNoHint(),
   };
@@ -536,9 +627,10 @@ function buildQuestion(
     };
   }
 
-  // Multiple choice. Phase 6 ships exactly DEFAULT_OPTION_COUNT options;
-  // learner-configurable counts (§4.4) arrive with custom sessions in Phase 11.
-  const distractorCount = DEFAULT_OPTION_COUNT - 1;
+  // Multiple choice: `effectiveOptionCount` options (§4.4 — default 4,
+  // configurable from Phase 11 custom sessions / settings, clamped above to
+  // what the pool supports).
+  const distractorCount = effectiveOptionCount - 1;
   const rng = createRng(determinismKey(instanceSeed, context, componentKey));
 
   const target: DistractorTarget = {
@@ -548,21 +640,17 @@ function buildQuestion(
     verbType: rankingVerbType(entry),
     bookPage: entry.book_page,
   };
-  const excluded = ambiguousAnswerValues(
-    context,
-    entry,
-    promptField,
-    answerField,
-  );
   const distractors = selectDistractors(
     target,
-    candidatePool(context, answerField),
+    pool,
     distractorCount,
     rng,
     excluded,
     (value) => answerComparisonKey(answerField, value),
   );
   if (distractors.length < distractorCount) {
+    // Unreachable if the availability computation above mirrors
+    // selectDistractors exactly; kept as a hard safety net.
     throw new QuestionGenerationError(
       `insufficient distractors for component ${componentKey} (needed ${distractorCount}, found ${distractors.length})`,
     );
@@ -580,7 +668,12 @@ function buildQuestion(
   }));
   const optionsList = rng.shuffle([correctOption, ...distractorOptions]);
 
-  assertOptionInvariants(optionsList, answerField, correctValue);
+  assertOptionInvariants(
+    optionsList,
+    answerField,
+    correctValue,
+    effectiveOptionCount,
+  );
 
   return {
     ...base,
@@ -593,10 +686,11 @@ function assertOptionInvariants(
   options: readonly QuestionOption[],
   answerField: AnswerField,
   correctValue: string,
+  optionCount: number,
 ): void {
-  if (options.length !== DEFAULT_OPTION_COUNT) {
+  if (options.length !== optionCount) {
     throw new QuestionGenerationError(
-      `expected ${DEFAULT_OPTION_COUNT} options, built ${options.length}`,
+      `expected ${optionCount} options, built ${options.length}`,
     );
   }
   const keys = options.map((option) =>
@@ -626,7 +720,13 @@ function assertOptionInvariants(
 /* Public API                                                          */
 /* ------------------------------------------------------------------ */
 
-export const DELIVERY_MODES = ["mc", "flashcard", "timed", "test"] as const;
+export const DELIVERY_MODES = [
+  "mc",
+  "flashcard",
+  "timed",
+  "test",
+  "timed_test",
+] as const;
 
 export type GenerateQuestionRequest = {
   identity: ComponentIdentity;
@@ -647,6 +747,11 @@ export type GenerateQuestionRequest = {
   position: number;
   /** Entry-level prompt form (bāb/root/verb-type). Ignored for translations. */
   promptForm?: SourceQuizFormField;
+  /**
+   * MC option count (§4.4 — default 4, learner-configurable). Ignored for
+   * flashcards. Folded into the instance identity when non-default.
+   */
+  optionCount?: number;
 };
 
 /** Generate a question for a component. Deterministic in every input. */
@@ -673,6 +778,7 @@ export function generateQuestion(
     questionSeed: request.questionSeed,
     position: request.position,
     requestedPromptForm: request.promptForm,
+    requestedOptionCount: request.optionCount,
   });
 }
 
@@ -688,6 +794,13 @@ export function specForQuestion(instance: QuestionInstance): QuestionSpec {
     deliveryMode: instance.deliveryMode,
     promptField: instance.promptField,
     position: instance.position,
+    // OMITTED at the default: a default-4 spec keeps the exact pre-Phase-11
+    // generator-version-1 wire shape, so serialising a regenerated legacy
+    // spec reproduces the recorded bytes — the field appears only when a
+    // non-default count genuinely shaped the question.
+    ...(instance.optionCount !== DEFAULT_OPTION_COUNT
+      ? { optionCount: instance.optionCount }
+      : {}),
     allowedAnswerRefs: instance.allowedAnswerRefs,
     correctAnswerRef: instance.correctAnswerRef,
     hintState: instance.hintState,
@@ -755,6 +868,10 @@ export function generateFromSpec(
     questionSeed: spec.questionSeed,
     position: spec.position,
     requestedPromptForm: promptFormFromSpec(spec, resolved),
+    // Specs recorded before Phase 11 carry no option count: they were built
+    // with the default 4, so regenerating with the default reproduces them
+    // exactly. buildQuestion validates any explicit value.
+    requestedOptionCount: spec.optionCount ?? DEFAULT_OPTION_COUNT,
   });
 
   // Tamper detection: the recorded derived fields must match what regeneration

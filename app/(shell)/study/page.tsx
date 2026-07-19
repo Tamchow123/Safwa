@@ -93,6 +93,24 @@ export default function StudyPage() {
       <Card>
         <CardHeader>
           <CardTitle>
+            <h2 className="text-base font-semibold">Custom session</h2>
+          </CardTitle>
+          <CardDescription>
+            Compose your own session: mode, forms, bāb, verb type, book pages,
+            progress state, question count, timed and test mode.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/study/custom" data-testid="start-custom-session">
+              Configure a custom session
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>
             <h2 className="text-base font-semibold">Root quiz</h2>
           </CardTitle>
           <CardDescription>

@@ -134,7 +134,10 @@ prompt_field · prompt_ref {entry_id, field}
 selected_answer_ref {entry_id, field} · correct_answer_ref {entry_id, field}
 is_correct boolean            -- server-derived for objective attempts
 is_first_attempt · is_reinforcement · hint_used · hint_type
-response_time_ms · question_position · mode (flashcard|mc|test|timed)
+response_time_ms · question_position · mode (flashcard|mc|test|timed|timed_test)
+option_count                  -- MC options generated (absent ⇒ 4, pre-Phase-11)
+per_question_limit_ms         -- timed grading limit (absent ⇒ 20000 for timed
+                              -- modes, pre-Phase-11; null ⇒ untimed)
 question_instance_id · question_seed · question_generator_version
 occurred_at_utc · timezone_at_event · utc_offset_minutes_at_event
 local_date_at_event · timezone_source (browser_detected|user_setting|server_fallback)

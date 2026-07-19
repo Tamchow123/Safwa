@@ -88,6 +88,7 @@ describe("attempt records", () => {
         isReinforcement: false,
         hint: { used: true, type: "bab" },
         responseTimeMs: 1234,
+        perQuestionLimitMs: null,
       },
       clock,
     );
@@ -140,10 +141,12 @@ describe("attempt records", () => {
         isReinforcement: false,
         hint: { used: false, type: null },
         responseTimeMs: 0,
+        perQuestionLimitMs: 20000,
       },
       clock,
     );
     expect(attempt.selectedAnswerRef).toBeNull();
+    expect(attempt.perQuestionLimitMs).toBe(20000);
     expect(attempt.userId).toBe("user-1");
     // The delivery mode comes from the instance, never a separate input.
     expect(attempt.mode).toBe("timed");
@@ -162,6 +165,7 @@ describe("attempt records", () => {
           isReinforcement: false,
           hint: { used: false, type: null },
           responseTimeMs: -1,
+          perQuestionLimitMs: null,
         },
         clock,
       ),
@@ -185,6 +189,7 @@ describe("attempt records", () => {
             isReinforcement: false,
             hint: { used: false, type: null },
             responseTimeMs: bad,
+            perQuestionLimitMs: null,
           },
           clock,
         ),

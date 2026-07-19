@@ -47,6 +47,8 @@ export function makeAttempt(
     responseTimeMs: 1000,
     questionPosition: 0,
     mode: "mc",
+    optionCount: 4,
+    perQuestionLimitMs: null,
     questionInstanceId: "qid-1",
     questionSeed: "seed-1",
     questionGeneratorVersion: "1",

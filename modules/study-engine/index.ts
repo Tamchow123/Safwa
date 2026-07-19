@@ -12,6 +12,7 @@ export * from "@/modules/study-engine/fields";
 export * from "@/modules/study-engine/components";
 export * from "@/modules/study-engine/distractors";
 export * from "@/modules/study-engine/generator";
+export * from "@/modules/study-engine/hints";
 export * from "@/modules/study-engine/correctness";
 export * from "@/modules/study-engine/attempts";
 export * from "@/modules/study-engine/session";

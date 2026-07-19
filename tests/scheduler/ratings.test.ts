@@ -18,6 +18,10 @@ describe("FSRS rating mapping (PRODUCT_REQUIREMENTS §5)", () => {
     { mode: "timed", isCorrect: true, hintUsed: false, expected: "good" },
     { mode: "timed", isCorrect: true, hintUsed: true, expected: "hard" },
     { mode: "timed", isCorrect: false, hintUsed: false, expected: "again" },
+    // The combined timed+test composition (Phase 11) maps identically.
+    { mode: "timed_test", isCorrect: true, hintUsed: false, expected: "good" },
+    { mode: "timed_test", isCorrect: true, hintUsed: true, expected: "hard" },
+    { mode: "timed_test", isCorrect: false, hintUsed: true, expected: "again" },
     // Flashcards are self-graded: "I know" is always Good, never downgraded to
     // Hard by a (spurious) hint; "I don't know" is Again.
     { mode: "flashcard", isCorrect: true, hintUsed: false, expected: "good" },
@@ -36,7 +40,13 @@ describe("FSRS rating mapping (PRODUCT_REQUIREMENTS §5)", () => {
   );
 
   it("never produces Easy", () => {
-    const modes: AttemptMode[] = ["mc", "test", "timed", "flashcard"];
+    const modes: AttemptMode[] = [
+      "mc",
+      "test",
+      "timed",
+      "timed_test",
+      "flashcard",
+    ];
     const ratings = new Set(
       modes.flatMap((mode) =>
         [true, false].flatMap((isCorrect) =>

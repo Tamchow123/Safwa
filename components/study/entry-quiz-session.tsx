@@ -18,6 +18,7 @@ import {
   type QuizPlanEntry,
 } from "@/components/study/quiz-runner";
 import { FIELD_LABELS } from "@/components/study/study-shared";
+import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import type { LearnerEntry } from "@/modules/content/schema";
 import {
   buildEntryQuizPlan,
@@ -46,6 +47,8 @@ const EMPTY_MESSAGES: Record<EntryQuizSkill, string> = {
 /** Top-level: loads content, hosts the prompt-form bar, mounts the runner. */
 export function EntryQuizSession({ skill }: { skill: EntryQuizSkill }) {
   const { state, retry } = useActiveContent();
+  // The learner-editable session defaults (§4.4): count + option count.
+  const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
   const [promptForm, setPromptForm] = useState<PromptFormChoice>(
     DEFAULT_ENTRY_LEVEL_PROMPT_FORM,
   );
@@ -55,14 +58,23 @@ export function EntryQuizSession({ skill }: { skill: EntryQuizSkill }) {
 
   const buildPlan = useCallback(
     (entries: LearnerEntry[], seed: string): QuizPlanEntry[] =>
-      buildEntryQuizPlan(entries, { skill, promptForm }, seed),
-    [skill, promptForm],
+      buildEntryQuizPlan(
+        entries,
+        { skill, promptForm },
+        seed,
+        defaults.questionCount,
+      ),
+    [skill, promptForm, defaults.questionCount],
   );
 
-  if (state.status === "loading" || state.status === "error") {
+  if (
+    state.status === "loading" ||
+    state.status === "error" ||
+    !defaultsLoaded
+  ) {
     return (
       <ContentStateFallback
-        status={state.status}
+        status={state.status === "error" ? "error" : "loading"}
         message={state.status === "error" ? state.message : undefined}
         ariaLabel="Loading quiz"
         retry={retry}
@@ -99,13 +111,14 @@ export function EntryQuizSession({ skill }: { skill: EntryQuizSkill }) {
         </label>
       </div>
       <QuizRunner
-        key={`${skill}|${promptForm}|${sessionToken}`}
+        key={`${skill}|${promptForm}|${defaults.questionCount}|${defaults.optionCount}|${sessionToken}`}
         entries={state.entries}
         releaseId={state.releaseId}
         contentVersion={state.contentVersion}
         questionGeneratorVersion={state.questionGeneratorVersion}
         buildPlan={buildPlan}
         delivery="immediate"
+        optionCount={defaults.optionCount}
         emptyMessage={EMPTY_MESSAGES[skill]}
         onStudyAgain={() => setSessionToken((token) => token + 1)}
       />

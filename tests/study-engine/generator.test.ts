@@ -746,3 +746,235 @@ describe("question generation — eligibility accept/reject (all entries × skil
     }
   }, 60000);
 });
+
+describe("option count (Phase 11, configurable §4.4)", () => {
+  const identity = {
+    entryId: 1,
+    skillType: "meaning_recognition" as const,
+    sourceField: "madi" as const,
+    direction: "arabic_to_english" as const,
+  };
+
+  it("an omitted option count and an explicit default are byte-identical (id stability)", () => {
+    const omitted = generateQuestion(questionContext, mcRequest({ identity }));
+    const explicit = generateQuestion(
+      questionContext,
+      mcRequest({ identity, optionCount: DEFAULT_OPTION_COUNT }),
+    );
+    // Recorded pre-Phase-11 questions were built with the implicit default;
+    // the explicit default must reproduce them EXACTLY (same instance id,
+    // same options) so no recorded attempt/spec is orphaned.
+    expect(explicit).toEqual(omitted);
+    expect(omitted.optionCount).toBe(DEFAULT_OPTION_COUNT);
+    expect(omitted.options).toHaveLength(DEFAULT_OPTION_COUNT);
+  });
+
+  it("builds the requested number of options with all invariants intact", () => {
+    for (const optionCount of [2, 6, 8]) {
+      const question = generateQuestion(
+        questionContext,
+        mcRequest({ identity, optionCount }),
+      );
+      expect(question.optionCount).toBe(optionCount);
+      expect(question.options).toHaveLength(optionCount);
+      expect(question.allowedAnswerRefs).toHaveLength(optionCount);
+      expect(
+        question.options.filter((option) => option.isCorrect),
+      ).toHaveLength(1);
+      const keys = question.options.map((option) =>
+        normalizeForComparison(option.displayValue),
+      );
+      expect(new Set(keys).size).toBe(optionCount);
+    }
+  });
+
+  it("folds a non-default count into the instance identity", () => {
+    const four = generateQuestion(questionContext, mcRequest({ identity }));
+    const six = generateQuestion(
+      questionContext,
+      mcRequest({ identity, optionCount: 6 }),
+    );
+    expect(six.questionInstanceId).not.toBe(four.questionInstanceId);
+  });
+
+  it("rejects out-of-range or non-integer option counts", () => {
+    for (const bad of [1, 9, 2.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        generateQuestion(
+          questionContext,
+          mcRequest({ identity, optionCount: bad }),
+        ),
+      ).toThrow(QuestionGenerationError);
+    }
+  });
+
+  it("round-trips a non-default count through the recorded spec", () => {
+    const question = generateQuestion(
+      questionContext,
+      mcRequest({ identity, optionCount: 6 }),
+    );
+    const spec = specForQuestion(question);
+    expect(spec.optionCount).toBe(6);
+    const regenerated = generateFromSpec(questionContext, spec);
+    expect(regenerated).toEqual(question);
+  });
+
+  it("regenerates a pre-Phase-11 spec (no optionCount field) with the default 4", () => {
+    const question = generateQuestion(questionContext, mcRequest({ identity }));
+    const spec = specForQuestion(question);
+    // Simulate a spec recorded before option counts existed on the wire.
+    const legacy = { ...spec } as Partial<typeof spec>;
+    delete legacy.optionCount;
+    const regenerated = generateFromSpec(
+      questionContext,
+      legacy as typeof spec,
+    );
+    expect(regenerated).toEqual(question);
+  });
+
+  it("ignores the option count for flashcards (no options; identity unchanged)", () => {
+    const flashIdentity = { ...identity };
+    const base = generateQuestion(questionContext, {
+      identity: flashIdentity,
+      deliveryMode: "flashcard",
+      questionSeed: "seed-1",
+      position: 0,
+    });
+    const withCount = generateQuestion(questionContext, {
+      identity: flashIdentity,
+      deliveryMode: "flashcard",
+      questionSeed: "seed-1",
+      position: 0,
+      optionCount: 6,
+    });
+    expect(withCount).toEqual(base);
+    expect(base.options).toHaveLength(0);
+    expect(base.optionCount).toBe(DEFAULT_OPTION_COUNT);
+  });
+});
+
+describe("option count — per-question clamping to the supported pool (Phase 11 P1 fix)", () => {
+  const babIdentity = { entryId: 1, skillType: "bab_identification" as const };
+
+  it("clamps a bāb question to six options (six bābs) instead of throwing", () => {
+    for (const requested of [6, 7, 8]) {
+      const question = generateQuestion(
+        questionContext,
+        mcRequest({ identity: babIdentity, optionCount: requested }),
+      );
+      // Six bābs total → at most 5 distractors + the correct pair.
+      expect(question.optionCount).toBe(6);
+      expect(question.options).toHaveLength(6);
+      expect(
+        question.options.filter((option) => option.isCorrect),
+      ).toHaveLength(1);
+    }
+  });
+
+  it("clamped questions share one identity (7 and 8 both clamp to 6)", () => {
+    const at6 = generateQuestion(
+      questionContext,
+      mcRequest({ identity: babIdentity, optionCount: 6 }),
+    );
+    const at7 = generateQuestion(
+      questionContext,
+      mcRequest({ identity: babIdentity, optionCount: 7 }),
+    );
+    const at8 = generateQuestion(
+      questionContext,
+      mcRequest({ identity: babIdentity, optionCount: 8 }),
+    );
+    // The EFFECTIVE count is the identity input, so the same rendered
+    // question never carries two different ids.
+    expect(at7).toEqual(at6);
+    expect(at8).toEqual(at6);
+  });
+
+  it("round-trips a clamped question through its recorded spec", () => {
+    const question = generateQuestion(
+      questionContext,
+      mcRequest({ identity: babIdentity, optionCount: 8 }),
+    );
+    const spec = specForQuestion(question);
+    expect(spec.optionCount).toBe(6);
+    expect(generateFromSpec(questionContext, spec)).toEqual(question);
+  });
+
+  it("never clamps a translation question with a large pool", () => {
+    const question = generateQuestion(
+      questionContext,
+      mcRequest({
+        identity: {
+          entryId: 1,
+          skillType: "meaning_recognition" as const,
+          sourceField: "madi" as const,
+          direction: "arabic_to_english" as const,
+        },
+        optionCount: 8,
+      }),
+    );
+    expect(question.optionCount).toBe(8);
+    expect(question.options).toHaveLength(8);
+  });
+});
+
+describe("option count — durable reproducibility (Codex round-2 fixes)", () => {
+  const identity = {
+    entryId: 1,
+    skillType: "meaning_recognition" as const,
+    sourceField: "madi" as const,
+    direction: "arabic_to_english" as const,
+  };
+
+  it("a default-4 spec keeps the exact pre-Phase-11 wire shape (no optionCount key)", () => {
+    const question = generateQuestion(questionContext, mcRequest({ identity }));
+    const spec = specForQuestion(question);
+    expect("optionCount" in spec).toBe(false);
+    // Golden shape: exactly the generator-version-1 field set, nothing more.
+    expect(Object.keys(spec).sort()).toEqual(
+      [
+        "allowedAnswerRefs",
+        "componentKey",
+        "contentVersion",
+        "correctAnswerRef",
+        "deliveryMode",
+        "hintState",
+        "position",
+        "promptField",
+        "questionGeneratorVersion",
+        "questionInstanceId",
+        "questionSeed",
+        "releaseId",
+      ].sort(),
+    );
+    // A non-default spec carries the field (it shaped the question).
+    const six = specForQuestion(
+      generateQuestion(
+        questionContext,
+        mcRequest({ identity, optionCount: 6 }),
+      ),
+    );
+    expect(six.optionCount).toBe(6);
+  });
+
+  it("a recorded attempt regenerates its exact question after the setting changes", () => {
+    // Generate at 6 options (the learner's setting at answer time).
+    const original = generateQuestion(
+      questionContext,
+      mcRequest({ identity, optionCount: 6, questionSeed: "recorded-seed" }),
+    );
+    // Later the device setting is different (say 4) — reconstruction must use
+    // the count RECORDED on the attempt (instance.optionCount), never the
+    // current mutable setting.
+    const reconstructed = generateQuestion(
+      questionContext,
+      mcRequest({
+        identity,
+        optionCount: original.optionCount,
+        questionSeed: "recorded-seed",
+      }),
+    );
+    expect(reconstructed).toEqual(original);
+    expect(reconstructed.questionInstanceId).toBe(original.questionInstanceId);
+  });
+});

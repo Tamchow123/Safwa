@@ -35,12 +35,14 @@ import {
   type SessionState,
 } from "@/modules/study-engine/session";
 import type { FlashcardSelfGrade } from "@/modules/study-engine/correctness";
+import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import {
   buildFlashcardPlan,
   DEFAULT_FLASHCARD_CONFIG,
   type FlashcardConfig,
   type FlashcardDirectionChoice,
   type FlashcardFieldChoice,
+  type FlashcardPlanItem,
 } from "@/modules/study-session/flashcards";
 import {
   recordGradedAttempt,
@@ -68,9 +70,17 @@ const FIELD_OPTIONS: { value: FlashcardFieldChoice; label: string }[] = [
 
 const SWIPE_THRESHOLD_PX = 48;
 
+/** Build the flashcard plan for one runner mount. May read local state. */
+export type FlashcardPlanBuilder = (
+  entries: LearnerEntry[],
+  seed: string,
+) => FlashcardPlanItem[] | Promise<FlashcardPlanItem[]>;
+
 /** Top-level: loads content, hosts the options bar, and mounts the runner. */
 export function FlashcardSession() {
   const { state, retry } = useActiveContent();
+  // The learner-editable session defaults (§4.4): questions per session.
+  const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
   const [config, setConfig] = useState<FlashcardConfig>(
     DEFAULT_FLASHCARD_CONFIG,
   );
@@ -78,7 +88,13 @@ export function FlashcardSession() {
   // "Study again" and by any options change).
   const [sessionToken, setSessionToken] = useState(0);
 
-  if (state.status === "loading") {
+  const buildPlan = useCallback(
+    (entries: LearnerEntry[], seed: string): FlashcardPlanItem[] =>
+      buildFlashcardPlan(entries, config, seed, defaults.questionCount),
+    [config, defaults.questionCount],
+  );
+
+  if (state.status === "loading" || !defaultsLoaded) {
     return (
       <div className="space-y-4" role="status" aria-label="Loading flashcards">
         <Skeleton className="h-10 w-full" />
@@ -110,12 +126,12 @@ export function FlashcardSession() {
     <div className="space-y-5">
       <OptionsBar config={config} onChange={updateConfig} />
       <FlashcardRunner
-        key={`${config.direction}|${config.field}|${sessionToken}`}
+        key={`${config.direction}|${config.field}|${defaults.questionCount}|${sessionToken}`}
         entries={state.entries}
         releaseId={state.releaseId}
         contentVersion={state.contentVersion}
         questionGeneratorVersion={state.questionGeneratorVersion}
-        config={config}
+        buildPlan={buildPlan}
         onStudyAgain={() => setSessionToken((token) => token + 1)}
       />
     </div>
@@ -179,19 +195,28 @@ function OptionsBar({
 
 type RunnerStatus = "initialising" | "active" | "complete" | "empty" | "error";
 
-function FlashcardRunner({
+/**
+ * The flashcard session runner, parameterised by a plan builder (like the MC
+ * QuizRunner) so the standard flashcard route and Phase-11 custom sessions
+ * share the same grading, persistence and undo machinery. Exported for the
+ * custom-session screen.
+ */
+export function FlashcardRunner({
   entries,
   releaseId,
   contentVersion,
   questionGeneratorVersion,
-  config,
+  buildPlan,
+  emptyMessage = "No eligible flashcards match these options. Try a different form or direction.",
   onStudyAgain,
 }: {
   entries: LearnerEntry[];
   releaseId: string;
   contentVersion: string;
   questionGeneratorVersion: string;
-  config: FlashcardConfig;
+  /** Must be referentially stable per mount (callers memoise + remount by key). */
+  buildPlan: FlashcardPlanBuilder;
+  emptyMessage?: string;
   onStudyAgain: () => void;
 }) {
   const [status, setStatus] = useState<RunnerStatus>("initialising");
@@ -241,7 +266,7 @@ function FlashcardRunner({
         if (existing) deviceBound.current = true;
         const deviceId = existing?.deviceId ?? uuidv7();
         const seed = uuidv7();
-        const plan = buildFlashcardPlan(entries, config, seed);
+        const plan = await buildPlan(entries, seed);
         if (cancelled) return;
         if (plan.length === 0) {
           setStatus("empty");
@@ -267,7 +292,7 @@ function FlashcardRunner({
     return () => {
       cancelled = true;
     };
-  }, [context, entries, config]);
+  }, [context, entries, buildPlan]);
 
   const instance: QuestionInstance | null = useMemo(() => {
     if (!session || !context || session.status !== "active") return null;
@@ -395,9 +420,11 @@ function FlashcardRunner({
   if (status === "empty") {
     return (
       <Card>
-        <CardContent className="text-muted-foreground text-sm">
-          No eligible flashcards match these options. Try a different form or
-          direction.
+        <CardContent
+          className="text-muted-foreground text-sm"
+          data-testid="flashcard-empty"
+        >
+          {emptyMessage}
         </CardContent>
       </Card>
     );

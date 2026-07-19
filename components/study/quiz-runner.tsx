@@ -36,10 +36,12 @@ import { ensureDurableGuestState } from "@/modules/profile/persistence";
 import { isSourceFormField } from "@/modules/study-engine/fields";
 import {
   createQuestionContext,
+  type HintState,
   type QuestionContext,
   type QuestionInstance,
   type QuestionOption,
 } from "@/modules/study-engine/generator";
+import { availableHints, type HintContent } from "@/modules/study-engine/hints";
 import type { ComponentIdentity } from "@/modules/study-engine/natural-key";
 import {
   canUndo,
@@ -86,7 +88,15 @@ function sessionConfigForDelivery(
     case "timed":
       // The engine defaults the per-question limit to the documented 20s.
       return { mode: "mc", timed: true };
+    case "timed_test":
+      // The Phase-11 combined composition: countdown AND withheld feedback.
+      return { mode: "mc", timed: true, testMode: true };
   }
+}
+
+/** Does this delivery run the per-question countdown? */
+function isTimedDelivery(delivery: QuizDelivery): boolean {
+  return delivery === "timed" || delivery === "timed_test";
 }
 
 /**
@@ -145,6 +155,8 @@ export function QuizRunner({
   questionGeneratorVersion,
   buildPlan,
   delivery,
+  perQuestionLimitMs,
+  optionCount,
   emptyMessage,
   onStudyAgain,
 }: {
@@ -155,6 +167,10 @@ export function QuizRunner({
   /** Must be referentially stable per mount (callers memoise + remount by key). */
   buildPlan: QuizPlanBuilder;
   delivery: QuizDelivery;
+  /** Timed deliveries only: per-question limit (engine default 20s if omitted). */
+  perQuestionLimitMs?: number;
+  /** MC options per question (§4.4 — engine default 4 if omitted). */
+  optionCount?: number;
   emptyMessage: string;
   onStudyAgain: () => void;
 }) {
@@ -172,6 +188,13 @@ export function QuizRunner({
   // state (an expired countdown, `shownAtRef`, `firedTimeout`) — leaving the
   // restored timed question un-answerable (every click reads as another lapse).
   const [viewEpoch, setViewEpoch] = useState(0);
+  // The single hint taken for the CURRENT question. Owned by the runner, NOT
+  // the question view: a failed persistence write remounts the view (fresh
+  // countdown), and hint exposure is learning state that must survive that
+  // retry — otherwise a transient IndexedDB failure would upgrade a hinted
+  // answer to full credit (Good instead of Hard). Cleared only when the
+  // session ADVANCES past the question (next / test-mode auto-advance / undo).
+  const [usedHint, setUsedHint] = useState<HintContent | null>(null);
 
   const context = useMemo<QuestionContext | null>(() => {
     try {
@@ -214,7 +237,13 @@ export function QuizRunner({
             sessionId: uuidv7(),
             seed,
             deviceId,
-            config: sessionConfigForDelivery(delivery),
+            config: {
+              ...sessionConfigForDelivery(delivery),
+              ...(perQuestionLimitMs !== undefined && isTimedDelivery(delivery)
+                ? { perQuestionLimitMs }
+                : {}),
+              ...(optionCount !== undefined ? { optionCount } : {}),
+            },
             items: plan.map((item) => ({
               identity: item.identity,
               promptForm: item.promptForm,
@@ -232,16 +261,30 @@ export function QuizRunner({
     return () => {
       cancelled = true;
     };
-  }, [context, entries, buildPlan, delivery]);
+  }, [context, entries, buildPlan, delivery, perQuestionLimitMs, optionCount]);
 
-  const instance: QuestionInstance | null = useMemo(() => {
-    if (!session || !context || session.status !== "active") return null;
-    return currentQuestion(session, context);
-  }, [session, context]);
+  // Render-time question generation is guarded: a generation failure (e.g. a
+  // pool unable to fill the configured option count in an unforeseen case)
+  // must surface as the recoverable error card, never an uncaught render
+  // exception that blanks the app mid-session.
+  const instance: QuestionInstance | null | "generation_failed" =
+    useMemo(() => {
+      if (!session || !context || session.status !== "active") return null;
+      try {
+        return currentQuestion(session, context);
+      } catch {
+        return "generation_failed";
+      }
+    }, [session, context]);
 
   const answer = useCallback(
-    async (selectedRef: AnswerReference | null, responseTimeMs: number) => {
+    async (
+      selectedRef: AnswerReference | null,
+      responseTimeMs: number,
+      hint?: HintState,
+    ) => {
       if (!session || !context || !instance || busy) return;
+      if (instance === "generation_failed") return;
       setBusy(true);
       setActionError(null);
       try {
@@ -251,6 +294,7 @@ export function QuizRunner({
           attemptId: uuidv7(),
           questionInstanceId: instance.questionInstanceId,
           selectedAnswerRef: selectedRef ?? undefined,
+          hint,
           responseTimeMs: Math.max(0, responseTimeMs),
           clock,
         });
@@ -296,8 +340,15 @@ export function QuizRunner({
             selectedRef: engineSelected,
             timedOut: session.config.timed && engineSelected === null,
           });
+          // The taken hint stays visible with the feedback; it is cleared
+          // when the learner advances (advanceAfterFeedback).
         } else if (nextState.status === "complete") {
+          setUsedHint(null);
           setStatus("complete");
+        } else {
+          // Test mode advances straight to the next question: this question's
+          // hint is spent and must not leak onto the next one.
+          setUsedHint(null);
         }
       } catch {
         // The write is atomic (Dexie transaction) — nothing was half-saved and
@@ -322,6 +373,7 @@ export function QuizRunner({
     if (!session) return;
     setAnswered(null);
     setActionError(null);
+    setUsedHint(null);
     if (session.status === "complete") setStatus("complete");
   }, [session]);
 
@@ -337,6 +389,8 @@ export function QuizRunner({
       lastPersisted.current = null;
       setSession(undo(session));
       setAnswered(null);
+      // The undone question is re-presented FRESH — including its hint offer.
+      setUsedHint(null);
       setStatus("active");
       // Force a fresh QuestionView mount for the restored (same-id) question so
       // its per-question timer/response-time state resets to a full countdown.
@@ -358,7 +412,7 @@ export function QuizRunner({
     }
   }, [session, busy]);
 
-  if (!context || status === "error") {
+  if (!context || status === "error" || instance === "generation_failed") {
     return (
       <Card>
         <CardContent role="alert" className="text-destructive text-sm">
@@ -419,6 +473,9 @@ export function QuizRunner({
       total={session.plan.length}
       delivery={delivery}
       perQuestionLimitMs={session.config.perQuestionLimitMs}
+      hints={availableHints(context, displayInstance)}
+      usedHint={usedHint}
+      onTakeHint={setUsedHint}
       answered={answered}
       canUndo={canUndo(session)}
       busy={busy}
@@ -443,6 +500,9 @@ function QuestionView({
   total,
   delivery,
   perQuestionLimitMs,
+  hints,
+  usedHint,
+  onTakeHint,
   answered,
   canUndo: undoAvailable,
   busy,
@@ -457,6 +517,11 @@ function QuestionView({
   total: number;
   delivery: QuizDelivery;
   perQuestionLimitMs: number | null;
+  hints: HintContent[];
+  /** The hint taken for this question — owned by the RUNNER so it survives a
+   * failed-write remount of this view (a retry must stay hinted). */
+  usedHint: HintContent | null;
+  onTakeHint: (hint: HintContent) => void;
   answered: AnsweredState | null;
   canUndo: boolean;
   busy: boolean;
@@ -464,6 +529,7 @@ function QuestionView({
   onAnswer: (
     selectedRef: AnswerReference | null,
     responseTimeMs: number,
+    hint?: HintState,
   ) => void;
   onNext: () => void;
   onUndo: () => void;
@@ -471,16 +537,26 @@ function QuestionView({
   const shownAtRef = useRef<number>(0);
   const firstOptionRef = useRef<HTMLButtonElement | null>(null);
   const nextRef = useRef<HTMLButtonElement | null>(null);
-  const isTimed = delivery === "timed" && perQuestionLimitMs !== null;
+  const hintDisplayRef = useRef<HTMLDivElement | null>(null);
+  const isTimed = isTimedDelivery(delivery) && perQuestionLimitMs !== null;
   const [remainingMs, setRemainingMs] = useState<number>(
     perQuestionLimitMs ?? 0,
   );
   // Guards the one-shot timeout submit so a re-render can never fire it twice.
   const firedTimeout = useRef(false);
 
+  /** The engine hint-state for the taken hint (undefined = fresh no-hint). */
+  const hintStateOf = (hint: HintContent | null): HintState | undefined =>
+    hint ? { used: true, type: hint.type } : undefined;
+
   useEffect(() => {
     shownAtRef.current = Date.now();
-    firstOptionRef.current?.focus();
+    // On a fresh question the first option is the natural focus start. When a
+    // hint is already taken (a failed-write remount), the hint effect below
+    // owns focus instead — guarded explicitly, not by effect ordering.
+    if (!usedHint) firstOptionRef.current?.focus();
+    // Mount-only: the hint effect handles later transitions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Move focus to Next when feedback appears so keyboard users continue easily.
@@ -488,24 +564,36 @@ function QuestionView({
     if (answered) nextRef.current?.focus();
   }, [answered]);
 
+  // Taking a hint replaces the (focused) hint buttons with the display card:
+  // move focus onto the card so keyboard/SR users don't fall to <body>, and
+  // so the revealed value is announced from the focus target.
+  useEffect(() => {
+    if (usedHint && !answered) hintDisplayRef.current?.focus();
+  }, [usedHint, answered]);
+
   // Per-question countdown (timed mode). Stops once the question is answered.
   useEffect(() => {
     if (!isTimed || perQuestionLimitMs === null || answered) return;
-    const start = shownAtRef.current || Date.now();
     const tick = () => {
+      // shownAtRef is stamped by the mount effect (declared first, so it has
+      // already run); the Date.now fallback only guards a zero-stamped ref.
+      const start = shownAtRef.current || Date.now();
       const remaining = perQuestionLimitMs - (Date.now() - start);
       setRemainingMs(Math.max(0, remaining));
       if (remaining <= 0 && !firedTimeout.current) {
         firedTimeout.current = true;
         // Submit a lapse: no selection, response time at the limit (the engine
         // derives the timeout solely from response time, counting it incorrect).
-        onAnswer(null, perQuestionLimitMs);
+        // A taken hint is still recorded (hinted incorrect ⇒ Again, §4.4).
+        onAnswer(null, perQuestionLimitMs, hintStateOf(usedHint));
       }
     };
     tick();
     const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [isTimed, perQuestionLimitMs, answered, onAnswer]);
+    // Re-arming the interval when the hint changes is harmless: the countdown
+    // derives from shownAtRef, so recreation never resets the remaining time.
+  }, [isTimed, perQuestionLimitMs, answered, onAnswer, usedHint]);
 
   const revealedForm = revealedFormField(instance);
   const remainingSeconds = Math.ceil(remainingMs / 1000);
@@ -520,6 +608,8 @@ function QuestionView({
       data-answer-field={instance.answerField}
       data-source-field={instance.sourceField ?? ""}
       data-delivery={delivery}
+      data-hint-used={usedHint !== null}
+      data-hint-type={usedHint?.type ?? ""}
     >
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-sm" aria-live="polite">
@@ -561,6 +651,62 @@ function QuestionView({
         </CardContent>
       </Card>
 
+      {hints.length > 0 && !answered ? (
+        <div className="space-y-2" data-testid="hint-bar">
+          {usedHint === null ? (
+            <div
+              role="group"
+              aria-label="Hints"
+              className="flex flex-wrap items-center gap-2"
+            >
+              <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                Hint
+              </span>
+              {hints.map((hint) => (
+                <Button
+                  key={hint.type}
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  disabled={busy}
+                  onClick={() => onTakeHint(hint)}
+                  data-testid={`hint-${hint.type}`}
+                >
+                  {hint.label}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <Card
+              ref={hintDisplayRef}
+              tabIndex={-1}
+              data-testid="hint-display"
+              data-hint-type={usedHint.type}
+              // Focus is moved here programmatically when the (focused) hint
+              // button disappears — the indicator must stay VISIBLE for
+              // keyboard users, so a plain :focus ring, not :focus-visible.
+              className="focus:border-ring focus:ring-ring/50 outline-none focus:ring-3"
+            >
+              <CardContent className="flex items-center gap-3 py-3 text-sm">
+                <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  {usedHint.label}
+                </span>
+                {usedHint.isArabic ? (
+                  <ArabicText className="text-xl">{usedHint.value}</ArabicText>
+                ) : (
+                  <span>{usedHint.value}</span>
+                )}
+                {/* Reduced credit is a learning rule (§4.4): a hinted correct
+                    answer is rated Hard, so tell the learner up front. */}
+                <span className="text-muted-foreground ml-auto text-xs">
+                  Counts as partial credit
+                </span>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      ) : null}
+
       <div
         role="group"
         aria-label="Answer options"
@@ -575,7 +721,11 @@ function QuestionView({
             answered={answered}
             busy={busy}
             onChoose={() =>
-              onAnswer(option.ref, Date.now() - shownAtRef.current)
+              onAnswer(
+                option.ref,
+                Date.now() - shownAtRef.current,
+                hintStateOf(usedHint),
+              )
             }
           />
         ))}

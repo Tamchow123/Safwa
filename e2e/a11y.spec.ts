@@ -30,6 +30,15 @@ test.describe("accessibility", () => {
   test("settings page in light mode", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/settings");
+    // The study-defaults controls enable once the stored defaults load; the
+    // shared button/input styles animate that flip (transition-all), and a
+    // scan mid-transition reads semi-transparent text as a spurious contrast
+    // violation. Scan the steady state.
+    await expect(page.getByTestId("study-defaults-save")).toBeEnabled();
+    await expect(page.getByTestId("study-defaults-save")).toHaveCSS(
+      "opacity",
+      "1",
+    );
     await expectNoSeriousViolations(page);
   });
 
@@ -75,6 +84,12 @@ test.describe("accessibility", () => {
     });
     await page.goto("/settings");
     await expect(page.locator("html")).toHaveClass(/dark/);
+    // Steady-state scan (see the light-mode test above).
+    await expect(page.getByTestId("study-defaults-save")).toBeEnabled();
+    await expect(page.getByTestId("study-defaults-save")).toHaveCSS(
+      "opacity",
+      "1",
+    );
     await expectNoSeriousViolations(page);
   });
 });
