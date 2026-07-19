@@ -22,6 +22,71 @@ export const MASTERY_DAYS_REQUIRED = 3;
 export type LearnerState =
   "not_started" | "learning" | "mastered" | "needs_review";
 
+const LEARNER_STATE_VALUES: readonly LearnerState[] = [
+  "not_started",
+  "learning",
+  "mastered",
+  "needs_review",
+];
+
+const FSRS_STATE_VALUES: readonly SchedulerCard["state"][] = [
+  "new",
+  "learning",
+  "review",
+  "relearning",
+];
+
+/** Runtime guard for stored learner-state strings (IndexedDB rows may lie). */
+function isStoredLearnerState(value: unknown): value is LearnerState {
+  return LEARNER_STATE_VALUES.includes(value as LearnerState);
+}
+
+/**
+ * A stored FSRS card usable for effective-state decisions: a finite due
+ * instant and a known lifecycle state. A corrupt row fails safe (treated as
+ * no card), so damaged data can never inflate mastery.
+ */
+function isUsableCard(card: SchedulerCard): boolean {
+  return (
+    Number.isFinite(card.dueAtMs) && FSRS_STATE_VALUES.includes(card.state)
+  );
+}
+
+/**
+ * The EFFECTIVE learner state at `nowMs` from the STORED projection + card
+ * (PRODUCT_REQUIREMENTS.md §5 "due/lapsed after mastery").
+ *
+ * The stored projection is only rewritten when a scheduling event is written,
+ * so it goes stale as time passes: a component stored `mastered` whose card
+ * has since become due — or has lapsed into relearning — is `needs_review`
+ * NOW. Every current-state consumer (dashboard/progress analytics, the custom
+ * session state filter) derives through this one helper; two subtly different
+ * implementations are forbidden.
+ *
+ *  - no / corrupt card            → `not_started` (never inflates progress)
+ *  - stored mastered + due        → `needs_review`
+ *  - stored mastered + relearning → `needs_review`
+ *  - otherwise                    → the stored projection (an invalid stored
+ *                                   value fails safe to `not_started`)
+ */
+export function effectiveLearnerState(
+  storedState: LearnerState | undefined,
+  card: SchedulerCard | null | undefined,
+  nowMs: number,
+): LearnerState {
+  if (card == null || !isUsableCard(card)) return "not_started";
+  const stored = isStoredLearnerState(storedState)
+    ? storedState
+    : "not_started";
+  if (
+    stored === "mastered" &&
+    (isDue(card, nowMs) || card.state === "relearning")
+  ) {
+    return "needs_review";
+  }
+  return stored;
+}
+
 /**
  * Project the learner state from a replay result at the injected instant.
  *

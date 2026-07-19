@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { replayChain } from "@/modules/scheduler/chain";
-import type { FsrsState } from "@/modules/scheduler/fsrs";
-import { projectComponent } from "@/modules/scheduler/states";
+import type { FsrsState, SchedulerCard } from "@/modules/scheduler/fsrs";
+import {
+  effectiveLearnerState,
+  projectComponent,
+  type LearnerState,
+} from "@/modules/scheduler/states";
 
 import { buildChain, buildNaturalChain } from "./fixtures";
 
@@ -219,6 +223,103 @@ describe("learner state — mastered ↔ needs_review", () => {
       expect(replay.masteryDates.length).toBeLessThan(3);
       expect(projectComponent(events, replay.card!.dueAtMs - 1).state).toBe(
         "learning",
+      );
+    }
+  });
+});
+
+/** A well-formed stored card with overridable fields. */
+function makeCard(overrides: Partial<SchedulerCard> = {}): SchedulerCard {
+  return {
+    stability: 10,
+    difficulty: 5,
+    dueAtMs: T0 + 7 * 24 * 60 * 60 * 1000,
+    state: "review",
+    reps: 6,
+    lapses: 0,
+    scheduledDays: 7,
+    learningSteps: 0,
+    lastReviewAtMs: T0,
+    ...overrides,
+  };
+}
+
+describe("effectiveLearnerState (§5 due/lapsed after mastery, Phase 12 §7.2)", () => {
+  it("no card → not_started", () => {
+    expect(effectiveLearnerState("mastered", null, T0)).toBe("not_started");
+    expect(effectiveLearnerState(undefined, undefined, T0)).toBe("not_started");
+  });
+
+  it("stored mastered + due card → needs_review (inclusive at the due instant)", () => {
+    const card = makeCard({ dueAtMs: T0 });
+    expect(effectiveLearnerState("mastered", card, T0)).toBe("needs_review");
+    expect(effectiveLearnerState("mastered", card, T0 + 1)).toBe(
+      "needs_review",
+    );
+  });
+
+  it("stored mastered + relearning card → needs_review even before due", () => {
+    const card = makeCard({ state: "relearning", dueAtMs: T0 + 1000 });
+    expect(effectiveLearnerState("mastered", card, T0)).toBe("needs_review");
+  });
+
+  it("stored mastered + future-due review card stays mastered", () => {
+    const card = makeCard({ dueAtMs: T0 + 1 });
+    expect(effectiveLearnerState("mastered", card, T0)).toBe("mastered");
+  });
+
+  it("preserves a valid non-mastered projection (due-ness never promotes)", () => {
+    const due = makeCard({ dueAtMs: T0 - 1 });
+    expect(effectiveLearnerState("learning", due, T0)).toBe("learning");
+    expect(effectiveLearnerState("needs_review", makeCard(), T0)).toBe(
+      "needs_review",
+    );
+    expect(effectiveLearnerState("not_started", makeCard(), T0)).toBe(
+      "not_started",
+    );
+  });
+
+  it("missing or corrupt stored state fails safe to not_started", () => {
+    expect(effectiveLearnerState(undefined, makeCard(), T0)).toBe(
+      "not_started",
+    );
+    expect(
+      effectiveLearnerState("bogus" as unknown as LearnerState, makeCard(), T0),
+    ).toBe("not_started");
+  });
+
+  it("a corrupt card fails safe to not_started (never inflates mastery)", () => {
+    expect(
+      effectiveLearnerState("mastered", makeCard({ dueAtMs: Number.NaN }), T0),
+    ).toBe("not_started");
+    expect(
+      effectiveLearnerState(
+        "mastered",
+        makeCard({ state: "zombie" as unknown as FsrsState }),
+        T0,
+      ),
+    ).toBe("not_started");
+  });
+
+  it("agrees with the full replay projection as time passes", () => {
+    // Reach mastery, snapshot the STORED projection at write time, then move
+    // the clock past the due instant: the stored-projection helper and the
+    // full replay must flip to needs_review at the same instant.
+    const { events } = buildNaturalChain(
+      ["good", "good", "good", "good", "good", "good", "good", "good"],
+      T0,
+      distinctDates(),
+    );
+    const replay = replayChain(events);
+    expect(replay.masteryDates.length).toBeGreaterThanOrEqual(3);
+    const card = replay.card!;
+    const writeMs = card.lastReviewAtMs ?? T0;
+    const storedState = projectComponent(events, writeMs).state;
+    expect(storedState).toBe("mastered");
+
+    for (const nowMs of [card.dueAtMs - 1, card.dueAtMs, card.dueAtMs + 1]) {
+      expect(effectiveLearnerState(storedState, card, nowMs)).toBe(
+        projectComponent(events, nowMs).state,
       );
     }
   });
