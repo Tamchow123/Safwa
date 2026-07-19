@@ -44,6 +44,22 @@ describe("buildExportPayload", () => {
     });
   });
 
+  it("deliberately excludes the daily_activity derived cache (Phase 12 §24)", async () => {
+    // The cache is rebuildable from study_attempts/review_events; exporting
+    // it would ship derived data as if it were learner truth.
+    await db.dailyActivity.put({
+      localDate: "2026-07-17",
+      attempts: 3,
+      reviews: 1,
+      newItems: 2,
+      studyMs: 4500,
+      derivedAt: 1,
+    });
+    const payload = await buildExportPayload(db, () => 0);
+    expect(payload).not.toHaveProperty("daily_activity");
+    expect(payload).not.toHaveProperty("dailyActivity");
+  });
+
   it("includes every learner-state store and the active content reference", async () => {
     const profile = await getOrCreateDeviceProfile(db, {
       now: () => 1,

@@ -16,7 +16,6 @@ import type {
   SourceQuizFormField,
 } from "@/modules/content/constants";
 import type { LearnerEntry } from "@/modules/content/schema";
-import type { AttemptClock } from "@/modules/study-engine/attempts";
 import { fieldValue } from "@/modules/study-engine/fields";
 
 /** Source-form labels DERIVED from the single shared metadata map — never a
@@ -49,25 +48,6 @@ export function formName(field: SourceQuizFormField): string {
 /** Full form label (e.g. "Verbal noun (maṣdar)") from the shared metadata. */
 export function formLabel(field: SourceQuizFormField): string {
   return SOURCE_FORM_METADATA[field].label;
-}
-
-/**
- * The browser's wall clock + IANA timezone, injected into the pure engine so it
- * never reads Date.now / the ambient locale itself. Falls back to UTC when the
- * environment does not expose a resolved timezone.
- */
-export function browserClock(): AttemptClock {
-  let timezone = "UTC";
-  try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    timezone = "UTC";
-  }
-  return {
-    now: () => Date.now(),
-    timezone,
-    timezoneSource: "browser_detected",
-  };
 }
 
 /**

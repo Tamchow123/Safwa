@@ -99,12 +99,34 @@ vi.mock("@/modules/study-session/persistence", async (importActual) => {
   };
 });
 
+// The session-frozen effective clock (Phase 12): deterministic by default;
+// the single-resolution test overrides once to prove the snapshot clock is
+// threaded to the runner rather than re-resolved.
+const readEffectiveClock = vi.fn(
+  async (): Promise<import("@/modules/study-engine").AttemptClock> => ({
+    now: () => Date.now(),
+    timezone: "UTC",
+    timezoneSource: "browser_detected",
+  }),
+);
+
+vi.mock("@/modules/profile/timezone", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/modules/profile/timezone")>();
+  return {
+    ...actual,
+    readEffectiveClock: (...args: Parameters<typeof readEffectiveClock>) =>
+      readEffectiveClock(...args),
+  };
+});
+
 import { CustomSession } from "@/components/study/custom-session";
 
 afterEach(() => {
   vi.useRealTimers();
   readSchedulingSnapshot.mockClear();
   recordGradedAttempt.mockClear();
+  readEffectiveClock.mockClear();
 });
 
 async function renderSetup() {
@@ -270,6 +292,66 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
     await user.click(screen.getByTestId("study-again"));
     await screen.findByTestId("mc-quiz-session", undefined, { timeout: 4000 });
     expect(readSchedulingSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it("resolves the effective clock ONCE per session and stamps attempts with it (§10.6)", async () => {
+    // 2026-07-17T20:00Z is already 2026-07-18 in Asia/Tokyo (+09:00).
+    const fixedNowMs = Date.UTC(2026, 6, 17, 20, 0, 0);
+    readEffectiveClock.mockResolvedValueOnce({
+      now: () => fixedNowMs,
+      timezone: "Asia/Tokyo",
+      timezoneSource: "user_setting",
+    });
+
+    const user = userEvent.setup();
+    await renderSetup();
+    await user.click(screen.getByTestId("custom-start"));
+    await screen.findByTestId("mc-quiz-session", undefined, { timeout: 4000 });
+
+    await user.click(screen.getAllByTestId("mc-option")[0]);
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalled());
+
+    // ONE resolution for the whole session: start()'s snapshot clock is
+    // threaded into the runner via presetClock — the runner must never
+    // re-resolve (a second call would return the default UTC clock and the
+    // stamped zone below would betray it).
+    expect(readEffectiveClock).toHaveBeenCalledTimes(1);
+    const attempt = recordGradedAttempt.mock.calls[0][1];
+    expect(attempt.timezoneAtEvent).toBe("Asia/Tokyo");
+    expect(attempt.timezoneSource).toBe("user_setting");
+    expect(attempt.localDateAtEvent).toBe("2026-07-18");
+    expect(attempt.utcOffsetMinutesAtEvent).toBe(540);
+  });
+
+  it("flashcards mode also resolves the effective clock ONCE and stamps with it", async () => {
+    // The flashcards branch shares no code with the quiz branch beyond the
+    // identical presetClock ?? readEffectiveClock line in FlashcardRunner —
+    // prove the single resolution independently for it.
+    const fixedNowMs = Date.UTC(2026, 6, 17, 20, 0, 0);
+    readEffectiveClock.mockResolvedValueOnce({
+      now: () => fixedNowMs,
+      timezone: "Asia/Tokyo",
+      timezoneSource: "user_setting",
+    });
+
+    const user = userEvent.setup();
+    await renderSetup();
+    await user.click(screen.getByTestId("custom-mode-flashcards"));
+    await user.click(screen.getByTestId("custom-start"));
+    const card = await screen.findByTestId("flashcard", undefined, {
+      timeout: 4000,
+    });
+
+    await user.click(card); // flip to reveal
+    await user.click(screen.getByTestId("rate-know"));
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalled());
+
+    expect(readEffectiveClock).toHaveBeenCalledTimes(1);
+    const attempt = recordGradedAttempt.mock.calls[0][1];
+    expect(attempt.timezoneAtEvent).toBe("Asia/Tokyo");
+    expect(attempt.timezoneSource).toBe("user_setting");
+    expect(attempt.localDateAtEvent).toBe("2026-07-18");
+    expect(attempt.utcOffsetMinutesAtEvent).toBe(540);
   });
 
   it("adjust filters returns from a running session to the setup screen", async () => {

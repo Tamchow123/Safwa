@@ -108,6 +108,35 @@ export type AttemptRecord = {
 const TWO_DIGIT = "2-digit";
 
 /**
+ * Per-zone formatter cache. Intl.DateTimeFormat construction (locale + ICU
+ * data resolution) is comparatively expensive, and bulk callers — the
+ * dashboard's due-today count maps thousands of card instants in ONE zone —
+ * must pay it once per zone, not once per instant. Deterministic: a formatter
+ * is a pure function of its zone string, so memoisation cannot change any
+ * output. Bounded defensively: zones only reach here validated, but an
+ * unexpected flood of distinct zone strings must not grow memory forever.
+ */
+const eventTimeFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function eventTimeFormatter(timezone: string): Intl.DateTimeFormat {
+  const cached = eventTimeFormatters.get(timezone);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: TWO_DIGIT,
+    day: TWO_DIGIT,
+    hour: TWO_DIGIT,
+    minute: TWO_DIGIT,
+    second: TWO_DIGIT,
+  });
+  if (eventTimeFormatters.size >= 32) eventTimeFormatters.clear();
+  eventTimeFormatters.set(timezone, formatter);
+  return formatter;
+}
+
+/**
  * Compute the event-time date fields for an instant in an IANA zone. Uses Intl
  * (a deterministic JS built-in) with an explicit `timeZone`; the offset is the
  * difference between the zone's wall clock and UTC at that instant.
@@ -117,16 +146,7 @@ export function computeEventTimeFields(
   clock: Pick<AttemptClock, "timezone" | "timezoneSource">,
 ): EventTimeFields {
   const instant = new Date(epochMs);
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: clock.timezone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: TWO_DIGIT,
-    day: TWO_DIGIT,
-    hour: TWO_DIGIT,
-    minute: TWO_DIGIT,
-    second: TWO_DIGIT,
-  });
+  const formatter = eventTimeFormatter(clock.timezone);
   const parts = formatter.formatToParts(instant);
   const lookup: Record<string, string> = {};
   for (const part of parts) {

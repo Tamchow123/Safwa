@@ -16,11 +16,13 @@ import {
   QuizRunner,
   type QuizPlanEntry,
 } from "@/components/study/quiz-runner";
-import { browserClock } from "@/components/study/study-shared";
 import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
-import { computeEventTimeFields } from "@/modules/study-engine/attempts";
+import {
+  computeEventTimeFields,
+  type AttemptClock,
+} from "@/modules/study-engine/attempts";
 import {
   buildMixedPlan,
   computeWeakScores,
@@ -38,14 +40,18 @@ export function MixedSession() {
   const [sessionToken, setSessionToken] = useState(0);
 
   const buildPlan = useCallback(
-    async (entries: LearnerEntry[]): Promise<QuizPlanEntry[]> => {
+    async (
+      entries: LearnerEntry[],
+      _seed: string,
+      clock: AttemptClock,
+    ): Promise<QuizPlanEntry[]> => {
       const snapshot = await readSchedulingSnapshot(getSafwaDb());
       const weakScores = computeWeakScores(snapshot.attempts);
-      // Today's REMAINING budgets: the local date uses the same clock/zone
-      // scheme the events themselves were stamped with, so consumption and
-      // rollover agree with the recorded history. The full daily targets are
-      // the user's configured new/day + reviews/day (§4.4 defaults 10 · 20).
-      const clock = browserClock();
+      // Today's REMAINING budgets: the runner's session-frozen EFFECTIVE
+      // clock (timezone preference aware) decides what "today" means, the
+      // same clock/zone that stamps this session's events — so consumption
+      // and rollover agree with the recorded history. The full daily targets
+      // are the user's configured new/day + reviews/day (§4.4 defaults 10·20).
       const nowMs = clock.now();
       const localDate = computeEventTimeFields(nowMs, clock).localDateAtEvent;
       const targets = remainingDailyTargets(snapshot.events, localDate, {

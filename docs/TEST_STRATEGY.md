@@ -139,9 +139,17 @@ integration; the E2E matrix runs on main and before releases.
 - Merge (Phase 17): idempotent; replay of guest+account union matches
   fixtures; bookmarks/lists union; settings account-wins; guest-only and
   interleaved-history scenarios.
-- Progress (Phase 12): every §6 formula against seeded fixtures; denominators
-  exclude ineligible components; word mastery follows the essential-set
-  policy; component vs word mastery divergence cases.
+- Progress (Phase 12, implemented in `tests/analytics/`): every §6 formula
+  against the real generated release — exact denominators asserted
+  programmatically (455 entries, 6,793 eligible / 2,717 essential components,
+  per-skill and per-form counts); denominators exclude ineligible components;
+  word mastery follows the essential-set policy; component vs word mastery
+  divergence cases; ISO-date/DST-safe calendar arithmetic; activity honesty
+  rules (revoked/rejected excluded, conflict-demoted attempts still count);
+  streak today/yesterday grace; Dexie v1→v3/v2→v3 migration and
+  `daily_activity` cache-corruption recovery (missing/extra/incorrect rows,
+  undo, cache deletion, atomic rollback, read/write transaction split);
+  dashboard/progress component suites in `tests/components/`.
 - Long-offline (Phases 16/19): events from an old supported release accepted
   via retained manifests; old release + new protocol requires client upgrade
   but content stays valid; revoked release ⇒ scheduling rejected, local
@@ -158,11 +166,31 @@ with confirmation; offline study + reconnect sync (Phase 18+); two offline
 contexts converge (Phase 19+); settings incl. Arabic font scale; axe scans on
 every page; keyboard-only and reduced-motion runs of flashcards + one quiz.
 
+Phase 12 dashboard suite (`e2e/dashboard.spec.ts`, implemented): new-guest
+zero state (honest zeros, working actions, axe, 320px); the real
+study→dashboard happy path through actual guest persistence (never UI-only
+seeding); incorrect-attempt streak honesty incl. reinforcement
+non-double-consumption; undo refunding targets and activity; timezone-change
+immutability (old rows keep zone/date/source, new rows carry the selected
+zone with `user_setting`); a DST streak fixture; due-today seeding (overdue +
+later-today count, tomorrow + stale-ineligible excluded); daily-target
+settings changing denominators only; the full 320px mobile journey; axe on
+empty/populated/dark/mobile dashboard, progress and timezone settings.
+
 ## 11. Additional testing
 
 - **Accessibility:** axe in component tests + E2E; manual screen-reader pass
   (NVDA + VoiceOver) at Phases 12 and 22; contrast tokens tested in both
   themes.
+  - Phase 12 manual screen-reader checklist (dashboard overview and its
+    live-updating Today values; progress bars announcing exact
+    counts/values; the recent-activity chart's table alternative; the
+    timezone picker's label and save announcement). **Status: NOT yet
+    performed** — it requires a human operating NVDA/VoiceOver, which the
+    automated pipeline cannot honestly claim. Automated coverage in the
+    meantime: axe scans on every dashboard/progress/settings state (incl.
+    dark mode and 320px) and component tests asserting the progressbar
+    ARIA values, the SR value table and the `aria-live` region semantics.
 - **Responsive:** Playwright viewports 320/768/1280; no horizontal scroll
   assertions; touch-target size lint on interactive components.
 - **Arabic rendering:** visual snapshot of representative entries (incl.

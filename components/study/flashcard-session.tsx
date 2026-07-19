@@ -8,7 +8,6 @@ import { Flashcard } from "@/components/flashcard";
 import {
   FieldValue,
   FIELD_LABELS,
-  browserClock,
   formLabel,
 } from "@/components/study/study-shared";
 import { Button } from "@/components/ui/button";
@@ -16,10 +15,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useReducedMotion } from "@/lib/preferences/use-reduced-motion";
 import { uuidv7 } from "@/lib/uuid";
+import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { newDeviceProfile, peekDeviceProfile } from "@/modules/profile/device";
 import { ensureDurableGuestState } from "@/modules/profile/persistence";
+import {
+  DEFAULT_TIMEZONE_PREFERENCE,
+  readEffectiveClock,
+  resolveEffectiveClock,
+} from "@/modules/profile/timezone";
+import type { AttemptClock } from "@/modules/study-engine/attempts";
 import {
   createQuestionContext,
   type QuestionContext,
@@ -70,10 +76,15 @@ const FIELD_OPTIONS: { value: FlashcardFieldChoice; label: string }[] = [
 
 const SWIPE_THRESHOLD_PX = 48;
 
-/** Build the flashcard plan for one runner mount. May read local state. */
+/**
+ * Build the flashcard plan for one runner mount. May read local state. The
+ * clock is the session's FROZEN effective clock (§10.6) — planners that need
+ * "now" must use it, never an ambient clock of their own.
+ */
 export type FlashcardPlanBuilder = (
   entries: LearnerEntry[],
   seed: string,
+  clock: AttemptClock,
 ) => FlashcardPlanItem[] | Promise<FlashcardPlanItem[]>;
 
 /** Top-level: loads content, hosts the options bar, and mounts the runner. */
@@ -207,6 +218,7 @@ export function FlashcardRunner({
   contentVersion,
   questionGeneratorVersion,
   buildPlan,
+  presetClock,
   emptyMessage = "No eligible flashcards match these options. Try a different form or direction.",
   onStudyAgain,
 }: {
@@ -216,6 +228,13 @@ export function FlashcardRunner({
   questionGeneratorVersion: string;
   /** Must be referentially stable per mount (callers memoise + remount by key). */
   buildPlan: FlashcardPlanBuilder;
+  /**
+   * An ALREADY-RESOLVED effective clock to freeze for this session. Callers
+   * that resolve the clock before mounting (Custom Session resolves it during
+   * setup-screen state filtering) pass it here so one session never resolves
+   * the clock twice; when omitted the runner resolves it once at mount.
+   */
+  presetClock?: AttemptClock;
   emptyMessage?: string;
   onStudyAgain: () => void;
 }) {
@@ -249,24 +268,45 @@ export function FlashcardRunner({
   // When this session began (epoch ms) — recorded as the session row's start so
   // it reflects session-open time, not first-grade time.
   const sessionStartedAt = useRef<number>(0);
+  // The session's FROZEN effective clock (§10.6): resolved ONCE per session
+  // (either supplied pre-resolved via `presetClock`, or read at mount from
+  // the stored timezone preference), then used for planning AND every graded
+  // card, so all events in one session share the same zone + source. A
+  // preference change applies to sessions started afterwards. MIRRORED in
+  // quiz-runner.tsx — keep the two implementations in sync.
+  const sessionClock = useRef<AttemptClock | null>(null);
 
   // Build the session once per mount (a fresh mount == a fresh session).
   useEffect(() => {
     if (!context) return;
     let cancelled = false;
-    void (async () => {
-      try {
+    // Bounded (REL-P101): a hung IndexedDB open (e.g. blocked behind another
+    // tab's schema upgrade) must not strand this session on the "Preparing
+    // session" skeleton forever with no retry. These are pure reads before
+    // any write occurs, so racing them against a timer carries none of the
+    // duplicate-write risk that rules out bounding the grading write below.
+    // The timeout is made TERMINAL by setting `cancelled` in the catch (not
+    // just on unmount): Promise.race cannot stop the IIFE below, so without
+    // this a slow-then-eventually-resolves read would silently flip the
+    // shown error back to an active/empty session with no user action.
+    // MIRRORED in quiz-runner.tsx — keep the two in sync.
+    void withTimeout(
+      (async () => {
         const db = getSafwaDb();
         sessionStartedAt.current = Date.now();
+        const clock = presetClock ?? (await readEffectiveClock(db));
+        if (cancelled) return;
+        sessionClock.current = clock;
         // READ-ONLY at init: reuse an existing device id if the guest already
         // has durable state, else a provisional in-memory id that never touches
         // disk. The real, persisted id is bound on the first grade (see
         // `grade`), which also fires the storage-persist request.
         const existing = await peekDeviceProfile(db);
+        if (cancelled) return;
         if (existing) deviceBound.current = true;
         const deviceId = existing?.deviceId ?? uuidv7();
         const seed = uuidv7();
-        const plan = await buildPlan(entries, seed);
+        const plan = await buildPlan(entries, seed, sessionClock.current);
         if (cancelled) return;
         if (plan.length === 0) {
           setStatus("empty");
@@ -285,14 +325,19 @@ export function FlashcardRunner({
         if (cancelled) return;
         setSession(state);
         setStatus("active");
-      } catch {
-        if (!cancelled) setStatus("error");
+      })(),
+      DB_READ_TIMEOUT_MS,
+      "session initialization timed out",
+    ).catch(() => {
+      if (!cancelled) {
+        cancelled = true;
+        setStatus("error");
       }
-    })();
+    });
     return () => {
       cancelled = true;
     };
-  }, [context, entries, buildPlan]);
+  }, [context, entries, buildPlan, presetClock]);
 
   const instance: QuestionInstance | null = useMemo(() => {
     if (!session || !context || session.status !== "active") return null;
@@ -306,7 +351,13 @@ export function FlashcardRunner({
       setActionError(null);
       try {
         const db = getSafwaDb();
-        const clock = browserClock();
+        // The session-frozen clock; the fallback (unreachable while a session
+        // is active) still goes through the shared resolver, never an
+        // unconditional browser clock. MIRRORED in quiz-runner.tsx — keep the
+        // two fallback blocks in sync.
+        const clock =
+          sessionClock.current ??
+          resolveEffectiveClock(DEFAULT_TIMEZONE_PREFERENCE);
         const result = submitAnswer(session, context, {
           attemptId: uuidv7(),
           questionInstanceId: instance.questionInstanceId,
@@ -319,6 +370,12 @@ export function FlashcardRunner({
         // orphaned identity (the profile is not committed in a separate
         // transaction). The adapter returns the effective (committed) device id.
         const bindNow = !deviceBound.current;
+        // Deliberately UNBOUNDED — racing this write against a timer
+        // (Promise.race cannot cancel the underlying Dexie transaction)
+        // would let a merely-queued write commit AFTER the UI already told
+        // the learner to retry, duplicating the review row. See
+        // quiz-runner.tsx for the full rationale — MIRRORED here, keep the
+        // two write paths in sync.
         const persisted = await recordGradedAttempt(db, result.attempt, {
           eventId: uuidv7(),
           now: clock.now(),

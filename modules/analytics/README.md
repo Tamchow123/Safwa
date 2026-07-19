@@ -1,7 +1,25 @@
 # modules/analytics
 
-Future home of progress, streak and weak-area calculations (Phases 12–13),
-implementing the exact formulas in `docs/PRODUCT_REQUIREMENTS.md` §6 over
-stored event-time local dates.
+Progress, streak and (Phase 13) weak-area calculations, implementing the exact
+formulas in `docs/PRODUCT_REQUIREMENTS.md` §6 over stored event-time local
+dates.
 
-No implementation exists yet by design (Phase 1 creates boundaries only).
+## Modules
+
+Pure modules (no React, no Dexie, no DOM, no ambient clocks — every instant
+and timezone is injected):
+
+| File          | Responsibility                                                                                        |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `dates.ts`    | ISO date-label validity + calendar arithmetic (never 24-hour-ms maths; DST-safe), instant→local date. |
+| `activity.ts` | Daily-activity derivation from raw attempts + scheduling events (the `daily_activity` cache formula). |
+| `streaks.ts`  | Study days, current streak (today/yesterday grace), longest streak.                                   |
+| `progress.ts` | §7 exact-ratio formulas: word/component mastery, per-skill/per-form/group completion, due-today.      |
+| `index.ts`    | Pure-only barrel (the Dexie adapter is deliberately NOT re-exported).                                 |
+
+The ONE impure exception is `persistence.ts` — the browser-only Dexie
+adapter (one consistent snapshot read + atomic `daily_activity` cache
+rebuild), exempted by name from the ESLint purity guard and imported
+directly, never via the barrel. All of the above shipped with the Phase 12
+dashboard slices. The authoritative learner truth remains `study_attempts`
+and `review_events`; everything here is derived and rebuildable.

@@ -54,6 +54,27 @@ export type ReviewEvent = {
   timezoneSource: AttemptRecord["timezoneSource"];
 };
 
+/** The daily-target / activity class of a scheduling-authoritative event. */
+export type SchedulingEventClass = "new_item" | "review";
+
+/**
+ * Classify a stored review event under the ONE shared daily-target/activity
+ * rule (PRODUCT_REQUIREMENTS.md §4.4, Phase 10): only lifecycle-`scheduling`
+ * events are scheduling-authoritative; a chain ROOT (null parent) INTRODUCED
+ * its component — a new item; every other scheduling event is a completed
+ * review. Reinforcement, conflict-demoted, revoked and pending-parent events
+ * — and corrupt rows without a readable parent link — classify as null and
+ * never consume a daily target.
+ */
+export function classifySchedulingEvent(event: {
+  status: string | null | undefined;
+  parentEventId: string | null | undefined;
+}): SchedulingEventClass | null {
+  if (event.status !== "scheduling") return null;
+  if (event.parentEventId === undefined) return null;
+  return event.parentEventId === null ? "new_item" : "review";
+}
+
 /**
  * Does this attempt produce a scheduling event? Only the first attempt of a
  * component in a session is scheduling-relevant; reinforcement recoveries do

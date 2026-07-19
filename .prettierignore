@@ -20,3 +20,9 @@ content-server/
 # Python
 scripts/
 __pycache__/
+
+# Phase-workflow runtime state and review reports (machine-written)
+.claude/review/
+
+# User-authored phase specification prompts (authored outside repo style)
+docs/phases/

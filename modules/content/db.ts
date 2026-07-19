@@ -1,10 +1,11 @@
 /**
- * Dexie (IndexedDB) mirror — schema version 2.
+ * Dexie (IndexedDB) mirror — schema version 3 (`SAFWA_DB_VERSION`).
  *
  * v1: content cache stores only. v2 (Phase 5) adds the local learner-state
  * stores from DATA_MODEL.md §9: study components (keyed by the shared
  * natural key string), attempts, review events, sessions, bookmarks, lists,
  * settings, the outbound mutation queue and the anonymous device profile.
+ * v3 (Phase 12) adds the `daily_activity` derived analytics cache.
  * Content and learning state live in separate stores of one database:
  * cached content releases are immutable verified artifacts, never editable
  * copies.
@@ -37,17 +38,21 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
  * On-disk database name. Kept from v1 ("safwa-content") even though the
  * database now also holds learner state — renaming an IndexedDB database
  * would strand existing v1 caches instead of migrating them.
+ *
+ * v3 (Phase 12) adds the `daily_activity` DERIVED cache store additively:
+ * no upgrade function, no change to any existing store's keys or indexes.
  */
 export const SAFWA_DB_NAME = "safwa-content";
-export const SAFWA_DB_VERSION = 2;
+export const SAFWA_DB_VERSION = 3;
 
 /* ------------------------------------------------------------------ */
-/* Learner-state records (schema v2)                                   */
+/* Learner-state records (schema v2) and derived-cache records (v3)    */
 /*                                                                     */
 /* Dexie fixes only key paths and indexes. The identity/index fields   */
 /* below are the durable contract; the phases that first WRITE each    */
 /* store (study engine 6, scheduler 7, sync 16+) extend the record     */
-/* bodies additively without a schema version bump.                    */
+/* bodies additively without a schema version bump. DailyActivityRecord */
+/* belongs to schema v3 (Phase 12) — see its own doc comment.          */
 /* ------------------------------------------------------------------ */
 
 /** Anonymous local device profile — singleton row under key "device". */
@@ -163,6 +168,24 @@ export type StudySessionRecord = {
   startedAt: number;
 };
 
+/**
+ * One derived local-date activity row (Phase 12 §14, DATA_MODEL.md §7). A
+ * REBUILDABLE cache over `study_attempts` + `review_events` — never learner
+ * truth in its own right: the dashboard rebuilds it atomically from the raw
+ * stores (modules/analytics/persistence.ts) and a deleted or corrupted cache
+ * loses nothing.
+ */
+export type DailyActivityRecord = {
+  /** "YYYY-MM-DD" — the immutable stored event-time local date. */
+  localDate: string;
+  attempts: number;
+  reviews: number;
+  newItems: number;
+  studyMs: number;
+  /** When this row was derived (epoch ms; injected by the rebuilder). */
+  derivedAt: number;
+};
+
 export type MutationQueueRecord = {
   /** Auto-incremented outbound order; assigned by Dexie on add. */
   seq?: number;
@@ -179,6 +202,7 @@ export class SafwaDb extends Dexie {
   studyComponents!: EntityTable<StudyComponentRecord, "componentKey">;
   studyAttempts!: EntityTable<StudyAttemptRecord, "id">;
   reviewEvents!: EntityTable<ReviewEventRecord, "eventId">;
+  dailyActivity!: EntityTable<DailyActivityRecord, "localDate">;
   sessions!: EntityTable<StudySessionRecord, "id">;
   bookmarks!: EntityTable<BookmarkRecord, "entryId">;
   lists!: EntityTable<CustomListRecord, "id">;
@@ -201,7 +225,7 @@ export class SafwaDb extends Dexie {
     // (DATA_MODEL.md §9: snake_case). The v1 content stores keep their
     // shipped camelCase names — renaming an already-deployed store would
     // need a data-copying migration, an explicit migration decision.
-    this.version(SAFWA_DB_VERSION).stores({
+    this.version(2).stores({
       study_components: "componentKey, entryId",
       study_attempts: "id, componentKey, sessionId, attemptedAt",
       review_events: "eventId, componentKey, parentEventId, syncStatus",
@@ -212,11 +236,18 @@ export class SafwaDb extends Dexie {
       mutation_queue: "++seq, &idempotencyKey",
       profile: "key",
     });
+    // v3 (Phase 12): the daily_activity DERIVED cache, keyed by the stored
+    // event-time local date. Purely additive — every earlier store and its
+    // data carry forward untouched, no upgrade function needed.
+    this.version(SAFWA_DB_VERSION).stores({
+      daily_activity: "localDate",
+    });
     // Code-facing accessors stay camelCase per TS convention; the mapping
     // to the snake_case physical stores lives here and nowhere else.
     this.studyComponents = this.table("study_components");
     this.studyAttempts = this.table("study_attempts");
     this.reviewEvents = this.table("review_events");
+    this.dailyActivity = this.table("daily_activity");
     this.mutationQueue = this.table("mutation_queue");
   }
 }
