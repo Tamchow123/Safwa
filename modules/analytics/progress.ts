@@ -67,8 +67,10 @@ export function percentage(ratio: ProgressRatio): number | null {
   return (ratio.numerator / ratio.denominator) * 100;
 }
 
-/** Count one component into a ratio: always the denominator, and the
- * numerator when it hit. The ONE tally rule for every dimension. */
+/**
+ * Count one component into a ratio: always the denominator, and the
+ * numerator when it hit. The ONE tally rule for every dimension.
+ */
 function tally(ratio: ProgressRatio, hit: boolean): void {
   ratio.denominator += 1;
   if (hit) ratio.numerator += 1;

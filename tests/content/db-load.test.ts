@@ -67,8 +67,8 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe("Dexie schema v2", () => {
-  it("creates the content and learner-state stores at version 2", async () => {
+describe("Dexie schema v3", () => {
+  it("creates the content, learner-state and derived-cache stores at version 3", async () => {
     await db.open();
     expect(db.verno).toBe(SAFWA_DB_VERSION);
     expect(db.tables.map((table) => table.name).sort()).toEqual([
@@ -76,6 +76,7 @@ describe("Dexie schema v2", () => {
       "contentEntries",
       "contentMetadata",
       "contentReleases",
+      "daily_activity",
       "lists",
       "mutation_queue",
       "profile",

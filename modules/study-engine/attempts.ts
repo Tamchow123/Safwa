@@ -116,13 +116,13 @@ const TWO_DIGIT = "2-digit";
  * output. Bounded defensively: zones only reach here validated, but an
  * unexpected flood of distinct zone strings must not grow memory forever.
  */
-const EVENT_TIME_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+const eventTimeFormatters = new Map<string, Intl.DateTimeFormat>();
 
-function eventTimeFormatter(timeZone: string): Intl.DateTimeFormat {
-  const cached = EVENT_TIME_FORMATTERS.get(timeZone);
+function eventTimeFormatter(timezone: string): Intl.DateTimeFormat {
+  const cached = eventTimeFormatters.get(timezone);
   if (cached) return cached;
   const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: timezone,
     hourCycle: "h23",
     year: "numeric",
     month: TWO_DIGIT,
@@ -131,8 +131,8 @@ function eventTimeFormatter(timeZone: string): Intl.DateTimeFormat {
     minute: TWO_DIGIT,
     second: TWO_DIGIT,
   });
-  if (EVENT_TIME_FORMATTERS.size >= 32) EVENT_TIME_FORMATTERS.clear();
-  EVENT_TIME_FORMATTERS.set(timeZone, formatter);
+  if (eventTimeFormatters.size >= 32) eventTimeFormatters.clear();
+  eventTimeFormatters.set(timezone, formatter);
   return formatter;
 }
 
