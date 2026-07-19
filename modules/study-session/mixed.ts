@@ -39,6 +39,7 @@ import {
   type DailyTargets,
   type SchedulableItem,
 } from "@/modules/scheduler/due";
+import { classifySchedulingEvent } from "@/modules/scheduler/events";
 import type { SchedulerCard } from "@/modules/scheduler/fsrs";
 import type { LearnerState } from "@/modules/scheduler/states";
 import {
@@ -137,6 +138,9 @@ export type SchedulingEventSummary = {
  * event) automatically refunds its budget, and a date rollover (a new
  * `localDate`) naturally restores the full targets. Events from other dates,
  * non-"scheduling" events and rows without a local date never consume budget.
+ * The new-vs-review rule itself lives in the ONE shared classifier
+ * (`classifySchedulingEvent`), which Phase 12 daily-activity accounting also
+ * consumes — the two must never diverge.
  */
 export function remainingDailyTargets(
   events: readonly SchedulingEventSummary[],
@@ -146,10 +150,10 @@ export function remainingDailyTargets(
   let newIntroduced = 0;
   let reviewsCompleted = 0;
   for (const event of events) {
-    if (event.status !== "scheduling") continue;
     if (event.localDateAtEvent !== localDate) continue;
-    if (event.parentEventId === null) newIntroduced += 1;
-    else reviewsCompleted += 1;
+    const eventClass = classifySchedulingEvent(event);
+    if (eventClass === "new_item") newIntroduced += 1;
+    else if (eventClass === "review") reviewsCompleted += 1;
   }
   return {
     newLimit: Math.max(0, targets.newLimit - newIntroduced),
