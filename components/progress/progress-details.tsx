@@ -27,16 +27,8 @@ import {
   SOURCE_FORM_METADATA,
   SOURCE_QUIZ_FORM_FIELDS,
 } from "@/lib/form-metadata";
-import { SKILL_TYPES, type SkillType } from "@/modules/content/constants";
-
-/** Learner-facing labels for the five skill dimensions (UI chrome only). */
-const SKILL_LABELS: Record<SkillType, string> = {
-  meaning_recognition: "Meaning recognition (Arabic → English)",
-  meaning_recall: "Meaning recall (English → Arabic)",
-  bab_identification: "Bāb identification",
-  root_identification: "Root identification",
-  verb_type_identification: "Verb type identification",
-};
+import { SKILL_LABELS } from "@/lib/skill-labels";
+import { SKILL_TYPES } from "@/modules/content/constants";
 
 /** Bāb / verb-type completion bars labelled by their Arabic display pair. */
 function GroupBars({ groups }: { groups: readonly GroupCompletion[] }) {

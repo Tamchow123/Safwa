@@ -20,6 +20,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
 import { TimeoutError, withTimeout } from "@/lib/with-timeout";
+import {
+  babGroup,
+  groupArabicLookup,
+  verbTypeGroup,
+} from "@/modules/analytics/progress";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { readEffectiveClock } from "@/modules/profile/timezone";
@@ -35,7 +40,20 @@ import {
 export type WeaknessSnapshotState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; view: WeaknessView };
+  | {
+      status: "ready";
+      view: WeaknessView;
+      /** Bāb/verb-type group id -> Arabic display pair (hard rules 3 & 5),
+       * resolved HERE from the release — mirrors `use-analytics-snapshot.ts`'s
+       * `groupCompletions` via the shared `groupArabicLookup` helper, so
+       * presentational components never see raw entries or re-derive this. */
+      babArabic: ReadonlyMap<string, string>;
+      verbTypeArabic: ReadonlyMap<string, string>;
+      /** The clock instant the view was scored/loaded at (§10 TIME MODEL) —
+       * exposed so display-only relative-time text ("Practised N days ago")
+       * never calls an ambient clock during render. */
+      nowMs: number;
+    };
 
 /** User-safe persistence failure text — never Dexie/stack/key internals. */
 const SNAPSHOT_FAILURE_MESSAGE =
@@ -54,10 +72,27 @@ const WATCHDOG_ERROR = "weakness-load-watchdog-timeout";
 async function loadView(
   derived: readonly DerivedComponent[],
   entries: readonly LearnerEntry[],
-): Promise<WeaknessView> {
+): Promise<{
+  view: WeaknessView;
+  babArabic: ReadonlyMap<string, string>;
+  verbTypeArabic: ReadonlyMap<string, string>;
+  nowMs: number;
+}> {
   const db = getSafwaDb();
   const clock = await readEffectiveClock(db);
-  return loadWeaknessView(db, derived, entries, clock.now());
+  const nowMs = clock.now();
+  const view = await loadWeaknessView(db, derived, entries, nowMs);
+  const babArabic = groupArabicLookup(
+    entries,
+    babGroup,
+    (entry) => entry.bab_arabic,
+  );
+  const verbTypeArabic = groupArabicLookup(
+    entries,
+    verbTypeGroup,
+    (entry) => entry.verb_type_arabic,
+  );
+  return { view, babArabic, verbTypeArabic, nowMs };
 }
 
 export function useWeaknessSnapshot(): {
@@ -92,12 +127,20 @@ export function useWeaknessSnapshot(): {
     inFlight.current = true;
     void (async () => {
       try {
-        const view = await withTimeout(
+        const { view, babArabic, verbTypeArabic, nowMs } = await withTimeout(
           loadView(derived, entries),
           WEAKNESS_SNAPSHOT_WATCHDOG_MS,
           WATCHDOG_ERROR,
         );
-        if (!cancelled) setSnapshot({ status: "ready", view });
+        if (!cancelled) {
+          setSnapshot({
+            status: "ready",
+            view,
+            babArabic,
+            verbTypeArabic,
+            nowMs,
+          });
+        }
       } catch (error) {
         if (!cancelled) {
           setSnapshot({
