@@ -11,14 +11,18 @@
  * The Weak Areas section (Phase 13 §15) is deliberately CONCISE — the top
  * three cross-dimension priorities and a link to the full `/progress/
  * weak-areas` page, never the complete ranked/tabbed analysis that page
- * owns. It loads its own `useWeaknessSnapshot()` (mirrors this page's own
- * `useAnalyticsSnapshot()` pattern) so a slow/failed weakness read degrades
- * only that one section, never the exact-ratio numbers above it. This is the
- * first page to mount two independent snapshot hooks over the SAME loaded
- * release; the underlying content load and component derivation are each
- * coalesced to run once (`useActiveContent`'s in-flight promise share,
- * `lib/derived-components-cache.ts`), so composing the two hooks here never
- * doubles the network/verification/derivation cost.
+ * owns. Its state comes from `useWeaknessSnapshot()` (mirrors this page's
+ * own `useAnalyticsSnapshot()` pattern) so a slow/failed weakness read
+ * degrades only that one section, never the exact-ratio numbers above it.
+ * This is the first page to mount two independent snapshot hooks over the
+ * SAME loaded release; both hooks are called HERE, unconditionally and in
+ * the same render pass — not one nested inside the other's ready branch —
+ * so their internal `useActiveContent()` calls mount in the same task and
+ * the content load and component derivation each genuinely coalesce to run
+ * once (`useActiveContent`'s in-flight promise share,
+ * `lib/derived-components-cache.ts`). Gating the weakness hook's mount
+ * behind the analytics snapshot's readiness would delay it past the
+ * coalescing window and double the load/derive cost.
  */
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -32,7 +36,10 @@ import {
   type AnalyticsView,
   type GroupCompletion,
 } from "@/components/analytics/use-analytics-snapshot";
-import { useWeaknessSnapshot } from "@/components/analytics/use-weakness-snapshot";
+import {
+  useWeaknessSnapshot,
+  type WeaknessSnapshotState,
+} from "@/components/analytics/use-weakness-snapshot";
 import { ArabicText } from "@/components/arabic-text";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,9 +57,13 @@ import { SKILL_TYPES } from "@/modules/content/constants";
  * that stays on the dedicated Weak Areas page. */
 const PROGRESS_WEAK_AREAS_LIMIT = 3;
 
-function ProgressWeakAreasSection() {
-  const { state, retry } = useWeaknessSnapshot();
-
+function ProgressWeakAreasSection({
+  state,
+  retry,
+}: {
+  state: WeaknessSnapshotState;
+  retry: () => void;
+}) {
   let body: ReactNode;
   if (state.status === "loading") {
     body = (
@@ -119,7 +130,15 @@ function GroupBars({ groups }: { groups: readonly GroupCompletion[] }) {
   );
 }
 
-function ProgressView({ view }: { view: AnalyticsView }) {
+function ProgressView({
+  view,
+  weakness,
+  weaknessRetry,
+}: {
+  view: AnalyticsView;
+  weakness: WeaknessSnapshotState;
+  weaknessRetry: () => void;
+}) {
   return (
     <div className="space-y-6">
       <AnalyticsSection headingId="progress-overview-heading" title="Overview">
@@ -223,7 +242,7 @@ function ProgressView({ view }: { view: AnalyticsView }) {
         <GroupBars groups={view.verbTypeCompletion} />
       </AnalyticsSection>
 
-      <ProgressWeakAreasSection />
+      <ProgressWeakAreasSection state={weakness} retry={weaknessRetry} />
 
       <div>
         <Button asChild className="min-h-11">
@@ -234,9 +253,16 @@ function ProgressView({ view }: { view: AnalyticsView }) {
   );
 }
 
-/** Top-level Progress page: loads the snapshot, renders every section. */
+/**
+ * Top-level Progress page: loads the snapshot, renders every section. Both
+ * snapshot hooks are called here, unconditionally, so their content loads
+ * mount in the same task and genuinely coalesce (see the module doc comment
+ * above) — `useWeaknessSnapshot()` must never be nested inside a branch that
+ * only renders once `useAnalyticsSnapshot()` reaches "ready".
+ */
 export function ProgressDetails() {
   const { state, retry } = useAnalyticsSnapshot();
+  const { state: weakness, retry: weaknessRetry } = useWeaknessSnapshot();
 
   if (state.status === "loading") {
     return (
@@ -257,5 +283,11 @@ export function ProgressDetails() {
       />
     );
   }
-  return <ProgressView view={state.view} />;
+  return (
+    <ProgressView
+      view={state.view}
+      weakness={weakness}
+      weaknessRetry={weaknessRetry}
+    />
+  );
 }
