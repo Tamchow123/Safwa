@@ -14,7 +14,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArabicText } from "@/components/arabic-text";
 import {
   FieldValue,
-  browserClock,
   formLabel,
   formName,
   isArabicField,
@@ -33,6 +32,12 @@ import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { newDeviceProfile, peekDeviceProfile } from "@/modules/profile/device";
 import { ensureDurableGuestState } from "@/modules/profile/persistence";
+import {
+  DEFAULT_TIMEZONE_PREFERENCE,
+  readEffectiveClock,
+  resolveEffectiveClock,
+} from "@/modules/profile/timezone";
+import type { AttemptClock } from "@/modules/study-engine/attempts";
 import { isSourceFormField } from "@/modules/study-engine/fields";
 import {
   createQuestionContext,
@@ -70,10 +75,15 @@ export type QuizPlanEntry = {
   promptForm?: SourceQuizFormField;
 };
 
-/** Build the session plan for one mount. May read local state (async). */
+/**
+ * Build the session plan for one mount. May read local state (async). The
+ * clock is the session's FROZEN effective clock (§10.6) — planners that need
+ * "today" or "now" must use it, never an ambient clock of their own.
+ */
 export type QuizPlanBuilder = (
   entries: LearnerEntry[],
   seed: string,
+  clock: AttemptClock,
 ) => QuizPlanEntry[] | Promise<QuizPlanEntry[]>;
 
 /** Map the learner's delivery choice to the engine's session config (§4.4). */
@@ -157,6 +167,7 @@ export function QuizRunner({
   delivery,
   perQuestionLimitMs,
   optionCount,
+  presetClock,
   emptyMessage,
   onStudyAgain,
 }: {
@@ -171,6 +182,13 @@ export function QuizRunner({
   perQuestionLimitMs?: number;
   /** MC options per question (§4.4 — engine default 4 if omitted). */
   optionCount?: number;
+  /**
+   * An ALREADY-RESOLVED effective clock to freeze for this session. Callers
+   * that resolve the clock before mounting (Custom Session resolves it during
+   * setup-screen state filtering) pass it here so one session never resolves
+   * the clock twice; when omitted the runner resolves it once at mount.
+   */
+  presetClock?: AttemptClock;
   emptyMessage: string;
   onStudyAgain: () => void;
 }) {
@@ -213,6 +231,13 @@ export function QuizRunner({
   const lastPersisted = useRef<PersistedAttempt | null>(null);
   const deviceBound = useRef(false);
   const sessionStartedAt = useRef<number>(0);
+  // The session's FROZEN effective clock (§10.6): resolved ONCE per session
+  // (either supplied pre-resolved via `presetClock`, or read at mount from
+  // the stored timezone preference), then used for planning AND every graded
+  // attempt, so all events in one session share the same zone + source. A
+  // preference change applies to sessions started afterwards. MIRRORED in
+  // flashcard-session.tsx — keep the two implementations in sync.
+  const sessionClock = useRef<AttemptClock | null>(null);
 
   // Build the session once per mount (a fresh mount == a fresh session).
   useEffect(() => {
@@ -222,11 +247,14 @@ export function QuizRunner({
       try {
         const db = getSafwaDb();
         sessionStartedAt.current = Date.now();
+        sessionClock.current = presetClock ?? (await readEffectiveClock(db));
+        if (cancelled) return;
         const existing = await peekDeviceProfile(db);
+        if (cancelled) return;
         if (existing) deviceBound.current = true;
         const deviceId = existing?.deviceId ?? uuidv7();
         const seed = uuidv7();
-        const plan = await buildPlan(entries, seed);
+        const plan = await buildPlan(entries, seed, sessionClock.current);
         if (cancelled) return;
         if (plan.length === 0) {
           setStatus("empty");
@@ -261,7 +289,15 @@ export function QuizRunner({
     return () => {
       cancelled = true;
     };
-  }, [context, entries, buildPlan, delivery, perQuestionLimitMs, optionCount]);
+  }, [
+    context,
+    entries,
+    buildPlan,
+    delivery,
+    perQuestionLimitMs,
+    optionCount,
+    presetClock,
+  ]);
 
   // Render-time question generation is guarded: a generation failure (e.g. a
   // pool unable to fill the configured option count in an unforeseen case)
@@ -289,7 +325,12 @@ export function QuizRunner({
       setActionError(null);
       try {
         const db = getSafwaDb();
-        const clock = browserClock();
+        // The session-frozen clock; the fallback (unreachable while a session
+        // is active) still goes through the shared resolver, never an
+        // unconditional browser clock.
+        const clock =
+          sessionClock.current ??
+          resolveEffectiveClock(DEFAULT_TIMEZONE_PREFERENCE);
         const result = submitAnswer(session, context, {
           attemptId: uuidv7(),
           questionInstanceId: instance.questionInstanceId,

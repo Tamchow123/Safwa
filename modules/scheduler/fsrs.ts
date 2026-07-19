@@ -64,6 +64,15 @@ const STRING_TO_STATE: Record<FsrsState, State> = {
 };
 
 /**
+ * Every valid FSRS lifecycle state, derived from the single mapping above —
+ * the canonical runtime list for guards that validate stored card data
+ * (never re-declare these literals elsewhere; two copies would drift).
+ */
+export const FSRS_STATE_VALUES = Object.keys(
+  STRING_TO_STATE,
+) as readonly FsrsState[];
+
+/**
  * Fixed, deterministic FSRS parameters. Fuzz OFF (fuzz randomises intervals and
  * would break replay determinism). A single stateless instance is reused — its
  * methods are pure functions of (card, now, grade).

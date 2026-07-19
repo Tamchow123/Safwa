@@ -387,6 +387,15 @@ export function buildMixedPlan(
       items.push({
         componentKey: component.key,
         card,
+        // The RAW stored projection (no effectiveLearnerState re-derivation)
+        // is safe here because of two invariants: (a) the stored state and
+        // card are always rewritten together from ONE replay
+        // (persistence.ts writeComponentProjection), so a lapsed card is
+        // stored `needs_review` in the same transaction it lapses; and
+        // (b) the due tier (due.ts selectDue) reads the card's own due
+        // instant directly, so a stored-mastered card that became due by
+        // time passing is still surfaced. If either invariant changes,
+        // route this through effectiveLearnerState (scheduler/states.ts).
         state: record?.learnerState ?? "not_started",
         weakScore: weakScores.get(component.key) ?? 0,
       });

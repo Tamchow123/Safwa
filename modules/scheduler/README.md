@@ -11,15 +11,15 @@ by injected instants (fuzz is disabled for determinism).
 
 ## Modules
 
-| File         | Responsibility                                                                              |
-| ------------ | ------------------------------------------------------------------------------------------- |
-| `fsrs.ts`    | ts-fsrs integration: create/advance a card at an injected instant; ms ↔ Date.               |
-| `ratings.ts` | Rating mapping from a Phase-6 attempt (correct→Good, hinted-correct→Hard, incorrect→Again). |
-| `events.ts`  | Review-event creation (first scheduling-relevant attempt only) + causal lineage.            |
-| `chain.ts`   | Sequential local causal chain: causal ordering, deterministic FSRS replay, undo.            |
-| `states.ts`  | Learner-state projection and the ≥3-distinct-mastery-days rule.                             |
-| `due.ts`     | Due selection + mixed-revision ordering (due → weak → new, daily targets).                  |
-| `index.ts`   | Public barrel.                                                                              |
+| File         | Responsibility                                                                                                                                                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsrs.ts`    | ts-fsrs integration: create/advance a card at an injected instant; ms ↔ Date.                                                                                                                                                         |
+| `ratings.ts` | Rating mapping from a Phase-6 attempt (correct→Good, hinted-correct→Hard, incorrect→Again).                                                                                                                                           |
+| `events.ts`  | Review-event creation (first scheduling-relevant attempt only) + causal lineage; the canonical `classifySchedulingEvent` new-item/review classifier (single implementation — every daily-target and activity consumer must share it). |
+| `chain.ts`   | Sequential local causal chain: causal ordering, deterministic FSRS replay, undo.                                                                                                                                                      |
+| `states.ts`  | Learner-state projection, the ≥3-distinct-mastery-days rule, and the canonical `effectiveLearnerState` stale-projection correction (single implementation — every current-state consumer must share it).                              |
+| `due.ts`     | Due selection + mixed-revision ordering (due → weak → new, daily targets).                                                                                                                                                            |
+| `index.ts`   | Public barrel.                                                                                                                                                                                                                        |
 
 ## Determinism & replay
 
