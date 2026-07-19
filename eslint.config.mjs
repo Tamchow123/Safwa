@@ -4,14 +4,17 @@ import nextTs from "eslint-config-next/typescript";
 import prettier from "eslint-config-prettier/flat";
 
 /**
- * Purity guard for the pure-TypeScript engine/scheduler modules
+ * Purity guard for the pure-TypeScript engine/scheduler/analytics modules
  * (docs/ARCHITECTURE.md §2). These run identically in the browser and on the
  * server, so hidden nondeterminism (Date.now / Math.random / crypto) and
  * React/DOM/DB imports are forbidden — clocks and randomness are injected.
+ * When the analytics PERSISTENCE adapter (browser-only Dexie wiring) lands,
+ * exempt that one file with a scoped override rather than widening the rules.
  */
 const PURE_MODULE_FILES = [
   "modules/study-engine/**/*.ts",
   "modules/scheduler/**/*.ts",
+  "modules/analytics/**/*.ts",
 ];
 
 const nondeterminismRules = {

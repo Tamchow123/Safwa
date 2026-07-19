@@ -323,6 +323,37 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
     expect(attempt.utcOffsetMinutesAtEvent).toBe(540);
   });
 
+  it("flashcards mode also resolves the effective clock ONCE and stamps with it", async () => {
+    // The flashcards branch shares no code with the quiz branch beyond the
+    // identical presetClock ?? readEffectiveClock line in FlashcardRunner —
+    // prove the single resolution independently for it.
+    const fixedNowMs = Date.UTC(2026, 6, 17, 20, 0, 0);
+    readEffectiveClock.mockResolvedValueOnce({
+      now: () => fixedNowMs,
+      timezone: "Asia/Tokyo",
+      timezoneSource: "user_setting",
+    });
+
+    const user = userEvent.setup();
+    await renderSetup();
+    await user.click(screen.getByTestId("custom-mode-flashcards"));
+    await user.click(screen.getByTestId("custom-start"));
+    const card = await screen.findByTestId("flashcard", undefined, {
+      timeout: 4000,
+    });
+
+    await user.click(card); // flip to reveal
+    await user.click(screen.getByTestId("rate-know"));
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalled());
+
+    expect(readEffectiveClock).toHaveBeenCalledTimes(1);
+    const attempt = recordGradedAttempt.mock.calls[0][1];
+    expect(attempt.timezoneAtEvent).toBe("Asia/Tokyo");
+    expect(attempt.timezoneSource).toBe("user_setting");
+    expect(attempt.localDateAtEvent).toBe("2026-07-18");
+    expect(attempt.utcOffsetMinutesAtEvent).toBe(540);
+  });
+
   it("adjust filters returns from a running session to the setup screen", async () => {
     const user = userEvent.setup();
     await renderSetup();
