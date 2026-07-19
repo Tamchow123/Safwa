@@ -58,15 +58,18 @@ apps (single Next.js app)
 ├── modules/scheduler      PURE TS: ts-fsrs integration, rating mapping,
 │                          event creation, causal chain, state projections
 ├── modules/study-session  session orchestration: plan builders/filters for
-│                          the study modes + the learner-state Dexie adapter
+│                          the study modes (incl. weak-drill.ts, the exact
+│                          weak-set planner) + the learner-state Dexie adapter
 ├── modules/profile        device profile, settings, session defaults, data
 │                          export, timezone preference + THE effective-clock
 │                          resolver (resolveEffectiveClock)
 ├── modules/sync           mutation queue, event push/pull, rebase handling
 ├── modules/auth           Better Auth config, email adapter
 ├── modules/analytics      PURE TS: date/activity/streak/progress formulas
-│                          (Phase 12; weak areas Phase 13) + one sanctioned
-│                          Dexie adapter (daily_activity cache rebuild)
+│                          (Phase 12) + weakness heuristic v2, evidence
+│                          preparation and group aggregation (Phase 13) +
+│                          sanctioned Dexie adapters (daily_activity cache
+│                          rebuild; weakness read, no cache write)
 ├── modules/admin          (phase 21) content operations
 └── shared/arabic          normalisation, natural keys, extraction helpers
 ```
