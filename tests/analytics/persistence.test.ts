@@ -235,7 +235,7 @@ describe("readAnalyticsSnapshot (§15)", () => {
         studyMs: 1500,
       },
     ]);
-    // The cache store now matches the snapshot (rebuilt in the same txn).
+    // The cache store now matches the snapshot (rebuilt via the one writer).
     expect(await db.dailyActivity.count()).toBe(1);
   });
 
@@ -283,5 +283,38 @@ describe("readAnalyticsSnapshot (§15)", () => {
     expect(await db.dailyActivity.get("2026-07-17")).toMatchObject({
       attempts: 1,
     });
+  });
+});
+
+describe("transaction shape (§14.3)", () => {
+  it("keeps the read/write split: short read-only scan, narrow rw cache rewrite", async () => {
+    // The refactor's reliability property — no rw lock is ever held on the
+    // raw stores grading writes to, and reads never join the write txn. A
+    // regression folding these into one wide rw transaction would pass every
+    // value/rollback test above, so the shape itself is pinned here.
+    await seedAttempt();
+    const transactionSpy = vi.spyOn(db, "transaction");
+
+    await rebuildDailyActivity(db, NOW);
+    expect(transactionSpy).toHaveBeenCalledTimes(2);
+    expect(transactionSpy.mock.calls[0][0]).toBe("r");
+    expect(transactionSpy.mock.calls[0][1]).toEqual([
+      db.studyAttempts,
+      db.reviewEvents,
+    ]);
+    expect(transactionSpy.mock.calls[1][0]).toBe("rw");
+    expect(transactionSpy.mock.calls[1][1]).toEqual([db.dailyActivity]);
+
+    transactionSpy.mockClear();
+    await readAnalyticsSnapshot(db, NOW + 1);
+    expect(transactionSpy).toHaveBeenCalledTimes(2);
+    expect(transactionSpy.mock.calls[0][0]).toBe("r");
+    expect(transactionSpy.mock.calls[0][1]).toEqual([
+      db.studyComponents,
+      db.studyAttempts,
+      db.reviewEvents,
+    ]);
+    expect(transactionSpy.mock.calls[1][0]).toBe("rw");
+    expect(transactionSpy.mock.calls[1][1]).toEqual([db.dailyActivity]);
   });
 });

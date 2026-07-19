@@ -1,21 +1,16 @@
+import { Dashboard } from "@/components/dashboard/dashboard";
 import { PageHeader } from "@/components/page-header";
 import { RegisterPrompt } from "@/components/register-prompt";
-import { Card, CardContent } from "@/components/ui/card";
 
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Your study overview will live here."
+        description="Your study overview: progress, streaks and what's due today."
       />
       <RegisterPrompt />
-      <Card>
-        <CardContent className="text-muted-foreground text-sm">
-          Progress, streaks and due reviews arrive with the progress dashboard
-          phase.
-        </CardContent>
-      </Card>
+      <Dashboard />
     </div>
   );
 }

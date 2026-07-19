@@ -12,6 +12,7 @@ import {
   isNextDay,
   lastNDates,
   localDateForInstant,
+  MAX_DATE_RANGE,
 } from "@/modules/analytics/dates";
 
 describe("isIsoDate", () => {
@@ -101,6 +102,18 @@ describe("lastNDates", () => {
   it("rejects a non-positive count", () => {
     expect(() => lastNDates("2026-07-19", 0)).toThrow();
     expect(() => lastNDates("2026-07-19", 1.5)).toThrow();
+  });
+
+  it("caps the window at MAX_DATE_RANGE (never an unbounded label array)", () => {
+    expect(lastNDates("2026-07-19", MAX_DATE_RANGE)).toHaveLength(
+      MAX_DATE_RANGE,
+    );
+    expect(() => lastNDates("2026-07-19", MAX_DATE_RANGE + 1)).toThrow(
+      /positive integer/,
+    );
+    expect(() => lastNDates("2026-07-19", Number.MAX_SAFE_INTEGER)).toThrow(
+      /positive integer/,
+    );
   });
 
   it("every helper fails loudly on a malformed date label", () => {

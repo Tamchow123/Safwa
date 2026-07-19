@@ -1,10 +1,11 @@
 /**
- * Dexie (IndexedDB) mirror — schema version 2.
+ * Dexie (IndexedDB) mirror — schema version 3 (`SAFWA_DB_VERSION`).
  *
  * v1: content cache stores only. v2 (Phase 5) adds the local learner-state
  * stores from DATA_MODEL.md §9: study components (keyed by the shared
  * natural key string), attempts, review events, sessions, bookmarks, lists,
  * settings, the outbound mutation queue and the anonymous device profile.
+ * v3 (Phase 12) adds the `daily_activity` derived analytics cache.
  * Content and learning state live in separate stores of one database:
  * cached content releases are immutable verified artifacts, never editable
  * copies.

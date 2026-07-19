@@ -81,12 +81,19 @@ export function isNextDay(previous: string, next: string): boolean {
   return addDays(previous, 1) === next;
 }
 
+/**
+ * The widest window `lastNDates` will materialise (one leap year). Trend
+ * charts request 14–30 dates; the cap fail-louds a caller that would
+ * otherwise allocate an unbounded label array from a corrupt count.
+ */
+export const MAX_DATE_RANGE = 366;
+
 /** The `count` consecutive date labels ENDING at `end` inclusive, ascending. */
 export function lastNDates(end: string, count: number): string[] {
   assertIsoDate(end, "end");
-  if (!Number.isInteger(count) || count < 1) {
+  if (!Number.isInteger(count) || count < 1 || count > MAX_DATE_RANGE) {
     throw new Error(
-      `date-range count must be a positive integer, got ${count}`,
+      `date-range count must be a positive integer ≤ ${MAX_DATE_RANGE}, got ${count}`,
     );
   }
   const dates: string[] = [];

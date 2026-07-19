@@ -51,6 +51,7 @@ export type AnalyticsPersistenceSnapshot = {
   dailyActivity: DailyActivity[];
 };
 
+/** Map one stored study-component row to its analytics slice. */
 function componentSlice(record: StudyComponentRecord): ProgressComponentState {
   return {
     componentKey: record.componentKey,
