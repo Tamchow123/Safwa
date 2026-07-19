@@ -49,7 +49,6 @@
       "Bash(python scripts/validate-vocabulary.py)",
       "Bash(python scripts/arabic-extract.py --verify-known)",
       "Bash(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*)",
-      "Bash(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1)",
       "Bash(gh pr create:*)",
       "PowerShell(git status:*)",
@@ -80,7 +79,6 @@
       "PowerShell(python scripts/validate-vocabulary.py)",
       "PowerShell(python scripts/arabic-extract.py --verify-known)",
       "PowerShell(powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1:*)",
-      "PowerShell(powershell -ExecutionPolicy Bypass -File scripts/run-codex-review.ps1:*)",
       "PowerShell(powershell -ExecutionPolicy Bypass -File scripts/workspace-fingerprint.ps1)",
       "PowerShell(gh pr create:*)"
     ],

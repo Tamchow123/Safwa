@@ -1,9 +1,10 @@
 # CLAUDE.md — project instructions for Safwa
 
-Safwa is an Arabic vocabulary-learning web app. The repo currently contains the
-vocabulary data foundation plus planning docs; the application is implemented
-phase by phase from `docs/IMPLEMENTATION_PHASES.md`. Read the phase you are
-implementing, its prerequisites, and its testing checkpoint before writing code.
+Safwa is an Arabic vocabulary-learning web app (Next.js App Router + React +
+TypeScript, Tailwind, Dexie/IndexedDB, pnpm, Vitest, Playwright). It is built
+phase by phase from `docs/phases/IMPLEMENTATION_PHASES.md` (23 phases,
+0–22). Read the phase you are implementing, its prerequisites, and its
+testing checkpoint before writing code.
 
 ## Hard rules
 
@@ -57,8 +58,12 @@ python scripts/validate-vocabulary.py   # data validation — must exit 0
 python scripts/enrich-vocabulary.py     # deterministic regeneration of enriched data
 ```
 
-App commands (once scaffolded): `pnpm dev`, `pnpm test` (Vitest),
-`pnpm test:e2e` (Playwright), `pnpm typecheck`, `pnpm lint`.
+App: `pnpm dev`, `pnpm build`, `pnpm test` (Vitest), `pnpm test:e2e`
+(Playwright), `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+`pnpm content:build` (regenerates `public/content`/`content-server` from the
+vocabulary data), `pnpm docs:verify` (checks doc Arabic placeholders).
+`scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
+locally.
 
 ## Document map
 
@@ -66,7 +71,7 @@ App commands (once scaffolded): `pnpm dev`, `pnpm test` (Vitest),
 - `docs/ARCHITECTURE.md` — stack, module boundaries, ADRs
 - `docs/DATA_MODEL.md` — Postgres + Dexie schemas, component identity, event model
 - `docs/OFFLINE_AND_SYNC.md` — causal sync design, conflict policy, staged rollout
-- `docs/IMPLEMENTATION_PHASES.md` — the 23 phases; implement one at a time
+- `docs/phases/IMPLEMENTATION_PHASES.md` — the 23 phases (0–22); implement one at a time
 - `docs/TEST_STRATEGY.md` — required tests per layer and per phase
 - `docs/DEPLOYMENT.md` — environments, hosting, migrations, backups
 - `docs/RISK_REGISTER.md` — known risks and mitigations
@@ -77,18 +82,19 @@ App commands (once scaffolded): `pnpm dev`, `pnpm test` (Vitest),
 ## Phase implementation workflow (permanent rules)
 
 - **`/phase-loop` is the standard implementation workflow** for every phase:
-  branch → implement → quality gate → Claude review → Codex review → draft PR.
-  See `.claude/skills/phase-loop/SKILL.md`.
-- **Codex is strictly an independent read-only reviewer** (run via
-  `scripts/run-codex-review.ps1` in an ephemeral read-only sandbox). It must
-  never edit files, fix findings, commit, push, merge or open PRs.
-- **Codex findings are fixed only by Claude.** Every finding is either fixed
-  or explicitly rebutted with a technical rationale — never silently ignored.
-- **No PR until both reviews approve.** A pull request may be created only
-  after the quality gate passes AND the `phase-code-reviewer` subagent AND
-  Codex both return `APPROVED`. PRs are always created as drafts.
-- **Any code change invalidates prior reviewer approvals** — from both
-  reviewers. Re-run the quality gate and both reviews after every correction.
+  branch → implement → quality gate → Claude review → draft PR. See
+  `.claude/skills/phase-loop/SKILL.md`.
+- **Review is done by the `phase-code-reviewer` subagent** — a strictly
+  read-only reviewer (Read/Grep/Glob/Bash/PowerShell only; never edits,
+  commits, pushes, merges or opens PRs).
+- **Reviewer findings are fixed only by Claude.** Every finding is either
+  fixed or explicitly rebutted with a technical rationale — never silently
+  ignored.
+- **No PR until the review approves.** A pull request may be created only
+  after the quality gate passes AND the `phase-code-reviewer` subagent
+  returns `APPROVED`. PRs are always created as drafts.
+- **Any code change invalidates the prior approval.** Re-run the quality gate
+  and the review after every correction.
 - **Never merge a pull request or deploy automatically.** The human reviews
   and merges every PR manually.
 - **Never weaken tests.** Never delete, skip, hollow out or loosen a test to

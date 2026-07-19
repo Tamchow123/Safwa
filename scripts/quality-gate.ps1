@@ -18,12 +18,11 @@
       8.  Type checking              pnpm typecheck
       9.  Linting                    pnpm lint
       10. Formatting check           pnpm format:check     (check only, never writes)
-      11. Codex runner self-tests    scripts/test-codex-runner.ps1 (sandboxed, mock codex)
-      12. Push-guard hook self-tests scripts/test-guard-git-push.ps1
-      13. Unit tests                 pnpm test
-      14. Production build           pnpm build
-      15. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
-      16. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 15)
+      11. Push-guard hook self-tests scripts/test-guard-git-push.ps1
+      12. Unit tests                 pnpm test
+      13. Production build           pnpm build
+      14. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
+      15. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 14)
 
     Notes:
       - No check modifies application source files. Step 4 regenerates the
@@ -74,7 +73,6 @@ $steps = @(
     @{ Name = "Type checking";                           Exe = "pnpm";   Args = @("typecheck") },
     @{ Name = "Linting";                                 Exe = "pnpm";   Args = @("lint") },
     @{ Name = "Formatting check";                        Exe = "pnpm";   Args = @("format:check") },
-    @{ Name = "Codex runner self-tests";                 Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-codex-runner.ps1") },
     @{ Name = "Push-guard hook self-tests";              Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-guard-git-push.ps1") },
     @{ Name = "Unit tests (Vitest)";                     Exe = "pnpm";   Args = @("test") },
     @{ Name = "Production build";                        Exe = "pnpm";   Args = @("build") }

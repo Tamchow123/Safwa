@@ -39,5 +39,5 @@ yarn-error.log*
 # Generated temporary files
 *.tmp
 
-# Transient Codex review output (never commit)
+# Transient phase-review output (never commit)
 .claude/review/results/
