@@ -54,10 +54,14 @@ test.describe("appearance settings", () => {
       .getByRole("button", { name: "Reset appearance settings" })
       .click();
 
-    await expect(page.getByRole("button", { name: "Default" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    // Scoped to the font-size selector: role-name matching is substring by
+    // default, and the study-defaults card's "Save study defaults" button
+    // would otherwise also match "Default".
+    await expect(
+      page
+        .getByTestId("arabic-font-size-selector")
+        .getByRole("button", { name: "Default" }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(await scaleValue(page)).toBe("1");
     await expect(
       page

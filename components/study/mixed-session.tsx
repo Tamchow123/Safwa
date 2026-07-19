@@ -17,6 +17,7 @@ import {
   type QuizPlanEntry,
 } from "@/components/study/quiz-runner";
 import { browserClock } from "@/components/study/study-shared";
+import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { computeEventTimeFields } from "@/modules/study-engine/attempts";
@@ -30,6 +31,8 @@ import { readSchedulingSnapshot } from "@/modules/study-session/persistence";
 /** Top-level: loads content, reads local scheduling state, mounts the runner. */
 export function MixedSession() {
   const { state, retry } = useActiveContent();
+  // The learner-editable session defaults (§4.4): daily targets + count.
+  const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
   // Bumping this token remounts the runner, starting a fresh session (used by
   // "Study again").
   const [sessionToken, setSessionToken] = useState(0);
@@ -40,26 +43,35 @@ export function MixedSession() {
       const weakScores = computeWeakScores(snapshot.attempts);
       // Today's REMAINING budgets: the local date uses the same clock/zone
       // scheme the events themselves were stamped with, so consumption and
-      // rollover agree with the recorded history.
+      // rollover agree with the recorded history. The full daily targets are
+      // the user's configured new/day + reviews/day (§4.4 defaults 10 · 20).
       const clock = browserClock();
       const nowMs = clock.now();
       const localDate = computeEventTimeFields(nowMs, clock).localDateAtEvent;
-      const targets = remainingDailyTargets(snapshot.events, localDate);
+      const targets = remainingDailyTargets(snapshot.events, localDate, {
+        newLimit: defaults.newPerDay,
+        reviewLimit: defaults.reviewsPerDay,
+      });
       return buildMixedPlan(
         entries,
         snapshot.components,
         weakScores,
         nowMs,
         targets,
+        defaults.questionCount,
       );
     },
-    [],
+    [defaults.newPerDay, defaults.reviewsPerDay, defaults.questionCount],
   );
 
-  if (state.status === "loading" || state.status === "error") {
+  if (
+    state.status === "loading" ||
+    state.status === "error" ||
+    !defaultsLoaded
+  ) {
     return (
       <ContentStateFallback
-        status={state.status}
+        status={state.status === "error" ? "error" : "loading"}
         message={state.status === "error" ? state.message : undefined}
         ariaLabel="Loading session"
         retry={retry}
@@ -69,13 +81,14 @@ export function MixedSession() {
 
   return (
     <QuizRunner
-      key={sessionToken}
+      key={`${defaults.questionCount}|${defaults.optionCount}|${defaults.newPerDay}|${defaults.reviewsPerDay}|${sessionToken}`}
       entries={state.entries}
       releaseId={state.releaseId}
       contentVersion={state.contentVersion}
       questionGeneratorVersion={state.questionGeneratorVersion}
       buildPlan={buildPlan}
       delivery="immediate"
+      optionCount={defaults.optionCount}
       emptyMessage="Nothing to study right now — you've reached today's targets. Come back when reviews are due, or start a specific mode."
       onStudyAgain={() => setSessionToken((token) => token + 1)}
     />

@@ -28,6 +28,7 @@ import {
 export const SETTING_KEYS = {
   arabicFontScale: "arabic-font-scale",
   registerPromptDismissed: "register-prompt-dismissed",
+  sessionDefaults: "session-defaults",
   theme: "theme",
 } as const;
 

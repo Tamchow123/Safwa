@@ -187,10 +187,37 @@ describe("session — timed mode (limit enforced from response time)", () => {
     expect(result.attempt.selectedAnswerRef).toBeNull();
   });
 
-  it("rejects a combined timed + test session (Phase 11)", () => {
-    expect(() =>
-      babSession({ config: { timed: true, testMode: true } }),
-    ).toThrow();
+  it("combines timed + test (Phase 11): timed_test mode, feedback withheld, lapse counted", () => {
+    const nextId = idFactory();
+    let state = babSession({ config: { timed: true, testMode: true } });
+    // The combined composition is its own recorded delivery mode, so the
+    // attempt is never mislabelled as plain timed or plain test.
+    expect(state.config.perQuestionLimitMs).toBe(20000);
+    const question = currentQuestion(state, questionContext)!;
+    expect(question.deliveryMode).toBe("timed_test");
+
+    // A lapse past the limit counts as incorrect AND feedback stays withheld
+    // (test-mode semantics) until the session completes.
+    const lapse = submit(state, nextId, { responseTimeMs: 30000 });
+    state = lapse.state;
+    expect(lapse.attempt.mode).toBe("timed_test");
+    expect(lapse.attempt.isCorrect).toBe(false);
+    expect(lapse.attempt.selectedAnswerRef).toBeNull();
+    expect(lapse.feedback).toBeNull();
+    expect(() => revealResults(state)).toThrow(); // re-queued, still active
+
+    // Finish the reinforcement re-queue on time; results reveal at the end.
+    const recovery = submit(state, nextId, {
+      selectedAnswerRef: correctRef(state),
+      responseTimeMs: 900,
+    });
+    state = recovery.state;
+    expect(recovery.feedback).toBeNull();
+    expect(state.status).toBe("complete");
+    expect(revealResults(state).map((outcome) => outcome.isCorrect)).toEqual([
+      false,
+      true,
+    ]);
   });
 
   it("rejects an invalid (non-positive / non-finite) timed limit", () => {
@@ -743,5 +770,49 @@ describe("session — summary", () => {
     expect(summary.recovered).toBe(1);
     expect(summary.repeatedIncorrect).toBe(0);
     expect(summary.componentsSeen).toBe(1);
+  });
+});
+
+describe("session — attempts record the effective option count (Phase 11)", () => {
+  it("persists the generated option count on every attempt (durable identity input)", () => {
+    const nextId = idFactory();
+    // Configured 8 on a bāb item: the generator clamps to the six bābs; the
+    // attempt records the EFFECTIVE count the learner actually saw.
+    const clamped = babSession({ config: { optionCount: 8 } });
+    const clampedResult = submit(clamped, nextId, {
+      selectedAnswerRef: correctRef(clamped),
+      responseTimeMs: 700,
+    });
+    expect(clampedResult.attempt.optionCount).toBe(6);
+
+    const plain = babSession();
+    const plainResult = submit(plain, nextId, {
+      selectedAnswerRef: correctRef(plain),
+      responseTimeMs: 700,
+    });
+    expect(plainResult.attempt.optionCount).toBe(4);
+  });
+
+  it("persists the grading limit on timed attempts (null when untimed)", () => {
+    const nextId = idFactory();
+    // A configurable limit (Phase 11): the attempt records the exact limit it
+    // was graded against, so authoritative regrading never guesses.
+    const timed = babSession({
+      config: { timed: true, perQuestionLimitMs: 5000 },
+    });
+    const timedResult = submit(timed, nextId, {
+      selectedAnswerRef: correctRef(timed),
+      responseTimeMs: 6000, // past THIS session's 5s limit
+    });
+    expect(timedResult.attempt.perQuestionLimitMs).toBe(5000);
+    expect(timedResult.attempt.isCorrect).toBe(false); // graded against 5s
+
+    const untimed = babSession();
+    const untimedResult = submit(untimed, nextId, {
+      selectedAnswerRef: correctRef(untimed),
+      responseTimeMs: 6000,
+    });
+    expect(untimedResult.attempt.perQuestionLimitMs).toBeNull();
+    expect(untimedResult.attempt.isCorrect).toBe(true);
   });
 });

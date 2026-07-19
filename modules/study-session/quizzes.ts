@@ -35,8 +35,10 @@ export type QuizDirectionChoice = TranslationDirectionChoice;
 /** Field choice: a specific source form or any random eligible source form. */
 export type QuizFieldChoice = TranslationFieldChoice;
 
-/** How per-question correctness is delivered (immediate vs withheld/timed). */
-export type QuizDelivery = "immediate" | "test" | "timed";
+/** How per-question correctness is delivered (immediate vs withheld/timed).
+ * `timed_test` combines the countdown with withheld feedback (Phase 11 custom
+ * sessions, §4.4). */
+export type QuizDelivery = "immediate" | "test" | "timed" | "timed_test";
 
 export type McQuizConfig = {
   direction: QuizDirectionChoice;

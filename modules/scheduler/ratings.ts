@@ -2,7 +2,8 @@
  * FSRS rating mapping (PRODUCT_REQUIREMENTS.md §5). Derived from a Phase-6
  * attempt's mode + objective outcome + hint usage:
  *
- *   MC/test/timed:  correct & unhinted → Good; correct & hinted → Hard;
+ *   MC/test/timed/timed_test:
+ *                   correct & unhinted → Good; correct & hinted → Hard;
  *                   incorrect (hinted or not) → Again.
  *   flashcard:      "I know" (correct) → Good; "I don't know" (incorrect) →
  *                   Again — a self-graded card carries no objective hint credit,
@@ -15,7 +16,7 @@
 import type { SchedulerRating } from "@/modules/scheduler/fsrs";
 
 /** Attempt delivery modes (mirrors DATA_MODEL.md §5 / study-engine). */
-export type AttemptMode = "flashcard" | "mc" | "test" | "timed";
+export type AttemptMode = "flashcard" | "mc" | "test" | "timed" | "timed_test";
 
 /** The minimal attempt facts the rating depends on. */
 export type RatableAttempt = {

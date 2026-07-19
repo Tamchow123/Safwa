@@ -10,6 +10,7 @@ import {
 } from "@/components/study/quiz-runner";
 import { FIELD_LABELS } from "@/components/study/study-shared";
 import { Button } from "@/components/ui/button";
+import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import type { LearnerEntry } from "@/modules/content/schema";
 import {
   buildQuizPlan,
@@ -45,6 +46,8 @@ const DELIVERY_OPTIONS: { value: QuizDelivery; label: string }[] = [
 /** Top-level: loads content, hosts the options bar, and mounts the runner. */
 export function McQuizSession() {
   const { state, retry } = useActiveContent();
+  // The learner-editable session defaults (§4.4): count + option count.
+  const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
   const [config, setConfig] = useState<McQuizConfig>(DEFAULT_MC_QUIZ_CONFIG);
   // Bumping this token remounts the runner, starting a fresh session (used by
   // "Study again" and by any options change).
@@ -52,14 +55,18 @@ export function McQuizSession() {
 
   const buildPlan = useCallback(
     (entries: LearnerEntry[], seed: string): QuizPlanEntry[] =>
-      buildQuizPlan(entries, config, seed),
-    [config],
+      buildQuizPlan(entries, config, seed, defaults.questionCount),
+    [config, defaults.questionCount],
   );
 
-  if (state.status === "loading" || state.status === "error") {
+  if (
+    state.status === "loading" ||
+    state.status === "error" ||
+    !defaultsLoaded
+  ) {
     return (
       <ContentStateFallback
-        status={state.status}
+        status={state.status === "error" ? "error" : "loading"}
         message={state.status === "error" ? state.message : undefined}
         ariaLabel="Loading quiz"
         retry={retry}
@@ -76,13 +83,14 @@ export function McQuizSession() {
     <div className="space-y-5">
       <OptionsBar config={config} onChange={updateConfig} />
       <QuizRunner
-        key={`${config.direction}|${config.field}|${config.delivery}|${sessionToken}`}
+        key={`${config.direction}|${config.field}|${config.delivery}|${defaults.questionCount}|${defaults.optionCount}|${sessionToken}`}
         entries={state.entries}
         releaseId={state.releaseId}
         contentVersion={state.contentVersion}
         questionGeneratorVersion={state.questionGeneratorVersion}
         buildPlan={buildPlan}
         delivery={config.delivery}
+        optionCount={defaults.optionCount}
         emptyMessage="No eligible quiz questions match these options. Try a different form or direction."
         onStudyAgain={() => setSessionToken((token) => token + 1)}
       />
