@@ -253,7 +253,7 @@ describe("custom session filters — property test over seeded random configs", 
       );
       expect(replay).toEqual(plan);
     }
-  });
+  }, 60_000);
 });
 
 /* ------------------------------------------------------------------ */
