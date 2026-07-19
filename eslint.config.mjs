@@ -8,8 +8,10 @@ import prettier from "eslint-config-prettier/flat";
  * (docs/ARCHITECTURE.md §2). These run identically in the browser and on the
  * server, so hidden nondeterminism (Date.now / Math.random / crypto) and
  * React/DOM/DB imports are forbidden — clocks and randomness are injected.
- * When the analytics PERSISTENCE adapter (browser-only Dexie wiring) lands,
- * exempt that one file with a scoped override rather than widening the rules.
+ * The analytics PERSISTENCE adapter (modules/analytics/persistence.ts) is
+ * the module's one sanctioned browser-only Dexie boundary and is exempted
+ * via the scoped `ignores` on the guard block below — every other analytics
+ * file stays fully guarded. Extend that per-file list, never these rules.
  */
 const PURE_MODULE_FILES = [
   "modules/study-engine/**/*.ts",
@@ -78,6 +80,11 @@ const eslintConfig = defineConfig([
   prettier,
   {
     files: PURE_MODULE_FILES,
+    // The analytics PERSISTENCE adapter is the module's one sanctioned
+    // browser-only Dexie boundary (like study-session/persistence.ts, which
+    // lives outside the guard entirely); every other analytics file stays
+    // fully guarded.
+    ignores: ["modules/analytics/persistence.ts"],
     rules: nondeterminismRules,
   },
   globalIgnores([
