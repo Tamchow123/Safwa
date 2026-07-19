@@ -233,9 +233,14 @@ export function eligibleCustomComponents(
  *  - `new`      — never reviewed (no stored FSRS card);
  *  - `learning` — effective learner state `learning`;
  *  - `mastered` — effective learner state `mastered`;
- *  - `weak`     — weakness EVIDENCE: positive weak score (recent incorrect
- *                 first attempt) or a `needs_review` effective state, and not
- *                 mastered (mirrors the scheduler's weak-tier rule);
+ *  - `weak`     — weakness EVIDENCE: a positive weak score (Phase 13 v2,
+ *                 `modules/analytics/weakness.ts` adapted via
+ *                 `qualifyingWeaknessScore` — already zero without genuine
+ *                 failure/lapse evidence) and not mastered (mirrors the
+ *                 scheduler's weak-tier rule). A `needs_review` effective
+ *                 state alone is deliberately NOT a second trigger: an
+ *                 ordinary due mastered card with a clean history must not
+ *                 be falsely called weak;
  *  - `due`      — the stored card is due at the injected instant.
  *
  * The stored learner-state projection is only refreshed when an event is
@@ -265,7 +270,7 @@ export function componentStateClasses(
   const state = effectiveLearnerState(stored?.learnerState, card, nowMs);
   if (state === "learning") classes.push("learning");
   if (state === "mastered") classes.push("mastered");
-  if (state !== "mastered" && (weakScore > 0 || state === "needs_review")) {
+  if (state !== "mastered" && weakScore > 0) {
     classes.push("weak");
   }
   // effectiveLearnerState re-checks due-ness internally for the mastered

@@ -136,11 +136,21 @@ describe("mixed session ordering (due → weak → new)", () => {
         state: "learning",
         weakScore: 0.4,
       },
-      // Projected needs_review qualifies even without a computed score.
+      // Phase 13: a needs_review projection with NO score evidence (e.g. an
+      // ordinary mastered card due again through plain spaced-repetition
+      // timing, no real lapse) must NOT be falsely called weak.
       {
-        componentKey: "needs-review",
+        componentKey: "needs-review-no-evidence",
         card: cardDueAt(NOW + 100000),
         state: "needs_review",
+      },
+      // A needs_review projection WITH genuine score evidence (Phase 13 v2
+      // already reflects a real lapse/failure in the score) still qualifies.
+      {
+        componentKey: "needs-review-with-evidence",
+        card: cardDueAt(NOW + 100000),
+        state: "needs_review",
+        weakScore: 0.6,
       },
       // Mastered non-due never qualifies, whatever the score says.
       {
@@ -160,9 +170,12 @@ describe("mixed session ordering (due → weak → new)", () => {
     const session = buildMixedSession(items, NOW);
     expect(session).toEqual([
       "due-score-zero",
+      "needs-review-with-evidence",
       "weak-evidence",
-      "needs-review",
     ]);
+    expect(session).not.toContain("needs-review-no-evidence");
+    expect(session).not.toContain("fine-not-due");
+    expect(session).not.toContain("mastered");
   });
 
   it("orders new items by the caller's rank, never raw key order", () => {

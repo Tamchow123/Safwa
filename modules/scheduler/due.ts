@@ -4,12 +4,20 @@
  * **due → weak → new** within the user's daily targets (default 10 new /
  * 20 reviews).
  *
- * The weak tier is EVIDENCE-based: a non-due, non-mastered card qualifies only
- * when its caller-supplied weakness score (recent first-attempt accuracy;
- * higher = weaker) is positive, or when the component is projected
- * `needs_review`. A card that has only ever been answered correctly
- * (score 0, `learning`) is never re-drilled before its FSRS due time merely
- * because it has not reached mastery. The full weak-areas page is Phase 13.
+ * The weak tier is EVIDENCE-based: a non-due, non-mastered card qualifies
+ * only when its caller-supplied weakness score is positive (Phase 13: the
+ * ONE weakness heuristic v2, `modules/analytics/weakness.ts`, adapted via
+ * `qualifyingWeaknessScore` — itself already zero for a `needs_review`
+ * projection with no genuine failure/lapse evidence, e.g. a mastered card
+ * merely due again through ordinary spaced-repetition timing). A card that
+ * has only ever been answered correctly (score 0, `learning`) is never
+ * re-drilled before its FSRS due time merely because it has not reached
+ * mastery — and neither is one that is due-again with a clean history.
+ * `needs_review` alone is deliberately NOT a second, independent trigger
+ * here: doing so would re-flag ordinary due revision as "weakness" the
+ * moment a mastered card's next scheduled review arrives, which is exactly
+ * the false positive Phase 13 rules out. The full weak-areas page is
+ * Phase 13.
  *
  * New-item ordering is likewise CALLER-supplied (`newRank`, lower first) —
  * the pedagogical policy lives with the planner (see
@@ -61,13 +69,15 @@ export function selectDue(
 
 /**
  * Is a non-due card WEAK — i.e. is there actual evidence the learner
- * struggles with it? Positive weakness score (a recent incorrect first
- * attempt; reinforcement recoveries never erase it) or a `needs_review`
- * projection qualifies. Mastered components never do.
+ * struggles with it? A positive weakness score alone qualifies (Phase 13
+ * v2: already zero unless there is genuine failure/lapse evidence — a
+ * `needs_review` projection with no such evidence, e.g. an ordinary due
+ * mastered card, does NOT independently qualify). Mastered components
+ * never do.
  */
 function isWeakEvidence(item: SchedulableItem): boolean {
   if (item.state === "mastered") return false;
-  return (item.weakScore ?? 0) > 0 || item.state === "needs_review";
+  return (item.weakScore ?? 0) > 0;
 }
 
 /** Unranked new items sort after every ranked one (deterministic key tiebreak). */
@@ -88,11 +98,12 @@ export function buildMixedSession(
   const due = selectDue(items, nowMs);
   const dueKeys = new Set(due.map((item) => item.componentKey));
 
-  // Weak: a non-due item that HAS a card AND carries weakness evidence
-  // (positive score, or a needs_review projection), weakest first. Disjoint
-  // from `due` (those are due) and from `new` (those have no card). A
-  // score-zero `learning` card — answered correctly and simply not yet due —
-  // is deliberately NOT re-drilled early.
+  // Weak: a non-due item that HAS a card AND carries a positive weakness
+  // score, weakest first. Disjoint from `due` (those are due) and from
+  // `new` (those have no card). A score-zero `learning` card — answered
+  // correctly and simply not yet due — is deliberately NOT re-drilled
+  // early, and neither is a due-again `needs_review` card with no genuine
+  // failure/lapse evidence behind its score.
   const weak = items
     .filter(
       (item) =>

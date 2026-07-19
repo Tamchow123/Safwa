@@ -157,6 +157,32 @@ export async function rebuildDailyActivity(
   return derived;
 }
 
+/** The raw component/attempt/event slices, before any daily-activity work. */
+export type AnalyticsRawRead = {
+  components: ProgressComponentState[];
+  attempts: AnalyticsAttempt[];
+  events: AnalyticsEvent[];
+};
+
+/**
+ * The ONE consistent read-only transaction over the three raw stores every
+ * analytics consumer shares — component scheduling state and attempt/event
+ * slices. No write; callers that need the derived+cached daily activity
+ * compose this with `deriveDailyActivity` + `writeDailyActivityCache`
+ * themselves (see `readAnalyticsSnapshot` below).
+ */
+async function readAnalyticsRaw(db: SafwaDb): Promise<AnalyticsRawRead> {
+  return db.transaction(
+    "r",
+    [db.studyComponents, db.studyAttempts, db.reviewEvents],
+    async () => ({
+      components: (await db.studyComponents.toArray()).map(componentSlice),
+      attempts: (await db.studyAttempts.toArray()).map(attemptSlice),
+      events: (await db.reviewEvents.toArray()).map(eventSlice),
+    }),
+  );
+}
+
 /**
  * Read the complete analytics snapshot (§15): component scheduling state and
  * attempt/event slices from ONE consistent read-only transaction, the daily
@@ -169,16 +195,22 @@ export async function readAnalyticsSnapshot(
   db: SafwaDb,
   now: number,
 ): Promise<AnalyticsPersistenceSnapshot> {
-  const { components, attempts, events } = await db.transaction(
-    "r",
-    [db.studyComponents, db.studyAttempts, db.reviewEvents],
-    async () => ({
-      components: (await db.studyComponents.toArray()).map(componentSlice),
-      attempts: (await db.studyAttempts.toArray()).map(attemptSlice),
-      events: (await db.reviewEvents.toArray()).map(eventSlice),
-    }),
-  );
+  const { components, attempts, events } = await readAnalyticsRaw(db);
   const dailyActivity = deriveDailyActivity(attempts, events);
   await writeDailyActivityCache(db, dailyActivity, now);
   return { components, attempts, events, dailyActivity };
+}
+
+/**
+ * Read-only variant for consumers that need the raw components/attempts/
+ * events but NOT the derived daily-activity cache rebuild (Phase 13 §7, §30
+ * weakness analytics on the mixed/custom session-start hot path — those
+ * consumers never read `dailyActivity`). Never writes, so it is safe to call
+ * far more often than the dashboard's cache-rewriting load without growing
+ * IndexedDB write traffic on the app's busiest entry points.
+ */
+export async function readAnalyticsRawSnapshot(
+  db: SafwaDb,
+): Promise<AnalyticsRawRead> {
+  return readAnalyticsRaw(db);
 }

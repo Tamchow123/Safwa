@@ -203,3 +203,18 @@ export function computeAllComponentWeakness(
   }
   return result;
 }
+
+/**
+ * Adapt a v2 score to the plain "higher = weaker, 0 = not weak" scheduling
+ * number `modules/scheduler/due.ts` (`SchedulableItem.weakScore`) and
+ * `modules/study-session/custom.ts` (`componentStateClasses`) already
+ * consume — the ONE place v2's full qualification rule (failure evidence,
+ * threshold, mastered/non-due exclusion) collapses into that number, so
+ * every scheduling consumer agrees with Weak Areas on exactly which
+ * components are weak without re-implementing `qualifiesAsWeak` itself.
+ * A non-qualifying component always reports 0, even when its raw `score` is
+ * positive (e.g. below `WEAK_THRESHOLD`, or mastered-and-not-due).
+ */
+export function qualifyingWeaknessScore(weakness: ComponentWeakness): number {
+  return weakness.qualifiesAsWeak ? weakness.score : 0;
+}

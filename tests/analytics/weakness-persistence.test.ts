@@ -9,7 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
-import { loadWeaknessView } from "@/modules/analytics/weakness-persistence";
+import {
+  loadWeakScores,
+  loadWeaknessView,
+} from "@/modules/analytics/weakness-persistence";
+import { qualifyingWeaknessScore } from "@/modules/analytics/weakness";
 import { deriveAllComponents } from "@/modules/study-engine/components";
 
 let dbCounter = 0;
@@ -129,7 +133,7 @@ describe("loadWeaknessView", () => {
     expect(view.topOverall).toEqual([]);
   });
 
-  it("shares the SAME single-read snapshot as the dashboard path (no extra transaction)", async () => {
+  it("reads via the SAME raw scan the dashboard path is built on, and never writes (no cache rebuild on the session-start hot path)", async () => {
     await seedIncorrectBabAttempt();
     const transactionSpy = vi.spyOn(db, "transaction");
     await loadWeaknessView(
@@ -138,11 +142,19 @@ describe("loadWeaknessView", () => {
       [babEntry()],
       NOW,
     );
-    // readAnalyticsSnapshot itself opens exactly one "r" (raw stores) and
-    // one "rw" (cache rewrite) transaction; loadWeaknessView must add none.
-    expect(transactionSpy).toHaveBeenCalledTimes(2);
+    // readAnalyticsRawSnapshot opens exactly one "r" (raw stores)
+    // transaction and never writes — weakness analytics never reads
+    // dailyActivity, so loadWeaknessView must not trigger (or pay for) the
+    // dashboard's daily_activity cache rebuild.
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
     expect(transactionSpy.mock.calls[0][0]).toBe("r");
-    expect(transactionSpy.mock.calls[1][0]).toBe("rw");
+    expect(transactionSpy.mock.calls[0][1]).toEqual([
+      db.studyComponents,
+      db.studyAttempts,
+      db.reviewEvents,
+    ]);
+    // No daily_activity write: the cache stays untouched.
+    expect(await db.dailyActivity.count()).toBe(0);
   });
 
   it("all six dimension keys are always present, even when empty", async () => {
@@ -155,5 +167,38 @@ describe("loadWeaknessView", () => {
     expect(Object.keys(view.groups).sort()).toEqual(
       ["bab", "direction", "skill", "source_form", "state", "verb_type"].sort(),
     );
+  });
+});
+
+describe("loadWeakScores (mixed/custom session-start hot path)", () => {
+  it("opens exactly one read-only transaction and never writes the daily_activity cache", async () => {
+    await seedIncorrectBabAttempt();
+    const transactionSpy = vi.spyOn(db, "transaction");
+    await loadWeakScores(db, deriveAllComponents([babEntry()]), NOW);
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
+    expect(transactionSpy.mock.calls[0][0]).toBe("r");
+    expect(await db.dailyActivity.count()).toBe(0);
+  });
+
+  it("returns scores equal to qualifyingWeaknessScore(cw) for every component loadWeaknessView scored", async () => {
+    await seedIncorrectBabAttempt();
+    const derived = deriveAllComponents([babEntry()]);
+    const view = await loadWeaknessView(db, derived, [babEntry()], NOW);
+    const scores = await loadWeakScores(db, derived, NOW);
+
+    expect(scores.size).toBe(view.componentWeakness.size);
+    for (const [key, cw] of view.componentWeakness) {
+      expect(scores.get(key)).toBe(qualifyingWeaknessScore(cw));
+    }
+    expect(scores.get(KEY)).toBeGreaterThan(0); // the seeded weak bāb component
+  });
+
+  it("returns an empty map for a guest with no study history", async () => {
+    const scores = await loadWeakScores(
+      db,
+      deriveAllComponents([babEntry()]),
+      NOW,
+    );
+    expect(scores.size).toBe(0);
   });
 });
