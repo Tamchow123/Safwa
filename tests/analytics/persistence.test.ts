@@ -54,6 +54,15 @@ async function seedAttempt(
           attempt: {
             localDateAtEvent: overrides.localDateAtEvent ?? "2026-07-17",
             responseTimeMs: overrides.responseTimeMs ?? 1500,
+            occurredAtUtc: "2026-07-17T12:00:00.000Z",
+            entryId: 1,
+            skillTypeId: "bab_identification",
+            direction: null,
+            sourceField: null,
+            promptField: "madi",
+            isFirstAttempt: true,
+            isReinforcement: false,
+            isCorrect: true,
             // Only the fields the analytics slice reads are relevant here;
             // the cast keeps the fixture honest about being a partial row.
           } as never,
@@ -216,6 +225,15 @@ describe("readAnalyticsSnapshot (§15)", () => {
         componentKey: KEY,
         localDateAtEvent: "2026-07-17",
         responseTimeMs: 1500,
+        occurredAtUtc: "2026-07-17T12:00:00.000Z",
+        entryId: 1,
+        skillType: "bab_identification",
+        direction: null,
+        sourceField: null,
+        promptField: "madi",
+        isFirstAttempt: true,
+        isReinforcement: false,
+        isCorrect: true,
       },
     ]);
     expect(snapshot.events).toHaveLength(1);
@@ -244,6 +262,10 @@ describe("readAnalyticsSnapshot (§15)", () => {
     const snapshot = await readAnalyticsSnapshot(db, NOW);
     expect(snapshot.attempts[0].localDateAtEvent).toBeNull();
     expect(Number.isNaN(snapshot.attempts[0].responseTimeMs)).toBe(true);
+    expect(snapshot.attempts[0].occurredAtUtc).toBeNull();
+    expect(snapshot.attempts[0].isFirstAttempt).toBe(false);
+    expect(snapshot.attempts[0].isReinforcement).toBe(false);
+    expect(snapshot.attempts[0].isCorrect).toBe(false);
     expect(snapshot.dailyActivity).toEqual([]);
   });
 

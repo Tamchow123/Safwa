@@ -69,8 +69,10 @@ function componentSlice(record: StudyComponentRecord): ProgressComponentState {
 /**
  * Map one stored attempt row to its analytics slice. A row without the
  * embedded full attempt payload (pre-Phase-8 shape; none exist in practice)
- * maps to an intentionally-invalid slice (NaN response time) so the pure
- * validity gate excludes it — corrupted legacy rows never become activity.
+ * maps to an intentionally-invalid slice (NaN response time, null instant,
+ * `isFirstAttempt`/`isReinforcement`/`isCorrect` false) so the pure validity
+ * gates (activity AND Phase 13 weakness evidence) both exclude it —
+ * corrupted legacy rows never become activity or weakness evidence.
  */
 function attemptSlice(row: StudyAttemptRecord): AnalyticsAttempt {
   return {
@@ -78,6 +80,15 @@ function attemptSlice(row: StudyAttemptRecord): AnalyticsAttempt {
     componentKey: row.componentKey,
     localDateAtEvent: row.attempt?.localDateAtEvent ?? null,
     responseTimeMs: row.attempt?.responseTimeMs ?? Number.NaN,
+    occurredAtUtc: row.attempt?.occurredAtUtc ?? null,
+    entryId: row.attempt?.entryId ?? null,
+    skillType: row.attempt?.skillTypeId ?? null,
+    direction: row.attempt?.direction ?? null,
+    sourceField: row.attempt?.sourceField ?? null,
+    promptField: row.attempt?.promptField ?? null,
+    isFirstAttempt: row.attempt?.isFirstAttempt ?? false,
+    isReinforcement: row.attempt?.isReinforcement ?? false,
+    isCorrect: row.attempt?.isCorrect ?? false,
   };
 }
 

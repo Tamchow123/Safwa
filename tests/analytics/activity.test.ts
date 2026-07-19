@@ -9,36 +9,10 @@ import { describe, expect, it } from "vitest";
 import {
   deriveDailyActivity,
   isValidActivityAttempt,
-  type AnalyticsAttempt,
-  type AnalyticsEvent,
 } from "@/modules/analytics/activity";
 import { remainingDailyTargets } from "@/modules/study-session/mixed";
 
-let counter = 0;
-
-function attempt(overrides: Partial<AnalyticsAttempt> = {}): AnalyticsAttempt {
-  counter += 1;
-  return {
-    id: `attempt-${counter}`,
-    componentKey: "entry:1:skill:bab_identification",
-    localDateAtEvent: "2026-07-17",
-    responseTimeMs: 1500,
-    ...overrides,
-  };
-}
-
-function event(overrides: Partial<AnalyticsEvent> = {}): AnalyticsEvent {
-  counter += 1;
-  return {
-    eventId: `event-${counter}`,
-    attemptId: null,
-    parentEventId: null,
-    status: "scheduling",
-    syncStatus: "local",
-    localDateAtEvent: "2026-07-17",
-    ...overrides,
-  };
-}
+import { attempt, event } from "./fixtures";
 
 describe("isValidActivityAttempt (§8.1–8.2)", () => {
   it("accepts a full valid attempt", () => {
