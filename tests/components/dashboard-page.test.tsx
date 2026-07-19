@@ -211,6 +211,12 @@ describe("dashboard seeded progress (§16, §25)", () => {
     // EXACTLY one: only the past-due learning card counts — the mastered
     // future-due cards do not (a regression to 10/11/21 must fail here).
     expect(screen.getByTestId("due-today-count")).toHaveTextContent(/^1$/);
+    // The Today values update on visibility refresh, so they live in a
+    // restrained polite live region (§19).
+    expect(screen.getByText("Current streak").closest("dl")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
   });
 
   it("renders daily targets with real counts against the defaults", async () => {
