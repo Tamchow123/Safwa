@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
+import { deriveAllComponentsCached } from "@/lib/derived-components-cache";
 import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import {
   babGroup,
@@ -32,10 +33,7 @@ import {
   loadWeaknessView,
   type WeaknessView,
 } from "@/modules/analytics/weakness-persistence";
-import {
-  deriveAllComponents,
-  type DerivedComponent,
-} from "@/modules/study-engine/components";
+import type { DerivedComponent } from "@/modules/study-engine/components";
 
 export type WeaknessSnapshotState =
   | { status: "loading" }
@@ -115,7 +113,7 @@ export function useWeaknessSnapshot(): {
   // use-analytics-snapshot.ts §28) — never re-derived on retry or a
   // visibility-triggered refresh.
   const derived = useMemo<DerivedComponent[] | null>(
-    () => (entries === null ? null : deriveAllComponents(entries)),
+    () => (entries === null ? null : deriveAllComponentsCached(entries)),
     [entries],
   );
 

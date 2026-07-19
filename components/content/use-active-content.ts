@@ -12,6 +12,36 @@ import {
   type LoadContentResult,
 } from "@/modules/content/load";
 
+/**
+ * Coalesces genuinely-concurrent `loadActiveContent()` calls into ONE actual
+ * network fetch + checksum/Zod re-verification (Phase 13 §15 — the Progress
+ * page is the first page to mount two independent snapshot hooks,
+ * `useAnalyticsSnapshot` and `useWeaknessSnapshot`, each with their own
+ * `useActiveContent()`; without this, both would redundantly re-fetch and
+ * re-verify the same release on the same page mount).
+ *
+ * The shared slot is cleared on the NEXT MICROTASK, deliberately NOT on
+ * promise settlement: React runs every mounted component's effects
+ * synchronously, back-to-back, within the same task, so two snapshot hooks
+ * mounting together still see and share the same in-flight promise before
+ * the microtask queue ever flushes. Clearing on settlement instead would let
+ * a slow or permanently-hung load (the watchdog only races it — it cannot
+ * cancel the underlying fetch/IndexedDB open) poison every LATER, wholly
+ * unrelated mount for as long as that one load stays pending, which is
+ * worse than the duplicate-load cost this exists to avoid.
+ */
+let inFlightContentLoad: Promise<LoadContentResult> | null = null;
+
+function loadActiveContentCoalesced(): Promise<LoadContentResult> {
+  if (inFlightContentLoad) return inFlightContentLoad;
+  const promise = loadActiveContent();
+  inFlightContentLoad = promise;
+  queueMicrotask(() => {
+    if (inFlightContentLoad === promise) inFlightContentLoad = null;
+  });
+  return promise;
+}
+
 /** Short user-safe failure text — never raw checksums or Zod diagnostics. */
 const FAILURE_MESSAGES: Record<
   Extract<LoadContentResult, { ok: false }>["code"],
@@ -67,7 +97,11 @@ export function useActiveContent() {
 
   useEffect(() => {
     let cancelled = false;
-    withTimeout(loadActiveContent(), CONTENT_WATCHDOG_MS, WATCHDOG_ERROR)
+    withTimeout(
+      loadActiveContentCoalesced(),
+      CONTENT_WATCHDOG_MS,
+      WATCHDOG_ERROR,
+    )
       .then((result) => {
         if (cancelled) return;
         if (result.ok) {
