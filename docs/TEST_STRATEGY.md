@@ -164,6 +164,23 @@ integration; the E2E matrix runs on main and before releases.
   (entry-level prompt-form eligibility, no silent fallback, deterministic
   ranking); the Weak Areas page and weak-drill session components (empty
   states, priority labels, accessible semantics, no raw component keys).
+- Bookmarks & custom lists (Phase 14, implemented in `tests/collections/`,
+  `tests/components/`, `tests/study-session/custom-session-url.test.ts`,
+  `tests/profile/export.test.ts`, `tests/content/db-migration.test.ts`): pure
+  name normalisation/uniqueness and membership canonicalisation (dedupe +
+  sort); the Dexie persistence adapter (durable-guest-state request BEFORE
+  the transaction, race-safe re-reads inside one transaction); the
+  collection-axis filter engine (union within the axis, intersection across
+  every other axis, an explicit empty selection matching nothing rather than
+  falling back to "all entries"); the direct study URL preset parser
+  (rejects arbitrary JSON, comma-separated id payloads, component keys,
+  filesystem-like paths, empty/overlong values); component suites for the
+  bookmark toggle, Saved Vocabulary, custom-list detail and every
+  collections dialog; export round-trip through the real write paths
+  (creation, canonical membership, rename, entry removal, list deletion,
+  bookmark survival across list deletion); and a fresh-v3/reopen-through-
+  the-persistence-module suite proving Phase 14 introduced no new Dexie
+  migration.
 - Long-offline (Phases 16/19): events from an old supported release accepted
   via retained manifests; old release + new protocol requires client upgrade
   but content stays valid; revoked release ⇒ scheduling rejected, local
@@ -204,6 +221,28 @@ resolved components; mixed-revision due→weak→new ordering; Custom Session
 `weak` filter agreement with the Weak Areas engine under one snapshot; the
 full 320px mobile journey; axe on the no-evidence, populated, per-dimension,
 drill, mobile and dark-mode states.
+
+Phase 14 bookmarks & lists suite (`e2e/collections.spec.ts`, implemented):
+bookmarking from Library and from detail (state, no unintended navigation,
+reload persistence, Saved Vocabulary reflection); protected duplicate-māḍī
+entries bookmarked independently and distinguished by id/route, never by
+meaning text; list creation, membership management, rename and reload
+persistence; list deletion preserving bookmarks and study state, a safe
+deleted-list route, and Custom Session no longer offering it; session-result
+bookmarking with unique-entry dedup across MC and flashcard results;
+bookmarked-only and list-only Custom Session runs verifying every question
+programmatically against the expected set (list-only also verifying the
+combined form filter); collection union/intersection verified against exact
+expected sets; a selected-empty-collection guard proving no session ever
+starts; "Study again" re-planning against a list's current membership after
+a seeded mid-flow edit; an export round-trip through a real download,
+including canonical membership and the absence of content artifacts and the
+`daily_activity` cache; bookmarks/lists surviving a full browser restart via
+a persistent context; the full 320px mobile journey across bookmark, list
+and session actions; axe scans across every documented collections surface
+(Library, detail, Saved Vocabulary empty/populated, custom-list detail,
+add-to-list dialog, delete confirmation, Custom Session collections filter,
+session results, mobile and dark-mode Saved Vocabulary).
 
 ## 11. Additional testing
 

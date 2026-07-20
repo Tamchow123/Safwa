@@ -10,8 +10,19 @@ import type { LearnerEntry } from "@/modules/content/schema";
  * Window-virtualised result list: only visible/overscanned rows render,
  * heights are measured (cards wrap on narrow screens), and the list flows
  * in the normal page scroll so the mobile shell keeps working.
+ *
+ * Bookmark state is threaded down from ONE parent snapshot (Phase 14 §10,
+ * §33) — never a per-card IndexedDB read.
  */
-export function VirtualisedEntryList({ entries }: { entries: LearnerEntry[] }) {
+export function VirtualisedEntryList({
+  entries,
+  bookmarkedEntryIds,
+  onToggleBookmark,
+}: {
+  entries: LearnerEntry[];
+  bookmarkedEntryIds: ReadonlySet<number>;
+  onToggleBookmark: (entryId: number) => Promise<void>;
+}) {
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
 
@@ -56,7 +67,11 @@ export function VirtualisedEntryList({ entries }: { entries: LearnerEntry[] }) {
               transform: `translateY(${item.start - scrollMargin}px)`,
             }}
           >
-            <VocabularyEntryCard entry={entries[item.index]} />
+            <VocabularyEntryCard
+              entry={entries[item.index]}
+              bookmarked={bookmarkedEntryIds.has(entries[item.index].id)}
+              onToggleBookmark={() => onToggleBookmark(entries[item.index].id)}
+            />
           </div>
         ))}
       </div>

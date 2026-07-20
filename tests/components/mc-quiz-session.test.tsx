@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
@@ -117,6 +117,24 @@ vi.mock("@/modules/profile/timezone", async (importActual) => {
   };
 });
 
+// Session-result bookmarking (Phase 14 §18): the snapshot always reads back
+// empty (no pre-existing bookmarks), and the write is a spy — isolates the
+// results-screen wiring from the Dexie/fake-indexeddb layer already covered
+// by tests/collections/persistence.test.ts.
+const toggleBookmarkSpy: Mock<
+  typeof import("@/modules/collections/persistence").toggleBookmark
+> = vi.fn(async () => true);
+vi.mock("@/modules/collections/persistence", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/modules/collections/persistence")>();
+  return {
+    ...original,
+    readCollections: vi.fn(async () => ({ bookmarks: [], lists: [] })),
+    toggleBookmark: (...args: Parameters<typeof toggleBookmarkSpy>) =>
+      toggleBookmarkSpy(...args),
+  };
+});
+
 import { McQuizSession } from "@/components/study/mc-quiz-session";
 
 afterEach(() => {
@@ -128,6 +146,7 @@ afterEach(() => {
   ensureDurableGuestStateSpy.mockClear();
   readEffectiveClock.mockClear();
   peekDeviceProfile.mockClear();
+  toggleBookmarkSpy.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -532,6 +551,168 @@ describe("McQuizSession", () => {
     ).toHaveTextContent("19");
     expect(within(results).getByTestId("mc-recovered")).toHaveTextContent("1");
     expect(within(results).getByTestId("mc-hinted")).toHaveTextContent("0");
+  });
+
+  it("shows one bookmark toggle per distinct studied entry, and undo does not undo a bookmark (§18)", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const first = await waitForQuestion();
+
+    // Recover one component (same entry answered twice) so the dedup logic
+    // is genuinely exercised, not vacuously true.
+    await user.click(anIncorrectOption(first));
+    await screen.findByTestId("mc-feedback");
+    await user.click(screen.getByTestId("mc-next"));
+
+    for (let i = 0; i < 60; i++) {
+      if (screen.queryByTestId("mc-results")) break;
+      const session = screen.queryByTestId("mc-quiz-session");
+      if (!session) break;
+      await user.click(optionWithRef(correctRef(session)));
+      const next = screen.queryByTestId("mc-next");
+      if (next) await user.click(next);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+
+    const results = await screen.findByTestId("mc-results", undefined, {
+      timeout: 4000,
+    });
+    const summaryEntries = within(results).getByTestId("summary-entries");
+    const links = within(summaryEntries).getAllByTestId("summary-entry-link");
+    const toggles = within(summaryEntries).getAllByTestId("bookmark-toggle");
+    // Exactly one row (and one toggle) per distinct entry — never one per
+    // attempt/component.
+    expect(toggles.length).toBe(links.length);
+    expect(new Set(links.map((link) => link.getAttribute("href"))).size).toBe(
+      links.length,
+    );
+
+    const firstRow = summaryEntries.querySelector("li[data-entry-id]")!;
+    const entryId = Number(firstRow.getAttribute("data-entry-id"));
+    const toggle = within(firstRow as HTMLElement).getByTestId(
+      "bookmark-toggle",
+    );
+    expect(toggle).toHaveAttribute("data-bookmarked", "false");
+
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+    expect(toggleBookmarkSpy.mock.calls[0][1]).toBe(entryId);
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute("data-bookmarked", "true"),
+    );
+
+    // Undoing the last graded question must not touch the bookmark: the
+    // bookmark write is a separate user action from study-history undo (§18).
+    const undoButton = within(results).getByTestId("undo");
+    await user.click(undoButton);
+    await waitFor(() => expect(undoGradedAttempt).toHaveBeenCalledTimes(1));
+    expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1);
+    // The undo genuinely returned to an active question (results unmounted),
+    // proving the previous assertion was against the live results screen.
+    expect(screen.queryByTestId("mc-results")).toBeNull();
+  });
+
+  it("shows an in-session bookmark toggle in the question header, usable before answering and without answering the question", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    expect(toggle).toHaveAttribute("data-bookmarked", "false");
+
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute("data-bookmarked", "true"),
+    );
+
+    // The toggle click must not have selected an answer option or revealed
+    // feedback — it is a sibling control, not part of the answer surface.
+    expect(screen.queryByTestId("mc-feedback")).toBeNull();
+    for (const option of options()) {
+      expect(option).toHaveAttribute("data-selected", "false");
+    }
+  });
+
+  it("keeps the in-session bookmark write independent of undoing the graded question", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+
+    await user.click(optionWithRef(correctRef(session)));
+    await screen.findByTestId("mc-feedback");
+    await user.click(screen.getByTestId("undo"));
+    await waitFor(() => expect(undoGradedAttempt).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId("mc-feedback")).toBeNull());
+
+    // Undoing the graded question is a separate, study-history action from
+    // the earlier bookmark write (§18's undo-independence, now also here).
+    expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the in-session bookmark toggle usable in test mode without revealing withheld feedback", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    await waitForQuestion();
+    await user.selectOptions(screen.getByTestId("mc-delivery-select"), "test");
+
+    const session = await waitFor(() => {
+      const el = screen.getByTestId("mc-quiz-session");
+      if (el.getAttribute("data-delivery") !== "test") {
+        throw new Error("not test mode yet");
+      }
+      return el;
+    });
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute("data-bookmarked", "true"),
+    );
+
+    // The toggle never leaks the withheld correctness feedback.
+    expect(screen.queryByTestId("mc-feedback")).toBeNull();
+  });
+
+  it("does not interfere with the per-question timer", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<McQuizSession />);
+    await waitFor(() => screen.getByTestId("mc-quiz-session"), {
+      timeout: 4000,
+    });
+    await user.selectOptions(screen.getByTestId("mc-delivery-select"), "timed");
+    const session = await waitFor(() => {
+      const el = screen.getByTestId("mc-quiz-session");
+      if (el.getAttribute("data-delivery") !== "timed") {
+        throw new Error("not timed yet");
+      }
+      return el;
+    });
+
+    const timerBefore = Number.parseInt(
+      screen.getByTestId("mc-timer").textContent ?? "0",
+      10,
+    );
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+
+    // The countdown kept running (didn't reset/pause) and the question did
+    // not auto-submit from the toggle click.
+    await vi.advanceTimersByTimeAsync(2000);
+    const timerAfter = Number.parseInt(
+      screen.getByTestId("mc-timer").textContent ?? "0",
+      10,
+    );
+    expect(timerAfter).toBeLessThan(timerBefore);
+    expect(recordGradedAttempt).not.toHaveBeenCalled();
   });
 
   it("an all-correct session reports every question correct first try", async () => {

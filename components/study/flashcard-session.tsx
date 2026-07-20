@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
+import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
 import { Flashcard } from "@/components/flashcard";
 import {
@@ -16,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useReducedMotion } from "@/lib/preferences/use-reduced-motion";
 import { uuidv7 } from "@/lib/uuid";
 import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
+import { toggleBookmark } from "@/modules/collections/persistence";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { newDeviceProfile, peekDeviceProfile } from "@/modules/profile/device";
@@ -455,6 +458,25 @@ export function FlashcardRunner({
     }
   }, [session, busy]);
 
+  // Session-result bookmarking (Phase 14 §18) — one shared snapshot, refreshed
+  // after each write; never affected by undoing the last graded attempt.
+  const { state: collections, refresh: refreshCollections } = useCollections();
+  const knownEntryIds = useMemo(
+    () => new Set(entries.map((entry) => entry.id)),
+    [entries],
+  );
+  const bookmarkedEntryIds =
+    collections.status === "ready"
+      ? collections.snapshot.bookmarkedEntryIds
+      : new Set<number>();
+  const handleToggleBookmark = useCallback(
+    async (entryId: number) => {
+      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      refreshCollections();
+    },
+    [knownEntryIds, refreshCollections],
+  );
+
   if (!context || status === "error") {
     return (
       <Card>
@@ -497,6 +519,8 @@ export function FlashcardRunner({
         actionError={actionError}
         onUndo={undoLast}
         onStudyAgain={onStudyAgain}
+        bookmarkedEntryIds={bookmarkedEntryIds}
+        onToggleBookmark={handleToggleBookmark}
       />
     );
   }
@@ -516,6 +540,8 @@ export function FlashcardRunner({
       actionError={actionError}
       onGrade={grade}
       onUndo={undoLast}
+      bookmarked={bookmarkedEntryIds.has(entry.id)}
+      onToggleBookmark={() => handleToggleBookmark(entry.id)}
     />
   );
 }
@@ -535,6 +561,8 @@ function CardView({
   actionError,
   onGrade,
   onUndo,
+  bookmarked,
+  onToggleBookmark,
 }: {
   entry: LearnerEntry;
   instance: QuestionInstance;
@@ -545,6 +573,8 @@ function CardView({
   actionError: string | null;
   onGrade: (grade: FlashcardSelfGrade, responseTimeMs: number) => void;
   onUndo: () => void;
+  bookmarked: boolean;
+  onToggleBookmark: () => Promise<void>;
 }) {
   const reducedMotion = useReducedMotion();
   const [flipped, setFlipped] = useState(false);
@@ -629,9 +659,17 @@ function CardView({
       data-answer-field={instance.answerField}
       onKeyDown={onKeyDown}
     >
-      <p className="text-muted-foreground text-sm" aria-live="polite">
-        Card {position} of {total}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-muted-foreground text-sm" aria-live="polite">
+          Card {position} of {total}
+        </p>
+        <BookmarkToggle
+          entryLabel={entry.meaning}
+          bookmarked={bookmarked}
+          onToggle={onToggleBookmark}
+          size="sm"
+        />
+      </div>
 
       <div
         ref={cardRef}
@@ -735,6 +773,8 @@ function SessionSummary({
   actionError,
   onUndo,
   onStudyAgain,
+  bookmarkedEntryIds,
+  onToggleBookmark,
 }: {
   session: SessionState;
   entriesById: ReadonlyMap<number, LearnerEntry>;
@@ -743,6 +783,8 @@ function SessionSummary({
   actionError: string | null;
   onUndo: () => void;
   onStudyAgain: () => void;
+  bookmarkedEntryIds: ReadonlySet<number>;
+  onToggleBookmark: (entryId: number) => Promise<void>;
 }) {
   const summary = summarizeSession(session);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
@@ -822,7 +864,11 @@ function SessionSummary({
                 const entry = entriesById.get(entryId);
                 if (!entry) return null;
                 return (
-                  <li key={entryId}>
+                  <li
+                    key={entryId}
+                    data-entry-id={entryId}
+                    className="flex items-center gap-2"
+                  >
                     <Link
                       href={`/library/${entryId}`}
                       className="text-primary underline-offset-4 hover:underline"
@@ -830,6 +876,12 @@ function SessionSummary({
                     >
                       {entry.meaning}
                     </Link>
+                    <BookmarkToggle
+                      entryLabel={entry.meaning}
+                      bookmarked={bookmarkedEntryIds.has(entryId)}
+                      onToggle={() => onToggleBookmark(entryId)}
+                      size="sm"
+                    />
                   </li>
                 );
               })}

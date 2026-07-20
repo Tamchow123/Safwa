@@ -2,8 +2,12 @@
 
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useCallback, useMemo } from "react";
 
 import { ArabicText } from "@/components/arabic-text";
+import { AddToListDialog } from "@/components/collections/add-to-list-dialog";
+import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
+import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
 import { EligibilityBadge } from "@/components/library/eligibility-badge";
@@ -15,7 +19,10 @@ import {
   SOURCE_FORM_METADATA,
   SOURCE_QUIZ_FORM_FIELDS,
 } from "@/lib/form-metadata";
+import { getSafwaDb } from "@/modules/content/db";
+import type { CustomListRecord } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
+import { toggleBookmark } from "@/modules/collections/persistence";
 
 function BackToLibrary() {
   return (
@@ -49,6 +56,22 @@ function NotFoundCard() {
 /** Detail page body. `idParam` is the raw route segment (validated here). */
 export function VocabularyDetail({ idParam }: { idParam: string }) {
   const { state, retry } = useActiveContent();
+  // Hooks run unconditionally, before any early return below.
+  const { state: collections, refresh: refreshCollections } = useCollections();
+  const knownEntryIds = useMemo(
+    () =>
+      state.status === "ready"
+        ? new Set(state.entries.map((candidate) => candidate.id))
+        : new Set<number>(),
+    [state],
+  );
+  const handleToggleBookmark = useCallback(
+    async (entryId: number) => {
+      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      refreshCollections();
+    },
+    [knownEntryIds, refreshCollections],
+  );
 
   // The route id must be a positive integer (stable learner entry id).
   const valid = /^[1-9][0-9]*$/.test(idParam);
@@ -93,10 +116,23 @@ export function VocabularyDetail({ idParam }: { idParam: string }) {
     return <NotFoundCard />;
   }
 
+  const bookmarked =
+    collections.status === "ready" &&
+    collections.snapshot.bookmarkedEntryIds.has(entry.id);
+  const lists =
+    collections.status === "ready" ? collections.snapshot.lists : [];
+
   return (
     <div className="space-y-5">
       <BackToLibrary />
-      <EntryDetail entry={entry} />
+      <EntryDetail
+        entry={entry}
+        bookmarked={bookmarked}
+        lists={lists}
+        knownEntryIds={knownEntryIds}
+        onToggleBookmark={() => handleToggleBookmark(entry.id)}
+        onListsChanged={refreshCollections}
+      />
       <ContentSourceNotice
         releaseId={state.releaseId}
         source={state.source}
@@ -107,7 +143,22 @@ export function VocabularyDetail({ idParam }: { idParam: string }) {
   );
 }
 
-function EntryDetail({ entry }: { entry: LearnerEntry }) {
+function EntryDetail({
+  entry,
+  bookmarked,
+  lists,
+  knownEntryIds,
+  onToggleBookmark,
+  onListsChanged,
+}: {
+  entry: LearnerEntry;
+  bookmarked: boolean;
+  lists: readonly CustomListRecord[];
+  knownEntryIds: ReadonlySet<number>;
+  onToggleBookmark: () => Promise<void>;
+  onListsChanged: () => void;
+}) {
+  const memberLists = lists.filter((list) => list.entryIds.includes(entry.id));
   return (
     <article className="space-y-5" data-testid="entry-detail">
       <header className="space-y-1">
@@ -237,9 +288,36 @@ function EntryDetail({ entry }: { entry: LearnerEntry }) {
             available.
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="text-muted-foreground text-sm">
-            Bookmarking will become available with local learner profiles.
+        <Card data-testid="detail-collections">
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium">Saved vocabulary</span>
+              <BookmarkToggle
+                entryLabel={entry.meaning}
+                bookmarked={bookmarked}
+                onToggle={onToggleBookmark}
+              />
+            </div>
+            <AddToListDialog
+              trigger={
+                <Button type="button" variant="outline" className="min-h-11">
+                  Add to list
+                </Button>
+              }
+              entryId={entry.id}
+              entryLabel={entry.meaning}
+              lists={lists}
+              knownEntryIds={knownEntryIds}
+              onChanged={onListsChanged}
+            />
+            {memberLists.length > 0 && (
+              <p
+                className="text-muted-foreground text-sm"
+                data-testid="detail-list-membership"
+              >
+                In {memberLists.map((list) => list.name).join(", ")}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

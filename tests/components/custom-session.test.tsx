@@ -1,8 +1,9 @@
 /**
- * Custom session setup screen (Phase 11, §4.4): every documented filter is
- * present and composes; the empty-result guard suggests loosening; timed and
- * test COMBINE; flashcards disable timed/test; the bookmarks/lists placeholder
- * is visible but disabled until Phase 14.
+ * Custom session setup screen (Phase 11, §4.4, extended by Phase 14 §19):
+ * every documented filter is present and composes; the empty-result guard
+ * suggests loosening; timed and test COMBINE; flashcards disable timed/test;
+ * the bookmarks/lists collection axis narrows the session and re-reads fresh
+ * on every Start (including Study Again).
  */
 import { readFileSync } from "node:fs";
 
@@ -12,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
+import type { CollectionsRaw } from "@/modules/collections/persistence";
 import type { AttemptRecord } from "@/modules/study-engine";
 import type {
   PersistedAttempt,
@@ -47,6 +49,13 @@ vi.mock("@/modules/content/db", async (importOriginal) => {
     await importOriginal<typeof import("@/modules/content/db")>();
   return { ...original, getSafwaDb: () => ({}) as never };
 });
+
+// Phase 14 §20/§21: the URL search params CustomSession reads its initial
+// collection preset from. Mutable per-test, defaulting to no preset.
+let presetSearchParams = new URLSearchParams();
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => presetSearchParams,
+}));
 
 vi.mock("@/modules/profile/device", async (importOriginal) => {
   const original =
@@ -84,6 +93,34 @@ vi.mock("@/modules/analytics/weakness-persistence", async (importActual) => {
     ...actual,
     loadWeakScores: (...args: Parameters<typeof loadWeakScores>) =>
       loadWeakScores(...args),
+  };
+});
+
+// Phase 14 §19: bookmarks/lists, read fresh on every Start (including Study
+// Again) — mutable per-test so a test can change the collection state
+// BETWEEN two Start calls to prove the re-read is genuinely fresh, not a
+// stale snapshot. `readCollections` (used only by the setup screen's list
+// picker via useCollections) and `readCollectionMembership` (used by
+// `start()` to build the actual filter membership) both derive from the
+// SAME source-of-truth variable so a test only has to set one value.
+let collectionsRaw: CollectionsRaw = { bookmarks: [], lists: [] };
+const readCollections = vi.fn(async () => collectionsRaw);
+const readCollectionMembership = vi.fn(async () => ({
+  bookmarkedEntryIds: new Set(collectionsRaw.bookmarks.map((b) => b.entryId)),
+  listEntryIdsById: new Map(
+    collectionsRaw.lists.map((list) => [list.id, new Set(list.entryIds)]),
+  ),
+}));
+vi.mock("@/modules/collections/persistence", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/modules/collections/persistence")>();
+  return {
+    ...actual,
+    readCollections: (...args: Parameters<typeof readCollections>) =>
+      readCollections(...args),
+    readCollectionMembership: (
+      ...args: Parameters<typeof readCollectionMembership>
+    ) => readCollectionMembership(...args),
   };
 });
 
@@ -142,6 +179,10 @@ afterEach(() => {
   recordGradedAttempt.mockClear();
   readEffectiveClock.mockClear();
   loadWeakScores.mockClear();
+  readCollections.mockClear();
+  readCollectionMembership.mockClear();
+  collectionsRaw = { bookmarks: [], lists: [] };
+  presetSearchParams = new URLSearchParams();
 });
 
 async function renderSetup() {
@@ -186,8 +227,11 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
     expect(screen.getByTestId("custom-count")).toHaveValue(20);
     expect(screen.getByTestId("custom-timed")).toBeInTheDocument();
     expect(screen.getByTestId("custom-test-mode")).toBeInTheDocument();
-    const placeholder = screen.getByTestId("custom-bookmarks-placeholder");
-    expect(placeholder.querySelector("button")).toBeDisabled();
+    // Bookmarks/lists (§19): the axis is live, not a disabled placeholder.
+    const bookmarksButton = screen.getByTestId("custom-collection-bookmarks");
+    expect(bookmarksButton).toBeEnabled();
+    expect(bookmarksButton).toHaveAttribute("aria-pressed", "false");
+    expect(await screen.findByText(/No custom lists yet/)).toBeInTheDocument();
   });
 
   it("empty-result guard: an impossible combination suggests loosening filters", async () => {
@@ -273,6 +317,191 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
       timeout: 4000,
     });
     expect(card).toBeInTheDocument();
+  });
+
+  it("selecting Bookmarks narrows the session to only the bookmarked entry (§19)", async () => {
+    const targetEntryId = built.learner.entries[0].id;
+    collectionsRaw = {
+      bookmarks: [{ entryId: targetEntryId, createdAt: 1 }],
+      lists: [],
+    };
+    const user = userEvent.setup();
+    await renderSetup();
+
+    await user.click(screen.getByTestId("custom-collection-bookmarks"));
+    expect(screen.getByTestId("custom-collection-bookmarks")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(screen.getByTestId("custom-start"));
+
+    const session = await screen.findByTestId("mc-quiz-session", undefined, {
+      timeout: 4000,
+    });
+    expect(Number(session.getAttribute("data-entry-id"))).toBe(targetEntryId);
+  });
+
+  it("selecting a custom list narrows the session to only its members (§19)", async () => {
+    const targetEntryId = built.learner.entries[1].id;
+    collectionsRaw = {
+      bookmarks: [],
+      lists: [
+        {
+          id: "list-1",
+          name: "My revision list",
+          entryIds: [targetEntryId],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    await renderSetup();
+
+    const listButton = await screen.findByTestId(
+      "custom-collection-list-list-1",
+    );
+    expect(listButton).toHaveTextContent("My revision list");
+    await user.click(listButton);
+    await user.click(screen.getByTestId("custom-start"));
+
+    const session = await screen.findByTestId("mc-quiz-session", undefined, {
+      timeout: 4000,
+    });
+    expect(Number(session.getAttribute("data-entry-id"))).toBe(targetEntryId);
+  });
+
+  it("a ?collection=bookmarks URL preselects Bookmarks without auto-starting (§20)", async () => {
+    presetSearchParams = new URLSearchParams("collection=bookmarks");
+    await renderSetup();
+
+    expect(screen.getByTestId("custom-collection-bookmarks")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // Populates the controls only — the learner still takes the Start action.
+    expect(screen.queryByTestId("mc-quiz-session")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("flashcard-session")).not.toBeInTheDocument();
+  });
+
+  it("a ?list=<id> URL preselects that list once it loads, without auto-starting (§20)", async () => {
+    presetSearchParams = new URLSearchParams("list=list-1");
+    collectionsRaw = {
+      bookmarks: [],
+      lists: [
+        {
+          id: "list-1",
+          name: "My revision list",
+          entryIds: [],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    await renderSetup();
+
+    const listButton = await screen.findByTestId(
+      "custom-collection-list-list-1",
+    );
+    expect(listButton).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("mc-quiz-session")).not.toBeInTheDocument();
+  });
+
+  it("rejects a malformed ?list= preset (component key shape) without crashing (§21)", async () => {
+    presetSearchParams = new URLSearchParams({
+      list: "entry:1:skill:bab_identification",
+    });
+    collectionsRaw = { bookmarks: [], lists: [] };
+
+    await renderSetup();
+    // No list is preselected: the malformed id never reached filter state.
+    expect(
+      screen.queryByTestId(/^custom-collection-list-/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a deleted-list preset fails safely: no crash, and Start shows the empty-result guard rather than an unrestricted session (§21)", async () => {
+    // The URL references a well-formed but non-existent list id.
+    presetSearchParams = new URLSearchParams("list=no-longer-exists");
+    collectionsRaw = { bookmarks: [], lists: [] };
+    const user = userEvent.setup();
+
+    await renderSetup();
+    await user.click(screen.getByTestId("custom-start"));
+
+    const guard = await screen.findByTestId("custom-empty-guard");
+    expect(guard).toBeInTheDocument();
+    expect(screen.queryByTestId("mc-quiz-session")).not.toBeInTheDocument();
+  });
+
+  it("an explicit empty bookmark selection shows the empty-result guard, never falls back to all entries (§19)", async () => {
+    // No bookmarks exist, but the axis is explicitly selected.
+    const user = userEvent.setup();
+    await renderSetup();
+
+    await user.click(screen.getByTestId("custom-collection-bookmarks"));
+    await user.click(screen.getByTestId("custom-start"));
+
+    const guard = await screen.findByTestId("custom-empty-guard");
+    expect(guard).toBeInTheDocument();
+    const suggestions = screen.getAllByTestId("loosen-suggestion");
+    expect(suggestions.map((node) => node.textContent)).toContain(
+      "Include vocabulary outside your bookmarks and lists",
+    );
+    expect(screen.queryByTestId("mc-quiz-session")).not.toBeInTheDocument();
+  });
+
+  it("Study again re-reads bookmarks/lists fresh (never a stale collection snapshot, §19)", async () => {
+    const firstEntryId = built.learner.entries[0].id;
+    const secondEntryId = built.learner.entries[1].id;
+    collectionsRaw = {
+      bookmarks: [{ entryId: firstEntryId, createdAt: 1 }],
+      lists: [],
+    };
+    const user = userEvent.setup();
+    await renderSetup();
+
+    await user.click(screen.getByTestId("custom-collection-bookmarks"));
+    await user.clear(screen.getByTestId("custom-count"));
+    await user.type(screen.getByTestId("custom-count"), "1");
+    await user.click(screen.getByTestId("custom-start"));
+
+    const session = await screen.findByTestId("mc-quiz-session", undefined, {
+      timeout: 4000,
+    });
+    expect(Number(session.getAttribute("data-entry-id"))).toBe(firstEntryId);
+    expect(readCollectionMembership).toHaveBeenCalledTimes(1);
+
+    // The bookmark set changes mid-session (as if edited in another tab) —
+    // Study Again must plan against the NEW set, not the one captured at the
+    // first Start.
+    collectionsRaw = {
+      bookmarks: [{ entryId: secondEntryId, createdAt: 2 }],
+      lists: [],
+    };
+
+    const answerField = session.getAttribute("data-answer-field");
+    const correct = screen
+      .getAllByTestId("mc-option")
+      .find(
+        (option) =>
+          option.getAttribute("data-answer-ref") ===
+          `entry:${firstEntryId}:field:${answerField}`,
+      )!;
+    await user.click(correct);
+    await user.click(await screen.findByTestId("mc-next"));
+    await screen.findByTestId("mc-results");
+
+    await user.click(screen.getByTestId("study-again"));
+    const secondSession = await screen.findByTestId(
+      "mc-quiz-session",
+      undefined,
+      { timeout: 4000 },
+    );
+    expect(readCollectionMembership).toHaveBeenCalledTimes(2);
+    expect(Number(secondSession.getAttribute("data-entry-id"))).toBe(
+      secondEntryId,
+    );
   });
 
   it("Study again re-reads the scheduling snapshot (never a stale pre-session map)", async () => {
