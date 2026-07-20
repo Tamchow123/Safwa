@@ -124,6 +124,28 @@ export function seedCard(
   };
 }
 
+/** A `bookmarks` row (Phase 14). */
+export function seedBookmark(entryId: number, createdAtMs: number) {
+  return { entryId, createdAt: createdAtMs };
+}
+
+/** A `lists` row (Phase 14) — `entryIds` defaults to empty (a bare list). */
+export function seedList(params: {
+  id: string;
+  name: string;
+  entryIds?: readonly number[];
+  createdAtMs: number;
+  updatedAtMs?: number;
+}) {
+  return {
+    id: params.id,
+    name: params.name,
+    entryIds: [...(params.entryIds ?? [])],
+    createdAt: params.createdAtMs,
+    updatedAt: params.updatedAtMs ?? params.createdAtMs,
+  };
+}
+
 /**
  * A `study_attempts` row shaped for Phase 13 weakness evidence
  * (`prepareWeaknessEvidence` excludes an attempt whose `entryId`/

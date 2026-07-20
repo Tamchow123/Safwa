@@ -187,13 +187,16 @@ test.describe("custom session — §4.4 filter matrix", () => {
     await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
   });
 
-  test("the bookmarks/lists placeholder is visible but disabled (Phase 14)", async ({
+  test("the bookmarks filter is live and enabled (Phase 14 §19)", async ({
     page,
   }) => {
     await page.goto("/study/custom");
-    const placeholder = page.getByTestId("custom-bookmarks-placeholder");
-    await expect(placeholder).toBeVisible();
-    await expect(placeholder.getByRole("button")).toBeDisabled();
+    const bookmarksButton = page.getByTestId("custom-collection-bookmarks");
+    await expect(bookmarksButton).toBeVisible();
+    await expect(bookmarksButton).toBeEnabled();
+    await expect(bookmarksButton).toHaveAttribute("aria-pressed", "false");
+    await bookmarksButton.click();
+    await expect(bookmarksButton).toHaveAttribute("aria-pressed", "true");
   });
 
   test("the custom setup screen has no accessibility violations", async ({

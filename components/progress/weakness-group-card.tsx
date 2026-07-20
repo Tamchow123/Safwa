@@ -12,11 +12,11 @@ import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { daysSince } from "@/lib/format-duration";
 import { formatInt } from "@/lib/format-number";
 import { WEAK_THRESHOLD } from "@/modules/analytics/weakness";
 import type { WeaknessGroup } from "@/modules/analytics/weakness-groups";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 /** Above this raw score a group is called "High" priority (§16 labels). */
 const HIGH_PRIORITY_SCORE = 0.5;
 
@@ -44,7 +44,7 @@ function formatLastPractised(
   nowMs: number,
 ): string {
   if (lastAttemptAtMs === null) return "Not yet practised";
-  const days = Math.floor(Math.max(0, nowMs - lastAttemptAtMs) / DAY_MS);
+  const days = daysSince(lastAttemptAtMs, nowMs);
   if (days === 0) return "Practised today";
   if (days === 1) return "Practised yesterday";
   return `Practised ${formatInt(days)} days ago`;

@@ -12,6 +12,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ArabicText } from "@/components/arabic-text";
+import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
+import { useCollections } from "@/components/collections/use-collections";
 import {
   FieldValue,
   formLabel,
@@ -29,6 +31,7 @@ import {
   type AnswerReference,
 } from "@/modules/content/answer-reference";
 import type { SourceQuizFormField } from "@/modules/content/constants";
+import { toggleBookmark } from "@/modules/collections/persistence";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { newDeviceProfile, peekDeviceProfile } from "@/modules/profile/device";
@@ -481,6 +484,25 @@ export function QuizRunner({
     }
   }, [session, busy]);
 
+  // Session-result bookmarking (Phase 14 §18) — one shared snapshot, refreshed
+  // after each write; never affected by undoing the last graded attempt.
+  const { state: collections, refresh: refreshCollections } = useCollections();
+  const knownEntryIds = useMemo(
+    () => new Set(entries.map((entry) => entry.id)),
+    [entries],
+  );
+  const bookmarkedEntryIds =
+    collections.status === "ready"
+      ? collections.snapshot.bookmarkedEntryIds
+      : new Set<number>();
+  const handleToggleBookmark = useCallback(
+    async (entryId: number) => {
+      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      refreshCollections();
+    },
+    [knownEntryIds, refreshCollections],
+  );
+
   if (!context || status === "error" || instance === "generation_failed") {
     return (
       <Card>
@@ -523,6 +545,8 @@ export function QuizRunner({
         actionError={actionError}
         onUndo={undoLast}
         onStudyAgain={onStudyAgain}
+        bookmarkedEntryIds={bookmarkedEntryIds}
+        onToggleBookmark={handleToggleBookmark}
       />
     );
   }
@@ -552,6 +576,8 @@ export function QuizRunner({
       onAnswer={answer}
       onNext={advanceAfterFeedback}
       onUndo={undoLast}
+      bookmarked={bookmarkedEntryIds.has(entry.id)}
+      onToggleBookmark={() => handleToggleBookmark(entry.id)}
     />
   );
 }
@@ -579,6 +605,8 @@ function QuestionView({
   onAnswer,
   onNext,
   onUndo,
+  bookmarked,
+  onToggleBookmark,
 }: {
   entry: LearnerEntry;
   instance: QuestionInstance;
@@ -602,6 +630,8 @@ function QuestionView({
   ) => void;
   onNext: () => void;
   onUndo: () => void;
+  bookmarked: boolean;
+  onToggleBookmark: () => Promise<void>;
 }) {
   const shownAtRef = useRef<number>(0);
   const firstOptionRef = useRef<HTMLButtonElement | null>(null);
@@ -680,20 +710,28 @@ function QuestionView({
       data-hint-used={usedHint !== null}
       data-hint-type={usedHint?.type ?? ""}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-muted-foreground text-sm" aria-live="polite">
           Question {position} of {total}
         </p>
-        {isTimed && !answered ? (
-          <p
-            className="text-sm font-medium tabular-nums"
-            data-testid="mc-timer"
-            role="timer"
-            aria-live="off"
-          >
-            {remainingSeconds}s
-          </p>
-        ) : null}
+        <div className="flex items-center gap-3">
+          {isTimed && !answered ? (
+            <p
+              className="text-sm font-medium tabular-nums"
+              data-testid="mc-timer"
+              role="timer"
+              aria-live="off"
+            >
+              {remainingSeconds}s
+            </p>
+          ) : null}
+          <BookmarkToggle
+            entryLabel={entry.meaning}
+            bookmarked={bookmarked}
+            onToggle={onToggleBookmark}
+            size="sm"
+          />
+        </div>
       </div>
 
       <Card>
@@ -969,6 +1007,8 @@ function ResultsScreen({
   actionError,
   onUndo,
   onStudyAgain,
+  bookmarkedEntryIds,
+  onToggleBookmark,
 }: {
   session: SessionState;
   entriesById: ReadonlyMap<number, LearnerEntry>;
@@ -977,6 +1017,8 @@ function ResultsScreen({
   actionError: string | null;
   onUndo: () => void;
   onStudyAgain: () => void;
+  bookmarkedEntryIds: ReadonlySet<number>;
+  onToggleBookmark: (entryId: number) => Promise<void>;
 }) {
   const summary = summarizeSession(session);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
@@ -988,6 +1030,17 @@ function ResultsScreen({
   // Test mode withheld per-question correctness inline; reveal it now (§4.4).
   const isTest = session.config.testMode;
   const outcomes: QuestionFeedback[] = isTest ? revealResults(session) : [];
+
+  // The distinct entries studied, in first-seen order, for the bookmark
+  // controls below (Phase 14 §18) — mirrors flashcard-session's SessionSummary.
+  const studiedEntryIds: number[] = [];
+  const seenEntryIds = new Set<number>();
+  for (const attempt of session.attempts) {
+    if (!seenEntryIds.has(attempt.entryId)) {
+      seenEntryIds.add(attempt.entryId);
+      studiedEntryIds.push(attempt.entryId);
+    }
+  }
 
   return (
     <Card data-testid="mc-results">
@@ -1104,6 +1157,41 @@ function ResultsScreen({
             </Button>
           ) : null}
         </div>
+
+        {studiedEntryIds.length > 0 ? (
+          <div className="space-y-2" data-testid="summary-entries">
+            <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Review the words you studied
+            </h3>
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {studiedEntryIds.map((entryId) => {
+                const entry = entriesById.get(entryId);
+                if (!entry) return null;
+                return (
+                  <li
+                    key={entryId}
+                    data-entry-id={entryId}
+                    className="flex items-center gap-2"
+                  >
+                    <Link
+                      href={`/library/${entryId}`}
+                      className="text-primary underline-offset-4 hover:underline"
+                      data-testid="summary-entry-link"
+                    >
+                      {entry.meaning}
+                    </Link>
+                    <BookmarkToggle
+                      entryLabel={entry.meaning}
+                      bookmarked={bookmarkedEntryIds.has(entryId)}
+                      onToggle={() => onToggleBookmark(entryId)}
+                      size="sm"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
@@ -29,6 +30,28 @@ vi.mock("@/components/content/use-active-content", async (importOriginal) => {
   return {
     ...original,
     useActiveContent: () => ({ state: activeState.current, retry: vi.fn() }),
+  };
+});
+
+vi.mock("@/components/collections/use-collections", async (importOriginal) => {
+  const original =
+    await importOriginal<
+      typeof import("@/components/collections/use-collections")
+    >();
+  return {
+    ...original,
+    useCollections: () => ({
+      state: {
+        status: "ready",
+        snapshot: {
+          bookmarks: [],
+          lists: [],
+          bookmarkedEntryIds: new Set<number>(),
+          listsById: new Map(),
+        },
+      },
+      refresh: vi.fn(),
+    }),
   };
 });
 
@@ -65,14 +88,26 @@ describe("VocabularyEntryCard", () => {
   const entry = entries[0];
 
   it("renders Arabic values with lang and dir through ArabicText", () => {
-    const { container } = render(<VocabularyEntryCard entry={entry} />);
+    const { container } = render(
+      <VocabularyEntryCard
+        entry={entry}
+        bookmarked={false}
+        onToggleBookmark={vi.fn()}
+      />,
+    );
     const arabicElements = container.querySelectorAll('[lang="ar"][dir="rtl"]');
     expect(arabicElements.length).toBeGreaterThanOrEqual(3); // madi, mudari, bab pair
     expect(arabicElements[0].textContent).toContain(entry.madi);
   });
 
   it("shows madi, mudari, meaning, bab, verb type and page", () => {
-    const { container } = render(<VocabularyEntryCard entry={entry} />);
+    const { container } = render(
+      <VocabularyEntryCard
+        entry={entry}
+        bookmarked={false}
+        onToggleBookmark={vi.fn()}
+      />,
+    );
     expect(container.textContent).toContain(entry.mudari);
     expect(container.textContent).toContain(entry.meaning);
     expect(container.textContent).toContain(entry.bab);
@@ -81,7 +116,13 @@ describe("VocabularyEntryCard", () => {
   });
 
   it("links to the detail route with a descriptive name and data attributes", () => {
-    render(<VocabularyEntryCard entry={entry} />);
+    render(
+      <VocabularyEntryCard
+        entry={entry}
+        bookmarked={false}
+        onToggleBookmark={vi.fn()}
+      />,
+    );
     const link = screen.getByRole("link", {
       name: `${entry.meaning} — entry ${entry.id}`,
     });
@@ -93,15 +134,71 @@ describe("VocabularyEntryCard", () => {
 
   it("summarises eligibility for a partially quizzable entry", () => {
     const partial = entries.find((candidate) => candidate.id === 30)!; // masdar disabled
-    const { container } = render(<VocabularyEntryCard entry={partial} />);
+    const { container } = render(
+      <VocabularyEntryCard
+        entry={partial}
+        bookmarked={false}
+        onToggleBookmark={vi.fn()}
+      />,
+    );
     expect(container.textContent).toMatch(/field\(s\) not quizzed/);
   });
 
   it("does not leak internal metadata", () => {
-    const { container } = render(<VocabularyEntryCard entry={entry} />);
+    const { container } = render(
+      <VocabularyEntryCard
+        entry={entry}
+        bookmarked={false}
+        onToggleBookmark={vi.fn()}
+      />,
+    );
     for (const forbidden of INTERNAL_FIELD_NAMES) {
       expect(container.innerHTML).not.toContain(forbidden);
     }
+  });
+
+  it("the bookmark toggle is a sibling of the link, never nested inside it", () => {
+    render(
+      <VocabularyEntryCard
+        entry={entry}
+        bookmarked={false}
+        onToggleBookmark={vi.fn()}
+      />,
+    );
+    const link = screen.getByRole("link", {
+      name: `${entry.meaning} — entry ${entry.id}`,
+    });
+    const toggle = screen.getByTestId("bookmark-toggle");
+    expect(link.contains(toggle)).toBe(false);
+    expect(toggle.contains(link)).toBe(false);
+  });
+
+  it("clicking the bookmark toggle does not navigate and does not trigger the link", async () => {
+    const user = userEvent.setup();
+    const onToggleBookmark = vi.fn().mockResolvedValue(undefined);
+    render(
+      <VocabularyEntryCard
+        entry={entry}
+        bookmarked={false}
+        onToggleBookmark={onToggleBookmark}
+      />,
+    );
+    await user.click(screen.getByTestId("bookmark-toggle"));
+    expect(onToggleBookmark).toHaveBeenCalledTimes(1);
+  });
+
+  it("reflects the bookmarked prop via the toggle's pressed state", () => {
+    render(
+      <VocabularyEntryCard
+        entry={entry}
+        bookmarked={true}
+        onToggleBookmark={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("bookmark-toggle")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });
 
@@ -285,13 +382,17 @@ describe("VocabularyDetail", () => {
     expect(within(verbTypeField).getByText("Not quizzed")).toBeInTheDocument();
   });
 
-  it("shows placeholders without fake data", () => {
+  it("shows the progress placeholder without fake data, and real collection controls instead of the retired bookmark placeholder", () => {
     const { container } = render(<VocabularyDetail idParam="1" />);
     expect(
       screen.getByText(/Progress tracking will appear here/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Bookmarking will become available/),
+      screen.queryByText(/Bookmarking will become available/),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("bookmark-toggle")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add to list" }),
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/\d+\s*%/);
   });

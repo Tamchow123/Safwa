@@ -150,6 +150,17 @@ correct answer earns reduced credit — FSRS rating `Hard` instead of `Good`.
 A hinted incorrect answer is simply incorrect (`Again`). Hint usage is recorded
 per attempt.
 
+Bookmarks/lists form one collection axis (`{includeBookmarks, listIds}`,
+Phase 14): union within the axis (bookmarked OR in list A OR in list B),
+intersected with every other filter axis exactly like bāb/verb-type/state.
+An explicit selection that resolves to zero members (e.g. Bookmarks selected
+but none exist) matches nothing — it never silently falls back to "all
+entries" — and surfaces the same no-match guidance as any other filter
+combination with no matches (see `IMPLEMENTATION_PHASES.md`'s Phase 11
+testing checkpoint). "Study again" re-reads scheduling state, weakness
+state, the clock, bookmarks and lists fresh every time, never a stale
+snapshot.
+
 ### 4.5 Question-generation rules
 
 - Only eligible target fields; only eligible distractor values.
@@ -288,6 +299,21 @@ are never touched by progress resets.
   quiz runner — never a broader content filter. The mixed-revision weak tier
   and the Custom Session `weak` filter read the same score, so all three
   agree under one snapshot. No new analytics leave the device.
+- **Bookmarks and custom lists (implemented Phase 14):** guest-local
+  bookmarking and list-building, entirely in Dexie — no server, no sync yet.
+  A bookmark is its entry id (no separate identity); a custom list is a
+  `uuidv7` id, a name (NFC-normalised, trimmed, whitespace-collapsed,
+  case-insensitively unique, 1–60 characters, max 50 lists per guest) and a
+  canonical entry-id membership array (deduplicated and sorted ascending on
+  every write). `/library/saved` lists bookmarks and custom lists;
+  `/library/saved/lists/[id]` opens one list. Flashcard/MC session results
+  show each distinct studied entry once (never duplicated by reinforcement)
+  with a bookmark toggle. Every collections write starts the durable
+  guest-state request before its Dexie transaction (earlier than the
+  grading-write pattern used elsewhere). The `bookmarks`/`lists` Dexie stores
+  already existed from an earlier phase, so Phase 14 introduced no schema
+  migration. A future account-linked server mapping is possible later but is
+  out of scope for this phase.
 
 ## 7. Non-functional requirements
 
