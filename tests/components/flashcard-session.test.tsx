@@ -300,6 +300,58 @@ describe("FlashcardSession", () => {
     expect(screen.queryByTestId("session-summary")).toBeNull();
   });
 
+  it("shows an in-session bookmark toggle in the card header, usable before flipping and without flipping the card", async () => {
+    const user = userEvent.setup();
+    render(<FlashcardSession />);
+    const card = await waitForCard();
+
+    const session = screen.getByTestId("flashcard-session");
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    expect(toggle).toHaveAttribute("data-bookmarked", "false");
+    // Rating is still gated pre-reveal — proves the toggle is reachable
+    // before the card is flipped, matching the "always available" placement.
+    expect(screen.getByTestId("rate-know")).toBeDisabled();
+
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute("data-bookmarked", "true"),
+    );
+
+    // The toggle click must not have bubbled into the sealed flashcard button.
+    expect(card).toHaveAttribute("data-flipped", "false");
+    expect(card).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("rate-know")).toBeDisabled();
+  });
+
+  it("keeps the in-session bookmark write independent of undoing the graded attempt", async () => {
+    const user = userEvent.setup();
+    render(<FlashcardSession />);
+    const card = await waitForCard();
+
+    const toggle = within(screen.getByTestId("flashcard-session")).getByTestId(
+      "bookmark-toggle",
+    );
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+
+    await user.click(card);
+    await user.click(screen.getByTestId("rate-know"));
+    await waitFor(() =>
+      expect(screen.getByText(/Card 2 of/)).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByTestId("undo"));
+    await waitFor(() => expect(undoGradedAttempt).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByText(/Card 1 of/)).toBeInTheDocument(),
+    );
+
+    // Undoing the graded attempt is a separate, study-history action from the
+    // earlier bookmark write (§18's undo-independence, now also true here).
+    expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("undoes exactly the last action once", async () => {
     const user = userEvent.setup();
     render(<FlashcardSession />);

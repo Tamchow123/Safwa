@@ -540,6 +540,8 @@ export function FlashcardRunner({
       actionError={actionError}
       onGrade={grade}
       onUndo={undoLast}
+      bookmarked={bookmarkedEntryIds.has(entry.id)}
+      onToggleBookmark={() => handleToggleBookmark(entry.id)}
     />
   );
 }
@@ -559,6 +561,8 @@ function CardView({
   actionError,
   onGrade,
   onUndo,
+  bookmarked,
+  onToggleBookmark,
 }: {
   entry: LearnerEntry;
   instance: QuestionInstance;
@@ -569,6 +573,8 @@ function CardView({
   actionError: string | null;
   onGrade: (grade: FlashcardSelfGrade, responseTimeMs: number) => void;
   onUndo: () => void;
+  bookmarked: boolean;
+  onToggleBookmark: () => Promise<void>;
 }) {
   const reducedMotion = useReducedMotion();
   const [flipped, setFlipped] = useState(false);
@@ -653,9 +659,17 @@ function CardView({
       data-answer-field={instance.answerField}
       onKeyDown={onKeyDown}
     >
-      <p className="text-muted-foreground text-sm" aria-live="polite">
-        Card {position} of {total}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-muted-foreground text-sm" aria-live="polite">
+          Card {position} of {total}
+        </p>
+        <BookmarkToggle
+          entryLabel={entry.meaning}
+          bookmarked={bookmarked}
+          onToggle={onToggleBookmark}
+          size="sm"
+        />
+      </div>
 
       <div
         ref={cardRef}

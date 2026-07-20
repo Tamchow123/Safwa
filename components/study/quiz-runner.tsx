@@ -576,6 +576,8 @@ export function QuizRunner({
       onAnswer={answer}
       onNext={advanceAfterFeedback}
       onUndo={undoLast}
+      bookmarked={bookmarkedEntryIds.has(entry.id)}
+      onToggleBookmark={() => handleToggleBookmark(entry.id)}
     />
   );
 }
@@ -603,6 +605,8 @@ function QuestionView({
   onAnswer,
   onNext,
   onUndo,
+  bookmarked,
+  onToggleBookmark,
 }: {
   entry: LearnerEntry;
   instance: QuestionInstance;
@@ -626,6 +630,8 @@ function QuestionView({
   ) => void;
   onNext: () => void;
   onUndo: () => void;
+  bookmarked: boolean;
+  onToggleBookmark: () => Promise<void>;
 }) {
   const shownAtRef = useRef<number>(0);
   const firstOptionRef = useRef<HTMLButtonElement | null>(null);
@@ -704,20 +710,28 @@ function QuestionView({
       data-hint-used={usedHint !== null}
       data-hint-type={usedHint?.type ?? ""}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-muted-foreground text-sm" aria-live="polite">
           Question {position} of {total}
         </p>
-        {isTimed && !answered ? (
-          <p
-            className="text-sm font-medium tabular-nums"
-            data-testid="mc-timer"
-            role="timer"
-            aria-live="off"
-          >
-            {remainingSeconds}s
-          </p>
-        ) : null}
+        <div className="flex items-center gap-3">
+          {isTimed && !answered ? (
+            <p
+              className="text-sm font-medium tabular-nums"
+              data-testid="mc-timer"
+              role="timer"
+              aria-live="off"
+            >
+              {remainingSeconds}s
+            </p>
+          ) : null}
+          <BookmarkToggle
+            entryLabel={entry.meaning}
+            bookmarked={bookmarked}
+            onToggle={onToggleBookmark}
+            size="sm"
+          />
+        </div>
       </div>
 
       <Card>
