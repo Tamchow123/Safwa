@@ -15,8 +15,15 @@
  * at every Start — including Study Again — never from the setup screen's
  * live `useCollections()` snapshot, so a list edit made mid-session always
  * affects the next plan (§19 "Study Again").
+ *
+ * Direct study URL presets (§20/§21): `?collection=bookmarks` and
+ * `?list=<id>` seed the INITIAL collection selection only (never
+ * auto-start), read once from the URL that was present at mount so a reload
+ * reproduces the same preset. Later in-page filter edits are local
+ * component state and are never written back to the URL.
  */
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ArabicText } from "@/components/arabic-text";
@@ -71,6 +78,7 @@ import {
   type CustomSessionMode,
   type LooseningSuggestion,
 } from "@/modules/study-session/custom";
+import { parseCollectionPreset } from "@/modules/study-session/custom-session-url";
 import type { StoredComponentState } from "@/modules/study-session/mixed";
 import { readSchedulingSnapshot } from "@/modules/study-session/persistence";
 import type { QuizDelivery } from "@/modules/study-session/quizzes";
@@ -133,10 +141,17 @@ export function CustomSession() {
   const { state: collectionsUi } = useCollections();
   const availableLists =
     collectionsUi.status === "ready" ? collectionsUi.snapshot.lists : [];
+  const searchParams = useSearchParams();
 
-  const [filters, setFilters] = useState<CustomSessionFilters>({
+  // Seeded ONCE from the URL present at mount (§20/§21) — never re-applied
+  // on a later searchParams change, so a subsequent in-page filter edit is
+  // never fought by the preset. A reload re-mounts the component and
+  // re-reads the (unmodified) URL, so the preset survives a reload without
+  // any extra persistence.
+  const [filters, setFilters] = useState<CustomSessionFilters>(() => ({
     ...OPEN_CUSTOM_FILTERS,
-  });
+    collections: parseCollectionPreset(new URLSearchParams(searchParams)),
+  }));
   /** Draft inputs (strings so partially-typed values never crash). */
   const [countDraft, setCountDraft] = useState<string | null>(null);
   const [limitDraft, setLimitDraft] = useState<string>(
