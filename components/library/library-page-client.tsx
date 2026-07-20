@@ -1,8 +1,16 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useCollections } from "@/components/collections/use-collections";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
 import { LibraryToolbar } from "@/components/library/library-toolbar";
 import { useLibraryQuery } from "@/components/library/use-library-query";
@@ -10,6 +18,7 @@ import { VirtualisedEntryList } from "@/components/library/virtualised-entry-lis
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSafwaDb } from "@/modules/content/db";
 import type { ContentSource, FallbackReason } from "@/modules/content/load";
 import type { LearnerEntry } from "@/modules/content/schema";
 import {
@@ -17,6 +26,7 @@ import {
   deriveLibraryFilterOptions,
   queryLibraryEntries,
 } from "@/modules/content/query";
+import { toggleBookmark } from "@/modules/collections/persistence";
 
 export function LibraryPageClient() {
   const { state, retry } = useActiveContent();
@@ -79,6 +89,26 @@ function LoadedLibrary({
     () => createLibrarySearchIndex(entries),
     [entries],
   );
+  const knownEntryIds = useMemo(
+    () => new Set(entries.map((entry) => entry.id)),
+    [entries],
+  );
+
+  const { state: collections, refresh: refreshCollections } = useCollections();
+  const bookmarkedEntryIds = useMemo(
+    () =>
+      collections.status === "ready"
+        ? collections.snapshot.bookmarkedEntryIds
+        : new Set<number>(),
+    [collections],
+  );
+  const handleToggleBookmark = useCallback(
+    async (entryId: number) => {
+      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      refreshCollections();
+    },
+    [knownEntryIds, refreshCollections],
+  );
 
   const { query, updateQuery, resetFilters } = useLibraryQuery(options);
 
@@ -109,12 +139,17 @@ function LoadedLibrary({
 
   return (
     <div className="space-y-4">
-      <LibraryToolbar
-        query={query}
-        options={options}
-        onChange={updateQuery}
-        onReset={resetFilters}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <LibraryToolbar
+          query={query}
+          options={options}
+          onChange={updateQuery}
+          onReset={resetFilters}
+        />
+        <Button asChild variant="outline" className="min-h-11 shrink-0">
+          <Link href="/library/saved">Saved vocabulary</Link>
+        </Button>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p
           aria-live="polite"
@@ -142,7 +177,11 @@ function LoadedLibrary({
           </CardContent>
         </Card>
       ) : (
-        <VirtualisedEntryList entries={results} />
+        <VirtualisedEntryList
+          entries={results}
+          bookmarkedEntryIds={bookmarkedEntryIds}
+          onToggleBookmark={handleToggleBookmark}
+        />
       )}
     </div>
   );
