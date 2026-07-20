@@ -60,6 +60,9 @@ apps (single Next.js app)
 ├── modules/study-session  session orchestration: plan builders/filters for
 │                          the study modes (incl. weak-drill.ts, the exact
 │                          weak-set planner) + the learner-state Dexie adapter
+├── modules/collections    bookmark/list validation, canonicalisation and
+│                          collection-axis filtering (pure) + persistence.ts,
+│                          the Dexie adapter (uuidv7 list ids, Phase 14)
 ├── modules/profile        device profile, settings, session defaults, data
 │                          export, timezone preference + THE effective-clock
 │                          resolver (resolveEffectiveClock)
