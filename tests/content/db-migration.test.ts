@@ -13,6 +13,23 @@ import {
   SAFWA_DB_VERSION,
   SafwaDb,
 } from "@/modules/content/db";
+import {
+  createListWithEntry,
+  toggleBookmark,
+} from "@/modules/collections/persistence";
+
+const ensureDurableGuestStateSpy = vi.fn(async () => ({ deviceId: "dev-1" }));
+
+vi.mock("@/modules/profile/persistence", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/modules/profile/persistence")>();
+  return {
+    ...original,
+    ensureDurableGuestState: (
+      ...args: Parameters<typeof ensureDurableGuestStateSpy>
+    ) => ensureDurableGuestStateSpy(...args),
+  };
+});
 
 // Web Crypto for sha256HexBrowser under jsdom.
 if (typeof globalThis.crypto?.subtle === "undefined") {
@@ -320,5 +337,64 @@ describe("Dexie migration v1 -> v3", () => {
       }),
     ).rejects.toThrow();
     expect(await v2.mutationQueue.count()).toBe(2);
+  });
+});
+
+// Phase 14 §29: bookmarks/lists already existed in the shipped v2->v3
+// schema (guarded above), so this phase introduces NO new migration. These
+// tests add the remaining coverage the phase doc calls for without touching
+// V3_STORE_NAMES or any existing exact-equality assertion above.
+describe("Dexie schema v3 — collections stores (Phase 14 §29, no new migration)", () => {
+  it("a fresh v3 database (no prior version) includes usable bookmarks/lists stores", async () => {
+    dbName = "safwa-migration-test-fresh-v3";
+    const v3 = track(new SafwaDb(dbName));
+    await v3.open();
+    expect(v3.verno).toBe(SAFWA_DB_VERSION);
+    expect(v3.tables.map((table) => table.name).sort()).toEqual(V3_STORE_NAMES);
+    expect(await v3.bookmarks.count()).toBe(0);
+    expect(await v3.lists.count()).toBe(0);
+  });
+
+  it("bookmark/list records written through the collections persistence module survive a db reopen", async () => {
+    dbName = "safwa-migration-test-persistence-reopen";
+    const KNOWN = new Set([7, 9]);
+
+    const first = track(new SafwaDb(dbName));
+    await first.open();
+    await toggleBookmark(first, 7, KNOWN, 100);
+    const list = await createListWithEntry(first, {
+      name: "My list",
+      entryId: 9,
+      knownEntryIds: KNOWN,
+      now: 101,
+    });
+    first.close();
+
+    // A genuinely fresh client instance re-opens the same on-disk database —
+    // not just a re-read of the same still-open Dexie object.
+    const reopened = track(new SafwaDb(dbName));
+    await reopened.open();
+    expect(reopened.verno).toBe(SAFWA_DB_VERSION);
+    expect(await reopened.bookmarks.get(7)).toEqual({
+      entryId: 7,
+      createdAt: 100,
+    });
+    expect(await reopened.lists.get(list.id)).toEqual({
+      id: list.id,
+      name: "My list",
+      entryIds: [9],
+      createdAt: 101,
+      updatedAt: 101,
+    });
+
+    // Content cache, study state and the derived daily_activity cache are
+    // untouched by a collections-only write/reopen cycle.
+    expect(await reopened.contentReleases.count()).toBe(0);
+    expect(await reopened.contentMetadata.count()).toBe(0);
+    expect(await reopened.studyComponents.count()).toBe(0);
+    expect(await reopened.studyAttempts.count()).toBe(0);
+    expect(await reopened.reviewEvents.count()).toBe(0);
+    expect(await reopened.sessions.count()).toBe(0);
+    expect(await reopened.dailyActivity.count()).toBe(0);
   });
 });
