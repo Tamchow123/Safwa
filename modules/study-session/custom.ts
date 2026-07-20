@@ -1,25 +1,35 @@
 /**
  * Custom session configuration (pure) — the full §4.4 filter matrix
- * (PRODUCT_REQUIREMENTS.md §4.4, Phase 11).
+ * (PRODUCT_REQUIREMENTS.md §4.4, Phase 11), extended with the Phase 14 §19
+ * bookmark/custom-list collection axis.
  *
  * A custom session composes: mode (flashcards / MC translation / bāb / root);
  * direction; specific form(s) or any eligible; bāb; verb category; book page
- * range; component state (new / learning / mastered / weak / due); question
- * count; timed; test mode. Bookmarks / custom lists are a UI placeholder until
- * Phase 14 and have no filter here.
+ * range; component state (new / learning / mastered / weak / due); the
+ * bookmark/list collection axis (§19); question count; timed; test mode.
  *
  * Candidates come exclusively from the shared derivation choke point
  * (`deriveAllComponents`), which yields a component only when every field it
  * depends on is quiz-eligible — so an ineligible field can NEVER become a
  * prompt, answer or distractor (CLAUDE.md hard rule 2). This module only
  * FILTERS that already-gated set; it never re-derives eligibility itself.
- * A verb-type filter additionally requires `quiz_eligibility.verb_type`, so
- * the two unresolved entries (369/372) never match a verb-type selection —
- * their unverified classification must not even be used to SELECT them.
+ * The collection axis is exactly the same kind of narrowing filter as bāb or
+ * verb type — it never creates a component (§19: "Collection membership
+ * narrows an already valid component universe; it never creates a
+ * component"). A verb-type filter additionally requires
+ * `quiz_eligibility.verb_type`, so the two unresolved entries (369/372)
+ * never match a verb-type selection — their unverified classification must
+ * not even be used to SELECT them.
+ *
+ * The `membership` parameter threaded through every function below is
+ * OPTIONAL and defaults to `EMPTY_COLLECTION_MEMBERSHIP`: with the default
+ * neutral `collections` filter (`OPEN_COLLECTION_FILTER`, no selection) the
+ * collection axis is unrestricted regardless of membership content, so
+ * existing callers that do not yet pass a real snapshot are unaffected.
  *
  * The plan is a pure function of (entries, config, stored state, weak scores,
- * seed, now) with an injected RNG seed and clock instant, so a session plan is
- * reproducible and never calls Math.random/Date.now.
+ * seed, now, membership) with an injected RNG seed and clock instant, so a
+ * session plan is reproducible and never calls Math.random/Date.now.
  *
  * Pure TypeScript: no React, DOM or DB imports (docs/ARCHITECTURE.md §2).
  */
@@ -31,6 +41,14 @@ import {
 } from "@/modules/content/constants";
 import type { LearnerEntry } from "@/modules/content/schema";
 
+import {
+  EMPTY_COLLECTION_MEMBERSHIP,
+  hasCollectionSelection,
+  matchesCollectionFilter,
+  OPEN_COLLECTION_FILTER,
+  type CollectionFilter,
+  type CollectionMembership,
+} from "@/modules/collections/filters";
 import { isDue } from "@/modules/scheduler/fsrs";
 import {
   effectiveLearnerState,
@@ -93,6 +111,8 @@ export type CustomSessionFilters = {
   bookPages: BookPageRange;
   /** Component-state filter (empty = any state). */
   states: readonly ComponentStateFilter[];
+  /** Bookmark/custom-list collection axis (§19; no selection = any). */
+  collections: CollectionFilter;
 };
 
 /** A full custom session configuration (filters + session shape). */
@@ -113,6 +133,7 @@ export const OPEN_CUSTOM_FILTERS: CustomSessionFilters = {
   verbTypes: [],
   bookPages: { min: null, max: null },
   states: [],
+  collections: OPEN_COLLECTION_FILTER,
 };
 
 /* ------------------------------------------------------------------ */
@@ -144,15 +165,23 @@ function matchesBookPage(entry: LearnerEntry, range: BookPageRange): boolean {
   return true;
 }
 
-/** Does an entry pass every ENTRY-axis filter (bāb, verb type, page)? */
+/**
+ * Does an entry pass every ENTRY-axis filter (bāb, verb type, page,
+ * collections)? `membership` defaults to empty — safe because the default
+ * `collections` filter (`OPEN_COLLECTION_FILTER`) is unselected, so the
+ * collection check is a no-op unless a caller supplies both a real
+ * selection and its matching membership snapshot.
+ */
 export function matchesEntryFilters(
   entry: LearnerEntry,
   filters: CustomSessionFilters,
+  membership: CollectionMembership = EMPTY_COLLECTION_MEMBERSHIP,
 ): boolean {
   return (
     matchesBab(entry, filters.babs) &&
     matchesVerbType(entry, filters.verbTypes) &&
-    matchesBookPage(entry, filters.bookPages)
+    matchesBookPage(entry, filters.bookPages) &&
+    matchesCollectionFilter(entry.id, filters.collections, membership)
   );
 }
 
@@ -210,12 +239,13 @@ function matchesMode(
 export function eligibleCustomComponents(
   entries: readonly LearnerEntry[],
   filters: CustomSessionFilters,
+  membership: CollectionMembership = EMPTY_COLLECTION_MEMBERSHIP,
 ): DerivedComponent[] {
   const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   return deriveAllComponents(entries).filter((component) => {
     const entry = entriesById.get(component.entryId)!;
     return (
-      matchesEntryFilters(entry, filters) &&
+      matchesEntryFilters(entry, filters, membership) &&
       matchesMode(component, filters, entry)
     );
   });
@@ -334,6 +364,7 @@ export function buildCustomPlan(
   weakScores: ReadonlyMap<string, number>,
   seed: string,
   nowMs: number,
+  membership: CollectionMembership = EMPTY_COLLECTION_MEMBERSHIP,
 ): CustomPlanItem[] {
   if (!Number.isInteger(config.count) || config.count < 1) {
     throw new Error(
@@ -342,7 +373,7 @@ export function buildCustomPlan(
   }
   const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   const matching = filterByStates(
-    eligibleCustomComponents(entries, config),
+    eligibleCustomComponents(entries, config, membership),
     config.states,
     stored,
     weakScores,
@@ -384,7 +415,14 @@ export function buildCustomPlan(
 /** One actionable loosening suggestion for an empty filter result. */
 export type LooseningSuggestion = {
   /** The filter axis whose relaxation makes the result non-empty. */
-  axis: "forms" | "babs" | "verbTypes" | "bookPages" | "states" | "direction";
+  axis:
+    | "forms"
+    | "babs"
+    | "verbTypes"
+    | "bookPages"
+    | "states"
+    | "direction"
+    | "collections";
   /** Learner-facing suggestion text. */
   label: string;
 };
@@ -434,6 +472,12 @@ const AXIS_RELAXATIONS: {
     relax: (filters) => ({ ...filters, direction: "random" }),
     label: "Allow both directions",
   },
+  {
+    axis: "collections",
+    isActive: (filters) => hasCollectionSelection(filters.collections),
+    relax: (filters) => ({ ...filters, collections: OPEN_COLLECTION_FILTER }),
+    label: "Include vocabulary outside your bookmarks and lists",
+  },
 ];
 
 /**
@@ -452,12 +496,13 @@ export function looseningSuggestions(
     weakScores: ReadonlyMap<string, number>;
     nowMs: number;
   },
+  membership: CollectionMembership = EMPTY_COLLECTION_MEMBERSHIP,
 ): LooseningSuggestion[] {
   const active = AXIS_RELAXATIONS.filter((axis) => axis.isActive(filters));
   const rescues = active.filter((axis) => {
     const relaxed = axis.relax(filters);
     const matching = filterByStates(
-      eligibleCustomComponents(entries, relaxed),
+      eligibleCustomComponents(entries, relaxed, membership),
       relaxed.states,
       states.stored,
       states.weakScores,
