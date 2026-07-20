@@ -15,6 +15,14 @@ import {
   VERB_TYPE_IDS,
   type SourceQuizFormField,
 } from "@/modules/content/constants";
+import type {
+  CollectionFilter,
+  CollectionMembership,
+} from "@/modules/collections/filters";
+import {
+  matchesCollectionFilter,
+  OPEN_COLLECTION_FILTER,
+} from "@/modules/collections/filters";
 import type { SchedulerCard } from "@/modules/scheduler/fsrs";
 import {
   deriveAllComponents,
@@ -52,6 +60,31 @@ function randomSubset<T>(rng: Rng, values: readonly T[], p: number): T[] {
   return values.filter(() => rng.next() < p);
 }
 
+/** A fixed pool of synthetic list ids the property test may select from. */
+const SYNTHETIC_LIST_IDS = ["list-a", "list-b", "list-c"] as const;
+
+/** A random bookmark/list membership snapshot over the real 455 entries. */
+function randomMembership(rng: Rng): CollectionMembership {
+  const bookmarkedEntryIds = new Set(
+    learnerEntries.filter(() => rng.next() < 0.1).map((e) => e.id),
+  );
+  const listEntryIdsById = new Map(
+    SYNTHETIC_LIST_IDS.map((id) => [
+      id,
+      new Set(learnerEntries.filter(() => rng.next() < 0.08).map((e) => e.id)),
+    ]),
+  );
+  return { bookmarkedEntryIds, listEntryIdsById };
+}
+
+function randomCollectionFilter(rng: Rng): CollectionFilter {
+  if (rng.next() < 0.5) return OPEN_COLLECTION_FILTER;
+  return {
+    includeBookmarks: rng.next() < 0.4,
+    listIds: randomSubset(rng, SYNTHETIC_LIST_IDS, 0.3),
+  };
+}
+
 function randomFilters(rng: Rng): CustomSessionFilters {
   const withPages = rng.next() < 0.4;
   const min = withPages && rng.next() < 0.7 ? 1 + rng.int(40) : null;
@@ -66,6 +99,7 @@ function randomFilters(rng: Rng): CustomSessionFilters {
     verbTypes: randomSubset(rng, VERB_TYPE_IDS, 0.15),
     bookPages: { min, max },
     states: randomSubset(rng, COMPONENT_STATE_FILTERS, 0.25),
+    collections: randomCollectionFilter(rng),
   };
 }
 
@@ -121,9 +155,14 @@ describe("custom session filters — property test over seeded random configs", 
     for (let index = 0; index < CONFIGS; index++) {
       const rng = createRng(`custom-property-${index}`);
       const filters = randomFilters(rng);
+      const membership = randomMembership(rng);
       const { stored, weakScores } = randomStoredState(rng);
 
-      const contentMatched = eligibleCustomComponents(learnerEntries, filters);
+      const contentMatched = eligibleCustomComponents(
+        learnerEntries,
+        filters,
+        membership,
+      );
       for (const component of contentMatched) {
         const componentEntry = entry(component.entryId);
 
@@ -159,8 +198,10 @@ describe("custom session filters — property test over seeded random configs", 
           ).toBeGreaterThan(0);
         }
 
-        // Entry axes: bāb, verb type, book pages.
-        expect(matchesEntryFilters(componentEntry, filters)).toBe(true);
+        // Entry axes: bāb, verb type, book pages, collections.
+        expect(matchesEntryFilters(componentEntry, filters, membership)).toBe(
+          true,
+        );
         if (filters.babs.length > 0) {
           expect(filters.babs).toContain(componentEntry.bab);
         }
@@ -175,6 +216,27 @@ describe("custom session filters — property test over seeded random configs", 
         }
         if (max !== null) {
           expect(componentEntry.book_page).toBeLessThanOrEqual(max);
+        }
+        // Collections axis (§19): union within the axis, and a match iff
+        // matchesCollectionFilter independently agrees.
+        expect(
+          matchesCollectionFilter(
+            componentEntry.id,
+            filters.collections,
+            membership,
+          ),
+        ).toBe(true);
+        if (
+          filters.collections.includeBookmarks ||
+          filters.collections.listIds.length > 0
+        ) {
+          const inBookmarks =
+            filters.collections.includeBookmarks &&
+            membership.bookmarkedEntryIds.has(componentEntry.id);
+          const inSelectedList = filters.collections.listIds.some((listId) =>
+            membership.listEntryIdsById.get(listId)?.has(componentEntry.id),
+          );
+          expect(inBookmarks || inSelectedList).toBe(true);
         }
       }
 
@@ -217,6 +279,7 @@ describe("custom session filters — property test over seeded random configs", 
         weakScores,
         `plan-seed-${index}`,
         NOW_MS,
+        membership,
       );
       expect(plan.length).toBeLessThanOrEqual(config.count);
       expect(plan.length).toBe(Math.min(config.count, stateMatched.length));
@@ -250,6 +313,7 @@ describe("custom session filters — property test over seeded random configs", 
         weakScores,
         `plan-seed-${index}`,
         NOW_MS,
+        membership,
       );
       expect(replay).toEqual(plan);
     }
@@ -522,6 +586,132 @@ describe("custom session filters — targeted behaviour", () => {
   });
 });
 
+describe("custom session filters — collections axis (§19)", () => {
+  const bookmarkedId = learnerEntries[0].id;
+  const listOnlyId = learnerEntries[1].id;
+  const otherListId = learnerEntries[2].id;
+  const unselectedId = learnerEntries[3].id;
+  const membership: CollectionMembership = {
+    bookmarkedEntryIds: new Set([bookmarkedId]),
+    listEntryIdsById: new Map([
+      ["list-a", new Set([listOnlyId])],
+      ["list-b", new Set([otherListId])],
+    ]),
+  };
+
+  it("no selection keeps every entry eligible for the axis", () => {
+    for (const id of [bookmarkedId, listOnlyId, otherListId, unselectedId]) {
+      expect(
+        matchesCollectionFilter(id, OPEN_COLLECTION_FILTER, membership),
+      ).toBe(true);
+    }
+  });
+
+  it("bookmarks-only selects exactly the bookmarked entries", () => {
+    const filter: CollectionFilter = { includeBookmarks: true, listIds: [] };
+    expect(matchesCollectionFilter(bookmarkedId, filter, membership)).toBe(
+      true,
+    );
+    expect(matchesCollectionFilter(listOnlyId, filter, membership)).toBe(false);
+    expect(matchesCollectionFilter(unselectedId, filter, membership)).toBe(
+      false,
+    );
+  });
+
+  it("a single list selects exactly that list's entries", () => {
+    const filter: CollectionFilter = {
+      includeBookmarks: false,
+      listIds: ["list-a"],
+    };
+    expect(matchesCollectionFilter(listOnlyId, filter, membership)).toBe(true);
+    expect(matchesCollectionFilter(otherListId, filter, membership)).toBe(
+      false,
+    );
+  });
+
+  it("multiple lists use union semantics", () => {
+    const filter: CollectionFilter = {
+      includeBookmarks: false,
+      listIds: ["list-a", "list-b"],
+    };
+    expect(matchesCollectionFilter(listOnlyId, filter, membership)).toBe(true);
+    expect(matchesCollectionFilter(otherListId, filter, membership)).toBe(true);
+    expect(matchesCollectionFilter(unselectedId, filter, membership)).toBe(
+      false,
+    );
+  });
+
+  it("bookmarks plus a list use union semantics", () => {
+    const filter: CollectionFilter = {
+      includeBookmarks: true,
+      listIds: ["list-a"],
+    };
+    expect(matchesCollectionFilter(bookmarkedId, filter, membership)).toBe(
+      true,
+    );
+    expect(matchesCollectionFilter(listOnlyId, filter, membership)).toBe(true);
+    expect(matchesCollectionFilter(otherListId, filter, membership)).toBe(
+      false,
+    );
+  });
+
+  it("an unknown selected list id matches nothing for that list", () => {
+    const filter: CollectionFilter = {
+      includeBookmarks: false,
+      listIds: ["does-not-exist"],
+    };
+    for (const id of [bookmarkedId, listOnlyId, otherListId, unselectedId]) {
+      expect(matchesCollectionFilter(id, filter, membership)).toBe(false);
+    }
+  });
+
+  it("collections AND bāb use intersection semantics", () => {
+    const babEntry = entry(bookmarkedId);
+    const matched = eligibleCustomComponents(
+      learnerEntries,
+      {
+        ...OPEN_CUSTOM_FILTERS,
+        babs: [babEntry.bab],
+        collections: { includeBookmarks: true, listIds: [] },
+      },
+      membership,
+    );
+    expect(matched.length).toBeGreaterThan(0);
+    for (const component of matched) {
+      expect(component.entryId).toBe(bookmarkedId);
+      expect(entry(component.entryId).bab).toBe(babEntry.bab);
+    }
+  });
+
+  it("input order of the membership build never affects the matched set", () => {
+    const forwardOrder = eligibleCustomComponents(
+      learnerEntries,
+      {
+        ...OPEN_CUSTOM_FILTERS,
+        collections: { includeBookmarks: true, listIds: ["list-a", "list-b"] },
+      },
+      membership,
+    );
+    const reorderedMembership: CollectionMembership = {
+      bookmarkedEntryIds: membership.bookmarkedEntryIds,
+      listEntryIdsById: new Map(
+        [...membership.listEntryIdsById.entries()].reverse(),
+      ),
+    };
+    const reorderedSelection = eligibleCustomComponents(
+      learnerEntries,
+      {
+        ...OPEN_CUSTOM_FILTERS,
+        collections: { includeBookmarks: true, listIds: ["list-b", "list-a"] },
+      },
+      reorderedMembership,
+    );
+    expect(reorderedSelection.map((c) => c.key).sort()).toEqual(
+      forwardOrder.map((c) => c.key).sort(),
+    );
+  });
+});
+
 describe("custom session filters — empty-result guard", () => {
   const emptyStates = {
     stored: new Map<string, StoredComponentState>(),
@@ -585,6 +775,41 @@ describe("custom session filters — empty-result guard", () => {
     for (const suggestion of suggestions) {
       expect(suggestion.axis).not.toBe("babs");
       expect(suggestion.axis).not.toBe("forms");
+      expect(suggestion.axis).not.toBe("collections");
     }
+  });
+
+  it("an explicitly selected empty collection produces no entries, not 'any'", () => {
+    // A real list id with zero resolvable members: an explicit selection
+    // must never silently fall back to unrestricted.
+    const membership: CollectionMembership = {
+      bookmarkedEntryIds: new Set(),
+      listEntryIdsById: new Map([["empty-list", new Set()]]),
+    };
+    const filters: CustomSessionFilters = {
+      ...OPEN_CUSTOM_FILTERS,
+      collections: { includeBookmarks: false, listIds: ["empty-list"] },
+    };
+    expect(
+      eligibleCustomComponents(learnerEntries, filters, membership),
+    ).toHaveLength(0);
+  });
+
+  it("suggests relaxing the collections axis when it is the sole blocker", () => {
+    const membership: CollectionMembership = {
+      bookmarkedEntryIds: new Set(),
+      listEntryIdsById: new Map([["empty-list", new Set()]]),
+    };
+    const filters: CustomSessionFilters = {
+      ...OPEN_CUSTOM_FILTERS,
+      collections: { includeBookmarks: false, listIds: ["empty-list"] },
+    };
+    const suggestions = looseningSuggestions(
+      learnerEntries,
+      filters,
+      emptyStates,
+      membership,
+    );
+    expect(suggestions.map((s) => s.axis)).toEqual(["collections"]);
   });
 });
