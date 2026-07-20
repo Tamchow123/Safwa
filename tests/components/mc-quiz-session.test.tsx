@@ -612,6 +612,109 @@ describe("McQuizSession", () => {
     expect(screen.queryByTestId("mc-results")).toBeNull();
   });
 
+  it("shows an in-session bookmark toggle in the question header, usable before answering and without answering the question", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    expect(toggle).toHaveAttribute("data-bookmarked", "false");
+
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute("data-bookmarked", "true"),
+    );
+
+    // The toggle click must not have selected an answer option or revealed
+    // feedback — it is a sibling control, not part of the answer surface.
+    expect(screen.queryByTestId("mc-feedback")).toBeNull();
+    for (const option of options()) {
+      expect(option).toHaveAttribute("data-selected", "false");
+    }
+  });
+
+  it("keeps the in-session bookmark write independent of undoing the graded question", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    const session = await waitForQuestion();
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+
+    await user.click(optionWithRef(correctRef(session)));
+    await screen.findByTestId("mc-feedback");
+    await user.click(screen.getByTestId("undo"));
+    await waitFor(() => expect(undoGradedAttempt).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId("mc-feedback")).toBeNull());
+
+    // Undoing the graded question is a separate, study-history action from
+    // the earlier bookmark write (§18's undo-independence, now also here).
+    expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the in-session bookmark toggle usable in test mode without revealing withheld feedback", async () => {
+    const user = userEvent.setup();
+    render(<McQuizSession />);
+    await waitForQuestion();
+    await user.selectOptions(screen.getByTestId("mc-delivery-select"), "test");
+
+    const session = await waitFor(() => {
+      const el = screen.getByTestId("mc-quiz-session");
+      if (el.getAttribute("data-delivery") !== "test") {
+        throw new Error("not test mode yet");
+      }
+      return el;
+    });
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute("data-bookmarked", "true"),
+    );
+
+    // The toggle never leaks the withheld correctness feedback.
+    expect(screen.queryByTestId("mc-feedback")).toBeNull();
+  });
+
+  it("does not interfere with the per-question timer", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<McQuizSession />);
+    await waitFor(() => screen.getByTestId("mc-quiz-session"), {
+      timeout: 4000,
+    });
+    await user.selectOptions(screen.getByTestId("mc-delivery-select"), "timed");
+    const session = await waitFor(() => {
+      const el = screen.getByTestId("mc-quiz-session");
+      if (el.getAttribute("data-delivery") !== "timed") {
+        throw new Error("not timed yet");
+      }
+      return el;
+    });
+
+    const timerBefore = Number.parseInt(
+      screen.getByTestId("mc-timer").textContent ?? "0",
+      10,
+    );
+
+    const toggle = within(session).getByTestId("bookmark-toggle");
+    await user.click(toggle);
+    await waitFor(() => expect(toggleBookmarkSpy).toHaveBeenCalledTimes(1));
+
+    // The countdown kept running (didn't reset/pause) and the question did
+    // not auto-submit from the toggle click.
+    await vi.advanceTimersByTimeAsync(2000);
+    const timerAfter = Number.parseInt(
+      screen.getByTestId("mc-timer").textContent ?? "0",
+      10,
+    );
+    expect(timerAfter).toBeLessThan(timerBefore);
+    expect(recordGradedAttempt).not.toHaveBeenCalled();
+  });
+
   it("an all-correct session reports every question correct first try", async () => {
     const user = userEvent.setup();
     render(<McQuizSession />);
