@@ -44,6 +44,7 @@ import type {
 import { ensureDurableGuestState } from "@/modules/profile/persistence";
 
 import { buildBookmarkRecord } from "@/modules/collections/bookmarks";
+import type { CollectionMembership } from "@/modules/collections/filters";
 import {
   buildListRecord,
   withEntryAdded,
@@ -146,6 +147,28 @@ export async function readCollections(db: SafwaDb): Promise<CollectionsRaw> {
     ]);
     return { bookmarks, lists };
   });
+}
+
+/**
+ * `readCollections`, reshaped into the pure `CollectionMembership` lookup
+ * shape `modules/study-session/custom.ts`'s collection axis (§19) consumes
+ * directly — the one conversion point between the Dexie rows and the pure
+ * filter engine, so every caller (Custom Session setup + Study Again) builds
+ * membership identically. Stale entry ids from a prior content release are
+ * carried through unfiltered — they simply never match any entry in the
+ * active release's component universe, so no explicit pruning is needed here
+ * (§19 "current-release validation").
+ */
+export async function readCollectionMembership(
+  db: SafwaDb,
+): Promise<CollectionMembership> {
+  const { bookmarks, lists } = await readCollections(db);
+  return {
+    bookmarkedEntryIds: new Set(bookmarks.map((b) => b.entryId)),
+    listEntryIdsById: new Map(
+      lists.map((list) => [list.id, new Set(list.entryIds)]),
+    ),
+  };
 }
 
 /** Whether `entryId` currently has a bookmark row. */

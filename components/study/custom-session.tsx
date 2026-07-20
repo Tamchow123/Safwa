@@ -1,20 +1,26 @@
 "use client";
 
 /**
- * Custom session configuration (Phase 11) — the full §4.4 filter matrix on one
- * setup screen: mode, direction, form(s), bāb, verb type, book page range,
- * state filters, question count, timed and test mode, plus the bookmarks /
- * custom lists placeholder (disabled until Phase 14).
+ * Custom session configuration (Phase 11, extended by Phase 14 §19) — the
+ * full §4.4 filter matrix on one setup screen: mode, direction, form(s), bāb,
+ * verb type, book page range, state filters, the bookmark/custom-list
+ * collection axis, question count, timed and test mode.
  *
  * Bāb and verb-type choices display their Arabic pairs read from the loaded
  * release (never numbering, never hand-typed Arabic — hard rules 3/5). The
  * matching component set comes from the pure `modules/study-session/custom`
- * filter engine; an empty result renders the loosening-suggestions guard
- * instead of a session (§4.4 empty-result guard).
+ * filter engine; an empty result (including an explicitly selected empty
+ * collection) renders the loosening-suggestions guard instead of a session
+ * (§4.4 empty-result guard). Bookmarks/lists are re-read directly from Dexie
+ * at every Start — including Study Again — never from the setup screen's
+ * live `useCollections()` snapshot, so a list edit made mid-session always
+ * affects the next plan (§19 "Study Again").
  */
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ArabicText } from "@/components/arabic-text";
+import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
 import {
   FlashcardRunner,
@@ -37,6 +43,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useSessionDefaults } from "@/lib/preferences/use-session-defaults";
 import { loadWeakScores } from "@/modules/analytics/weakness-persistence";
+import type { CollectionMembership } from "@/modules/collections/filters";
+import { readCollectionMembership } from "@/modules/collections/persistence";
 import { getSafwaDb } from "@/modules/content/db";
 import { readEffectiveClock } from "@/modules/profile/timezone";
 import {
@@ -107,6 +115,8 @@ type StartSnapshot = {
    * built plan both evaluate against it so the setup-screen guard and the
    * session can never disagree about what matched. */
   nowMs: number;
+  /** Freshly re-read at Start (§19 "Study Again" — never a stale snapshot). */
+  membership: CollectionMembership;
 };
 
 type RunningSession = {
@@ -118,6 +128,11 @@ type RunningSession = {
 export function CustomSession() {
   const { state, retry } = useActiveContent();
   const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
+  // Drives the setup screen's list picker only — Start/Study Again always
+  // re-read membership fresh from Dexie (§19), never from this snapshot.
+  const { state: collectionsUi } = useCollections();
+  const availableLists =
+    collectionsUi.status === "ready" ? collectionsUi.snapshot.lists : [];
 
   const [filters, setFilters] = useState<CustomSessionFilters>({
     ...OPEN_CUSTOM_FILTERS,
@@ -220,10 +235,15 @@ export function CustomSession() {
       // computation for the Custom Session weak filter — §22 agreement).
       const derived = deriveAllComponents(state.entries);
       const weakScores = await loadWeakScores(db, derived, nowMs);
+      // Bookmarks/lists are re-read fresh every Start — including "Study
+      // again" — never from the setup screen's (possibly stale) live hook
+      // snapshot: a list edit made mid-session must affect the next plan
+      // (§19 "Study Again").
+      const membership = await readCollectionMembership(db);
       const resolved = effectiveFilters();
 
       const matching = filterByStates(
-        eligibleCustomComponents(state.entries, resolved),
+        eligibleCustomComponents(state.entries, resolved, membership),
         resolved.states,
         stored,
         weakScores,
@@ -235,11 +255,12 @@ export function CustomSession() {
         // whose items were all just studied) must never plan stale items.
         setRunning(null);
         setGuard(
-          looseningSuggestions(state.entries, resolved, {
-            stored,
-            weakScores,
-            nowMs,
-          }),
+          looseningSuggestions(
+            state.entries,
+            resolved,
+            { stored, weakScores, nowMs },
+            membership,
+          ),
         );
         return;
       }
@@ -267,7 +288,7 @@ export function CustomSession() {
       };
       setRunning((current) => ({
         config,
-        snapshot: { stored, weakScores, clock, nowMs },
+        snapshot: { stored, weakScores, clock, nowMs, membership },
         token: (current?.token ?? 0) + 1,
       }));
     } catch {
@@ -545,19 +566,64 @@ export function CustomSession() {
         </p>
       ) : null}
 
-      {/* Bookmarks / custom lists ship with lists in Phase 14 — the §4.4
-          matrix keeps their place visible but inert until then. */}
-      <div
-        className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm"
-        data-testid="custom-bookmarks-placeholder"
+      <FilterGroup
+        label="Bookmarks & lists"
+        hint="None selected = any vocabulary"
       >
-        <Button type="button" variant="outline" className="min-h-11" disabled>
-          Bookmarks &amp; lists
+        <Button
+          type="button"
+          className="min-h-11"
+          variant={filters.collections.includeBookmarks ? "default" : "outline"}
+          aria-pressed={filters.collections.includeBookmarks}
+          data-testid="custom-collection-bookmarks"
+          onClick={() =>
+            update({
+              collections: {
+                ...filters.collections,
+                includeBookmarks: !filters.collections.includeBookmarks,
+              },
+            })
+          }
+        >
+          Bookmarks
         </Button>
-        <span className="text-xs">
-          Coming soon — filter by bookmarks and custom lists once lists arrive.
-        </span>
-      </div>
+        {availableLists.map((list) => (
+          <Button
+            key={list.id}
+            type="button"
+            className="min-h-11"
+            variant={
+              filters.collections.listIds.includes(list.id)
+                ? "default"
+                : "outline"
+            }
+            aria-pressed={filters.collections.listIds.includes(list.id)}
+            data-testid={`custom-collection-list-${list.id}`}
+            onClick={() =>
+              update({
+                collections: {
+                  ...filters.collections,
+                  listIds: toggleIn(filters.collections.listIds, list.id),
+                },
+              })
+            }
+          >
+            {list.name}
+          </Button>
+        ))}
+        {collectionsUi.status === "ready" && availableLists.length === 0 ? (
+          <span className="text-muted-foreground text-xs">
+            No custom lists yet.{" "}
+            <Link
+              href="/library/saved"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Create one from Saved Vocabulary
+            </Link>
+            .
+          </span>
+        ) : null}
+      </FilterGroup>
 
       {guard !== null ? (
         <Card
@@ -675,6 +741,7 @@ function RunningCustomSession({
         snapshot.weakScores,
         seed,
         snapshot.nowMs,
+        snapshot.membership,
       ),
     [config, snapshot],
   );
