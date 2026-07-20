@@ -50,6 +50,13 @@ vi.mock("@/modules/content/db", async (importOriginal) => {
   return { ...original, getSafwaDb: () => ({}) as never };
 });
 
+// Phase 14 §20/§21: the URL search params CustomSession reads its initial
+// collection preset from. Mutable per-test, defaulting to no preset.
+let presetSearchParams = new URLSearchParams();
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => presetSearchParams,
+}));
+
 vi.mock("@/modules/profile/device", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@/modules/profile/device")>();
@@ -175,6 +182,7 @@ afterEach(() => {
   readCollections.mockClear();
   readCollectionMembership.mockClear();
   collectionsRaw = { bookmarks: [], lists: [] };
+  presetSearchParams = new URLSearchParams();
 });
 
 async function renderSetup() {
@@ -361,6 +369,69 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
       timeout: 4000,
     });
     expect(Number(session.getAttribute("data-entry-id"))).toBe(targetEntryId);
+  });
+
+  it("a ?collection=bookmarks URL preselects Bookmarks without auto-starting (§20)", async () => {
+    presetSearchParams = new URLSearchParams("collection=bookmarks");
+    await renderSetup();
+
+    expect(screen.getByTestId("custom-collection-bookmarks")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // Populates the controls only — the learner still takes the Start action.
+    expect(screen.queryByTestId("mc-quiz-session")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("flashcard-session")).not.toBeInTheDocument();
+  });
+
+  it("a ?list=<id> URL preselects that list once it loads, without auto-starting (§20)", async () => {
+    presetSearchParams = new URLSearchParams("list=list-1");
+    collectionsRaw = {
+      bookmarks: [],
+      lists: [
+        {
+          id: "list-1",
+          name: "My revision list",
+          entryIds: [],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    await renderSetup();
+
+    const listButton = await screen.findByTestId(
+      "custom-collection-list-list-1",
+    );
+    expect(listButton).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("mc-quiz-session")).not.toBeInTheDocument();
+  });
+
+  it("rejects a malformed ?list= preset (component key shape) without crashing (§21)", async () => {
+    presetSearchParams = new URLSearchParams({
+      list: "entry:1:skill:bab_identification",
+    });
+    collectionsRaw = { bookmarks: [], lists: [] };
+
+    await renderSetup();
+    // No list is preselected: the malformed id never reached filter state.
+    expect(
+      screen.queryByTestId(/^custom-collection-list-/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a deleted-list preset fails safely: no crash, and Start shows the empty-result guard rather than an unrestricted session (§21)", async () => {
+    // The URL references a well-formed but non-existent list id.
+    presetSearchParams = new URLSearchParams("list=no-longer-exists");
+    collectionsRaw = { bookmarks: [], lists: [] };
+    const user = userEvent.setup();
+
+    await renderSetup();
+    await user.click(screen.getByTestId("custom-start"));
+
+    const guard = await screen.findByTestId("custom-empty-guard");
+    expect(guard).toBeInTheDocument();
+    expect(screen.queryByTestId("mc-quiz-session")).not.toBeInTheDocument();
   });
 
   it("an explicit empty bookmark selection shows the empty-result guard, never falls back to all entries (§19)", async () => {
