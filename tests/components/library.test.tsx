@@ -33,6 +33,28 @@ vi.mock("@/components/content/use-active-content", async (importOriginal) => {
   };
 });
 
+vi.mock("@/components/collections/use-collections", async (importOriginal) => {
+  const original =
+    await importOriginal<
+      typeof import("@/components/collections/use-collections")
+    >();
+  return {
+    ...original,
+    useCollections: () => ({
+      state: {
+        status: "ready",
+        snapshot: {
+          bookmarks: [],
+          lists: [],
+          bookmarkedEntryIds: new Set<number>(),
+          listsById: new Map(),
+        },
+      },
+      refresh: vi.fn(),
+    }),
+  };
+});
+
 import { contentSourceLabel } from "@/components/content/use-active-content";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
 import { EligibilityBadge } from "@/components/library/eligibility-badge";
@@ -360,13 +382,17 @@ describe("VocabularyDetail", () => {
     expect(within(verbTypeField).getByText("Not quizzed")).toBeInTheDocument();
   });
 
-  it("shows placeholders without fake data", () => {
+  it("shows the progress placeholder without fake data, and real collection controls instead of the retired bookmark placeholder", () => {
     const { container } = render(<VocabularyDetail idParam="1" />);
     expect(
       screen.getByText(/Progress tracking will appear here/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Bookmarking will become available/),
+      screen.queryByText(/Bookmarking will become available/),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("bookmark-toggle")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add to list" }),
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/\d+\s*%/);
   });
