@@ -23,3 +23,15 @@ export function formatStudyDuration(ms: number): string {
   const minutes = totalMinutes % 60;
   return minutes === 0 ? `${hours} hr` : `${hours} hr ${minutes} min`;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Whole days elapsed between `pastMs` and `nowMs`, never negative. The one
+ * shared day-count primitive behind every "N days ago" display string in
+ * this codebase (weak-area last-practised, custom-list last-updated, …) —
+ * callers own their own label wording and null-handling.
+ */
+export function daysSince(pastMs: number, nowMs: number): number {
+  return Math.floor(Math.max(0, nowMs - pastMs) / DAY_MS);
+}
