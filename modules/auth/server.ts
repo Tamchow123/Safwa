@@ -88,6 +88,11 @@ function createAuth() {
     "/request-password-reset": sensitiveEndpointRule,
     "/reset-password": sensitiveEndpointRule,
     "/delete-user": sensitiveEndpointRule,
+    // The endpoint that actually performs the irreversible deletion (the
+    // learner's emailed confirmation link lands here) — every other
+    // sensitive endpoint above gets this same tuned rule, and this one
+    // guards the highest-consequence action of the six.
+    "/delete-user/callback": sensitiveEndpointRule,
   };
 
   return betterAuth({
