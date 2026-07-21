@@ -108,3 +108,30 @@ self-hosted libraries; Resend sits behind the email adapter.
 - Privacy-conscious analytics (Vercel Analytics or self-hosted Plausible):
   page views + a handful of product events (session completed, merge
   completed); no PII, no cross-site tracking; documented in a privacy page.
+
+## 10. Auth rate-limit client-IP assumption
+
+Better Auth's database-backed rate limiter (modules/auth/server.ts, Phase
+15 §43) keys each sensitive-endpoint counter by client IP + path, resolved
+from the `x-forwarded-for` header. No `advanced.ipAddress.trustedProxies`
+is configured, so Better Auth only trusts a **single-value**
+`x-forwarded-for` header — deliberately, per phases-15.md §43's "no
+trusted-client IP derived from arbitrary untrusted forwarded-header
+positions" requirement, rather than guessing at proxy IP ranges we cannot
+verify from inside this repository.
+
+This assumes the deployment topology in §3: Vercel serverless functions
+sit directly behind Vercel's own edge network with **no additional
+CDN/WAF in front**, so `x-forwarded-for` should arrive single-valued (the
+original client's IP). If that topology changes (e.g. Cloudflare or
+another CDN is added in front of Vercel), `x-forwarded-for` becomes
+multi-hop and Better Auth's `getIp()` returns `null` for every request —
+rate-limit keys then collapse onto one shared `no-trusted-ip|<path>`
+bucket per sensitive endpoint (fails closed to a coarser, shared limit;
+never bypasses rate limiting entirely, but ordinary traffic can exhaust
+the shared bucket and 429 unrelated users).
+
+If a proxy/CDN is ever added in front of Vercel, `advanced.ipAddress.trustedProxies`
+in `modules/auth/server.ts` must be updated to name that proxy's real
+egress IPs/CIDR ranges (not a broad range that could also cover clients)
+before that change ships.

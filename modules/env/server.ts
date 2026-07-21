@@ -52,6 +52,18 @@ const rawServerEnvSchema = z.object({
   EMAIL_OUTBOX_DIR: z.string().default(".local/email-outbox"),
   CONTENT_SERVER_DIR: z.string().default("content-server"),
   ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION: booleanFlag(false),
+  // Applied uniformly to every sensitive auth endpoint's rate-limit
+  // customRule (sign-up/sign-in/send-verification-email/
+  // request-password-reset/reset-password/delete-user). Overridable so
+  // integration tests can configure a low, safe threshold that triggers
+  // the limit quickly and deterministically instead of waiting out a
+  // production-sized window.
+  AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
 });
 
 export type ServerEnv = {
@@ -66,6 +78,8 @@ export type ServerEnv = {
   emailFrom: string | undefined;
   emailOutboxDir: string;
   contentServerDir: string;
+  authRateLimitWindowSeconds: number;
+  authRateLimitMax: number;
 };
 
 const MIN_PRODUCTION_SECRET_LENGTH = 32;
@@ -145,6 +159,8 @@ export function getServerEnv(): ServerEnv {
     emailFrom: parsed.data.EMAIL_FROM,
     emailOutboxDir: parsed.data.EMAIL_OUTBOX_DIR,
     contentServerDir: parsed.data.CONTENT_SERVER_DIR,
+    authRateLimitWindowSeconds: parsed.data.AUTH_RATE_LIMIT_WINDOW_SECONDS,
+    authRateLimitMax: parsed.data.AUTH_RATE_LIMIT_MAX,
   };
   return cachedEnv;
 }
