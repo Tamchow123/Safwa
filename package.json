@@ -27,7 +27,9 @@
     "verify:arabic": "python scripts/arabic-extract.py --verify-known",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",
     "db:generate": "drizzle-kit generate",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "db:migrate": "tsx --conditions=react-server db/migrate.ts",
+    "db:test:reset": "tsx --conditions=react-server db/reset-test-database.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.23",

@@ -93,6 +93,24 @@ Dexie adapter that reads the analytics snapshot and atomically rebuilds the
 cache write). Both are listed in `eslint.config.mjs`'s purity-guard ignores,
 and the pure analytics barrel never re-exports either.
 
+### Standalone CLI scripts and `server-only` (Phase 15)
+
+Server-only modules (`db/client.ts`, `modules/env/server.ts`, `modules/auth/
+server.ts`, …) are marked `import "server-only"` so Next.js's build fails
+loudly if a client component ever imports one. That package throws unless
+resolved via the `react-server` export condition — which Next.js's webpack
+build sets, but a plain `tsx`/Node process does not (it resolves `default`,
+which throws by design). Any standalone script that transitively imports a
+server-only module (`db/migrate.ts`, `db/reset-test-database.ts`, and
+`db/register-content.ts` from Phase 15 onward) must therefore run via `tsx
+--conditions=react-server <script>` — already baked into the corresponding
+`package.json` script (`db:migrate`, `db:test:reset`, …), not something the
+caller needs to pass manually. This is not a weakened guard: a CLI script
+was never a client bundle in the first place, so resolving the same branch
+Next.js's build does is correct, not a bypass. Do not "fix" a future
+script's `server-only` throw by removing the import from the underlying
+module instead — add the flag to that script's `package.json` entry.
+
 ### Client/server responsibilities
 
 | Concern                  | Client                                                 | Server                                                                                |

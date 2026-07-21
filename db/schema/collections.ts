@@ -62,7 +62,10 @@ export const customLists = pgTable(
     ),
     check(
       "custom_lists_name_length_check",
-      sql`char_length(${table.name}) BETWEEN 1 AND ${CUSTOM_LIST_NAME_MAX_LENGTH}`,
+      // sql`` parameterises any interpolated non-column JS value ($1, bound
+      // at query time) — meaningless inside a static CHECK constraint.
+      // sql.raw() inlines the literal into the DDL text instead.
+      sql`char_length(${table.name}) BETWEEN 1 AND ${sql.raw(String(CUSTOM_LIST_NAME_MAX_LENGTH))}`,
     ),
     check(
       "custom_lists_updated_not_before_created_check",
