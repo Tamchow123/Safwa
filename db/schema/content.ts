@@ -14,7 +14,10 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-const SHA256_HEX_PATTERN = "^[0-9a-f]{64}$";
+// Inlined via sql.raw() as a single-quoted SQL string literal, not
+// interpolated with sql`` (which parameterises any non-column JS value —
+// meaningless inside a static CHECK constraint).
+const SHA256_HEX_PATTERN_SQL_LITERAL = sql.raw("'^[0-9a-f]{64}$'");
 
 export const contentVersions = pgTable(
   "content_versions",
@@ -54,15 +57,15 @@ export const contentVersions = pgTable(
     ),
     check(
       "content_versions_checksum_learner_check",
-      sql`${table.checksumLearner} ~ ${SHA256_HEX_PATTERN}`,
+      sql`${table.checksumLearner} ~ ${SHA256_HEX_PATTERN_SQL_LITERAL}`,
     ),
     check(
       "content_versions_checksum_validation_check",
-      sql`${table.checksumValidation} ~ ${SHA256_HEX_PATTERN}`,
+      sql`${table.checksumValidation} ~ ${SHA256_HEX_PATTERN_SQL_LITERAL}`,
     ),
     check(
       "content_versions_checksum_assessment_check",
-      sql`${table.checksumAssessment} ~ ${SHA256_HEX_PATTERN}`,
+      sql`${table.checksumAssessment} ~ ${SHA256_HEX_PATTERN_SQL_LITERAL}`,
     ),
     // At most one row may have release_status = 'active': every indexed
     // value is the literal string 'active', so a second such row collides.

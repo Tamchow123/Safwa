@@ -17,6 +17,11 @@ docs/.arabic-placeholders.json
 public/content/
 content-server/
 
+# Drizzle-generated migrations and journal/snapshot metadata (Phase 15) —
+# regenerated verbatim by `drizzle-kit generate`; reformatting them would
+# just be undone (or drift) on the next regeneration
+db/migrations/
+
 # Python
 scripts/
 __pycache__/
