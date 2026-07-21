@@ -25,7 +25,9 @@
     "docs:verify": "tsx tools/docs-verify.ts",
     "validate:data": "python scripts/validate-vocabulary.py",
     "verify:arabic": "python scripts/arabic-extract.py --verify-known",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.23",
@@ -65,6 +67,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "3.2.7",
     "auth": "^1.6.23",
+    "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
