@@ -69,6 +69,11 @@ export const contentVersions = pgTable(
     ),
     // At most one row may have release_status = 'active': every indexed
     // value is the literal string 'active', so a second such row collides.
+    // Any write path that changes release_status must demote the
+    // currently-active row to non-active BEFORE promoting a new row to
+    // 'active' within the same transaction, or the two writes transiently
+    // collide on this index even though the end state would be valid — see
+    // the active-release-last ordering in db/register-content.ts.
     uniqueIndex("content_versions_single_active_idx")
       .on(table.releaseStatus)
       .where(sql`${table.releaseStatus} = 'active'`),

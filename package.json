@@ -30,6 +30,7 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:migrate": "tsx --conditions=react-server db/migrate.ts",
+    "db:register-content": "tsx --conditions=react-server db/register-content.ts",
     "db:test:reset": "tsx --conditions=react-server db/reset-test-database.ts"
   },
   "dependencies": {
