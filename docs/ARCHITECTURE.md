@@ -68,6 +68,11 @@ apps (single Next.js app)
 │                          resolver (resolveEffectiveClock)
 ├── modules/sync           mutation queue, event push/pull, rebase handling
 ├── modules/auth           Better Auth config, email adapter
+├── modules/env            (Phase 15) strict Zod validation of server and
+│                          client environment variables; server.ts is
+│                          server-only and lazy-memoised (validated on first
+│                          use, never at import), client.ts exposes only
+│                          NEXT_PUBLIC_* values
 ├── modules/analytics      PURE TS: date/activity/streak/progress formulas
 │                          (Phase 12) + weakness heuristic v2, evidence
 │                          preparation and group aggregation (Phase 13) +
