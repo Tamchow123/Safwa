@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   authClient,
+  changePassword,
   deleteUser,
   requestPasswordReset,
   resetPassword,
@@ -20,6 +21,7 @@ describe("modules/auth/client", () => {
     expect(useSession).toBeTypeOf("function");
     expect(requestPasswordReset).toBeTypeOf("function");
     expect(resetPassword).toBeTypeOf("function");
+    expect(changePassword).toBeTypeOf("function");
     expect(sendVerificationEmail).toBeTypeOf("function");
     expect(verifyEmail).toBeTypeOf("function");
     expect(deleteUser).toBeTypeOf("function");
