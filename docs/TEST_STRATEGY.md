@@ -96,6 +96,12 @@ integration; the E2E matrix runs on main and before releases.
   both stores.
 - An unknown future shape fails safely (insertable into skill_types only with
   an explicit CHECK extension).
+- Harness convention (`tests/integration/setup.ts`): one full reset per test
+  FILE, not per test — individual tests isolate themselves by creating their
+  own user (`tests/integration/helpers/users.ts`'s `createTestUser()`) rather
+  than relying on a truncate between every test, since every application
+  table scopes its uniqueness to `user_id`. Every new integration test file
+  must follow this convention.
 
 ## 7. Sync & canonical-correctness suite (Phase 16, integration)
 
