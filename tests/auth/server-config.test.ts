@@ -151,6 +151,7 @@ describe("modules/auth/server", () => {
       "/request-password-reset": expectedRule,
       "/reset-password": expectedRule,
       "/delete-user": expectedRule,
+      "/delete-user/callback": expectedRule,
     });
   });
 

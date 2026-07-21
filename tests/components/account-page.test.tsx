@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const changePasswordMock = vi.fn();
 const signOutMock = vi.fn();
+const deleteUserMock = vi.fn();
 vi.mock("@/modules/auth/client", () => ({
   changePassword: (...args: unknown[]) => changePasswordMock(...args),
   signOut: (...args: unknown[]) => signOutMock(...args),
+  deleteUser: (...args: unknown[]) => deleteUserMock(...args),
 }));
 
 const toastMock = vi.fn();
@@ -16,6 +18,7 @@ vi.mock("sonner", () => ({
 
 import { AccountSettingsForm } from "@/components/account/account-settings-form";
 import { ChangePasswordDialog } from "@/components/account/change-password-dialog";
+import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
 import { SignOutButton } from "@/components/account/sign-out-button";
 
 const SETTINGS = {
@@ -33,6 +36,7 @@ const SETTINGS = {
 beforeEach(() => {
   changePasswordMock.mockReset();
   signOutMock.mockReset();
+  deleteUserMock.mockReset();
   toastMock.mockReset();
 });
 
@@ -333,5 +337,69 @@ describe("AccountSettingsForm", () => {
     expect(
       screen.getByRole("button", { name: "Save account settings" }),
     ).toBeEnabled();
+  });
+});
+
+describe("DeleteAccountDialog", () => {
+  it("names the account email in the confirmation and requires a password", async () => {
+    const user = userEvent.setup();
+    render(<DeleteAccountDialog email="learner@example.com" />);
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+
+    expect(screen.getByText("Delete learner@example.com?")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Delete account" }).at(-1),
+    ).toBeDisabled();
+  });
+
+  it("calls deleteUser with the password and callbackURL, then shows an honest not-yet-deleted state", async () => {
+    deleteUserMock.mockResolvedValue({ error: null, data: {} });
+    const user = userEvent.setup();
+    render(<DeleteAccountDialog email="learner@example.com" />);
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+
+    await user.type(screen.getByLabelText("Password"), "correct-password");
+    await user.click(
+      screen.getAllByRole("button", { name: "Delete account" }).at(-1)!,
+    );
+
+    await waitFor(() =>
+      expect(deleteUserMock).toHaveBeenCalledWith({
+        password: "correct-password",
+        callbackURL: "/",
+      }),
+    );
+    expect(screen.getByText("Check your email")).toBeInTheDocument();
+    expect(screen.getByText(/has not been deleted yet/)).toBeInTheDocument();
+  });
+
+  it("shows a learner-safe error when the password is wrong, without claiming deletion", async () => {
+    deleteUserMock.mockResolvedValue({
+      error: { code: "INVALID_PASSWORD" },
+      data: null,
+    });
+    const user = userEvent.setup();
+    render(<DeleteAccountDialog email="learner@example.com" />);
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+
+    await user.type(screen.getByLabelText("Password"), "wrong-password");
+    await user.click(
+      screen.getAllByRole("button", { name: "Delete account" }).at(-1)!,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Incorrect email or password.",
+      ),
+    );
+    expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
+  });
+
+  it("never claims local progress is deleted", async () => {
+    const user = userEvent.setup();
+    render(<DeleteAccountDialog email="learner@example.com" />);
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+
+    expect(screen.getByText(/local study progress/)).toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChangePasswordDialog } from "@/components/account/change-password-dialog";
+import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
 import { SignOutButton } from "@/components/account/sign-out-button";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +117,22 @@ export default async function AccountPage() {
         <CardContent className="flex flex-wrap gap-3">
           <ChangePasswordDialog />
           <SignOutButton />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2 className="text-base font-semibold">Danger zone</h2>
+          </CardTitle>
+          <CardDescription>
+            Permanently delete your account and every server-stored record tied
+            to it. This device&apos;s local study progress is never deleted by
+            this action.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteAccountDialog email={user.email} />
         </CardContent>
       </Card>
     </div>
