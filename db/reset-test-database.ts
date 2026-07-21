@@ -77,7 +77,12 @@ async function truncateAllTables(): Promise<void> {
  * be routed to any connection, so acquire/release must happen on the same
  * client to be meaningful.
  */
-const RESET_LOCK_TIMEOUT_MS = 30_000;
+// Deliberately well under the integration harness's 30s Vitest
+// testTimeout/hookTimeout (vitest.integration.config.ts): if this ever won,
+// a stuck/stale lock would surface as Vitest's own generic "Hook timed out"
+// error instead of the specific, actionable message below — leaving enough
+// headroom (here, half) keeps the diagnostic that actually explains why.
+const RESET_LOCK_TIMEOUT_MS = 15_000;
 const RESET_LOCK_POLL_INTERVAL_MS = 250;
 
 /**
@@ -123,7 +128,13 @@ async function withResetLock<T>(
   }
 }
 
-async function main(): Promise<void> {
+/**
+ * The reusable reset entry point: exported so the integration-test harness
+ * (T4+) can call it directly (e.g. in a `beforeEach`) without going through
+ * a child process — this IS the same function the `db:test:reset` CLI
+ * script below invokes, so there is exactly one reset implementation.
+ */
+export async function resetTestDatabase(): Promise<void> {
   const env = getServerEnv();
   const databaseName = assertSafeToReset(env.databaseUrl, env.nodeEnv);
   await withResetLock(env.databaseUrl, async () => {
@@ -146,7 +157,7 @@ const isMainModule =
 if (isMainModule) {
   // Dynamic, not a static top-level import — see db/migrate.ts for why.
   import("@/db/load-env")
-    .then(main)
+    .then(resetTestDatabase)
     .then(async () => {
       await closeDb();
     })
