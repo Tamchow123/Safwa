@@ -126,6 +126,15 @@ function createAuth() {
       useSecureCookies: env.betterAuthUrl.startsWith("https://"),
     },
     rateLimit: {
+      // Better Auth's own default is `enabled: isProduction` — silently
+      // off outside a production NODE_ENV. Sensitive auth endpoints must
+      // stay rate-limited in every environment (a dev/staging deployment
+      // handling real accounts is just as brute-forceable as production,
+      // and phases-15.md §60 requires this be provably enforced by
+      // integration tests, which is only possible if it is never
+      // silently disabled), so this is set explicitly rather than left
+      // to that default.
+      enabled: true,
       storage: "database",
       modelName: "rate_limits",
       customRules: rateLimitCustomRules,

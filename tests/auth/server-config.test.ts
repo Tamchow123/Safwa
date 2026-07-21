@@ -143,6 +143,10 @@ describe("modules/auth/server", () => {
     const { getAuth } = await import("@/modules/auth/server");
     const options = getAuth().options;
     expect(options.rateLimit?.storage).toBe("database");
+    // Better Auth's own default is enabled: isProduction — silently off
+    // outside NODE_ENV=production. Explicit here so this never regresses
+    // to that default and goes silently untested/unenforced again.
+    expect(options.rateLimit?.enabled).toBe(true);
     const expectedRule = { window: 30, max: 2 };
     expect(options.rateLimit?.customRules).toEqual({
       "/sign-up/email": expectedRule,
