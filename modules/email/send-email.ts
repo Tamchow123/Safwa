@@ -9,6 +9,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { assertSameOrigin } from "@/modules/email/link-safety";
 import { createConsoleFileTransport } from "@/modules/email/transports/console-file";
+import { createResendTransport } from "@/modules/email/transports/resend";
 import type {
   EmailTemplate,
   EmailTransport,
@@ -43,11 +44,26 @@ function getTransport(): EmailTransport {
         outboxDir: env.emailOutboxDir,
       });
       return cachedTransport;
-    case "resend":
-      // Wired in Phase 15 T10 (modules/email/transports/resend.ts).
-      throw new Error(
-        "EMAIL_TRANSPORT=resend is not yet available (Phase 15 T10 wires the Resend transport)",
-      );
+    case "resend": {
+      // modules/env/server.ts only REQUIRES these in production (its
+      // assertProductionInvariants check) — a non-production environment
+      // that sets EMAIL_TRANSPORT=resend without them must still fail
+      // closed here with a clear config error, not a confusing downstream
+      // Resend client error.
+      if (!env.resendApiKey) {
+        throw new Error(
+          "RESEND_API_KEY is required when EMAIL_TRANSPORT=resend",
+        );
+      }
+      if (!env.emailFrom) {
+        throw new Error("EMAIL_FROM is required when EMAIL_TRANSPORT=resend");
+      }
+      cachedTransport = createResendTransport({
+        apiKey: env.resendApiKey,
+        from: env.emailFrom,
+      });
+      return cachedTransport;
+    }
     default: {
       const exhaustive: never = env.emailTransport;
       throw new Error(`Unsupported EMAIL_TRANSPORT: ${String(exhaustive)}`);
