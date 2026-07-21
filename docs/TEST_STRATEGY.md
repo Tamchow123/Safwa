@@ -99,9 +99,13 @@ integration; the E2E matrix runs on main and before releases.
 - Harness convention (`tests/integration/setup.ts`): one full reset per test
   FILE, not per test — individual tests isolate themselves by creating their
   own user (`tests/integration/helpers/users.ts`'s `createTestUser()`) rather
-  than relying on a truncate between every test, since every application
-  table scopes its uniqueness to `user_id`. Every new integration test file
-  must follow this convention.
+  than relying on a truncate between every test, since most application
+  tables scope their uniqueness to `user_id`. Every new integration test
+  file must follow this convention. **Exception:** global/lookup tables with
+  no `user_id` column (`content_versions`, `skill_types`) are not isolated by
+  this trick — every constraint/uniqueness assertion for one of these tables
+  in a given file must live in a single `it()`, not be split across several
+  that could collide on rows an earlier test in the same file left behind.
 
 ## 7. Sync & canonical-correctness suite (Phase 16, integration)
 

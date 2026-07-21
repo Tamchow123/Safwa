@@ -16,8 +16,17 @@ import { resetTestDatabase } from "@/db/reset-test-database";
 // per file, and fileParallelism:false in vitest.integration.config.ts keeps
 // files from resetting the shared database out from under each other).
 // Tests within a file are responsible for their own isolation — typically
-// by inserting a fresh user per test, since every application table scopes
-// its uniqueness to user_id (see docs/TEST_STRATEGY.md §6).
+// by inserting a fresh user per test, since MOST application tables scope
+// their uniqueness to user_id (see docs/TEST_STRATEGY.md §6).
+//
+// EXCEPTION — global/lookup tables with no user_id column at all
+// (currently: content_versions, skill_types): the per-user trick does not
+// isolate these. A file touching one of them must express every
+// constraint/uniqueness assertion for that table as ONE test (see
+// tests/integration/settings-and-content.test.ts's content_versions
+// describe block for the pattern), not split across multiple `it()`
+// blocks that could collide on rows an earlier test in the same file left
+// behind.
 //
 // resetTestDatabase() re-runs migrate()'s journal comparison on every file,
 // not just once for the whole run — negligible at today's file count;
