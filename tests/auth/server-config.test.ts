@@ -32,12 +32,23 @@ afterEach(() => {
 });
 
 describe("modules/auth/server", () => {
-  it("importing the module does not validate env or construct anything (lazy)", async () => {
-    // Deliberately invalid env — if construction happened at import time,
-    // this import would throw.
-    process.env = { NODE_ENV: "test" } as unknown as NodeJS.ProcessEnv;
-    await expect(import("@/modules/auth/server")).resolves.toBeDefined();
-  });
+  // vi.resetModules() forces a genuinely cold re-import of the whole
+  // better-auth/drizzle-orm/pg dependency graph; under full-suite
+  // concurrent worker load that first import can exceed Vitest's 5s
+  // default, so this one test gets a longer allowance (last arg below)
+  // rather than the whole run flaking — the assertion itself is unchanged.
+  const COLD_IMPORT_TIMEOUT_MS = 20_000;
+
+  it(
+    "importing the module does not validate env or construct anything (lazy)",
+    async () => {
+      // Deliberately invalid env — if construction happened at import time,
+      // this import would throw.
+      process.env = { NODE_ENV: "test" } as unknown as NodeJS.ProcessEnv;
+      await expect(import("@/modules/auth/server")).resolves.toBeDefined();
+    },
+    COLD_IMPORT_TIMEOUT_MS,
+  );
 
   it("getAuth() constructs a Better Auth instance exposing the expected handler/api surface", async () => {
     const { getAuth } = await import("@/modules/auth/server");
