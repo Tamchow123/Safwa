@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { desc, eq, like } from "drizzle-orm";
-import { parseSetCookieHeader } from "better-auth/cookies";
 import { describe, expect, it } from "vitest";
 import { getDb } from "@/db/client";
 import {
@@ -23,6 +22,7 @@ import {
 } from "@/db/schema";
 import { getAuth } from "@/modules/auth/server";
 import { createTestComponent } from "@/tests/integration/helpers/components";
+import { signInAndGetSessionHeaders } from "@/tests/integration/helpers/auth-session";
 import { createTestList } from "@/tests/integration/helpers/lists";
 
 const PASSWORD = "correct-horse-battery-staple";
@@ -35,23 +35,8 @@ const PASSWORD = "correct-horse-battery-staple";
  * `deleteUser.sendDeleteAccountVerification`, so this is a genuine
  * two-step flow: signIn -> deleteUser({password}) sends a confirmation
  * email and does NOT delete yet -> deleteUserCallback({token}) (the link
- * the learner would click) actually deletes. Session cookie extraction
- * mirrors better-auth's own test-instance.mjs signInWithUser helper.
+ * the learner would click) actually deletes.
  */
-async function signInAndGetSessionHeaders(email: string): Promise<Headers> {
-  const response = await getAuth().api.signInEmail({
-    body: { email, password: PASSWORD },
-    asResponse: true,
-  });
-  const setCookie = response.headers.get("set-cookie") ?? "";
-  const token = parseSetCookieHeader(setCookie).get(
-    "better-auth.session_token",
-  )?.value;
-  if (!token) {
-    throw new Error("signInAndGetSessionHeaders: no session token in response");
-  }
-  return new Headers({ cookie: `better-auth.session_token=${token}` });
-}
 
 async function seedUserWithAppRows(email: string): Promise<string> {
   const db = getDb();
@@ -140,7 +125,7 @@ describe("self-service account deletion", () => {
   it("rejects the wrong password with a generic error and does not delete anything", async () => {
     const email = `delete.wrong-password.${randomUUID()}@example.test`;
     const userId = await seedUserWithAppRows(email);
-    const headers = await signInAndGetSessionHeaders(email);
+    const headers = await signInAndGetSessionHeaders(email, PASSWORD);
 
     await expect(
       getAuth().api.deleteUser({
@@ -157,7 +142,7 @@ describe("self-service account deletion", () => {
   it("sends a confirmation email on the correct password without deleting yet", async () => {
     const email = `delete.pending.${randomUUID()}@example.test`;
     const userId = await seedUserWithAppRows(email);
-    const headers = await signInAndGetSessionHeaders(email);
+    const headers = await signInAndGetSessionHeaders(email, PASSWORD);
 
     const result = await getAuth().api.deleteUser({
       body: { password: PASSWORD },
@@ -196,7 +181,7 @@ describe("self-service account deletion", () => {
         minimumSupportedEventSchema: 1,
       });
 
-    const headers = await signInAndGetSessionHeaders(email);
+    const headers = await signInAndGetSessionHeaders(email, PASSWORD);
     await getAuth().api.deleteUser({ body: { password: PASSWORD }, headers });
 
     // Extract the deletion-confirmation token the same way the learner's
