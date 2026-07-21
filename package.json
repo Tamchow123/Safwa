@@ -31,7 +31,8 @@
     "db:check": "drizzle-kit check",
     "db:migrate": "tsx --conditions=react-server db/migrate.ts",
     "db:register-content": "tsx --conditions=react-server db/register-content.ts",
-    "db:test:reset": "tsx --conditions=react-server db/reset-test-database.ts"
+    "db:test:reset": "tsx --conditions=react-server db/reset-test-database.ts",
+    "email:clear-outbox": "tsx --conditions=react-server modules/email/clear-outbox.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.23",

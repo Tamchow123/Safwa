@@ -67,7 +67,10 @@ apps (single Next.js app)
 │                          export, timezone preference + THE effective-clock
 │                          resolver (resolveEffectiveClock)
 ├── modules/sync           mutation queue, event push/pull, rebase handling
-├── modules/auth           Better Auth config, email adapter
+├── modules/auth           Better Auth config
+├── modules/email          (Phase 15) provider-neutral email contract:
+│                          types/templates/send-email dispatch + transports
+│                          (console-file for dev/test, Resend for prod)
 ├── modules/env            (Phase 15) strict Zod validation of server and
 │                          client environment variables; server.ts is
 │                          server-only and lazy-memoised (validated on first
