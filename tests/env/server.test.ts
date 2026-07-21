@@ -51,6 +51,23 @@ describe("getServerEnv", () => {
     expect(env.emailTransport).toBe("console-file");
     expect(env.emailOutboxDir).toBe(".local/email-outbox");
     expect(env.contentServerDir).toBe("content-server");
+    expect(env.authRateLimitWindowSeconds).toBe(60);
+    expect(env.authRateLimitMax).toBe(5);
+  });
+
+  it("coerces AUTH_RATE_LIMIT_WINDOW_SECONDS/AUTH_RATE_LIMIT_MAX from strings", () => {
+    setEnv({
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: "30",
+      AUTH_RATE_LIMIT_MAX: "2",
+    });
+    const env = getServerEnv();
+    expect(env.authRateLimitWindowSeconds).toBe(30);
+    expect(env.authRateLimitMax).toBe(2);
+  });
+
+  it("rejects a non-positive AUTH_RATE_LIMIT_MAX", () => {
+    setEnv({ AUTH_RATE_LIMIT_MAX: "0" });
+    expect(() => getServerEnv()).toThrow(/AUTH_RATE_LIMIT_MAX/);
   });
 
   it("memoises the result across calls", () => {
