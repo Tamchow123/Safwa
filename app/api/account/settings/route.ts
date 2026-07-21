@@ -25,6 +25,13 @@ const timezoneSchema = z.union([
   z.object({ mode: z.literal("iana"), timezone: z.string() }),
 ]);
 
+// Only the FOUR top-level groups (theme/arabicFontScale/timezone/
+// sessionDefaults) are independently optional for a partial PUT.
+// sessionDefaults itself is all-or-nothing when present — a caller
+// wanting to change one study-default field must resend the whole
+// group. This matches how components/account/account-settings-form.tsx
+// always sends its full in-memory settings object; a field-level-partial
+// sessionDefaults contract isn't needed by any current caller.
 const sessionDefaultsSchema = z.object({
   questionCount: z.number(),
   optionCount: z.number(),

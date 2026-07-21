@@ -203,4 +203,135 @@ describe("AccountSettingsForm", () => {
       ),
     );
   });
+
+  it("renders every study-defaults field with the correct id, value and bounds from STUDY_DEFAULT_FIELDS", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ settings: SETTINGS }),
+    }) as unknown as typeof fetch;
+
+    render(<AccountSettingsForm />);
+    await screen.findByTestId("account-settings-form");
+
+    const questionCount = screen.getByLabelText("Questions per session");
+    expect(questionCount).toHaveValue(20);
+    expect(questionCount).toHaveAttribute("min", "1");
+    expect(questionCount).toHaveAttribute("max", "100");
+
+    const optionCount = screen.getByLabelText("Options per question");
+    expect(optionCount).toHaveValue(4);
+    expect(optionCount).toHaveAttribute("min", "2");
+    expect(optionCount).toHaveAttribute("max", "8");
+
+    const newPerDay = screen.getByLabelText("New items per day");
+    expect(newPerDay).toHaveValue(10);
+    expect(newPerDay).toHaveAttribute("min", "0");
+    expect(newPerDay).toHaveAttribute("max", "100");
+
+    const reviewsPerDay = screen.getByLabelText("Reviews per day");
+    expect(reviewsPerDay).toHaveValue(20);
+    expect(reviewsPerDay).toHaveAttribute("min", "0");
+    expect(reviewsPerDay).toHaveAttribute("max", "500");
+  });
+
+  it("disables both Save and Reset while either is pending, so a rapid Save-then-Reset click cannot race", async () => {
+    let resolveSave: (value: {
+      ok: boolean;
+      json: () => Promise<unknown>;
+    }) => void;
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((_url, options?: { method?: string }) => {
+        if (options?.method === "PUT") {
+          return new Promise((resolve) => {
+            resolveSave = resolve;
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ settings: SETTINGS }),
+        });
+      });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    render(<AccountSettingsForm />);
+    await screen.findByTestId("account-settings-form");
+
+    await user.click(
+      screen.getByRole("button", { name: "Save account settings" }),
+    );
+
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Reset to defaults" }),
+    ).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Reset to defaults" }));
+    // The DELETE call must never have been dispatched while Save was pending.
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/account/settings",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+
+    resolveSave!({ ok: true, json: async () => ({ settings: SETTINGS }) });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Save account settings" }),
+      ).toBeEnabled(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Reset to defaults" }),
+    ).toBeEnabled();
+  });
+
+  it("disables Save while Reset is pending (the symmetric guard direction)", async () => {
+    let resolveReset: (value: {
+      ok: boolean;
+      json: () => Promise<unknown>;
+    }) => void;
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((_url, options?: { method?: string }) => {
+        if (options?.method === "DELETE") {
+          return new Promise((resolve) => {
+            resolveReset = resolve;
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ settings: SETTINGS }),
+        });
+      });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    render(<AccountSettingsForm />);
+    await screen.findByTestId("account-settings-form");
+
+    await user.click(screen.getByRole("button", { name: "Reset to defaults" }));
+
+    expect(screen.getByRole("button", { name: "Resetting…" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Save account settings" }),
+    ).toBeDisabled();
+
+    await user.click(
+      screen.getByRole("button", { name: "Save account settings" }),
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/account/settings",
+      expect.objectContaining({ method: "PUT" }),
+    );
+
+    resolveReset!({ ok: true, json: async () => ({ settings: SETTINGS }) });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Reset to defaults" }),
+      ).toBeEnabled(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Save account settings" }),
+    ).toBeEnabled();
+  });
 });

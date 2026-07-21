@@ -26,13 +26,39 @@ import { Label } from "@/components/ui/label";
 import type { ArabicFontScale } from "@/lib/preferences/arabic-font-scale";
 import type { AppTheme } from "@/lib/preferences/app-theme";
 import type { AccountSettings } from "@/modules/auth/account-settings";
-import { SESSION_DEFAULTS_BOUNDS } from "@/modules/profile/session-defaults";
+import {
+  SESSION_DEFAULTS_BOUNDS,
+  type SessionDefaults,
+} from "@/modules/profile/session-defaults";
 import { availableTimezones } from "@/modules/profile/timezone";
 
 const THEME_OPTIONS: { value: AppTheme; label: string }[] = [
   { value: "system", label: "System" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
+];
+
+const STUDY_DEFAULT_FIELDS: {
+  key: keyof SessionDefaults;
+  id: string;
+  label: string;
+}[] = [
+  {
+    key: "questionCount",
+    id: "account-question-count",
+    label: "Questions per session",
+  },
+  {
+    key: "optionCount",
+    id: "account-option-count",
+    label: "Options per question",
+  },
+  { key: "newPerDay", id: "account-new-per-day", label: "New items per day" },
+  {
+    key: "reviewsPerDay",
+    id: "account-reviews-per-day",
+    label: "Reviews per day",
+  },
 ];
 
 async function parseSettingsResponse(
@@ -68,7 +94,7 @@ export function AccountSettingsForm() {
   }, []);
 
   async function handleSave() {
-    if (!settings || saving) return;
+    if (!settings || saving || resetting) return;
     setSaving(true);
     try {
       const response = await fetch("/api/account/settings", {
@@ -89,7 +115,7 @@ export function AccountSettingsForm() {
   }
 
   async function handleReset() {
-    if (resetting) return;
+    if (saving || resetting) return;
     setResetting(true);
     try {
       const response = await fetch("/api/account/settings", {
@@ -210,90 +236,29 @@ export function AccountSettingsForm() {
         <div className="space-y-2">
           <Label>Study defaults</Label>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="account-question-count" className="text-xs">
-                Questions per session
-              </Label>
-              <Input
-                id="account-question-count"
-                type="number"
-                min={SESSION_DEFAULTS_BOUNDS.questionCount.min}
-                max={SESSION_DEFAULTS_BOUNDS.questionCount.max}
-                value={settings.sessionDefaults.questionCount}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    sessionDefaults: {
-                      ...settings.sessionDefaults,
-                      questionCount: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="account-option-count" className="text-xs">
-                Options per question
-              </Label>
-              <Input
-                id="account-option-count"
-                type="number"
-                min={SESSION_DEFAULTS_BOUNDS.optionCount.min}
-                max={SESSION_DEFAULTS_BOUNDS.optionCount.max}
-                value={settings.sessionDefaults.optionCount}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    sessionDefaults: {
-                      ...settings.sessionDefaults,
-                      optionCount: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="account-new-per-day" className="text-xs">
-                New items per day
-              </Label>
-              <Input
-                id="account-new-per-day"
-                type="number"
-                min={SESSION_DEFAULTS_BOUNDS.newPerDay.min}
-                max={SESSION_DEFAULTS_BOUNDS.newPerDay.max}
-                value={settings.sessionDefaults.newPerDay}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    sessionDefaults: {
-                      ...settings.sessionDefaults,
-                      newPerDay: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="account-reviews-per-day" className="text-xs">
-                Reviews per day
-              </Label>
-              <Input
-                id="account-reviews-per-day"
-                type="number"
-                min={SESSION_DEFAULTS_BOUNDS.reviewsPerDay.min}
-                max={SESSION_DEFAULTS_BOUNDS.reviewsPerDay.max}
-                value={settings.sessionDefaults.reviewsPerDay}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    sessionDefaults: {
-                      ...settings.sessionDefaults,
-                      reviewsPerDay: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-            </div>
+            {STUDY_DEFAULT_FIELDS.map((field) => (
+              <div key={field.key} className="space-y-1">
+                <Label htmlFor={field.id} className="text-xs">
+                  {field.label}
+                </Label>
+                <Input
+                  id={field.id}
+                  type="number"
+                  min={SESSION_DEFAULTS_BOUNDS[field.key].min}
+                  max={SESSION_DEFAULTS_BOUNDS[field.key].max}
+                  value={settings.sessionDefaults[field.key]}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      sessionDefaults: {
+                        ...settings.sessionDefaults,
+                        [field.key]: Number(event.target.value),
+                      },
+                    })
+                  }
+                />
+              </div>
+            ))}
           </div>
         </div>
       </CardContent>
@@ -301,7 +266,7 @@ export function AccountSettingsForm() {
         <Button
           type="button"
           className="min-h-11"
-          disabled={saving}
+          disabled={saving || resetting}
           onClick={() => void handleSave()}
         >
           {saving ? "Saving…" : "Save account settings"}
@@ -310,7 +275,7 @@ export function AccountSettingsForm() {
           type="button"
           variant="outline"
           className="min-h-11"
-          disabled={resetting}
+          disabled={saving || resetting}
           onClick={() => void handleReset()}
         >
           {resetting ? "Resetting…" : "Reset to defaults"}
