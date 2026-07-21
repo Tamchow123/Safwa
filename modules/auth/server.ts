@@ -35,6 +35,10 @@ import { betterAuth } from "better-auth";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { sendEmail } from "@/modules/email/send-email";
+import {
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+} from "@/modules/auth/password-policy";
 import { getServerEnv } from "@/modules/env/server";
 
 // Explicit per phases-15.md §30 ("Configure verification and reset token
@@ -47,9 +51,6 @@ const DELETE_ACCOUNT_TOKEN_EXPIRES_IN_SECONDS = 60 * 60 * 24; // 1 day
 // explicitly configured") — again matching Better Auth's own defaults.
 const SESSION_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24; // 1 day
-
-const MIN_PASSWORD_LENGTH = 8;
-const MAX_PASSWORD_LENGTH = 128;
 
 export class AuthDisabledError extends Error {
   constructor() {
@@ -92,14 +93,23 @@ function createAuth() {
   return betterAuth({
     baseURL: env.betterAuthUrl,
     secret: env.betterAuthSecret,
+    // The drizzle adapter looks up each table by the CONFIGURED modelName
+    // string (e.g. "users", set below via user.modelName), not by the
+    // base model identifier ("user") — these keys must match user/
+    // session/account/verification/rateLimit's modelName values exactly,
+    // or every DB operation fails at runtime with "The model ... was not
+    // found in the schema object" (this mismatch is NOT caught by
+    // constructing the Auth instance alone; only an actual DB call
+    // surfaces it, which is why this fix required exercising the live
+    // sign-up flow, not just typechecking the config shape).
     database: drizzleAdapter(getDb(), {
       provider: "pg",
       schema: {
-        user: schema.users,
-        session: schema.sessions,
-        account: schema.accounts,
-        verification: schema.verifications,
-        rateLimit: schema.rateLimits,
+        users: schema.users,
+        sessions: schema.sessions,
+        accounts: schema.accounts,
+        verifications: schema.verifications,
+        rate_limits: schema.rateLimits,
       },
     }),
     advanced: {
