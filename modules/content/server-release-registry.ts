@@ -1,12 +1,18 @@
 /**
- * Server-only active-release resolution (Phase 15, phases-15.md §28).
- * Reads the mutable `release-registry.json` fresh on every call (it is
- * small and must reflect a live status change immediately — e.g. a
- * release just revoked), but caches each individually-verified release's
- * full content in-process, keyed by release id, ONLY after
- * `loadAndVerifyRelease` has fully succeeded. Concurrent callers for the
- * same release id share one in-flight promise (coalesced, not
- * re-verified per caller). A failed load is never cached as a success.
+ * Server-only release-registry reading and active-release resolution
+ * (Phase 15, phases-15.md §28). Two responsibilities live here: `readRegistry`
+ * (exported for db/register-content.ts, which must process EVERY listed
+ * release, not just the active one) reads and validates the mutable
+ * `release-registry.json`; `getActiveRelease` builds on it to resolve and
+ * cache the single active release.
+ *
+ * Reads `release-registry.json` fresh on every call (it is small and must
+ * reflect a live status change immediately — e.g. a release just revoked),
+ * but caches each individually-verified release's full content in-process,
+ * keyed by release id, ONLY after `loadAndVerifyRelease` has fully
+ * succeeded. Concurrent callers for the same release id share one
+ * in-flight promise (coalesced, not re-verified per caller). A failed load
+ * is never cached as a success.
  */
 import "server-only";
 import { readFile } from "node:fs/promises";
@@ -37,7 +43,14 @@ function assertRegistryOverrideIsTestOnly(
   }
 }
 
-async function readRegistry(registryDir?: string): Promise<ReleaseRegistry> {
+/**
+ * Reads and validates the full release registry (every listed release, not
+ * just the active one) — exported for `db/register-content.ts`, which must
+ * register every release the registry lists, not merely the active one.
+ */
+export async function readRegistry(
+  registryDir?: string,
+): Promise<ReleaseRegistry> {
   assertRegistryOverrideIsTestOnly(registryDir);
   const root = registryDir ?? getServerEnv().contentServerDir;
   const registryPath = path.join(path.resolve(root), "release-registry.json");

@@ -96,6 +96,12 @@ export type VerifiedRelease = {
   learner: LearnerRelease;
   validation: ValidationManifest;
   assessment: AssessmentManifest;
+  /** The checksums.json values already verified against the raw bytes above. */
+  checksums: {
+    learner: string;
+    validation: string;
+    assessment: string;
+  };
 };
 
 type ArtifactIdentity = {
@@ -296,5 +302,6 @@ export async function loadAndVerifyRelease(
     learner,
     validation,
     assessment,
+    checksums: actual,
   };
 }

@@ -106,6 +106,13 @@ integration; the E2E matrix runs on main and before releases.
   this trick — every constraint/uniqueness assertion for one of these tables
   in a given file must live in a single `it()`, not be split across several
   that could collide on rows an earlier test in the same file left behind.
+  Multiple tests in one file MAY still each insert distinct
+  `content_versions` rows, provided at most one test ever asserts the
+  single-active constraint itself; every other test that merely needs a
+  registry-valid "exactly one active release" reuses one shared,
+  byte-identical "active anchor" release id so it never introduces a second
+  active row (`tests/integration/register-content.test.ts`'s
+  `ACTIVE_ANCHOR_ID` pattern).
 
 ## 7. Sync & canonical-correctness suite (Phase 16, integration)
 

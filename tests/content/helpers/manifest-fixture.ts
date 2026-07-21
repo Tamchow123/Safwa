@@ -154,9 +154,12 @@ export type ManifestFixture = {
   cleanup: () => Promise<void>;
 };
 
-export async function buildManifestFixture(
-  overrides: FixtureOverrides = {},
-): Promise<ManifestFixture> {
+/** Writes one release's three artifacts + checksums.json into existing roots. */
+async function writeReleaseArtifacts(
+  contentServerDir: string,
+  publicContentDir: string,
+  overrides: FixtureOverrides,
+): Promise<{ releaseId: string }> {
   const o: Required<FixtureOverrides> = {
     releaseId: overrides.releaseId ?? FIXTURE_RELEASE_ID,
     contentVersion: overrides.contentVersion ?? "1.0.0",
@@ -165,9 +168,6 @@ export async function buildManifestFixture(
     entryCount: overrides.entryCount ?? 1,
   };
 
-  const root = await mkdtemp(join(tmpdir(), "safwa-manifest-fixture-"));
-  const contentServerDir = join(root, "content-server");
-  const publicContentDir = join(root, "public-content");
   const serverReleaseDir = join(contentServerDir, "releases", o.releaseId);
   const publicReleaseDir = join(publicContentDir, "releases", o.releaseId);
   await mkdir(serverReleaseDir, { recursive: true });
@@ -201,28 +201,62 @@ export async function buildManifestFixture(
   );
   await writeFile(join(serverReleaseDir, "checksums.json"), checksums, "utf8");
 
+  return { releaseId: o.releaseId };
+}
+
+export async function buildManifestFixture(
+  overrides: FixtureOverrides = {},
+): Promise<ManifestFixture> {
+  const root = await mkdtemp(join(tmpdir(), "safwa-manifest-fixture-"));
+  const contentServerDir = join(root, "content-server");
+  const publicContentDir = join(root, "public-content");
+  const { releaseId } = await writeReleaseArtifacts(
+    contentServerDir,
+    publicContentDir,
+    overrides,
+  );
+
   const fileFor = (
     artifact: "learner" | "validation" | "assessment" | "checksums",
+    forReleaseId: string,
   ) =>
     artifact === "learner"
-      ? join(publicReleaseDir, "learner.json")
-      : join(serverReleaseDir, `${artifact}.json`);
+      ? join(publicContentDir, "releases", forReleaseId, "learner.json")
+      : join(contentServerDir, "releases", forReleaseId, `${artifact}.json`);
 
   return {
     contentServerDir,
     publicContentDir,
-    releaseId: o.releaseId,
+    releaseId,
     async corrupt(artifact, contentOrRaw) {
       const raw =
         typeof contentOrRaw === "string"
           ? contentOrRaw
           : JSON.stringify(contentOrRaw, null, 2);
-      await writeFile(fileFor(artifact), raw, "utf8");
+      await writeFile(fileFor(artifact, releaseId), raw, "utf8");
     },
     async cleanup() {
       await rm(root, { recursive: true, force: true });
     },
   };
+}
+
+/**
+ * Adds a second (or subsequent) release's artifacts into an existing
+ * fixture's `contentServerDir`/`publicContentDir` roots — for tests that
+ * need more than one release under one registry (e.g. proving an
+ * active-release swap between two releases never transiently violates the
+ * `content_versions` single-active constraint).
+ */
+export async function addReleaseToFixture(
+  fixture: ManifestFixture,
+  overrides: FixtureOverrides,
+): Promise<{ releaseId: string }> {
+  return writeReleaseArtifacts(
+    fixture.contentServerDir,
+    fixture.publicContentDir,
+    overrides,
+  );
 }
 
 /** Writes a release-registry.json into `contentServerDir`. */
