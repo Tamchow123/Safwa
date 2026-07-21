@@ -13,8 +13,8 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
+import { useAuthFormSubmit } from "@/components/auth/use-auth-form-submit";
 import { signUp } from "@/modules/auth/client";
-import { toLearnerSafeMessage } from "@/modules/auth/errors";
 import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -35,9 +35,8 @@ export function RegisterForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const { pending, error, setError, submit } = useAuthFormSubmit();
 
   const passwordsMatch =
     confirmPassword.length === 0 || password === confirmPassword;
@@ -51,7 +50,6 @@ export function RegisterForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    setError(null);
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -68,24 +66,16 @@ export function RegisterForm() {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    setPending(true);
-    try {
-      const result = await signUp.email({
-        name: name.trim(),
-        email: normalizedEmail,
-        password,
-        callbackURL: "/verify-email",
-      });
-      if (result.error) {
-        setError(toLearnerSafeMessage(result.error));
-        return;
-      }
-      setRegisteredEmail(normalizedEmail);
-    } catch {
-      setError(toLearnerSafeMessage(null));
-    } finally {
-      setPending(false);
-    }
+    await submit(
+      () =>
+        signUp.email({
+          name: name.trim(),
+          email: normalizedEmail,
+          password,
+          callbackURL: "/verify-email",
+        }),
+      () => setRegisteredEmail(normalizedEmail),
+    );
   }
 
   if (registeredEmail !== null) {

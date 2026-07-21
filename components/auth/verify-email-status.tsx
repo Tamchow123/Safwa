@@ -17,8 +17,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+import { useAuthFormSubmit } from "@/components/auth/use-auth-form-submit";
 import { sendVerificationEmail } from "@/modules/auth/client";
-import { toLearnerSafeMessage } from "@/modules/auth/errors";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -46,30 +46,20 @@ function resolveVerifyState(errorCode: string | null): VerifyState {
 
 function ResendForm() {
   const [email, setEmail] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const { pending, error, submit } = useAuthFormSubmit();
 
   async function handleResend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    setError(null);
-    setPending(true);
-    try {
-      const result = await sendVerificationEmail({
-        email: email.trim().toLowerCase(),
-        callbackURL: "/verify-email",
-      });
-      if (result.error) {
-        setError(toLearnerSafeMessage(result.error));
-        return;
-      }
-      setSent(true);
-    } catch {
-      setError(toLearnerSafeMessage(null));
-    } finally {
-      setPending(false);
-    }
+    await submit(
+      () =>
+        sendVerificationEmail({
+          email: email.trim().toLowerCase(),
+          callbackURL: "/verify-email",
+        }),
+      () => setSent(true),
+    );
   }
 
   if (sent) {
