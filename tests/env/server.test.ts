@@ -53,6 +53,10 @@ describe("getServerEnv", () => {
     expect(env.contentServerDir).toBe("content-server");
     expect(env.authRateLimitWindowSeconds).toBe(60);
     expect(env.authRateLimitMax).toBe(5);
+    // Matches Better Auth's own built-in default bucket exactly (window:
+    // 10, max: 100) so leaving these unset changes nothing.
+    expect(env.authRateLimitDefaultWindowSeconds).toBe(10);
+    expect(env.authRateLimitDefaultMax).toBe(100);
   });
 
   it("coerces AUTH_RATE_LIMIT_WINDOW_SECONDS/AUTH_RATE_LIMIT_MAX from strings", () => {
@@ -65,9 +69,24 @@ describe("getServerEnv", () => {
     expect(env.authRateLimitMax).toBe(2);
   });
 
+  it("coerces AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS/AUTH_RATE_LIMIT_DEFAULT_MAX from strings", () => {
+    setEnv({
+      AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "45",
+      AUTH_RATE_LIMIT_DEFAULT_MAX: "9000",
+    });
+    const env = getServerEnv();
+    expect(env.authRateLimitDefaultWindowSeconds).toBe(45);
+    expect(env.authRateLimitDefaultMax).toBe(9000);
+  });
+
   it("rejects a non-positive AUTH_RATE_LIMIT_MAX", () => {
     setEnv({ AUTH_RATE_LIMIT_MAX: "0" });
     expect(() => getServerEnv()).toThrow(/AUTH_RATE_LIMIT_MAX/);
+  });
+
+  it("rejects a non-positive AUTH_RATE_LIMIT_DEFAULT_MAX", () => {
+    setEnv({ AUTH_RATE_LIMIT_DEFAULT_MAX: "0" });
+    expect(() => getServerEnv()).toThrow(/AUTH_RATE_LIMIT_DEFAULT_MAX/);
   });
 
   it("memoises the result across calls", () => {

@@ -19,7 +19,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test && playwright test --config=playwright.auth-disabled.config.ts && playwright test --config=playwright.auth-rate-limit.config.ts",
     "test:e2e:ui": "playwright test --ui",
     "content:build": "tsx modules/content/build.ts",
     "content:verify": "pnpm content:build && pnpm docs:verify",

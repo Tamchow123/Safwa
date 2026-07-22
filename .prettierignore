@@ -4,6 +4,8 @@ out/
 build/
 coverage/
 playwright-report/
+playwright-report-auth-disabled/
+playwright-report-auth-rate-limit/
 test-results/
 next-env.d.ts
 pnpm-lock.yaml

@@ -135,6 +135,19 @@ function createAuth() {
       // silently disabled), so this is set explicitly rather than left
       // to that default.
       enabled: true,
+      // The DEFAULT bucket applied to every endpoint NOT listed in
+      // customRules (get-session, sign-out, list-sessions, ...) —
+      // explicit for the same reason as `enabled` above (never leave a
+      // security-relevant default implicit), matching Better Auth's own
+      // built-in default (window: 10, max: 100) exactly so this changes
+      // nothing unless overridden. The Phase 15 E2E suite's main server
+      // overrides these via env — every page mounts a session check, and
+      // that traffic (read-only, not brute-forceable, unlike the
+      // customRules endpoints below) needs a much more generous limit
+      // under real test concurrency than Better Auth's own default
+      // tolerates.
+      window: env.authRateLimitDefaultWindowSeconds,
+      max: env.authRateLimitDefaultMax,
       storage: "database",
       modelName: "rate_limits",
       customRules: rateLimitCustomRules,
