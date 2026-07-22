@@ -19,6 +19,7 @@ import {
   users,
 } from "@/db/schema";
 import { createTestComponent } from "@/tests/integration/helpers/components";
+import { createTestRelease } from "@/tests/integration/helpers/content-versions";
 import { createTestList } from "@/tests/integration/helpers/lists";
 import { createTestUser } from "@/tests/integration/helpers/users";
 
@@ -59,12 +60,14 @@ describe("user cascade deletion", () => {
     const db = getDb();
     const userId = await createTestUser();
     const componentId = await createTestComponent(userId);
+    const releaseId = await createTestRelease();
     const [session] = await db
       .insert(studySessions)
       .values({
         userId,
         mode: "flashcard",
         config: {},
+        releaseId,
         contentVersion: "test-1",
         startedAt: new Date(),
       })
@@ -93,6 +96,7 @@ describe("user cascade deletion", () => {
       localDateAtEvent: "2026-01-01",
       timezoneSource: "browser_detected",
       deviceId: "device-1",
+      releaseId,
       contentVersion: "test-1",
     });
     await db.insert(reviewEvents).values({
@@ -107,6 +111,7 @@ describe("user cascade deletion", () => {
       occurredAtCanonical: new Date(),
       deviceId: "device-1",
       clientSequence: 1,
+      releaseId,
       contentVersion: "test-1",
       timezoneAtEvent: "UTC",
       utcOffsetMinutesAtEvent: 0,

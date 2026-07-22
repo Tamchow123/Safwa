@@ -23,6 +23,7 @@ import {
 import { getAuth } from "@/modules/auth/server";
 import { createTestComponent } from "@/tests/integration/helpers/components";
 import { signInAndGetSessionHeaders } from "@/tests/integration/helpers/auth-session";
+import { createTestRelease } from "@/tests/integration/helpers/content-versions";
 import { createTestList } from "@/tests/integration/helpers/lists";
 
 const PASSWORD = "correct-horse-battery-staple";
@@ -52,12 +53,14 @@ async function seedUserWithAppRows(email: string): Promise<string> {
     .where(eq(users.id, userId));
 
   const componentId = await createTestComponent(userId);
+  const releaseId = await createTestRelease();
   const [studySession] = await db
     .insert(studySessions)
     .values({
       userId,
       mode: "flashcard",
       config: {},
+      releaseId,
       contentVersion: "test-1",
       startedAt: new Date(),
     })
@@ -86,6 +89,7 @@ async function seedUserWithAppRows(email: string): Promise<string> {
     localDateAtEvent: "2026-01-01",
     timezoneSource: "browser_detected",
     deviceId: "device-1",
+    releaseId,
     contentVersion: "test-1",
   });
   await db.insert(reviewEvents).values({
@@ -100,6 +104,7 @@ async function seedUserWithAppRows(email: string): Promise<string> {
     occurredAtCanonical: new Date(),
     deviceId: "device-1",
     clientSequence: 1,
+    releaseId,
     contentVersion: "test-1",
     timezoneAtEvent: "UTC",
     utcOffsetMinutesAtEvent: 0,

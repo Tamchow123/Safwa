@@ -28,6 +28,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "@/db/schema/auth";
+import { contentVersions } from "@/db/schema/content";
 
 export const COMPONENT_SHAPES = ["form_direction", "entry_level"] as const;
 export const SOURCE_FIELDS = [
@@ -169,6 +170,15 @@ export const studySessions = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     mode: text("mode").notNull(),
     config: jsonb("config").notNull(),
+    // The AUTHORITATIVE content identity (modules/study-engine/session.ts's
+    // own doc comment): contentVersion is human-readable metadata that can
+    // repeat across corrected releases, so it can never substitute for
+    // releaseId when Phase 16 reconstructs which manifests generated a
+    // session/attempt/event. Never nullable — every session is created
+    // against a specific registered release.
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => contentVersions.releaseId),
     contentVersion: text("content_version").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
@@ -243,6 +253,14 @@ export const studyAttempts = pgTable(
     localDateAtEvent: date("local_date_at_event").notNull(),
     timezoneSource: text("timezone_source").notNull(),
     deviceId: text("device_id").notNull(),
+    // See studySessions.releaseId's doc comment — same authoritative-identity
+    // rationale applies per-attempt, since two attempts in the same session
+    // could in principle be answered against different active releases if a
+    // release changed mid-session (Phase 16 concern; the column must exist
+    // now so that reconstruction is possible once ingestion lands).
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => contentVersions.releaseId),
     contentVersion: text("content_version").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -273,9 +291,13 @@ export const studyAttempts = pgTable(
       "study_attempts_question_position_check",
       sql`${table.questionPosition} >= 0`,
     ),
+    // Mirrors the shared generator's MIN_OPTION_COUNT/MAX_OPTION_COUNT
+    // bounds (modules/study-engine/generator.ts) — the client enforces this
+    // range already, but the database must reject an out-of-range value
+    // independently rather than only checking a floor.
     check(
       "study_attempts_option_count_check",
-      sql`${table.optionCount} IS NULL OR ${table.optionCount} >= 2`,
+      sql`${table.optionCount} IS NULL OR ${table.optionCount} BETWEEN 2 AND 8`,
     ),
     check(
       "study_attempts_time_limit_check",
@@ -341,6 +363,12 @@ export const reviewEvents = pgTable(
     sessionId: uuid("session_id").references(() => studySessions.id, {
       onDelete: "set null",
     }),
+    // See studySessions.releaseId's doc comment — same rationale: the
+    // review event's rating was computed against a specific release's
+    // question, and contentVersion alone cannot disambiguate which one.
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => contentVersions.releaseId),
     contentVersion: text("content_version").notNull(),
     timezoneAtEvent: text("timezone_at_event").notNull(),
     utcOffsetMinutesAtEvent: integer("utc_offset_minutes_at_event").notNull(),

@@ -163,8 +163,15 @@ per_question_limit_ms         -- timed grading limit (absent ⇒ 20000 for timed
 question_instance_id · question_seed · question_generator_version
 occurred_at_utc · timezone_at_event · utc_offset_minutes_at_event
 local_date_at_event · timezone_source (browser_detected|user_setting|server_fallback)
-device_id · content_version
+device_id · release_id (FK → content_versions, authoritative) · content_version (metadata only)
 ```
+
+`release_id` — not `content_version` — is the authoritative content identity
+(content-hash derived, ADR-003; `modules/study-engine/session.ts`'s own doc
+comment): `content_version` is human-readable and MAY REPEAT across a
+corrected re-publish, so it cannot by itself disambiguate which release's
+manifests generated this attempt. `content_version` is retained purely as
+display/debugging metadata.
 
 Answers are stable **references** (entry + field), not copied Arabic text; the
 server resolves them via the assessment manifest. Indexes:
@@ -197,7 +204,8 @@ client_component_revision bigint  -- monotonic within the client's local chain
 occurred_at_client timestamptz    -- as submitted, never altered
 occurred_at_canonical timestamptz -- clamped once at ingestion (see §8)
 server_received_at timestamptz
-device_id · client_sequence · session_id · content_version
+device_id · client_sequence · session_id
+release_id (FK → content_versions, authoritative) · content_version (metadata only)
 -- event-time dates (immutable history)
 timezone_at_event · utc_offset_minutes_at_event · local_date_at_event · timezone_source
 ```
@@ -215,7 +223,8 @@ implausible. Changing the user's timezone affects future events only.
 ## 7. Sessions, activity, lists, settings, audit
 
 - `study_sessions`: id, user_id, mode, config (filters, counts, timed/test),
-  content_version, started/ended, aggregate results.
+  release_id (FK → content_versions, authoritative) + content_version
+  (metadata only — see §5's note), started/ended, aggregate results.
 - `daily_activity(user_id, local_date, attempts, reviews, new_items,
 study_ms)` — **derived cache** rebuilt from attempts/events; unique
   `(user_id, local_date)`.
