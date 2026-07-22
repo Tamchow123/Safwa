@@ -57,17 +57,35 @@ testing checkpoint before writing code.
 python scripts/enrich-vocabulary.py     # deterministic regeneration of enriched data (no pnpm wrapper)
 ```
 
-App: `pnpm dev`, `pnpm build`, `pnpm test` (Vitest), `pnpm test:e2e`
-(Playwright), `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
-`pnpm validate:data` (`scripts/validate-vocabulary.py`, must exit 0),
-`pnpm verify:arabic` (`scripts/arabic-extract.py --verify-known`),
-`pnpm content:build` (regenerates `public/content`/`content-server` from the
-vocabulary data), `pnpm docs:verify` (checks doc Arabic placeholders),
-`pnpm content:verify` (content:build + docs:verify), `pnpm check`
-(typecheck + lint + format:check + test + build). `scripts/quality-gate.ps1`
-runs the full CI-equivalent check sequence locally (all of the above plus
-artifact-freshness checks and E2E; `-SkipE2E` skips E2E for fast inner-loop
-iteration only — the full gate must still pass before review).
+App: `pnpm dev`, `pnpm build`, `pnpm test` (Vitest unit tests),
+`pnpm test:integration` (Vitest against Postgres — constraints, content
+registration, Better Auth, manifest loader), `pnpm test:e2e` (Playwright,
+runs the default + auth-disabled + auth-rate-limit configs), `pnpm typecheck`,
+`pnpm lint`, `pnpm format:check`, `pnpm validate:data`
+(`scripts/validate-vocabulary.py`, must exit 0), `pnpm verify:arabic`
+(`scripts/arabic-extract.py --verify-known`), `pnpm content:build`
+(regenerates `public/content`/`content-server` from the vocabulary data),
+`pnpm docs:verify` (checks doc Arabic placeholders), `pnpm content:verify`
+(content:build + docs:verify), `pnpm check` (typecheck + lint + format:check
++ test + build).
+
+Server/database (added Phase 15 — Postgres, Drizzle, Better Auth, email):
+`docker compose up -d db` starts the local `postgres:17-alpine` container
+(`compose.yaml`) providing both the `safwa_dev` and disposable `safwa_test`
+databases; `pnpm db:generate` / `pnpm db:check` (Drizzle Kit schema
+generation/check), `pnpm db:migrate`, `pnpm db:register-content`, `pnpm
+db:test:reset` (hard-gated to `safwa_test(_\w+)?` + `NODE_ENV=test`),
+`pnpm email:clear-outbox`. See `docs/DEPLOYMENT.md` for env var setup
+(`.env.local` from `.env.example`, `DATABASE_URL`).
+
+`scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
+locally: dependency/data/Arabic checks, content-artifact freshness, docs
+verification, disposable-Postgres reachability + migrations +
+content-version registration + `test:integration` (against `safwa_test`,
+derived from `.env.local`'s `DATABASE_URL`), typecheck/lint/format, the
+push-guard hook self-tests, unit tests, build, and E2E. `-SkipE2E` skips
+only the E2E step for fast inner-loop iteration — the full gate (E2E
+included) must still pass before review.
 
 ## Document map
 
