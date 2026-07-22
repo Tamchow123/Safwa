@@ -104,6 +104,11 @@ export const studyComponents = pgTable(
     lastReviewAt: timestamp("last_review_at", { withTimezone: true }),
     revision: bigint("revision", { mode: "number" }).notNull().default(0),
     learnerState: text("learner_state").notNull().default("not_started"),
+    // Account-wide pull cursor stamp (Phase 16): the user_sync_state.sync_revision
+    // value at this component's last authoritative change.
+    lastSyncSeq: bigint("last_sync_seq", { mode: "number" })
+      .notNull()
+      .default(0),
   },
   (table) => [
     foreignKey({
@@ -136,6 +141,10 @@ export const studyComponents = pgTable(
     check("study_components_lapses_check", sql`${table.lapses} >= 0`),
     check("study_components_revision_check", sql`${table.revision} >= 0`),
     check(
+      "study_components_last_sync_seq_check",
+      sql`${table.lastSyncSeq} >= 0`,
+    ),
+    check(
       "study_components_stability_check",
       sql`${table.stability} IS NULL OR (${table.stability} >= 0 AND ${table.stability} < 'infinity'::double precision)`,
     ),
@@ -156,6 +165,14 @@ export const studyComponents = pgTable(
       .on(table.userId, table.entryId, table.skillTypeId)
       .where(sql`${table.componentShape} = 'entry_level'`),
     index("study_components_due_idx").on(table.userId, table.dueAt),
+    // PARTIAL pull-cursor index: only rows that have actually synced
+    // (last_sync_seq > 0) are indexed, so it serves `WHERE user_id = X AND
+    // last_sync_seq > cursor ORDER BY last_sync_seq` for pull without competing
+    // with study_components_due_idx for due-lookups over the (default-0)
+    // unsynced rows — both indexes coexist, each optimal for its own query.
+    index("study_components_sync_idx")
+      .on(table.userId, table.lastSyncSeq)
+      .where(sql`${table.lastSyncSeq} > 0`),
   ],
 );
 
@@ -262,6 +279,9 @@ export const studyAttempts = pgTable(
       .notNull()
       .references(() => contentVersions.releaseId),
     contentVersion: text("content_version").notNull(),
+    // Hash of the attempt's immutable payload — a second delivery of the same
+    // attempt id with a DIFFERENT payload is a conflict (rejected + audited, §8.5).
+    idempotencyPayloadHash: text("idempotency_payload_hash"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -375,6 +395,24 @@ export const reviewEvents = pgTable(
     localDateAtEvent: date("local_date_at_event").notNull(),
     timezoneSource: text("timezone_source").notNull(),
     timezoneCorrected: boolean("timezone_corrected").notNull().default(false),
+    // The client clock was implausible and canonical time was corrected (§13).
+    clockSuspect: boolean("clock_suspect").notNull().default(false),
+    // Hash of the event's immutable payload — a second delivery of the same
+    // event_id with a DIFFERENT payload is a conflict (rejected + audited, §8.5).
+    idempotencyPayloadHash: text("idempotency_payload_hash"),
+    // Set when the event is revoked by a post-sync undo (§16); the row is kept
+    // (history preserved) and excluded from replay.
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    // Safe expiry for a held pending_parent event (§14.2). Null unless pending.
+    pendingExpiresAt: timestamp("pending_expires_at", { withTimezone: true }),
+    // Account-wide pull cursor stamp (Phase 16). An event carries its OWN cursor
+    // value (not just the parent component's) so pull can source the wire
+    // wireEventStatusSchema.syncSeq independently: an in-place status change
+    // (revocation, pending_parent resolution) stamps this even when the parent
+    // component's FSRS state is unchanged, so a second context never misses it.
+    lastSyncSeq: bigint("last_sync_seq", { mode: "number" })
+      .notNull()
+      .default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -404,10 +442,15 @@ export const reviewEvents = pgTable(
       "review_events_client_sequence_check",
       sql`${table.clientSequence} >= 0`,
     ),
+    check("review_events_last_sync_seq_check", sql`${table.lastSyncSeq} >= 0`),
     index("review_events_component_canonical_idx").on(
       table.studyComponentId,
       table.occurredAtCanonical,
     ),
+    // PARTIAL pull-cursor index (only synced rows), mirroring study_components.
+    index("review_events_sync_idx")
+      .on(table.userId, table.lastSyncSeq)
+      .where(sql`${table.lastSyncSeq} > 0`),
     index("review_events_user_received_idx").on(
       table.userId,
       table.serverReceivedAt,
