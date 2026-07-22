@@ -129,5 +129,5 @@ included) must still pass before review.
 - **Never claim success without evidence.** "Done" requires quality-gate
   output showing every check passed (`scripts/quality-gate.ps1` exit 0).
 - **No force-push, `reset --hard`, `clean`, branch deletion, or `gh pr
-merge`.** Also enforced mechanically by the `scripts/guard-git-push.ps1`
+  merge`.** Also enforced mechanically by the `scripts/guard-git-push.ps1`
   PreToolUse hook, which blocks these regardless of argument position.
