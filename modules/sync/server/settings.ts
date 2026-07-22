@@ -132,6 +132,42 @@ export const SYNCABLE_SETTING_KEYS = [
   "dailyNewTarget",
   "dailyReviewTarget",
 ] as const;
+export type SyncableSettingKey = (typeof SYNCABLE_SETTING_KEYS)[number];
+
+type UserSettingsRow = typeof userSettings.$inferSelect;
+
+/**
+ * Extract each syncable setting's current value from the persisted columnar
+ * `user_settings` row — the READ counterpart of `validateSetting`. Keyed by
+ * `SyncableSettingKey` so the compiler enforces that every syncable key has an
+ * extractor (the single source of truth for the pull side; see pull.ts). Adding
+ * a key to `SYNCABLE_SETTING_KEYS` fails the build until an extractor is added.
+ */
+const SETTING_VALUE_EXTRACTORS: Record<
+  SyncableSettingKey,
+  (row: UserSettingsRow) => unknown
+> = {
+  theme: (row) => row.theme,
+  arabicFontScale: (row) => row.arabicFontScale,
+  timezone: (row) =>
+    row.timezoneMode === "iana"
+      ? { mode: "iana", name: row.timezoneName }
+      : { mode: "browser" },
+  questionCount: (row) => row.questionCount,
+  optionCount: (row) => row.optionCount,
+  dailyNewTarget: (row) => row.dailyNewTarget,
+  dailyReviewTarget: (row) => row.dailyReviewTarget,
+};
+
+/** The syncable settings of a `user_settings` row as `{key, value}` pairs. */
+export function extractSyncableSettings(
+  row: UserSettingsRow,
+): { key: SyncableSettingKey; value: unknown }[] {
+  return SYNCABLE_SETTING_KEYS.map((key) => ({
+    key,
+    value: SETTING_VALUE_EXTRACTORS[key](row),
+  }));
+}
 
 function reject(item: WireSetting, reasonCode: SyncReasonCode): SyncItemResult {
   return {
