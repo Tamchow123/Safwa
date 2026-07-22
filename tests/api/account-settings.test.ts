@@ -94,9 +94,8 @@ describe("/api/account/settings", () => {
       expect(upsertAccountSettingsMock).not.toHaveBeenCalled();
     });
 
-    it("strips unknown fields before forwarding to upsertAccountSettings (explicit allowlist)", async () => {
+    it("rejects an unrecognised top-level field (explicit allowlist, strict schema)", async () => {
       getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
-      upsertAccountSettingsMock.mockResolvedValue(SETTINGS);
       const request = new Request("http://localhost/api/account/settings", {
         method: "PUT",
         body: JSON.stringify({
@@ -108,26 +107,116 @@ describe("/api/account/settings", () => {
 
       const response = await PUT(request);
 
-      expect(response.status).toBe(200);
-      expect(upsertAccountSettingsMock).toHaveBeenCalledWith("user-1", {
-        theme: "dark",
-      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "Invalid settings" });
+      expect(upsertAccountSettingsMock).not.toHaveBeenCalled();
     });
 
-    it("never allows a caller-supplied user id to redirect the write to another user", async () => {
+    it("never allows a caller-supplied user id to redirect the write to another user (rejected outright, not silently stripped)", async () => {
       getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
-      upsertAccountSettingsMock.mockResolvedValue(SETTINGS);
       const request = new Request("http://localhost/api/account/settings", {
         method: "PUT",
         body: JSON.stringify({ theme: "dark", userId: "victim-user-id" }),
       });
 
-      await PUT(request);
+      const response = await PUT(request);
 
-      expect(upsertAccountSettingsMock).toHaveBeenCalledWith(
-        "user-1",
-        expect.not.objectContaining({ userId: expect.anything() }),
-      );
+      expect(response.status).toBe(400);
+      expect(upsertAccountSettingsMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unrecognised IANA timezone string instead of silently falling back", async () => {
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      const request = new Request("http://localhost/api/account/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          timezone: { mode: "iana", timezone: "Not/A/Real/Zone" },
+        }),
+      });
+
+      const response = await PUT(request);
+
+      expect(response.status).toBe(400);
+      expect(upsertAccountSettingsMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a fractional option count instead of silently rounding/clamping it", async () => {
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      const request = new Request("http://localhost/api/account/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          sessionDefaults: {
+            questionCount: 20,
+            optionCount: 4.5,
+            newPerDay: 10,
+            reviewsPerDay: 20,
+          },
+        }),
+      });
+
+      const response = await PUT(request);
+
+      expect(response.status).toBe(400);
+      expect(upsertAccountSettingsMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects an out-of-bounds session default instead of silently clamping it", async () => {
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      const request = new Request("http://localhost/api/account/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          sessionDefaults: {
+            questionCount: 20,
+            optionCount: 9,
+            newPerDay: 10,
+            reviewsPerDay: 20,
+          },
+        }),
+      });
+
+      const response = await PUT(request);
+
+      expect(response.status).toBe(400);
+      expect(upsertAccountSettingsMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unrecognised field nested inside sessionDefaults", async () => {
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      const request = new Request("http://localhost/api/account/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          sessionDefaults: {
+            questionCount: 20,
+            optionCount: 4,
+            newPerDay: 10,
+            reviewsPerDay: 20,
+            extraField: "sneaky",
+          },
+        }),
+      });
+
+      const response = await PUT(request);
+
+      expect(response.status).toBe(400);
+      expect(upsertAccountSettingsMock).not.toHaveBeenCalled();
+    });
+
+    it("accepts a valid IANA timezone", async () => {
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      upsertAccountSettingsMock.mockResolvedValue(SETTINGS);
+      const request = new Request("http://localhost/api/account/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          timezone: { mode: "iana", timezone: "Asia/Dubai" },
+        }),
+      });
+
+      const response = await PUT(request);
+
+      expect(response.status).toBe(200);
+      expect(upsertAccountSettingsMock).toHaveBeenCalledWith("user-1", {
+        timezone: { mode: "iana", timezone: "Asia/Dubai" },
+      });
     });
   });
 
