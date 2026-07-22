@@ -36,6 +36,18 @@ component key, answer refs, hint state) and event-time timezone metadata, so
 the server can later reconstruct and validate the question and preserve the
 original local study dates.
 
+**Current status (Phase 15): accounts exist, sync does not yet.** Phase 15
+ships identity/auth only (registration, verification, login, sessions,
+account settings, account deletion) — the ingestion/replay pipeline this
+section describes ships in Phase 16 (Stage A, §10). Until then, a signed-in
+user's study progress is **local-only, identical to a guest's**: the
+account page says so explicitly ("Study progress stays on this device only
+— signing in does not back up or sync it yet"), and account deletion never
+touches local Dexie data (there is nothing server-side to reconcile it
+against). This is a real, user-visible limitation, not an oversight — do
+not imply cross-device sync exists anywhere in the UI before Phase 16 ships
+it.
+
 ## 4. Mutation queue
 
 - Ordered outbound queue in Dexie; every mutation carries a client-generated

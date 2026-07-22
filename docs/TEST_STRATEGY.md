@@ -114,6 +114,75 @@ integration; the E2E matrix runs on main and before releases.
   active row (`tests/integration/register-content.test.ts`'s
   `ACTIVE_ANCHOR_ID` pattern).
 
+**Auth integration suite** (implemented Phase 15, against the real Better
+Auth instance and disposable Postgres). Six files added in this phase's
+dedicated auth-suite task cover the scenarios below by name
+(`tests/integration/auth-{registration,enumeration,verification,
+login-logout,password-reset,rate-limit}.test.ts`); two earlier-phase files
+matching the same `auth-*.test.ts` glob — `auth-server-wiring.test.ts`
+(drizzle-adapter modelName wiring) and `auth-email-uniqueness.test.ts`
+(case-insensitive email uniqueness) — predate this task and are not part of
+the count below. Registration (account created, password
+hashed only, verification email created, no session before verification,
+role defaults to learner and a client-supplied role is never honoured,
+case-insensitive duplicate rejected); enumeration safety (registration,
+password-reset-request and login responses are structurally identical for
+an existing vs. a nonexistent account); email verification (valid token,
+invalid token, expired token via fake-timer clock advance, reusing an
+already-consumed token is a safe no-op — not an error); login/session/logout
+(correct/wrong password, unverified account rejected, session retrieval,
+logout invalidation); password reset (email written, valid reset changes
+the password and revokes other sessions, invalid token rejected without
+changing anything); rate limiting (driving the real HTTP handler —
+`getAuth().handler(request)`, not `auth.api.X()`, since only the router's
+`onRequest` stage enforces limits — to prove a configured limit trips a 429
+with a retry-after signal, and that different endpoints use isolated keys).
+Account settings and self-service account deletion (password confirmation +
+emailed confirmation link, full cascade verified against every listed table)
+have their own dedicated integration files.
+
+**Auth E2E suite** (implemented Phase 15, `e2e/auth*.spec.ts`, scenarios
+60.1–60.12): guest regression (no registration required for any guest
+journey); `AUTH_ENABLED=false` mode (guest pages still work, register/
+sign-in report unavailable safely, no crash); register → verify → login →
+logout; unverified login (rejected safely, resend path available, no token
+ever leaked into client-readable storage or a cookie); password reset
+(including a client-side mismatched-confirmation rejection); enumeration
+safety (UI-level response comparison, normalising out the learner's own
+echoed email); rate limiting (429 + retry message, form usable again after
+the window); account settings (server values persist without silently
+replacing the device-local Dexie settings); local guest data survives
+login/logout (no merge or upload — verified via a real Postgres row-count
+probe, not just UI state); account deletion (session invalid, login fails,
+local Dexie untouched, server rows gone — verified via `e2e/helpers/
+db-probe.ts`, a Playwright-side Drizzle instance built directly against
+`db/schema.ts`, since `db/client.ts` itself is `server-only` and unusable
+from the Playwright process); mobile 320px flows including an error-state
+check; axe scans on every auth/account page including dark mode.
+`next dev` refuses a second concurrent instance from the same project
+directory regardless of port, so the `AUTH_ENABLED=false` and rate-limit
+scenarios each run under their own dedicated Playwright config/server
+(`playwright.auth-disabled.config.ts`, `playwright.auth-rate-limit.config.ts`),
+chained sequentially by `pnpm test:e2e` alongside the main config. The
+auth spec that navigates to real, single-use verification/reset/delete-
+account links extracted from the email outbox disables Playwright tracing
+for itself (`test.use({ trace: "off" })`) — a CI retry's trace would
+otherwise bundle that token-bearing URL into the uploaded HTML report.
+
+**CI and local quality-gate parity** (Phase 15, T21/T22): CI
+(`.github/workflows/ci.yml`) runs a pinned `postgres:17-alpine` service
+container (health-checked, test-only disposable credentials never reused
+from any real deployment) in both the `quality` and `e2e` jobs; `quality`
+applies the full migration chain, registers content versions, and runs the
+database-constraint + auth-integration suite before the pre-existing
+typecheck/lint/format/unit-test/build steps. The local
+`scripts/quality-gate.ps1` mirrors this exact ordering, deriving its own
+disposable-test-database `DATABASE_URL` from `.env.local` (only the
+database name is swapped to `safwa_test`) rather than requiring a second
+credential set, and fails fast with a concrete remediation step
+(`docker compose up -d db`) if Postgres isn't reachable before attempting
+any migration.
+
 ## 7. Sync & canonical-correctness suite (Phase 16, integration)
 
 - Idempotency: same `event_id` twice ⇒ stored once, same response.
