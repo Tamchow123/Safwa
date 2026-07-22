@@ -147,6 +147,12 @@ describe("modules/auth/server", () => {
     // outside NODE_ENV=production. Explicit here so this never regresses
     // to that default and goes silently untested/unenforced again.
     expect(options.rateLimit?.enabled).toBe(true);
+    // The DEFAULT (non-customRule) bucket matches Better Auth's own
+    // built-in default (window: 10, max: 100) when the override env vars
+    // are unset, so production/dev behaviour is unchanged by their mere
+    // existence.
+    expect(options.rateLimit?.window).toBe(10);
+    expect(options.rateLimit?.max).toBe(100);
     const expectedRule = { window: 30, max: 2 };
     expect(options.rateLimit?.customRules).toEqual({
       "/sign-up/email": expectedRule,
@@ -157,6 +163,15 @@ describe("modules/auth/server", () => {
       "/delete-user": expectedRule,
       "/delete-user/callback": expectedRule,
     });
+  });
+
+  it("the default (non-customRule) rate-limit bucket is independently configurable", async () => {
+    process.env.AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS = "45";
+    process.env.AUTH_RATE_LIMIT_DEFAULT_MAX = "9000";
+    const { getAuth } = await import("@/modules/auth/server");
+    const options = getAuth().options;
+    expect(options.rateLimit?.window).toBe(45);
+    expect(options.rateLimit?.max).toBe(9000);
   });
 
   it("enables no OAuth/social providers and no plugins", async () => {

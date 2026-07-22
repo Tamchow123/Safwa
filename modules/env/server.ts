@@ -64,6 +64,22 @@ const rawServerEnvSchema = z.object({
     .positive()
     .default(60),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
+  // The DEFAULT bucket Better Auth applies to every OTHER endpoint
+  // (get-session, sign-out, list-sessions, ...) — high-frequency,
+  // read-mostly, not brute-forceable, so it needs a much more generous
+  // limit than the sensitive customRules above. Defaults match Better
+  // Auth's own built-in default (window: 10, max: 100 — see
+  // node_modules/better-auth/dist/context/create-context.mjs) exactly, so
+  // leaving these unset changes nothing; only the Phase 15 E2E suite
+  // overrides them (its main server's heavy parallel page-load traffic —
+  // every page mounts a session check — would otherwise trip Better
+  // Auth's own default under normal test concurrency).
+  AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10),
+  AUTH_RATE_LIMIT_DEFAULT_MAX: z.coerce.number().int().positive().default(100),
 });
 
 export type ServerEnv = {
@@ -80,6 +96,8 @@ export type ServerEnv = {
   contentServerDir: string;
   authRateLimitWindowSeconds: number;
   authRateLimitMax: number;
+  authRateLimitDefaultWindowSeconds: number;
+  authRateLimitDefaultMax: number;
 };
 
 const MIN_PRODUCTION_SECRET_LENGTH = 32;
@@ -161,6 +179,9 @@ export function getServerEnv(): ServerEnv {
     contentServerDir: parsed.data.CONTENT_SERVER_DIR,
     authRateLimitWindowSeconds: parsed.data.AUTH_RATE_LIMIT_WINDOW_SECONDS,
     authRateLimitMax: parsed.data.AUTH_RATE_LIMIT_MAX,
+    authRateLimitDefaultWindowSeconds:
+      parsed.data.AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS,
+    authRateLimitDefaultMax: parsed.data.AUTH_RATE_LIMIT_DEFAULT_MAX,
   };
   return cachedEnv;
 }
