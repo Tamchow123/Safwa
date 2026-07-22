@@ -155,12 +155,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    env:
-      # e2e/helpers/e2e-server-env.ts reads DATABASE_URL directly (rewriting
-      # its own path to `safwa_test`) and derives each server's own
-      # deterministic localhost origin/port from it — auth is always
-      # enabled on the main E2E server (phases-15.md §61's "Auth enabled").
-      DATABASE_URL: ${{ env.CI_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -179,6 +173,15 @@ jobs:
 
       - name: Run E2E tests (desktop + mobile Chromium, auth-disabled, rate-limit)
         run: pnpm test:e2e
+        env:
+          # e2e/helpers/e2e-server-env.ts reads DATABASE_URL directly
+          # (rewriting its own path to `safwa_test`) and derives each
+          # server's own deterministic localhost origin/port from it —
+          # auth is always enabled on the main E2E server (phases-15.md
+          # §61's "Auth enabled"). Job-level `env:` cannot reference the
+          # `env` context (only step-level `env:` can), so this must live
+          # on the step rather than the job.
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
 
       - name: Upload Playwright report
         if: failure()
