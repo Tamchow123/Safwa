@@ -66,8 +66,8 @@ runs the default + auth-disabled + auth-rate-limit configs), `pnpm typecheck`,
 (`scripts/arabic-extract.py --verify-known`), `pnpm content:build`
 (regenerates `public/content`/`content-server` from the vocabulary data),
 `pnpm docs:verify` (checks doc Arabic placeholders), `pnpm content:verify`
-(content:build + docs:verify), `pnpm check` (typecheck + lint + format:check
-+ test + build).
+(content:build + docs:verify), `pnpm check` (typecheck + lint +
+format:check + test + build).
 
 Server/database (added Phase 15 — Postgres, Drizzle, Better Auth, email):
 `docker compose up -d db` starts the local `postgres:17-alpine` container
