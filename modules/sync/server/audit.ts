@@ -4,9 +4,13 @@
  * diagnostic fields — NEVER passwords, tokens, cookies, full request bodies,
  * learner answer content, raw database errors or assessment-manifest contents.
  *
- * `metadata` is a small, structured, redacted object (e.g. a claimed-vs-
- * canonical rating). The caller is responsible for keeping it redacted; a
- * follow-up hardens this with an allow-list + size bound (tracked as debt).
+ * `metadata` is HARDENED at the sink (not merely by caller convention): every
+ * entry is passed through `sanitizeAuditMetadata` (the pure allow-list + per-key
+ * shape-validation policy in ./audit-metadata), so a key not on the allow-list,
+ * a value that does not match its key's expected shape (id/enum/identifier/
+ * boolean/integer), a nested object/array, or an over-cap blob is DROPPED — a
+ * caller mistake can never persist a secret, a raw payload, or an unbounded
+ * blob. See ./audit-metadata for the full policy + fast unit tests.
  *
  * `server-only` — writes through a live Drizzle connection/transaction.
  */
@@ -20,7 +24,14 @@ import type {
   SyncReasonCode,
 } from "@/modules/sync/protocol";
 
+import { sanitizeAuditMetadata } from "./audit-metadata";
 import type { SyncTx } from "./cursor";
+
+export {
+  AUDIT_METADATA_ALLOWED_KEYS,
+  AUDIT_METADATA_MAX_BYTES,
+  sanitizeAuditMetadata,
+} from "./audit-metadata";
 
 export type SyncAuditEntry = {
   userId: string;
@@ -33,7 +44,7 @@ export type SyncAuditEntry = {
   correlationId?: string | null;
   clockSuspect?: boolean;
   timezoneCorrected?: boolean;
-  /** Small, redacted, structured detail only — never raw payloads/secrets. */
+  /** Small, redacted diagnostic detail — sanitised at the sink (see above). */
   metadata?: Record<string, unknown> | null;
 };
 
@@ -53,6 +64,8 @@ export async function writeSyncAudit(
     correlationId: entry.correlationId ?? null,
     clockSuspect: entry.clockSuspect ?? false,
     timezoneCorrected: entry.timezoneCorrected ?? false,
-    metadata: entry.metadata ?? null,
+    // Harden at the sink: strip to allow-listed, primitive, bounded fields so a
+    // caller mistake can never persist a secret/payload/unbounded blob.
+    metadata: sanitizeAuditMetadata(entry.metadata),
   });
 }
