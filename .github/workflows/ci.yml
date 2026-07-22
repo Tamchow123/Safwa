@@ -10,10 +10,47 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Test-only Postgres credentials, distinct from any local-dev or production
+# secret (phases-15.md §61 — "No reused production secret"). The database
+# name must match db/reset-test-database.ts's safety pattern
+# (/^safwa_test(_\w+)?$/) for the integration/E2E suites' own reset logic
+# to be willing to touch it at all.
+env:
+  CI_POSTGRES_USER: ci_test
+  CI_POSTGRES_PASSWORD: ci_test_only_password_not_a_secret
+  CI_POSTGRES_DB: safwa_test
+  CI_DATABASE_URL: postgres://ci_test:ci_test_only_password_not_a_secret@localhost:5432/safwa_test
+  # Disposable, CI-only — never a real Better Auth secret.
+  CI_BETTER_AUTH_SECRET: ci-only-better-auth-secret-value-never-used-in-production
+  CI_APP_URL: http://localhost:3000
+
 jobs:
   quality:
     name: Quality & build
     runs-on: ubuntu-latest
+    # A hung service container, Postgres step, or build must fail fast and
+    # visibly rather than silently consuming the 360-minute platform
+    # default and delaying every other queued run.
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        # `services.*.options` does not support `${{ env.* }}` interpolation
+        # — these literals must be kept in sync by hand with
+        # CI_POSTGRES_USER/CI_POSTGRES_DB above whenever either changes, or
+        # the health check never reports healthy and the job hangs until
+        # its timeout.
+        options: >-
+          --health-cmd "pg_isready -U ci_test -d safwa_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -46,6 +83,35 @@ jobs:
       - name: Generated artifacts are current and deterministic
         run: git diff --exit-code -- public/content content-server
 
+      - name: Apply full migration chain
+        run: pnpm db:migrate
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ env.CI_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ env.CI_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.CI_APP_URL }}
+
+      - name: Register content versions
+        run: pnpm db:register-content
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ env.CI_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ env.CI_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.CI_APP_URL }}
+
+      - name: Database constraint + auth integration tests
+        run: pnpm test:integration
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ env.CI_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ env.CI_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.CI_APP_URL }}
+          EMAIL_TRANSPORT: console-file
+          EMAIL_OUTBOX_DIR: .local/email-outbox
+
       - name: Type check
         run: pnpm typecheck
 
@@ -65,6 +131,30 @@ jobs:
     name: E2E (Chromium)
     runs-on: ubuntu-latest
     needs: quality
+    # Three sequential Playwright configs (main, auth-disabled, rate-limit),
+    # each with its own DB reset + `next dev` boot + test run — sized with
+    # margin above observed local timing, not left at the 360-minute
+    # platform default (see the quality job's identical rationale).
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        # `services.*.options` does not support `${{ env.* }}` interpolation
+        # — these literals must be kept in sync by hand with
+        # CI_POSTGRES_USER/CI_POSTGRES_DB above whenever either changes, or
+        # the health check never reports healthy and the job hangs until
+        # its timeout.
+        options: >-
+          --health-cmd "pg_isready -U ci_test -d safwa_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -81,13 +171,37 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run E2E tests (desktop + mobile Chromium)
+      - name: Run E2E tests (desktop + mobile Chromium, auth-disabled, rate-limit)
         run: pnpm test:e2e
+        env:
+          # e2e/global-setup.ts shells out to `pnpm db:test:reset`, which
+          # (like the quality job's own migration/integration steps) goes
+          # through modules/env/server.ts's getServerEnv(), so the full
+          # server-env schema must be satisfied even though this step only
+          # touches the database — not just DATABASE_URL. Job-level `env:`
+          # cannot reference the `env` context (only step-level `env:`
+          # can), so this must live on the step rather than the job.
+          # e2e/helpers/e2e-server-env.ts separately derives each
+          # Playwright-managed server's own deterministic localhost
+          # origin/port for its `next dev` webServer process — auth is
+          # always enabled on the main E2E server (phases-15.md §61's
+          # "Auth enabled").
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ env.CI_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ env.CI_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.CI_APP_URL }}
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report/
+          # Only the HTML report — never test-results/ (raw traces can
+          # embed request/response bodies) or the email outbox directory
+          # (phases-15.md §61 — never upload tokens or outbox contents).
+          path: |
+            playwright-report/
+            playwright-report-auth-disabled/
+            playwright-report-auth-rate-limit/
           retention-days: 7

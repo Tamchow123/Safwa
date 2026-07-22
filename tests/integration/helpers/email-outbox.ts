@@ -1,0 +1,97 @@
+import { readdir, readFile, stat } from "node:fs/promises";
+import path from "node:path";
+import { getServerEnv } from "@/modules/env/server";
+
+type OutboxRecord = {
+  id: string;
+  template: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  createdAt: string;
+};
+
+/**
+ * Reads the most recently written console-file outbox message for a given
+ * recipient (and optionally template), so integration tests can extract a
+ * real verification/reset/delete-account token exactly the way a learner's
+ * emailed link would carry it — never a hand-typed or fabricated token.
+ */
+export async function latestOutboxMessage(
+  to: string,
+  template?: string,
+): Promise<OutboxRecord | null> {
+  const outboxDir = getServerEnv().emailOutboxDir;
+  let files: string[];
+  try {
+    files = await readdir(outboxDir);
+  } catch {
+    return null;
+  }
+
+  const candidates: { record: OutboxRecord; mtimeMs: number }[] = [];
+  for (const file of files) {
+    if (!file.endsWith(".json") || file.startsWith(".")) continue;
+    const filePath = path.join(outboxDir, file);
+    const [content, stats] = await Promise.all([
+      readFile(filePath, "utf8"),
+      stat(filePath),
+    ]);
+    const record = JSON.parse(content) as OutboxRecord;
+    if (record.to !== to) continue;
+    if (template && record.template !== template) continue;
+    candidates.push({ record, mtimeMs: stats.mtimeMs });
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return candidates[0]!.record;
+}
+
+/**
+ * Polls for a message to appear. Since T11's review fix, Better Auth's
+ * send callbacks dispatch email in the background (modules/email/dispatch.ts)
+ * rather than awaiting delivery — a getAuth().api.X() call can therefore
+ * return before the console-file transport has actually written the
+ * outbox entry. A short poll (not `flushPendingEmails()` directly) matches
+ * how a real caller would observe delivery — through the outbox, not
+ * through dispatch internals — and stays robust even if a future change
+ * moves the flush point.
+ */
+export async function waitForOutboxMessage(
+  to: string,
+  template: string,
+  timeoutMs = 2_000,
+): Promise<OutboxRecord> {
+  const start = Date.now();
+  for (;;) {
+    const message = await latestOutboxMessage(to, template);
+    if (message) return message;
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(
+        `waitForOutboxMessage: timed out waiting for a "${template}" message to ${to}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+/**
+ * Extracts the token from a message's URL. Verify-email and delete-account
+ * links carry it as a `?token=...` query param; the reset-password link
+ * carries it as a path segment (`/reset-password/<token>?callbackURL=`) —
+ * both are real Better Auth URL shapes, verified against the installed
+ * package's route definitions, not assumed to be uniform.
+ */
+export function extractTokenFromMessage(message: OutboxRecord): string {
+  const queryMatch = message.text.match(/[?&]token=([^&\s]+)/);
+  if (queryMatch) return decodeURIComponent(queryMatch[1]!);
+
+  const pathMatch = message.text.match(/\/reset-password\/([^/?\s]+)(?:\?|$)/);
+  if (pathMatch) return decodeURIComponent(pathMatch[1]!);
+
+  throw new Error(
+    `extractTokenFromMessage: no token found in message to ${message.to}`,
+  );
+}

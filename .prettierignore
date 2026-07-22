@@ -4,6 +4,8 @@ out/
 build/
 coverage/
 playwright-report/
+playwright-report-auth-disabled/
+playwright-report-auth-rate-limit/
 test-results/
 next-env.d.ts
 pnpm-lock.yaml
@@ -16,6 +18,11 @@ docs/.arabic-placeholders.json
 # Generated content-release artifacts (deterministic bytes; never reformat)
 public/content/
 content-server/
+
+# Drizzle-generated migrations and journal/snapshot metadata (Phase 15) —
+# regenerated verbatim by `drizzle-kit generate`; reformatting them would
+# just be undone (or drift) on the next regeneration
+db/migrations/
 
 # Python
 scripts/

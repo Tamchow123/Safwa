@@ -46,6 +46,28 @@ come from the content release's eligibility matrix, never from row counts.
 Ceiling ≈ 455 × 12 form components + 455 × 3 entry-level ≈ 6,800 minus
 ineligible fields.
 
+## 2a. Better Auth tables (implemented Phase 15)
+
+`users`, `sessions`, `accounts`, `verifications` and `rate_limits` are
+**generated and owned by Better Auth's own schema-generation process**
+(`@better-auth/drizzle-adapter`, configured in `modules/auth/server.ts`), not
+hand-designed here — each is referenced by its Drizzle `modelName` (`users`,
+`sessions`, `accounts`, `verifications`, `rate_limits`), which must match the
+adapter's schema map exactly or every DB operation fails at runtime with "The
+model … was not found in the schema object" (this mismatch is not caught by
+constructing the `Auth` instance alone, only by an actual DB call). `role` is
+exposed on `users` as a Better Auth `additionalField` with `input: false`, so
+Better Auth itself strips any client-supplied `role` from sign-up/update
+calls — server-owned by construction, not by a separate check. IDs use
+`uuid` generation (`advanced.database.generateId: "uuid"`) to match every
+other table's identifier scheme.
+
+Migration authority for these five tables is still **Drizzle**, identical to
+every hand-written table below: `drizzle-kit generate` produces the SQL from
+the schema definitions in `db/schema/auth.ts`, committed and applied the same
+way as any other migration (`DATA_MODEL.md` §12) — Better Auth never runs its
+own migration step against a live database in this app.
+
 ## 3. Lookup tables (no Postgres enums for evolving concepts)
 
 ```sql
@@ -141,8 +163,15 @@ per_question_limit_ms         -- timed grading limit (absent ⇒ 20000 for timed
 question_instance_id · question_seed · question_generator_version
 occurred_at_utc · timezone_at_event · utc_offset_minutes_at_event
 local_date_at_event · timezone_source (browser_detected|user_setting|server_fallback)
-device_id · content_version
+device_id · release_id (FK → content_versions, authoritative) · content_version (metadata only)
 ```
+
+`release_id` — not `content_version` — is the authoritative content identity
+(content-hash derived, ADR-003; `modules/study-engine/session.ts`'s own doc
+comment): `content_version` is human-readable and MAY REPEAT across a
+corrected re-publish, so it cannot by itself disambiguate which release's
+manifests generated this attempt. `content_version` is retained purely as
+display/debugging metadata.
 
 Answers are stable **references** (entry + field), not copied Arabic text; the
 server resolves them via the assessment manifest. Indexes:
@@ -175,7 +204,8 @@ client_component_revision bigint  -- monotonic within the client's local chain
 occurred_at_client timestamptz    -- as submitted, never altered
 occurred_at_canonical timestamptz -- clamped once at ingestion (see §8)
 server_received_at timestamptz
-device_id · client_sequence · session_id · content_version
+device_id · client_sequence · session_id
+release_id (FK → content_versions, authoritative) · content_version (metadata only)
 -- event-time dates (immutable history)
 timezone_at_event · utc_offset_minutes_at_event · local_date_at_event · timezone_source
 ```
@@ -193,7 +223,8 @@ implausible. Changing the user's timezone affects future events only.
 ## 7. Sessions, activity, lists, settings, audit
 
 - `study_sessions`: id, user_id, mode, config (filters, counts, timed/test),
-  content_version, started/ended, aggregate results.
+  release_id (FK → content_versions, authoritative) + content_version
+  (metadata only — see §5's note), started/ended, aggregate results.
 - `daily_activity(user_id, local_date, attempts, reviews, new_items,
 study_ms)` — **derived cache** rebuilt from attempts/events; unique
   `(user_id, local_date)`.
@@ -213,6 +244,14 @@ created_at, checksum_release, checksum_validation, checksum_assessment,
 release_status active|supported|revoked, minimum_supported_client_version,
 minimum_supported_event_schema)` — manifests retained **indefinitely**;
   releases stay sync-compatible unless explicitly revoked for cause.
+  **Registration** (implemented Phase 15, `db/register-content.ts` /
+  `pnpm db:register-content`) upserts one row per release id read from the
+  built content artifacts (idempotent — re-running for the same release id
+  is a no-op) inside a transaction holding a Postgres advisory lock
+  (`pg_advisory_xact_lock(hashtext(release_id), 0)`) so concurrent
+  registration attempts serialise rather than race; the table's own
+  constraint enforces **exactly one** `active` row at a time alongside any
+  number of `supported`/`revoked` rows.
 
 ## 8. FSRS representation and replay
 

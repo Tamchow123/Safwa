@@ -415,20 +415,45 @@ chain.ts,states.ts,due.ts}` + tests.
 - **Non-goals:** sync (16); merge (17); any content in Postgres.
 - **Prerequisites:** Phase 12 (14 recommended).
 - **Expected files:** `db/schema.ts`, `db/migrations/0001_*`,
-  `modules/auth/*`, `modules/email/*`, `app/(auth)/{login,register,reset}`.
+  `modules/auth/*`, `modules/email/*`, `app/(auth)/{login,register,reset}`,
+  `e2e/auth*.spec.ts`, `e2e/helpers/{e2e-server-env,global-setup,db-probe,
+  email-outbox,auth-ui}.ts`, `playwright.{auth-disabled,auth-rate-limit}.
+  config.ts`, `.github/workflows/ci.yml` (Postgres service containers),
+  `scripts/quality-gate.ps1` (database-touching stages).
 - **DB changes:** migration 0001 (documented above).
-- **Testing checkpoint:** integration tests against disposable Postgres —
-  composite-FK rejections (root skill as form_direction etc.), shape CHECKs,
-  partial-unique duplicates, invalid source_field/direction text; auth flows
-  incl. verification + reset with the dev email transport; enumeration-safe
-  behaviour; E2E: register → verify → login → logout.
+- **Testing checkpoint (as delivered):** integration tests against
+  disposable Postgres — composite-FK rejections (root skill as
+  form_direction etc.), shape CHECKs, partial-unique duplicates, invalid
+  source_field/direction text; a dedicated six-file auth integration suite
+  (registration, enumeration safety, verification, login/session/logout,
+  password reset, rate limiting — `TEST_STRATEGY.md` §6); account settings
+  and account-deletion cascade integration tests. E2E: a dedicated auth
+  suite covering scenarios 60.1–60.12 (guest regression, `AUTH_ENABLED=false`
+  mode, register→verify→login→logout, unverified login, password reset,
+  enumeration safety, rate limiting, account settings, guest-data isolation,
+  account deletion, mobile 320px, accessibility incl. dark mode —
+  `TEST_STRATEGY.md` §6) across three Playwright configs (`next dev`
+  refuses a second concurrent instance from the same project directory, so
+  `AUTH_ENABLED=false` and the tight-rate-limit scenario each need their own
+  server/config, chained sequentially by `pnpm test:e2e`). CI
+  (`.github/workflows/ci.yml`) and the local `scripts/quality-gate.ps1` both
+  run the full migration chain + content registration + database-constraint
+  and auth-integration suite against a disposable Postgres service
+  container before typecheck/lint/format/build.
 - **Acceptance criteria:** guests remain 100% functional without touching any
   of this; DB constraint suite green.
 - **Risks:** schema mistakes fossilising — this phase's constraint tests are
   the safety net; review DDL against `DATA_MODEL.md` §4–6 line by line.
-- **Rollback:** `drizzle` down-migration; auth feature-flagged off.
+  Realised during implementation: Better Auth's own rate-limit `enabled`
+  default is `isProduction` (silently off in every non-production
+  environment) — caught only once the auth integration suite drove the
+  real HTTP handler rather than the client API; fixed by setting `enabled:
+  true` explicitly (`ARCHITECTURE.md` §4).
+- **Rollback:** `drizzle` down-migration; auth feature-flagged off
+  (`AUTH_ENABLED=false`).
 - **Demonstrate:** registration with verification email (dev transport
-  output); constraint-violation test log.
+  output); constraint-violation test log; green CI run with the Postgres
+  service container.
 
 ## Phase 16 — Online sync (Stage A)
 

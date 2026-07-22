@@ -94,12 +94,14 @@ export function RegisterPrompt() {
         </CardTitle>
         <CardDescription>
           You are studying as a guest, so your progress and settings are stored
-          only in this browser. Clearing site data erases them. Accounts with
-          backup and sync are coming soon — until then you can download a copy
-          of your data anytime.
+          only in this browser. Clearing site data erases them. Create a Safwa
+          account for backup and sync, or download a copy of your data anytime.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-3">
+        <Button asChild className="min-h-11">
+          <Link href="/register">Create an account</Link>
+        </Button>
         <Button asChild variant="outline" className="min-h-11">
           <Link href="/settings">Export my data in Settings</Link>
         </Button>
