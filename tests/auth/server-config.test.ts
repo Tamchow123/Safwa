@@ -229,4 +229,112 @@ describe("modules/auth/server", () => {
       token: "del",
     });
   });
+
+  describe("email delivery does not gate the response (enumeration-timing fix)", () => {
+    // The fake transport below never resolves until the test explicitly
+    // calls `resolve()` — this threshold only needs to be far below any
+    // real resolution delay while staying generous enough to avoid CI
+    // scheduling jitter, since the transport is deliberately still pending
+    // when this assertion runs.
+    const MAX_ACCEPTABLE_CALLBACK_MS = 100;
+
+    function slowFakeTransport(): {
+      promise: Promise<{ success: true; messageId: string }>;
+      resolve: () => void;
+    } {
+      let resolve!: () => void;
+      const promise = new Promise<{ success: true; messageId: string }>(
+        (res) => {
+          resolve = () => res({ success: true, messageId: "slow-id" });
+        },
+      );
+      return { promise, resolve };
+    }
+
+    it("sendResetPassword resolves immediately even though the transport has not delivered yet", async () => {
+      const slow = slowFakeTransport();
+      sendEmailMock.mockReturnValueOnce(slow.promise);
+      const { getAuth } = await import("@/modules/auth/server");
+      const { flushPendingEmails } = await import("@/modules/email/dispatch");
+      const { sendResetPassword } = getAuth().options.emailAndPassword ?? {};
+
+      const start = Date.now();
+      await sendResetPassword?.({
+        user: { email: "learner@example.com" } as never,
+        url: "http://localhost:3000/api/auth/reset-password?token=xyz",
+        token: "xyz",
+      });
+      expect(Date.now() - start).toBeLessThan(MAX_ACCEPTABLE_CALLBACK_MS);
+      // The send was still actually STARTED, not skipped — only its
+      // completion isn't awaited.
+      expect(sendEmailMock).toHaveBeenCalled();
+
+      slow.resolve();
+      await flushPendingEmails();
+    });
+
+    it("sendVerificationEmail resolves immediately even though the transport has not delivered yet", async () => {
+      const slow = slowFakeTransport();
+      sendEmailMock.mockReturnValueOnce(slow.promise);
+      const { getAuth } = await import("@/modules/auth/server");
+      const { flushPendingEmails } = await import("@/modules/email/dispatch");
+      const { sendVerificationEmail } =
+        getAuth().options.emailVerification ?? {};
+
+      const start = Date.now();
+      await sendVerificationEmail?.({
+        user: { email: "learner@example.com" } as never,
+        url: "http://localhost:3000/api/auth/verify-email?token=abc",
+        token: "abc",
+      });
+      expect(Date.now() - start).toBeLessThan(MAX_ACCEPTABLE_CALLBACK_MS);
+      expect(sendEmailMock).toHaveBeenCalled();
+
+      slow.resolve();
+      await flushPendingEmails();
+    });
+
+    it("sendDeleteAccountVerification resolves immediately even though the transport has not delivered yet", async () => {
+      const slow = slowFakeTransport();
+      sendEmailMock.mockReturnValueOnce(slow.promise);
+      const { getAuth } = await import("@/modules/auth/server");
+      const { flushPendingEmails } = await import("@/modules/email/dispatch");
+      const { sendDeleteAccountVerification } =
+        getAuth().options.user?.deleteUser ?? {};
+
+      const start = Date.now();
+      await sendDeleteAccountVerification?.({
+        user: { email: "learner@example.com" } as never,
+        url: "http://localhost:3000/api/auth/delete-user/callback?token=del",
+        token: "del",
+      });
+      expect(Date.now() - start).toBeLessThan(MAX_ACCEPTABLE_CALLBACK_MS);
+      expect(sendEmailMock).toHaveBeenCalled();
+
+      slow.resolve();
+      await flushPendingEmails();
+    });
+
+    it("a rejected send is swallowed, never surfacing to the Better Auth callback", async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      sendEmailMock.mockRejectedValueOnce(new Error("provider unavailable"));
+      const { getAuth } = await import("@/modules/auth/server");
+      const { flushPendingEmails } = await import("@/modules/email/dispatch");
+      const { sendResetPassword } = getAuth().options.emailAndPassword ?? {};
+
+      await expect(
+        sendResetPassword?.({
+          user: { email: "learner@example.com" } as never,
+          url: "http://localhost:3000/api/auth/reset-password?token=xyz",
+          token: "xyz",
+        }),
+      ).resolves.not.toThrow();
+
+      await flushPendingEmails();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
+    });
+  });
 });

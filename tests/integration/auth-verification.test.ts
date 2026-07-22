@@ -7,7 +7,7 @@ import { getAuth } from "@/modules/auth/server";
 import { TEST_PASSWORD as PASSWORD } from "@/tests/integration/helpers/auth-session";
 import {
   extractTokenFromMessage,
-  latestOutboxMessage,
+  waitForOutboxMessage,
 } from "@/tests/integration/helpers/email-outbox";
 
 /**
@@ -24,7 +24,7 @@ describe("auth: email verification", () => {
     await getAuth().api.signUpEmail({
       body: { name: "Verify Me", email, password: PASSWORD },
     });
-    const message = await latestOutboxMessage(email, "verify-email");
+    const message = await waitForOutboxMessage(email, "verify-email");
     if (!message) throw new Error("expected a verify-email message");
     const token = extractTokenFromMessage(message);
 
@@ -66,7 +66,7 @@ describe("auth: email verification", () => {
     await getAuth().api.signUpEmail({
       body: { name: "Expiry Test", email, password: PASSWORD },
     });
-    const message = await latestOutboxMessage(email, "verify-email");
+    const message = await waitForOutboxMessage(email, "verify-email");
     if (!message) throw new Error("expected a verify-email message");
     const token = extractTokenFromMessage(message);
 
@@ -95,7 +95,7 @@ describe("auth: email verification", () => {
     await getAuth().api.signUpEmail({
       body: { name: "Verify Then Signin", email, password: PASSWORD },
     });
-    const message = await latestOutboxMessage(email, "verify-email");
+    const message = await waitForOutboxMessage(email, "verify-email");
     if (!message) throw new Error("expected a verify-email message");
     const token = extractTokenFromMessage(message);
     await getAuth().api.verifyEmail({ query: { token } });

@@ -50,6 +50,34 @@ export async function latestOutboxMessage(
 }
 
 /**
+ * Polls for a message to appear. Since T11's review fix, Better Auth's
+ * send callbacks dispatch email in the background (modules/email/dispatch.ts)
+ * rather than awaiting delivery — a getAuth().api.X() call can therefore
+ * return before the console-file transport has actually written the
+ * outbox entry. A short poll (not `flushPendingEmails()` directly) matches
+ * how a real caller would observe delivery — through the outbox, not
+ * through dispatch internals — and stays robust even if a future change
+ * moves the flush point.
+ */
+export async function waitForOutboxMessage(
+  to: string,
+  template: string,
+  timeoutMs = 2_000,
+): Promise<OutboxRecord> {
+  const start = Date.now();
+  for (;;) {
+    const message = await latestOutboxMessage(to, template);
+    if (message) return message;
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(
+        `waitForOutboxMessage: timed out waiting for a "${template}" message to ${to}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+/**
  * Extracts the token from a message's URL. Verify-email and delete-account
  * links carry it as a `?token=...` query param; the reset-password link
  * carries it as a path segment (`/reset-password/<token>?callbackURL=`) —

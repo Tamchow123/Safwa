@@ -1,12 +1,15 @@
 /**
  * Better Auth server instance (Phase 15, phases-15.md §30). This slice
  * (T11) wires email/password auth with mandatory verification, password
- * reset and self-service account deletion — all three callbacks dispatch
- * through the provider-neutral email adapter (modules/email/send-email.ts,
- * T9/T10), never a specific transport. Database-backed rate limiting adds
- * explicit rules on every sensitive endpoint. No OAuth, magic links,
- * passkeys, 2FA or organisations are enabled — only the features listed
- * here exist.
+ * reset and self-service account deletion — all three callbacks schedule
+ * delivery through modules/email/dispatch.ts's dispatchEmail (never
+ * `await sendEmail(...)` directly — see that module's doc comment for why:
+ * awaiting would gate the HTTP response on provider latency, an
+ * enumeration-timing side-channel), which in turn calls the
+ * provider-neutral email adapter (modules/email/send-email.ts, T9/T10),
+ * never a specific transport. Database-backed rate limiting adds explicit
+ * rules on every sensitive endpoint. No OAuth, magic links, passkeys, 2FA
+ * or organisations are enabled — only the features listed here exist.
  *
  * `role` is exposed as an `additionalField` with `input: false`: Better
  * Auth then strips it from anything a client can set via sign-up/update
@@ -34,6 +37,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
+import { dispatchEmail } from "@/modules/email/dispatch";
 import { sendEmail } from "@/modules/email/send-email";
 import {
   MAX_PASSWORD_LENGTH,
@@ -170,25 +174,25 @@ function createAuth() {
       maxPasswordLength: MAX_PASSWORD_LENGTH,
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_EXPIRES_IN_SECONDS,
+      // dispatchEmail (not `await sendEmail(...)`): awaiting delivery here
+      // would gate the HTTP response on the provider round-trip, creating
+      // an enumeration-timing side-channel (see modules/email/dispatch.ts).
+      // Still declared `async` only because Better Auth's own callback
+      // type requires a Promise return — the body itself never awaits
+      // dispatchEmail, so the returned promise resolves immediately.
       sendResetPassword: async ({ user, url, token }) => {
-        await sendEmail({
-          template: "reset-password",
-          to: user.email,
-          url,
-          token,
-        });
+        dispatchEmail(() =>
+          sendEmail({ template: "reset-password", to: user.email, url, token }),
+        );
       },
     },
     emailVerification: {
       sendOnSignUp: true,
       expiresIn: EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
       sendVerificationEmail: async ({ user, url, token }) => {
-        await sendEmail({
-          template: "verify-email",
-          to: user.email,
-          url,
-          token,
-        });
+        dispatchEmail(() =>
+          sendEmail({ template: "verify-email", to: user.email, url, token }),
+        );
       },
     },
     user: {
@@ -205,12 +209,14 @@ function createAuth() {
         enabled: true,
         deleteTokenExpiresIn: DELETE_ACCOUNT_TOKEN_EXPIRES_IN_SECONDS,
         sendDeleteAccountVerification: async ({ user, url, token }) => {
-          await sendEmail({
-            template: "delete-account",
-            to: user.email,
-            url,
-            token,
-          });
+          dispatchEmail(() =>
+            sendEmail({
+              template: "delete-account",
+              to: user.email,
+              url,
+              token,
+            }),
+          );
         },
       },
     },

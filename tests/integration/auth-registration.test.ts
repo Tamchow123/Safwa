@@ -5,7 +5,7 @@ import { getDb } from "@/db/client";
 import { accounts, users } from "@/db/schema";
 import { getAuth } from "@/modules/auth/server";
 import { TEST_PASSWORD as PASSWORD } from "@/tests/integration/helpers/auth-session";
-import { latestOutboxMessage } from "@/tests/integration/helpers/email-outbox";
+import { waitForOutboxMessage } from "@/tests/integration/helpers/email-outbox";
 
 /**
  * Comprehensive registration integration suite (phases-15.md §60), against
@@ -52,7 +52,7 @@ describe("auth: registration", () => {
     });
 
     expect(result.token).toBeNull();
-    const message = await latestOutboxMessage(email, "verify-email");
+    const message = await waitForOutboxMessage(email, "verify-email");
     expect(message).not.toBeNull();
   });
 
