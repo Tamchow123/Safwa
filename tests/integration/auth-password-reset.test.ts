@@ -8,7 +8,7 @@ import {
 } from "@/tests/integration/helpers/auth-session";
 import {
   extractTokenFromMessage,
-  latestOutboxMessage,
+  waitForOutboxMessage,
 } from "@/tests/integration/helpers/email-outbox";
 
 const NEW_PASSWORD = "brand-new-password-1";
@@ -27,7 +27,7 @@ describe("auth: password reset", () => {
 
     await getAuth().api.requestPasswordReset({ body: { email } });
 
-    const message = await latestOutboxMessage(email, "reset-password");
+    const message = await waitForOutboxMessage(email, "reset-password");
     expect(message).not.toBeNull();
   });
 
@@ -44,7 +44,7 @@ describe("auth: password reset", () => {
     ).toBe(email);
 
     await getAuth().api.requestPasswordReset({ body: { email } });
-    const message = await latestOutboxMessage(email, "reset-password");
+    const message = await waitForOutboxMessage(email, "reset-password");
     if (!message) throw new Error("expected a reset-password message");
     const token = extractTokenFromMessage(message);
 
@@ -91,7 +91,7 @@ describe("auth: password reset", () => {
     await createVerifiedUser(email);
 
     await getAuth().api.requestPasswordReset({ body: { email } });
-    const message = await latestOutboxMessage(email, "reset-password");
+    const message = await waitForOutboxMessage(email, "reset-password");
     if (!message) throw new Error("expected a reset-password message");
     const token = extractTokenFromMessage(message);
 

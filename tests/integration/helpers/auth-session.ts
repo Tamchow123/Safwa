@@ -2,7 +2,7 @@ import { parseSetCookieHeader } from "better-auth/cookies";
 import { getAuth } from "@/modules/auth/server";
 import {
   extractTokenFromMessage,
-  latestOutboxMessage,
+  waitForOutboxMessage,
 } from "@/tests/integration/helpers/email-outbox";
 
 /**
@@ -53,10 +53,7 @@ export async function createVerifiedUser(
   await getAuth().api.signUpEmail({
     body: { name, email, password: TEST_PASSWORD },
   });
-  const message = await latestOutboxMessage(email, "verify-email");
-  if (!message) {
-    throw new Error("createVerifiedUser: expected a verify-email message");
-  }
+  const message = await waitForOutboxMessage(email, "verify-email");
   await getAuth().api.verifyEmail({
     query: { token: extractTokenFromMessage(message) },
   });
