@@ -18,13 +18,18 @@ import type { AttemptRecord } from "@/modules/study-engine";
 import { ratingForAttempt } from "@/modules/scheduler/ratings";
 import type { SchedulerRating } from "@/modules/scheduler/fsrs";
 
-/** Event lifecycle status (DATA_MODEL.md §6). Phase 7 creates only `scheduling`. */
-export type ReviewEventStatus =
-  | "scheduling"
-  | "reinforcement"
-  | "conflict_demoted"
-  | "revoked"
-  | "pending_parent";
+/**
+ * Event lifecycle status (DATA_MODEL.md §6). Phase 7 creates only `scheduling`.
+ * Canonical runtime list — import this array; never re-declare the literals.
+ */
+export const REVIEW_EVENT_STATUSES = [
+  "scheduling",
+  "reinforcement",
+  "conflict_demoted",
+  "revoked",
+  "pending_parent",
+] as const;
+export type ReviewEventStatus = (typeof REVIEW_EVENT_STATUSES)[number];
 
 /** A local review event (the causal-chain node; server-only fields excluded). */
 export type ReviewEvent = {
