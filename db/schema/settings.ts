@@ -10,6 +10,7 @@
  */
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   check,
   index,
   integer,
@@ -34,6 +35,10 @@ export const userSettings = pgTable(
     optionCount: integer("option_count").notNull().default(4),
     dailyNewTarget: integer("daily_new_target").notNull().default(10),
     dailyReviewTarget: integer("daily_review_target").notNull().default(20),
+    // Account-wide pull cursor stamp (Phase 16).
+    lastSyncSeq: bigint("last_sync_seq", { mode: "number" })
+      .notNull()
+      .default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -43,6 +48,7 @@ export const userSettings = pgTable(
       .notNull(),
   },
   (table) => [
+    check("user_settings_last_sync_seq_check", sql`${table.lastSyncSeq} >= 0`),
     check(
       "user_settings_theme_check",
       sql`${table.theme} IN ('light', 'dark', 'system')`,
