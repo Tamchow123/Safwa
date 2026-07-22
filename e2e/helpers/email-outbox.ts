@@ -87,6 +87,16 @@ export async function waitForOutboxMessage(
  * the real GET redirect/error-mapping chain (verify-email and
  * reset-password are both server-side redirects, not client-rendered
  * pages that read a `token` param directly).
+ *
+ * SAFETY: the returned URL carries a live, single-use token. Any spec
+ * file that navigates to it (`page.goto(extractUrlFromMessage(...))`)
+ * must disable Playwright tracing for that file
+ * (`test.use({ trace: "off" })` at file scope) — otherwise a CI retry
+ * captures a trace embedding the token URL, and Playwright's HTML
+ * reporter bundles trace attachments directly inside the report folder
+ * CI uploads on failure (phases-15.md §61 — "never upload verification
+ * tokens / reset tokens"). See e2e/auth.spec.ts for the reference
+ * implementation.
  */
 export function extractUrlFromMessage(message: OutboxRecord): string {
   const match = message.text.match(/https?:\/\/\S+/);
