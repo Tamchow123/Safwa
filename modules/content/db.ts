@@ -43,7 +43,7 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
  * no upgrade function, no change to any existing store's keys or indexes.
  */
 export const SAFWA_DB_NAME = "safwa-content";
-export const SAFWA_DB_VERSION = 3;
+export const SAFWA_DB_VERSION = 4;
 
 /* ------------------------------------------------------------------ */
 /* Learner-state records (schema v2) and derived-cache records (v3)    */
@@ -195,6 +195,23 @@ export type MutationQueueRecord = {
   createdAt: number;
 };
 
+/**
+ * Online-sync client state (schema v4, Phase 16). A single row keyed "account"
+ * persisting the account this device last synced as, the account-wide pull
+ * cursor (`serverCursor`), and the last successful sync time. The `userId` is
+ * how the client detects an account switch / logout and invalidates the prior
+ * user's sync context (§18) — a mismatch means the stored cursor is not ours.
+ */
+export type SyncStateRecord = {
+  key: "account";
+  /** The signed-in account this cursor belongs to; null when signed out. */
+  userId: string | null;
+  /** The account-wide pull cursor last reconciled (0 = never / bootstrap). */
+  serverCursor: number;
+  /** Last successful push+pull completion (epoch ms), or null. */
+  lastSyncAt: number | null;
+};
+
 export class SafwaDb extends Dexie {
   contentReleases!: EntityTable<ContentReleaseRecord, "releaseId">;
   contentEntries!: EntityTable<ContentEntryRecord, "releaseId">;
@@ -209,6 +226,7 @@ export class SafwaDb extends Dexie {
   settings!: EntityTable<SettingRecord, "key">;
   mutationQueue!: EntityTable<MutationQueueRecord, "seq">;
   profile!: EntityTable<DeviceProfileRecord, "key">;
+  syncState!: EntityTable<SyncStateRecord, "key">;
 
   constructor(name: string = SAFWA_DB_NAME) {
     super(name);
@@ -239,8 +257,13 @@ export class SafwaDb extends Dexie {
     // v3 (Phase 12): the daily_activity DERIVED cache, keyed by the stored
     // event-time local date. Purely additive — every earlier store and its
     // data carry forward untouched, no upgrade function needed.
-    this.version(SAFWA_DB_VERSION).stores({
+    this.version(3).stores({
       daily_activity: "localDate",
+    });
+    // v4 (Phase 16): the online-sync client state (single "account" row).
+    // Purely additive — no upgrade function needed.
+    this.version(SAFWA_DB_VERSION).stores({
+      sync_state: "key",
     });
     // Code-facing accessors stay camelCase per TS convention; the mapping
     // to the snake_case physical stores lives here and nowhere else.
@@ -249,6 +272,7 @@ export class SafwaDb extends Dexie {
     this.reviewEvents = this.table("review_events");
     this.dailyActivity = this.table("daily_activity");
     this.mutationQueue = this.table("mutation_queue");
+    this.syncState = this.table("sync_state");
   }
 }
 
