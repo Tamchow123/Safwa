@@ -174,14 +174,23 @@ jobs:
       - name: Run E2E tests (desktop + mobile Chromium, auth-disabled, rate-limit)
         run: pnpm test:e2e
         env:
-          # e2e/helpers/e2e-server-env.ts reads DATABASE_URL directly
-          # (rewriting its own path to `safwa_test`) and derives each
-          # server's own deterministic localhost origin/port from it —
-          # auth is always enabled on the main E2E server (phases-15.md
-          # §61's "Auth enabled"). Job-level `env:` cannot reference the
-          # `env` context (only step-level `env:` can), so this must live
-          # on the step rather than the job.
+          # e2e/global-setup.ts shells out to `pnpm db:test:reset`, which
+          # (like the quality job's own migration/integration steps) goes
+          # through modules/env/server.ts's getServerEnv(), so the full
+          # server-env schema must be satisfied even though this step only
+          # touches the database — not just DATABASE_URL. Job-level `env:`
+          # cannot reference the `env` context (only step-level `env:`
+          # can), so this must live on the step rather than the job.
+          # e2e/helpers/e2e-server-env.ts separately derives each
+          # Playwright-managed server's own deterministic localhost
+          # origin/port for its `next dev` webServer process — auth is
+          # always enabled on the main E2E server (phases-15.md §61's
+          # "Auth enabled").
+          NODE_ENV: test
           DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ env.CI_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ env.CI_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.CI_APP_URL }}
 
       - name: Upload Playwright report
         if: failure()
