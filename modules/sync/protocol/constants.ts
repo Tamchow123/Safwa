@@ -153,6 +153,11 @@ export const RECOVERABLE_REASON_CODES: ReadonlySet<SyncReasonCode> = new Set([
   "invalid_release",
   "revoked_release",
   "unsupported_generator_version",
+  // Stage A head-only revocation (design D2): revoking a non-head event is a
+  // RECOVERABLE rejection — the client revokes the descendants first (or
+  // pulls/rebases) and resubmits, rather than the server inventing chain
+  // demotion or producing a broken chain (phases-16.md §16).
+  "revocation_has_descendants",
   "internal_error",
 ]);
 

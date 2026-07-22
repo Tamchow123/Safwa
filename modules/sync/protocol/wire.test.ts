@@ -319,4 +319,13 @@ describe("isRecoverableReason", () => {
   it("classifies cycle_detected as non-recoverable", () => {
     expect(isRecoverableReason("cycle_detected")).toBe(false);
   });
+
+  it("classifies revocation_has_descendants as recoverable (Stage A head-only, D2)", () => {
+    expect(isRecoverableReason("revocation_has_descendants")).toBe(true);
+  });
+
+  it("classifies revocation_already_revoked and revocation_unknown_event as non-recoverable", () => {
+    expect(isRecoverableReason("revocation_already_revoked")).toBe(false);
+    expect(isRecoverableReason("revocation_unknown_event")).toBe(false);
+  });
 });
