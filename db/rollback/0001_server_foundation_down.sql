@@ -1,14 +1,19 @@
 -- Rollback for Safwa's logical migration 0001 (server foundation), which
 -- Drizzle generated and committed as db/migrations/0000_*.sql — the
 -- 0000-vs-0001 naming mismatch is Drizzle's own journal numbering; see
--- docs/ARCHITECTURE.md for the mapping. This DROPS every table this
--- migration introduced and DESTROYS all account/server data. It is a
--- reviewed, manually-run rollback path — never applied automatically by
--- any script in this repository. Requires a fresh backup confirmation
--- before running against any database containing real users
--- (docs/phases/phases-15.md §64). Disabling AUTH_ENABLED is the preferred
--- immediate application-level rollback; only run this SQL if the tables
--- themselves must be removed.
+-- docs/ARCHITECTURE.md for the mapping. Also covers Drizzle's own
+-- 0001_zippy_zarek.sql (a pre-merge correction adding release_id to
+-- study_sessions/study_attempts/review_events and tightening
+-- study_attempts' option_count bound) — dropping these tables outright
+-- reverses that correction too, since it only added columns/constraints to
+-- tables this file already drops. This DROPS every table these migrations
+-- introduced and DESTROYS all account/server data. It is a reviewed,
+-- manually-run rollback path — never applied automatically by any script
+-- in this repository. Requires a fresh backup confirmation before running
+-- against any database containing real users (docs/phases/phases-15.md
+-- §64). Disabling AUTH_ENABLED is the preferred immediate
+-- application-level rollback; only run this SQL if the tables themselves
+-- must be removed.
 --
 -- Deliberately NO CASCADE on any table drop below: the order is already
 -- dependency-safe (every table is dropped only after everything that

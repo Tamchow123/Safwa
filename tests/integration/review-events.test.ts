@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getDb } from "@/db/client";
 import { reviewEvents } from "@/db/schema";
 import { createTestComponent } from "@/tests/integration/helpers/components";
+import { createTestRelease } from "@/tests/integration/helpers/content-versions";
 import { createTestUser } from "@/tests/integration/helpers/users";
 
 /**
@@ -15,6 +16,7 @@ import { createTestUser } from "@/tests/integration/helpers/users";
 function baseEvent(overrides: {
   userId: string;
   studyComponentId: string;
+  releaseId: string;
   eventId?: string;
   rating?: string;
   status?: string;
@@ -33,6 +35,7 @@ function baseEvent(overrides: {
     occurredAtCanonical: new Date(),
     deviceId: "device-1",
     clientSequence: 1,
+    releaseId: overrides.releaseId,
     contentVersion: "test-1",
     timezoneAtEvent: "UTC",
     utcOffsetMinutesAtEvent: 0,
@@ -46,11 +49,13 @@ describe("review_events constraint integration", () => {
     const db = getDb();
     const userId = await createTestUser();
     const componentId = await createTestComponent(userId);
+    const releaseId = await createTestRelease();
     await expect(
       db.insert(reviewEvents).values(
         baseEvent({
           userId,
           studyComponentId: componentId,
+          releaseId,
           rating: "excellent",
         }),
       ),
@@ -61,11 +66,13 @@ describe("review_events constraint integration", () => {
     const db = getDb();
     const userId = await createTestUser();
     const componentId = await createTestComponent(userId);
+    const releaseId = await createTestRelease();
     await expect(
       db.insert(reviewEvents).values(
         baseEvent({
           userId,
           studyComponentId: componentId,
+          releaseId,
           status: "unknown_status",
         }),
       ),
@@ -76,6 +83,7 @@ describe("review_events constraint integration", () => {
     const db = getDb();
     const userId = await createTestUser();
     const componentId = await createTestComponent(userId);
+    const releaseId = await createTestRelease();
     const unknownParent = randomUUID();
     const [row] = await db
       .insert(reviewEvents)
@@ -83,6 +91,7 @@ describe("review_events constraint integration", () => {
         baseEvent({
           userId,
           studyComponentId: componentId,
+          releaseId,
           status: "pending_parent",
           parentEventId: unknownParent,
         }),
@@ -95,14 +104,40 @@ describe("review_events constraint integration", () => {
     const db = getDb();
     const userId = await createTestUser();
     const componentId = await createTestComponent(userId);
+    const releaseId = await createTestRelease();
     const eventId = randomUUID();
-    await db
-      .insert(reviewEvents)
-      .values(baseEvent({ userId, studyComponentId: componentId, eventId }));
+    await db.insert(reviewEvents).values(
+      baseEvent({
+        userId,
+        studyComponentId: componentId,
+        releaseId,
+        eventId,
+      }),
+    );
     await expect(
-      db
-        .insert(reviewEvents)
-        .values(baseEvent({ userId, studyComponentId: componentId, eventId })),
+      db.insert(reviewEvents).values(
+        baseEvent({
+          userId,
+          studyComponentId: componentId,
+          releaseId,
+          eventId,
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("rejects an unknown release_id", async () => {
+    const db = getDb();
+    const userId = await createTestUser();
+    const componentId = await createTestComponent(userId);
+    await expect(
+      db.insert(reviewEvents).values(
+        baseEvent({
+          userId,
+          studyComponentId: componentId,
+          releaseId: randomUUID(),
+        }),
+      ),
     ).rejects.toThrow();
   });
 
@@ -110,11 +145,17 @@ describe("review_events constraint integration", () => {
     const db = getDb();
     const userId = await createTestUser();
     const componentId = await createTestComponent(userId);
+    const releaseId = await createTestRelease();
     for (const rating of ["again", "hard", "good", "easy"] as const) {
       await expect(
-        db
-          .insert(reviewEvents)
-          .values(baseEvent({ userId, studyComponentId: componentId, rating })),
+        db.insert(reviewEvents).values(
+          baseEvent({
+            userId,
+            studyComponentId: componentId,
+            releaseId,
+            rating,
+          }),
+        ),
       ).resolves.toBeDefined();
     }
     for (const status of [
@@ -125,9 +166,14 @@ describe("review_events constraint integration", () => {
       "pending_parent",
     ] as const) {
       await expect(
-        db
-          .insert(reviewEvents)
-          .values(baseEvent({ userId, studyComponentId: componentId, status })),
+        db.insert(reviewEvents).values(
+          baseEvent({
+            userId,
+            studyComponentId: componentId,
+            releaseId,
+            status,
+          }),
+        ),
       ).resolves.toBeDefined();
     }
   });
