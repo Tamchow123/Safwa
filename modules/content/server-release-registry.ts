@@ -89,11 +89,14 @@ const verifiedReleaseCache = new Map<string, Promise<VerifiedRelease>>();
  * Verified-release cache keyed by release id. The promise is stored
  * BEFORE awaiting it, so concurrent calls for the same id coalesce onto
  * the same in-flight verification instead of re-reading/re-hashing the
- * artifacts once per caller.
+ * artifacts once per caller. Exported for the Phase 16 sync ingestion
+ * pipeline, which must load a specific (possibly supported-not-active)
+ * release by id and must not re-hash its artifacts per attempt in a batch
+ * (phases-16.md §30 — cache immutable parsed manifests server-side).
  */
-function loadVerifiedReleaseCached(
+export function loadVerifiedReleaseCached(
   releaseId: string,
-  options: LoadAndVerifyReleaseOptions,
+  options: LoadAndVerifyReleaseOptions = {},
 ): Promise<VerifiedRelease> {
   const existing = verifiedReleaseCache.get(releaseId);
   if (existing) return existing;
