@@ -7,28 +7,59 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 ## 1. Local development setup
 
 - Node LTS + pnpm; Python 3.10+ for the data scripts.
-- Postgres: either Docker (`docker compose up db`) or a Neon development
-  branch. Integration tests use a disposable database.
+- Postgres (implemented Phase 15): `docker compose up -d db` starts a pinned
+  `postgres:17-alpine` container (`compose.yaml`) with a `safwa_dev` database
+  for `pnpm dev` and a sibling disposable `safwa_test` database (created once,
+  on first container init, by `docker/init-test-db.sql`) that integration
+  tests and `scripts/quality-gate.ps1` reset freely. A Neon development
+  branch works equally well for `safwa_dev` — only `safwa_test`'s local
+  reset/truncate path requires the exact-name safety pattern below.
 - `pnpm install` → `pnpm db:migrate` → `pnpm content:build` → `pnpm dev`.
-- Email in development uses the console/file transport (no external sends);
-  optionally Mailpit for a real inbox UI.
+- Email in development uses the console/file transport (writes JSON files to
+  `EMAIL_OUTBOX_DIR`, default `.local/email-outbox` — no external sends);
+  `pnpm email:clear-outbox` clears it (refuses in production).
 - `python scripts/validate-vocabulary.py` must pass before building content.
+- `scripts/quality-gate.ps1` (Phase 15, T22) runs every check CI runs,
+  locally, in the same order — including the disposable-Postgres steps
+  below — and is the recommended pre-review/pre-commit gate; `-SkipE2E` is
+  for fast inner-loop iteration only, the full gate (including E2E) must
+  still pass before review.
 
 ## 2. Environment variables
 
-| Variable                                  | Purpose                                       | Envs                                      |
-| ----------------------------------------- | --------------------------------------------- | ----------------------------------------- |
-| `DATABASE_URL`                            | Postgres connection (Neon pooled URL in prod) | all                                       |
-| `BETTER_AUTH_SECRET`                      | session/token signing                         | all (unique per env)                      |
-| `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL` | canonical origin                              | all                                       |
-| `RESEND_API_KEY`                          | transactional email                           | preview/prod (dev uses console transport) |
-| `EMAIL_FROM`                              | verified sender                               | preview/prod                              |
-| `SENTRY_DSN`                              | error monitoring                              | preview/prod                              |
-| `CONTENT_SERVER_DIR` / storage binding    | assessment+validation manifests location      | all                                       |
-| `ADMIN_BOOTSTRAP_EMAIL`                   | first admin promotion (one-shot)              | prod                                      |
+| Variable                                                                 | Purpose                                                                                        | Envs                                      |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `DATABASE_URL`                                                           | Postgres connection (Neon pooled URL in prod)                                                  | all                                       |
+| `NODE_ENV`                                                               | `development \| test \| production`                                                            | all (set by tooling, rarely by hand)      |
+| `BETTER_AUTH_SECRET`                                                     | session/token signing                                                                          | all (unique per env)                      |
+| `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL`                                | canonical origin                                                                               | all                                       |
+| `AUTH_ENABLED`                                                           | auth feature-flag kill-switch (default `true`)                                                 | all                                       |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_MAX`                 | sensitive-endpoint rate-limit tuning (default 60s/5)                                           | all — see caveat below                    |
+| `AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_DEFAULT_MAX` | default rate-limit bucket tuning (default 10s/100, matches Better Auth's own built-in default) | all — see caveat below                    |
+| `EMAIL_TRANSPORT`                                                        | `console-file` (dev/test) \| `resend` (preview/prod)                                           | all                                       |
+| `EMAIL_OUTBOX_DIR`                                                       | console-file transport's output dir (default `.local/email-outbox`)                            | dev/test only                             |
+| `RESEND_API_KEY`                                                         | transactional email                                                                            | preview/prod (dev uses console transport) |
+| `EMAIL_FROM`                                                             | verified sender                                                                                | preview/prod                              |
+| `ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION`                                | explicit escape hatch for `console-file` in production (default `false`)                       | prod only, exceptional                    |
+| `SENTRY_DSN`                                                             | error monitoring                                                                               | preview/prod                              |
+| `CONTENT_SERVER_DIR` / storage binding                                   | assessment+validation manifests location                                                       | all                                       |
+| `ADMIN_BOOTSTRAP_EMAIL`                                                  | first admin promotion (one-shot)                                                               | prod                                      |
 
 Secrets live only in Vercel/Neon dashboards and local `.env.local`
 (gitignored). `.env.example` documents every variable without values.
+
+**Rate-limit tuning variables — production caveat (Phase 15).** All four
+`AUTH_RATE_LIMIT*` variables are validated only for positivity — there is no
+upper-bound production sanity check yet. Local development, CI and the E2E
+suite each set these to values tuned for their own purposes (e.g. the E2E
+suite's main server sets the default bucket to a very permissive `100000`
+max so legitimate parallel test traffic never trips it — see
+`e2e/helpers/e2e-server-env.ts`). **Never copy an E2E- or CI-tuned `.env`
+into a production deployment** — a stray `AUTH_RATE_LIMIT_DEFAULT_MAX=100000`
+in production would silently and drastically weaken rate limiting with no
+validation error to catch it at deploy time. A future production-hardening
+pass should add an explicit ceiling to `modules/env/server.ts`'s
+`assertProductionInvariants()`.
 
 ## 3. Hosting recommendation
 
@@ -64,7 +95,20 @@ self-hosted libraries; Resend sits behind the email adapter.
 
 - Drizzle SQL migrations committed with the phase that introduces them;
   additive-first policy (`DATA_MODEL.md` §12).
-- CI runs the full migration chain against a disposable Postgres on every PR.
+- CI runs the full migration chain against a disposable Postgres on every PR
+  (implemented Phase 15, T21): `.github/workflows/ci.yml`'s `quality` and
+  `e2e` jobs each run their own pinned `postgres:17-alpine` service
+  container with test-only, disposable credentials (never reused from any
+  real deployment secret) and a health check gating job start; `quality`
+  applies the full migration chain and registers content versions before
+  running the database-constraint + auth-integration suite.
+  `scripts/quality-gate.ps1` (T22) runs the equivalent sequence locally
+  against a developer's own `docker compose`-provisioned `safwa_test`
+  database. **`compose.yaml` (local dev) and the CI service container
+  (`ci.yml`) must be kept manually in sync** — there is no shared
+  single-source-of-truth for the Postgres version/config between the two;
+  a future refactor could extract a shared compose/service definition if
+  this drifts in practice.
 - Production: apply migrations as a deploy step _before_ promoting the build;
   destructive migrations require a documented plan + fresh backup + rollback
   note.
@@ -101,7 +145,13 @@ self-hosted libraries; Resend sits behind the email adapter.
 ## 9. Monitoring & operations
 
 - Sentry (client + server) for errors; structured JSON logs on API routes;
-  `/api/health` (DB reachability + active release id) for uptime checks.
+  `/api/health` (implemented Phase 15 — DB reachability with a 4s internal
+  Postgres statement timeout under a 5s overall check timeout, active
+  release id, `AUTH_ENABLED` status) for uptime checks. **Any external
+  load balancer, orchestrator or uptime monitor polling this endpoint must
+  configure its own request timeout above 5 seconds** — a shorter external
+  timeout can spuriously mark the app unhealthy while the endpoint's own
+  internal timeout is still legitimately in flight.
 - Sync-health signals: rejection counts by reason, fallback-conflict count,
   pending-parent backlog — reviewed weekly at launch; alert thresholds via
   Sentry metrics or a simple cron report.

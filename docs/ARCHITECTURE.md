@@ -40,6 +40,8 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
   deterministic question regeneration
 - ADR-007 No Postgres enums for evolving concepts; lookup tables + composite FK
   shape enforcement
+- [ADR-008](adr/008-postgres-driver-choice.md) `drizzle-orm/node-postgres` +
+  `pg` as the Postgres driver (Phase 15)
 
 ## 2. Application architecture
 
@@ -160,16 +162,58 @@ time (see `DATA_MODEL.md` §content versioning).
 ## 4. Authentication approach
 
 - Email/password with mandatory email verification and password reset
-  (Better Auth); optional Google OAuth may be added later if low-cost.
-- Secure HTTP-only session cookies; CSRF protection on state-changing routes.
+  (Better Auth, implemented Phase 15); optional Google OAuth may be added
+  later if low-cost. No OAuth/social providers or plugins are enabled today
+  — `modules/auth/server.ts` deliberately configures only the features
+  listed here.
+- Secure HTTP-only session cookies (`useSecureCookies` derived from
+  `BETTER_AUTH_URL` starting with `https://`, not from `NODE_ENV`, so a
+  legitimately-https preview deployment is protected too); CSRF protection
+  on state-changing routes.
 - Uniform responses on auth endpoints ("if an account exists, an email was
-  sent") to prevent account enumeration; rate limiting on register / login /
-  reset / resend endpoints.
+  sent") to prevent account enumeration — verified by a dedicated
+  integration test comparing response shapes for existing vs. nonexistent
+  accounts across registration, password reset and login.
+- **Database-backed rate limiting** (Better Auth's `rateLimit.storage:
+"database"`, table `rate_limits`) on every sensitive endpoint
+  (sign-up/sign-in/send-verification-email/request-password-reset/reset-
+  password/delete-user/delete-user-callback), tuned via
+  `AUTH_RATE_LIMIT_WINDOW_SECONDS`/`AUTH_RATE_LIMIT_MAX` (default 60s/5). A
+  **separate** bucket (`AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS`/
+  `AUTH_RATE_LIMIT_DEFAULT_MAX`, default 10s/100 — matching Better Auth's
+  own built-in default exactly) governs every other endpoint (get-session,
+  sign-out, …), which is read-mostly and not brute-forceable, so it stays
+  far more permissive than the sensitive-endpoint bucket. Both `enabled`
+  flags are set explicitly rather than left to Better Auth's own default
+  (`isProduction`) — a dev/staging deployment handling real accounts is
+  just as brute-forceable as production, and leaving rate limiting
+  implicitly off outside `NODE_ENV=production` went undetected for one
+  phase task before a dedicated integration test (driving the real HTTP
+  handler, not the client API, since that's the only path that exercises
+  the router's rate-limit check) caught it. See `DEPLOYMENT.md` §2 for the
+  production-ceiling caveat on these tuning variables.
+- **`AUTH_ENABLED` feature flag** (default `true`): when `false`,
+  `getAuth()` throws before constructing anything (never touches the
+  database), and `/api/auth/[...all]/route.ts` short-circuits to a clean
+  503 before even calling `getAuth()` — a defence-in-depth pair, not a
+  single check. Guest study never depends on this flag being `true`.
 - Guest use requires no auth anywhere in the learner flow.
 - Admin authorisation: a `role` on users checked server-side per admin route;
-  admin actions audit-logged.
-- Account deletion: self-service, removes user rows and learning state
-  (attempts/events), retains nothing personally identifiable.
+  admin actions audit-logged. (Not yet implemented — Phase 21.)
+- **Account deletion** (implemented Phase 15): self-service, two-step
+  (password confirmation, then an emailed confirmation link — the same
+  shape as password reset, never claiming the account is gone on the first
+  step alone). Every personal server row cascades via `ON DELETE CASCADE`
+  foreign keys to `users.id` (sessions, accounts, study_components,
+  study_sessions, study_attempts, review_events, daily_activity, bookmarks,
+  custom_lists, custom_list_entries, user_settings, guest_imports); the
+  database-backed `rate_limits` table has no such FK (rows are keyed by
+  IP+path, independent of any user) and is therefore untouched by deletion.
+  Local Dexie guest data is never touched by server-side account deletion.
+  One accepted, documented gap: `verifications` rows (signed reset/verify/
+  delete tokens) have no FK to `users.id` either, so an unconsumed token for
+  a since-deleted user is only passively expired by Better Auth's own TTL,
+  never actively purged — see `RISK_REGISTER.md`.
 
 ## 5. PWA and offline approach
 
