@@ -19,7 +19,18 @@ import { idbAll, idbSeed, seedBookmark, seedWeakAttempt } from "./helpers/idb";
  * differently-configured server/process and live in their own spec files
  * (auth-disabled.spec.ts, auth-rate-limit.spec.ts) matched to their own
  * dedicated Playwright projects (see playwright.config.ts).
+ *
+ * Trace capture is disabled for this whole file, overriding the shared
+ * config's `trace: "on-first-retry"` (phases-15.md §61 — "never upload
+ * verification tokens / reset tokens"). This file is the only spec that
+ * navigates to real, single-use verification/reset/delete-account links
+ * extracted from the email outbox (extractUrlFromMessage) — a CI retry of
+ * any such test would otherwise bundle that token-bearing URL into a
+ * trace, and Playwright's HTML reporter embeds trace attachments directly
+ * inside the report folder CI uploads on failure. Every other e2e spec
+ * (no token-bearing navigation) keeps tracing enabled for debuggability.
  */
+test.use({ trace: "off" });
 
 const PASSWORD = "correct-horse-battery-staple";
 const NEW_PASSWORD = "brand-new-password-1";
