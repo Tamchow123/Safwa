@@ -53,6 +53,8 @@ import {
 } from "@/modules/collections/lists";
 import {
   canCreateAnotherList,
+  canonicaliseMembership,
+  cleanListNameInput,
   isDuplicateListName,
   isValidEntryId,
   validateListName,
@@ -351,4 +353,63 @@ export async function removeEntryFromList(
     await db.lists.put(updated);
     return updated;
   });
+}
+
+/* ---------------------------------------------------------------------- */
+/* Phase 16 — server-authoritative sync apply.                            */
+/*                                                                        */
+/* Online-sync reconciliation (§19) applies the server's authoritative    */
+/* bookmark/list state pulled from another context. These are the ONLY    */
+/* sync-side writers of db.bookmarks/db.lists, keeping this module the     */
+/* single writer of those stores. They run WITHIN the caller's Dexie      */
+/* transaction (reconcile opens one over all synced stores), take NO new  */
+/* transaction, and DON'T fire the guest-durability boundary — this is an */
+/* account (signed-in) write, not a guest UI action. Membership + name    */
+/* are canonicalised (dedupe/sort, NFC/trim) so the local invariants hold */
+/* identically to the guest mutators; SERVER timestamps are preserved.    */
+/* ---------------------------------------------------------------------- */
+
+/** Upsert a server-authoritative bookmark (within the caller's transaction). */
+export async function applyAuthoritativeBookmark(
+  db: SafwaDb,
+  entryId: number,
+  createdAt: number,
+): Promise<void> {
+  await db.bookmarks.put(buildBookmarkRecord(entryId, createdAt));
+}
+
+/** Delete a bookmark row propagated by a tombstone (within the caller's tx). */
+export async function applyBookmarkTombstone(
+  db: SafwaDb,
+  entryId: number,
+): Promise<void> {
+  await db.bookmarks.delete(entryId);
+}
+
+/** Upsert a server-authoritative list with canonical name + membership. */
+export async function applyAuthoritativeList(
+  db: SafwaDb,
+  list: {
+    id: string;
+    name: string;
+    entryIds: readonly number[];
+    createdAt: number;
+    updatedAt: number;
+  },
+): Promise<void> {
+  await db.lists.put({
+    id: list.id,
+    name: cleanListNameInput(list.name),
+    entryIds: canonicaliseMembership(list.entryIds),
+    createdAt: list.createdAt,
+    updatedAt: list.updatedAt,
+  });
+}
+
+/** Delete a list row propagated by a tombstone (within the caller's tx). */
+export async function applyListTombstone(
+  db: SafwaDb,
+  listId: string,
+): Promise<void> {
+  await db.lists.delete(listId);
 }
