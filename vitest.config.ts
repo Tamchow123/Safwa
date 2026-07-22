@@ -14,7 +14,10 @@ export default defineConfig({
       "shared/**/*.test.{ts,tsx}",
       "lib/**/*.test.{ts,tsx}",
     ],
-    exclude: ["e2e/**", "node_modules/**", ".next/**"],
+    // Integration tests require a live disposable Postgres (pnpm
+    // test:integration, its own vitest.integration.config.ts) — ordinary
+    // unit tests must never depend on a running database.
+    exclude: ["e2e/**", "tests/integration/**", "node_modules/**", ".next/**"],
     coverage: {
       provider: "v8",
     },

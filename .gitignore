@@ -12,6 +12,8 @@ out/
 build/
 coverage/
 playwright-report/
+playwright-report-auth-disabled/
+playwright-report-auth-rate-limit/
 test-results/
 next-env.d.ts
 *.tsbuildinfo
@@ -38,6 +40,9 @@ yarn-error.log*
 
 # Generated temporary files
 *.tmp
+
+# Local dev-only email outbox (console-file transport, Phase 15)
+.local/
 
 # Transient phase-review output (never commit)
 .claude/review/results/

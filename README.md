@@ -30,16 +30,16 @@ optional accounts add cross-device synchronisation.
 
 ## Planning documents
 
-| Document                                                       | Contents                                                                                     |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md)   | Vision, MVP/post-MVP scope, learning & quiz rules, progress definitions, acceptance criteria |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | Stack, rationale, module boundaries, auth, PWA, security, ADRs                               |
-| [docs/DATA_MODEL.md](docs/DATA_MODEL.md)                       | Conceptual model, tables, constraints, FSRS representation, content versioning, merge model  |
-| [docs/OFFLINE_AND_SYNC.md](docs/OFFLINE_AND_SYNC.md)           | Guest persistence, mutation queue, causal event graph, conflict resolution, staged rollout   |
-| [docs/IMPLEMENTATION_PHASES.md](docs/IMPLEMENTATION_PHASES.md) | 23 small, individually testable phases with milestones                                       |
-| [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md)                 | Testing pyramid, required suites, per-phase minimums, CI gates                               |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                       | Local setup, hosting, migrations, backups, rollback, cost assumptions                        |
-| [docs/RISK_REGISTER.md](docs/RISK_REGISTER.md)                 | Project risks with likelihood, impact, mitigation                                            |
+| Document                                                                     | Contents                                                                                                                                      |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md)                 | Vision, MVP/post-MVP scope, learning & quiz rules, progress definitions, acceptance criteria                                                  |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                 | Stack, rationale, module boundaries, auth, PWA, security, ADRs                                                                                |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md)                                     | Conceptual model, tables, constraints, FSRS representation, content versioning, merge model                                                   |
+| [docs/OFFLINE_AND_SYNC.md](docs/OFFLINE_AND_SYNC.md)                         | Guest persistence, mutation queue, causal event graph, conflict resolution, staged rollout                                                    |
+| [docs/phases/IMPLEMENTATION_PHASES.md](docs/phases/IMPLEMENTATION_PHASES.md) | 23 small, individually testable phases with milestones (later phases have expanded detail docs alongside it, e.g. `docs/phases/phases-15.md`) |
+| [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md)                               | Testing pyramid, required suites, per-phase minimums, CI gates                                                                                |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                                     | Local setup, hosting, migrations, backups, rollback, cost assumptions                                                                         |
+| [docs/RISK_REGISTER.md](docs/RISK_REGISTER.md)                               | Project risks with likelihood, impact, mitigation                                                                                             |
 
 ## Data-safety principles (non-negotiable)
 

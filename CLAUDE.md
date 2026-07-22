@@ -54,16 +54,20 @@ testing checkpoint before writing code.
 ## Commands
 
 ```bash
-python scripts/validate-vocabulary.py   # data validation — must exit 0
-python scripts/enrich-vocabulary.py     # deterministic regeneration of enriched data
+python scripts/enrich-vocabulary.py     # deterministic regeneration of enriched data (no pnpm wrapper)
 ```
 
 App: `pnpm dev`, `pnpm build`, `pnpm test` (Vitest), `pnpm test:e2e`
 (Playwright), `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+`pnpm validate:data` (`scripts/validate-vocabulary.py`, must exit 0),
+`pnpm verify:arabic` (`scripts/arabic-extract.py --verify-known`),
 `pnpm content:build` (regenerates `public/content`/`content-server` from the
-vocabulary data), `pnpm docs:verify` (checks doc Arabic placeholders).
-`scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
-locally.
+vocabulary data), `pnpm docs:verify` (checks doc Arabic placeholders),
+`pnpm content:verify` (content:build + docs:verify), `pnpm check`
+(typecheck + lint + format:check + test + build). `scripts/quality-gate.ps1`
+runs the full CI-equivalent check sequence locally (all of the above plus
+artifact-freshness checks and E2E; `-SkipE2E` skips E2E for fast inner-loop
+iteration only — the full gate must still pass before review).
 
 ## Document map
 
@@ -71,7 +75,10 @@ locally.
 - `docs/ARCHITECTURE.md` — stack, module boundaries, ADRs
 - `docs/DATA_MODEL.md` — Postgres + Dexie schemas, component identity, event model
 - `docs/OFFLINE_AND_SYNC.md` — causal sync design, conflict policy, staged rollout
-- `docs/phases/IMPLEMENTATION_PHASES.md` — the 23 phases (0–22); implement one at a time
+- `docs/phases/IMPLEMENTATION_PHASES.md` — the 23 phases (0–22); implement one
+  at a time. Later phases have expanded detail docs alongside it
+  (`docs/phases/phases-12.md`, `-13.md`, `-14.md`, `-15.md`, ...) — read the
+  matching detail doc for a phase if one exists.
 - `docs/TEST_STRATEGY.md` — required tests per layer and per phase
 - `docs/DEPLOYMENT.md` — environments, hosting, migrations, backups
 - `docs/RISK_REGISTER.md` — known risks and mitigations
@@ -103,3 +110,6 @@ locally.
   unresolved findings are reported verbatim, not smoothed over.
 - **Never claim success without evidence.** "Done" requires quality-gate
   output showing every check passed (`scripts/quality-gate.ps1` exit 0).
+- **No force-push, `reset --hard`, `clean`, branch deletion, or `gh pr
+merge`.** Also enforced mechanically by the `scripts/guard-git-push.ps1`
+  PreToolUse hook, which blocks these regardless of argument position.

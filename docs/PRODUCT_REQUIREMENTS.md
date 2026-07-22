@@ -190,7 +190,13 @@ snapshot.
   `navigator.storage.persist()` request and a gentle register prompt).
 - Registration is optional; email/password with verification and reset.
 - Signed-in users get server-backed state, cross-device sync, durable
-  bookmarks/settings.
+  bookmarks/settings. **Phase 15 status:** registration/login/verification/
+  reset/account-deletion are implemented; study-progress sync and the
+  guest→account merge below are Phase 16+ — a signed-in user's study
+  progress is local-only until then (see `OFFLINE_AND_SYNC.md` §3). Account
+  settings (theme, Arabic text size, timezone, study defaults) are already
+  server-backed today, as a surface deliberately separate from device-local
+  Dexie settings.
 - On sign-in/registration from a device with guest data, the app offers a
   merge; merge ingests guest attempts/events through the normal causal sync
   pipeline (deterministic, idempotent), unions bookmarks/lists, and prefers
