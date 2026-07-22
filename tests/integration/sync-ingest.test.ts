@@ -1,0 +1,436 @@
+import { randomUUID } from "node:crypto";
+
+import { eq } from "drizzle-orm";
+import { beforeAll, describe, expect, it } from "vitest";
+
+import { getDb } from "@/db/client";
+import { registerContent } from "@/db/register-content";
+import {
+  reviewEvents,
+  studyAttempts,
+  studyComponents,
+  studySessions,
+  syncAuditLog,
+} from "@/db/schema";
+import type { AnswerReference } from "@/modules/content/answer-reference";
+import { loadVerifiedReleaseCached } from "@/modules/content/server-release-registry";
+import {
+  buildComponentKey,
+  resolveComponentIdentity,
+  type ResolvedComponentIdentity,
+} from "@/modules/study-engine";
+import {
+  createQuestionContextFromRelease,
+  generateQuestion,
+  type QuestionContext,
+  type QuestionInstance,
+} from "@/modules/study-engine/generator";
+import { ingestSchedulingBatch } from "@/modules/sync/server/ingest";
+import { replayComponent } from "@/modules/sync/server/replay";
+import type { WireAttempt, WireEvent } from "@/modules/sync/protocol";
+import { createTestUser } from "@/tests/integration/helpers/users";
+
+const SEED = "ingest-test-seed";
+const NOW = Date.parse("2026-07-20T10:01:00.000Z");
+const OCCURRED = "2026-07-20T10:00:00.000Z";
+
+type Component = {
+  identity: ResolvedComponentIdentity;
+  instance: QuestionInstance;
+};
+
+let releaseId: string;
+let context: QuestionContext;
+let comp1: Component;
+let comp2: Component;
+
+beforeAll(async () => {
+  // Register the real active release so review_events.release_id FKs resolve and
+  // resolveReleaseForIngestion can load its manifests.
+  const { registered } = await registerContent(getDb());
+  releaseId = registered[0]!;
+  const verified = await loadVerifiedReleaseCached(releaseId);
+  context = createQuestionContextFromRelease(verified.learner);
+  const found: Component[] = [];
+  for (const entry of context.entries) {
+    try {
+      const candidate = resolveComponentIdentity({
+        entryId: entry.id,
+        skillType: "meaning_recognition",
+        sourceField: "madi",
+        direction: "arabic_to_english",
+      });
+      const inst = generateQuestion(context, {
+        identity: candidate,
+        deliveryMode: "mc",
+        questionSeed: SEED,
+        position: 0,
+      });
+      found.push({ identity: candidate, instance: inst });
+      if (found.length === 2) break;
+    } catch {
+      // next entry
+    }
+  }
+  if (found.length < 2) throw new Error("need two generatable components");
+  [comp1, comp2] = found as [Component, Component];
+});
+
+function attempt(
+  overrides: Partial<WireAttempt> = {},
+  comp: Component = comp1,
+): WireAttempt {
+  const { identity, instance } = comp;
+  return {
+    id: randomUUID(),
+    sessionId: randomUUID(),
+    deviceId: "device-1",
+    studyComponentId: buildComponentKey(identity),
+    entryId: identity.entryId,
+    skillTypeId: "meaning_recognition",
+    sourceField: "madi",
+    direction: "arabic_to_english",
+    promptField: instance.promptField,
+    promptRef: instance.promptRef,
+    selectedAnswerRef: instance.correctAnswerRef,
+    correctAnswerRef: instance.correctAnswerRef,
+    isCorrect: true,
+    isFirstAttempt: true,
+    isReinforcement: false,
+    hintUsed: false,
+    hintType: null,
+    responseTimeMs: 3000,
+    questionPosition: 0,
+    mode: "mc",
+    optionCount: instance.optionCount,
+    perQuestionLimitMs: null,
+    questionInstanceId: instance.questionInstanceId,
+    questionSeed: SEED,
+    questionGeneratorVersion: "1",
+    releaseId,
+    contentVersion: context.contentVersion,
+    occurredAtUtc: OCCURRED,
+    timezoneAtEvent: "UTC",
+    utcOffsetMinutesAtEvent: 0,
+    localDateAtEvent: "2026-07-20",
+    timezoneSource: "browser_detected",
+    ...overrides,
+  };
+}
+
+function event(
+  att: WireAttempt,
+  overrides: Partial<WireEvent> = {},
+): WireEvent {
+  return {
+    eventId: randomUUID(),
+    studyComponentId: att.studyComponentId,
+    attemptId: att.id,
+    rating: "good",
+    status: "scheduling",
+    baseServerRevision: 0,
+    parentEventId: null,
+    clientComponentRevision: 1,
+    clientSequence: 1,
+    occurredAtClient: OCCURRED,
+    deviceId: "device-1",
+    sessionId: att.sessionId,
+    releaseId,
+    contentVersion: context.contentVersion,
+    timezoneAtEvent: "UTC",
+    utcOffsetMinutesAtEvent: 0,
+    localDateAtEvent: "2026-07-20",
+    timezoneSource: "browser_detected",
+    ...overrides,
+  };
+}
+
+function aDistractor(comp: Component = comp1): AnswerReference {
+  const { instance } = comp;
+  const wrong = instance.allowedAnswerRefs.find(
+    (r) =>
+      r.entryId !== instance.correctAnswerRef.entryId ||
+      r.field !== instance.correctAnswerRef.field,
+  );
+  if (!wrong) throw new Error("no distractor");
+  return wrong;
+}
+
+describe("ingestSchedulingBatch", () => {
+  it("accepts a new-item objective event and persists authoritative state", async () => {
+    const userId = await createTestUser();
+    const att = attempt();
+    const ev = event(att);
+    const { results, serverCursor } = await ingestSchedulingBatch(
+      userId,
+      [ev],
+      [att],
+      { nowMs: NOW },
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ status: "accepted", serverRevision: 1 });
+    expect(serverCursor).toBe(1);
+
+    const db = getDb();
+    const [component] = await db
+      .select()
+      .from(studyComponents)
+      .where(eq(studyComponents.userId, userId));
+    expect(component?.revision).toBe(1);
+    expect(component?.reps).toBe(1);
+    expect(component?.lastSyncSeq).toBe(1);
+    const storedEvents = await db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    expect(storedEvents).toHaveLength(1);
+    expect(storedEvents[0]?.status).toBe("scheduling");
+  });
+
+  it("is idempotent — a duplicate event id is stored once and does not re-bump", async () => {
+    const userId = await createTestUser();
+    const att = attempt();
+    const ev = event(att);
+    await ingestSchedulingBatch(userId, [ev], [att], { nowMs: NOW });
+    const second = await ingestSchedulingBatch(userId, [ev], [att], {
+      nowMs: NOW,
+    });
+    expect(second.results[0]).toMatchObject({
+      status: "duplicate",
+      duplicate: true,
+    });
+    const db = getDb();
+    const storedEvents = await db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    expect(storedEvents).toHaveLength(1);
+    const [component] = await db
+      .select()
+      .from(studyComponents)
+      .where(eq(studyComponents.userId, userId));
+    expect(component?.revision).toBe(1); // not bumped twice
+  });
+
+  it("corrects a false is_correct claim on a wrong answer and audits it (§10)", async () => {
+    const userId = await createTestUser();
+    // Client selected a distractor but claims correct + Good.
+    const att = attempt({ selectedAnswerRef: aDistractor(), isCorrect: true });
+    const ev = event(att, { rating: "good" });
+    const { results } = await ingestSchedulingBatch(userId, [ev], [att], {
+      nowMs: NOW,
+    });
+    expect(results[0]?.status).toBe("corrected");
+
+    const db = getDb();
+    const [storedAttempt] = await db
+      .select()
+      .from(studyAttempts)
+      .where(eq(studyAttempts.userId, userId));
+    expect(storedAttempt?.isCorrect).toBe(false); // server-derived, not the claim
+    const [storedEvent] = await db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    expect(storedEvent?.rating).toBe("again"); // a wrong answer is Again
+    const audits = await db
+      .select()
+      .from(syncAuditLog)
+      .where(eq(syncAuditLog.userId, userId));
+    expect(audits.some((a) => a.reasonCode === "correctness_corrected")).toBe(
+      true,
+    );
+  });
+
+  it("accepts a sequential two-event chain (both parented, §14.1)", async () => {
+    const userId = await createTestUser();
+    const a1 = attempt();
+    const e1 = event(a1, { clientComponentRevision: 1, parentEventId: null });
+    const a2 = attempt();
+    const e2 = event(a2, {
+      clientComponentRevision: 2,
+      parentEventId: e1.eventId,
+    });
+    const { results } = await ingestSchedulingBatch(
+      userId,
+      [e1, e2],
+      [a1, a2],
+      { nowMs: NOW },
+    );
+    expect(results.every((r) => r.status === "accepted")).toBe(true);
+    const db = getDb();
+    const [component] = await db
+      .select()
+      .from(studyComponents)
+      .where(eq(studyComponents.userId, userId));
+    expect(component?.revision).toBe(2);
+    expect(component?.reps).toBe(2);
+  });
+
+  it("holds an unknown-parent event as pending without affecting FSRS", async () => {
+    const userId = await createTestUser();
+    const att = attempt();
+    const ev = event(att, {
+      clientComponentRevision: 3,
+      parentEventId: randomUUID(), // parent never seen
+    });
+    const { results } = await ingestSchedulingBatch(userId, [ev], [att], {
+      nowMs: NOW,
+    });
+    expect(results[0]).toMatchObject({
+      status: "pending",
+      reasonCode: "pending_parent",
+    });
+    const db = getDb();
+    const [component] = await db
+      .select()
+      .from(studyComponents)
+      .where(eq(studyComponents.userId, userId));
+    // Component created but no scheduling state advanced.
+    expect(component?.revision).toBe(0);
+    expect(component?.reps).toBe(0);
+    const [storedEvent] = await db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    expect(storedEvent?.status).toBe("pending_parent");
+  });
+
+  it("rejects an unsupported flashcard rating", async () => {
+    const userId = await createTestUser();
+    const att = attempt({ mode: "flashcard", selectedAnswerRef: null });
+    const ev = event(att, { rating: "hard" });
+    const { results } = await ingestSchedulingBatch(userId, [ev], [att], {
+      nowMs: NOW,
+    });
+    expect(results[0]).toMatchObject({
+      status: "rejected",
+      reasonCode: "unsupported_rating",
+    });
+  });
+
+  it("rejects a reused attempt id with a different payload (§8.5)", async () => {
+    const userId = await createTestUser();
+    const att = attempt();
+    const e1 = event(att);
+    await ingestSchedulingBatch(userId, [e1], [att], { nowMs: NOW });
+    // A NEW, lineage-valid sequential event (parent = e1) that reuses the same
+    // attempt id but with a different immutable payload (a distractor).
+    const att2 = { ...att, selectedAnswerRef: aDistractor() };
+    const e2 = event(att2, {
+      clientComponentRevision: 2,
+      parentEventId: e1.eventId,
+    });
+    const { results } = await ingestSchedulingBatch(userId, [e2], [att2], {
+      nowMs: NOW,
+    });
+    expect(results[0]).toMatchObject({
+      status: "rejected",
+      reasonCode: "payload_conflict",
+    });
+    const db = getDb();
+    const audits = await db
+      .select()
+      .from(syncAuditLog)
+      .where(eq(syncAuditLog.userId, userId));
+    expect(audits.some((a) => a.reasonCode === "payload_conflict")).toBe(true);
+  });
+
+  it("isolates a failing component so the rest of the batch still commits", async () => {
+    const userId = await createTestUser();
+    // Component A (comp1): a valid event. Component B (comp2, a DISTINCT
+    // component → its own transaction): an attempt whose session is pre-owned by
+    // another account, forcing ensureSession to throw and abort B's transaction.
+    const other = await createTestUser();
+    const attB = attempt({}, comp2);
+    const db = getDb();
+    await db.insert(studySessions).values({
+      id: attB.sessionId,
+      userId: other, // pre-owned by a different account
+      mode: "mc",
+      config: {},
+      releaseId,
+      contentVersion: context.contentVersion,
+      startedAt: new Date(NOW),
+    });
+    const attA = attempt();
+    const evA = event(attA);
+    const evB = event(attB);
+    const { results } = await ingestSchedulingBatch(
+      userId,
+      [evA, evB],
+      [attA, attB],
+      { nowMs: NOW },
+    );
+    const byId = new Map(results.map((r) => [r.itemId, r]));
+    expect(byId.get(evA.eventId)?.status).toBe("accepted");
+    expect(byId.get(evB.eventId)).toMatchObject({
+      status: "rejected",
+      reasonCode: "internal_error",
+    });
+    // Component A committed despite B failing.
+    const componentsA = await db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    expect(componentsA.some((r) => r.eventId === evA.eventId)).toBe(true);
+  });
+
+  it("does not deadlock under two concurrent batches for the same account", async () => {
+    const userId = await createTestUser();
+    // Two concurrent first-events on the same component: the advisory lock
+    // serialises them (component row → cursor, consistent order), so both
+    // resolve without a deadlock — one is accepted, the other is a stale branch.
+    const a1 = attempt();
+    const a2 = attempt();
+    const [r1, r2] = await Promise.all([
+      ingestSchedulingBatch(userId, [event(a1)], [a1], { nowMs: NOW }),
+      ingestSchedulingBatch(userId, [event(a2)], [a2], { nowMs: NOW }),
+    ]);
+    const statuses = [r1.results[0]?.status, r2.results[0]?.status].sort();
+    expect(statuses).toEqual(["accepted", "rejected"]);
+    const db = getDb();
+    const stored = await db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    expect(stored).toHaveLength(1); // only the accepted one persists
+  });
+
+  it("persisted component state equals a fresh replay (replay invariant, §15)", async () => {
+    const userId = await createTestUser();
+    const a1 = attempt();
+    const e1 = event(a1, { clientComponentRevision: 1, parentEventId: null });
+    const a2 = attempt();
+    const e2 = event(a2, {
+      clientComponentRevision: 2,
+      parentEventId: e1.eventId,
+    });
+    await ingestSchedulingBatch(userId, [e1, e2], [a1, a2], { nowMs: NOW });
+
+    const db = getDb();
+    const [component] = await db
+      .select()
+      .from(studyComponents)
+      .where(eq(studyComponents.userId, userId));
+    const stored = await db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    const fresh = replayComponent(
+      stored.map((r) => ({
+        eventId: r.eventId,
+        status: r.status as "scheduling",
+        rating: r.rating as "good",
+        clientComponentRevision: r.clientComponentRevision,
+        parentEventId: r.parentEventId,
+        occurredAtCanonical: r.occurredAtCanonical,
+        localDateAtEvent: r.localDateAtEvent,
+      })),
+      NOW,
+    );
+    expect(component?.reps).toBe(fresh.reps);
+    expect(component?.stability).toBeCloseTo(fresh.stability ?? 0, 6);
+    expect(component?.learnerState).toBe(fresh.learnerState);
+  });
+});
