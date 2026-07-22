@@ -13,6 +13,7 @@
  * PURE: no clock (nowMs is injected), no randomness, no DB/server-only imports.
  */
 import {
+  type ComponentProjection,
   type FsrsState,
   type LearnerState,
   projectComponent,
@@ -144,4 +145,18 @@ export function replayComponent(
     masteryDates: projection.masteryDates,
     scheduledEventCount: projection.scheduledEventCount,
   };
+}
+
+/**
+ * Project a component to its FULL scheduler card + effective learner state +
+ * mastery dates as of `nowMs` — the shape pull returns to a client so it can
+ * rebase (§19). Unlike `replayComponent` (which persists a reduced FSRS field
+ * set), this keeps the full `SchedulerCard` (scheduledDays/learningSteps) the
+ * wire card carries. Same deterministic replay of the accepted event set.
+ */
+export function projectComponentForPull(
+  events: readonly ComponentReplayEvent[],
+  nowMs: number,
+): ComponentProjection {
+  return projectComponent(events.map(toSchedulerEvent), nowMs);
 }
