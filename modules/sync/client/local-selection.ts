@@ -99,6 +99,26 @@ function toWireAttempt(attempt: AttemptRecord): WireAttempt | null {
  * stays `local` for a later, repaired attempt). Attempts are de-duplicated (two
  * events could reference one attempt in principle).
  */
+/**
+ * Count the local scheduling events not yet accepted by the server — the
+ * `syncStatus === "local"` review-events. This is the "pending changes" number
+ * the status indicator surfaces (§20); it counts SENDABILITY candidates, matching
+ * `selectUnsyncedScheduling`'s source rows (an event whose attempt is missing is
+ * still pending — it is unsynced work, just not yet sendable). Unbounded count,
+ * so it reflects the true backlog rather than a page-capped selection.
+ *
+ * ACCOUNT SCOPING: like `selectUnsyncedScheduling`, this query is not itself
+ * account-scoped — the local store holds one account's rows at a time because
+ * sign-out wipes every account-scoped store (`clearAccountLocalState`, Phase 16
+ * logout slice), so a clean sign-out/sign-in leaves this count at 0 for the next
+ * account. If per-account partitioning ever replaces the logout wipe, this
+ * count MUST be scoped in lockstep with `selectUnsyncedScheduling` so the
+ * visible badge and the actual push selection stay consistent.
+ */
+export async function countPendingScheduling(db: SafwaDb): Promise<number> {
+  return db.reviewEvents.where("syncStatus").equals("local").count();
+}
+
 export async function selectUnsyncedScheduling(
   db: SafwaDb,
   limit: number,
