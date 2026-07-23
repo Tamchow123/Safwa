@@ -336,6 +336,77 @@ describe("ingestSchedulingBatch", () => {
     expect(audits.some((a) => a.reasonCode === "payload_conflict")).toBe(true);
   });
 
+  it("rejects a later event whose attempt's immutable fields contradict the event (EXT-F5)", async () => {
+    const userId = await createTestUser();
+    const a1 = attempt();
+    const e1 = event(a1, { clientComponentRevision: 1, parentEventId: null });
+    // A crafted second attempt in the SAME component batch whose deviceId does
+    // not match its event — only the first attempt was used for group identity,
+    // so without per-pair validation this contradictory row would persist.
+    const a2 = attempt({ deviceId: "device-2" });
+    const e2 = event(a2, {
+      clientComponentRevision: 2,
+      parentEventId: e1.eventId,
+      deviceId: "device-1",
+    });
+    const { results } = await ingestSchedulingBatch(
+      userId,
+      [e1, e2],
+      [a1, a2],
+      { nowMs: NOW },
+    );
+    expect(results.find((r) => r.itemId === e1.eventId)?.status).toBe(
+      "accepted",
+    );
+    expect(results.find((r) => r.itemId === e2.eventId)).toMatchObject({
+      status: "rejected",
+      reasonCode: "malformed_item",
+    });
+    const db = getDb();
+    const [component] = await db
+      .select()
+      .from(studyComponents)
+      .where(eq(studyComponents.userId, userId));
+    expect(component?.revision).toBe(1); // only the first event was accepted
+    // The contradictory second attempt was NOT persisted.
+    const attempts = await db
+      .select()
+      .from(studyAttempts)
+      .where(eq(studyAttempts.userId, userId));
+    expect(attempts).toHaveLength(1);
+  });
+
+  it("rejects a later event whose attempt claims a different natural key (EXT-F5)", async () => {
+    const userId = await createTestUser();
+    const a1 = attempt(); // comp1
+    const e1 = event(a1, { clientComponentRevision: 1, parentEventId: null });
+    // a2 keeps comp1's component key on its event but the attempt claims comp2's
+    // entry — its natural key no longer derives the declared component.
+    const a2 = attempt({ entryId: comp2.identity.entryId });
+    const e2 = event(a2, {
+      clientComponentRevision: 2,
+      parentEventId: e1.eventId,
+    });
+    const { results } = await ingestSchedulingBatch(
+      userId,
+      [e1, e2],
+      [a1, a2],
+      { nowMs: NOW },
+    );
+    expect(results.find((r) => r.itemId === e1.eventId)?.status).toBe(
+      "accepted",
+    );
+    expect(results.find((r) => r.itemId === e2.eventId)?.status).toBe(
+      "rejected",
+    );
+    const db = getDb();
+    const [component] = await db
+      .select()
+      .from(studyComponents)
+      .where(eq(studyComponents.userId, userId));
+    expect(component?.revision).toBe(1);
+  });
+
   it("isolates a failing component so the rest of the batch still commits", async () => {
     const userId = await createTestUser();
     // Component A (comp1): a valid event. Component B (comp2, a DISTINCT
@@ -539,6 +610,29 @@ describe("ingestSchedulingBatch", () => {
         .from(studyAttempts)
         .where(eq(studyAttempts.userId, userId));
       expect(storedAttempts).toHaveLength(0);
+    });
+
+    it("rejects a reinforcement attempt whose natural key contradicts the component (EXT-F5)", async () => {
+      const userId = await createTestUser();
+      const a1 = attempt({ isReinforcement: true, isFirstAttempt: false });
+      // Same component key, but the second reinforcement attempt claims a
+      // different entry — its natural key no longer derives the component.
+      const a2 = attempt({
+        isReinforcement: true,
+        isFirstAttempt: false,
+        entryId: comp2.identity.entryId,
+      });
+      const { results } = await ingestSchedulingBatch(userId, [], [a1, a2], {
+        nowMs: NOW,
+      });
+      expect(results.find((r) => r.itemId === a1.id)?.status).toBe("accepted");
+      expect(results.find((r) => r.itemId === a2.id)?.status).toBe("rejected");
+      const db = getDb();
+      const stored = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId));
+      expect(stored).toHaveLength(1); // only the valid reinforcement attempt
     });
 
     it("a reinforcement attempt never bumps a scheduled component's revision or the cursor", async () => {

@@ -592,6 +592,64 @@ async function processComponentGroup(
         continue;
       }
 
+      // EXT-F5: validate THIS event/attempt pair independently. The group's
+      // component identity was derived from the FIRST attempt only; every later
+      // attempt must AGREE with its own event and re-derive the group component,
+      // or a crafted multi-event batch could persist attempt/history rows whose
+      // fields contradict the component they are attached to. First, the
+      // immutable event/attempt fields must be equal (and the attempt's declared
+      // component must be this group's):
+      if (
+        att.studyComponentId !== componentKey ||
+        att.studyComponentId !== ev.studyComponentId ||
+        att.sessionId !== ev.sessionId ||
+        att.deviceId !== ev.deviceId ||
+        att.releaseId !== ev.releaseId ||
+        att.contentVersion !== ev.contentVersion
+      ) {
+        await writeSyncAudit(tx, {
+          userId,
+          itemKind: "event",
+          itemId: ev.eventId,
+          reasonCode: "malformed_item",
+          severity: "warning",
+          componentKey,
+          correlationId: options.correlationId,
+        });
+        results.push(
+          reject({ itemId: ev.eventId, itemKind: "event" }, "malformed_item"),
+        );
+        continue;
+      }
+      // Then the attempt's OWN natural key must derive this component against the
+      // release manifest — not inherited from the first attempt's validation.
+      const attemptValidation = validateComponent(ctx, {
+        componentKey: att.studyComponentId,
+        entryId: att.entryId,
+        skillType: att.skillTypeId,
+        sourceField: att.sourceField,
+        direction: att.direction,
+      });
+      if (!attemptValidation.ok) {
+        await writeSyncAudit(tx, {
+          userId,
+          itemKind: "event",
+          itemId: ev.eventId,
+          reasonCode: attemptValidation.reasonCode,
+          severity: "warning",
+          releaseId: ev.releaseId,
+          componentKey,
+          correlationId: options.correlationId,
+        });
+        results.push(
+          reject(
+            { itemId: ev.eventId, itemKind: "event" },
+            attemptValidation.reasonCode,
+          ),
+        );
+        continue;
+      }
+
       let canonicalIsCorrect: boolean;
       let canonicalRating: string;
       let canonicalCorrectAnswer: unknown;
@@ -1087,6 +1145,61 @@ async function processReinforcementAttempts(
         });
         results.push(
           reject({ itemId: att.id, itemKind: "attempt" }, "malformed_item"),
+        );
+        continue;
+      }
+
+      // EXT-F5 (sibling path): the group identity + release context were derived
+      // from the FIRST attempt only; re-validate EVERY reinforcement attempt, or
+      // a crafted batch could persist a row whose declared
+      // entry/skill/field/direction contradict (or reference quiz-ineligible
+      // content different from) the component it is attached to and graded
+      // against. Reinforcement attempts carry no event, so we require each to
+      // agree with the group on component + release + content version (so the
+      // shared release context is the correct manifest for it), then re-validate
+      // its own natural key against that manifest.
+      if (
+        att.studyComponentId !== componentKey ||
+        att.releaseId !== first.releaseId ||
+        att.contentVersion !== first.contentVersion
+      ) {
+        await writeSyncAudit(tx, {
+          userId,
+          itemKind: "attempt",
+          itemId: att.id,
+          reasonCode: "malformed_item",
+          severity: "warning",
+          componentKey,
+          correlationId: options.correlationId,
+        });
+        results.push(
+          reject({ itemId: att.id, itemKind: "attempt" }, "malformed_item"),
+        );
+        continue;
+      }
+      const attemptValidation = validateComponent(context, {
+        componentKey: att.studyComponentId,
+        entryId: att.entryId,
+        skillType: att.skillTypeId,
+        sourceField: att.sourceField,
+        direction: att.direction,
+      });
+      if (!attemptValidation.ok) {
+        await writeSyncAudit(tx, {
+          userId,
+          itemKind: "attempt",
+          itemId: att.id,
+          reasonCode: attemptValidation.reasonCode,
+          severity: "warning",
+          releaseId: att.releaseId,
+          componentKey,
+          correlationId: options.correlationId,
+        });
+        results.push(
+          reject(
+            { itemId: att.id, itemKind: "attempt" },
+            attemptValidation.reasonCode,
+          ),
         );
         continue;
       }
