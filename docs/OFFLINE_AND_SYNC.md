@@ -92,7 +92,11 @@ Timestamps never establish causality.
    concurrent branch · unknown parent · cycle · invalid revision.
 5. Reject cycles and impossible lineage (recoverable errors). Hold
    unknown-parent events as `pending_parent`; reprocess when the parent
-   arrives; TTL (~14 days) + client chain-resubmission if it never does.
+   arrives; a per-hold TTL + client chain-resubmission if it never does. (As
+   built, Stage A uses `SYNC_BOUNDS.pendingTtlMs` = 30 days — deliberately wider
+   than this original ~14-day sketch, to comfortably exceed any legitimate
+   Stage-A offline gap before a stricter Stage-B policy tightens it; an expired
+   hold is excluded from the per-component live cap and never promoted.)
 6. Resolve genuine branch conflicts: **most pessimistic rating wins**
    (Again < Hard < Good < Easy), ties by canonical order. The losing branch's
    initial event **and its scheduling descendants** become `conflict_demoted`
@@ -201,23 +205,45 @@ Stage A (server-authoritative learning-state sync) is implemented. Delivered:
   protocol + Zod schemas; the `SYNC_ENABLED` kill-switch; the authenticated,
   email-verified request guard (503-before-auth); server-authoritative
   objective grading (client `is_correct`/`rating` never trusted) + flashcard
-  validation; canonical event time; causal-lineage classification; deterministic
-  FSRS replay; the account-wide monotonic cursor with gap-free pagination;
-  idempotency (payload hashing + `payload_conflict`); per-component
-  advisory-locked transactional ingest with per-component error isolation;
-  reinforcement-only attempt ingestion (history, never advances FSRS); the
-  bounded cross-batch pending-parent reprocessor; revocation/undo; and
-  allow-listed audit-log redaction.
+  validation; canonical event time; causal-lineage classification with a GLOBAL
+  parent lookup that rejects cross-user / cross-component parents rather than
+  holding them; deterministic FSRS replay; the account-wide monotonic cursor
+  with gap-free pagination; idempotency (payload hashing + `payload_conflict`);
+  per-component advisory-locked transactional ingest with per-component error
+  isolation; independent per-event **and per-attempt** validation (a batch never
+  grades later items using the first item's identity); reinforcement-only
+  attempt ingestion (history, never advances FSRS); the bounded cross-batch
+  pending-parent reprocessor with a per-component **live-pending cap**
+  (`SYNC_BOUNDS.maxPendingPerComponent`) + a per-hold **expiry**
+  (`pendingExpiresAt`; expired holds are excluded from the cap and never
+  promoted); revocation/undo; and allow-listed audit-log redaction.
 - **Client** (`modules/sync/client/*`, `components/sync/*`): the typed API
   client (request+response validated against the wire schemas), the pure status
-  state machine, local unsynced selection, push-result apply, pull reconcile,
-  the coalescing orchestrator (single-flight, per-request timeout, logout guard),
-  the framework-light trigger controller, the `SyncProvider` (bootstrap /
-  periodic-while-visible / visibility / online / session-end / manual-retry
-  triggers), the §20 status indicator, and the shared-device logout wipe.
+  state machine, local unsynced scheduling selection **account-scoped by the
+  linked attempt's owner** (a guest's / another account's rows are never
+  uploaded, so login never merges), the Dexie **`mutation_queue` sync outbox**
+  for the non-scheduling categories (bookmark / list / setting upserts+deletes,
+  post-sync-undo revocations, and reinforcement-only attempts) with coalescing,
+  per-item ack, recoverable-retry and permanent dead-letter, push-result apply,
+  pull reconcile (including the settings server↔local key/shape round-trip
+  mapping), the bounded push-batch builder (per-kind + total wire caps with room
+  reserved so small latency-sensitive mutations are never starved), the
+  coalescing orchestrator (single-flight, per-request timeout, logout guard),
+  **durable post-sync undo** (a never-sent event is deleted locally; a
+  server-accepted event is revoked via a queued revocation + replay while its
+  history is kept; a still-pending event defers), the framework-light trigger
+  controller, the `SyncProvider` (bootstrap / periodic-while-visible /
+  visibility / online / session-end / manual-retry triggers), the §20 status
+  indicator (pending count includes the queued mutations), and the shared-device
+  logout wipe (which clears the `mutation_queue` with the other account-scoped
+  stores).
 
-**Deferred to later stages (as designed):** durable per-trigger offline retry,
-full multi-device concurrent conflict resolution / pessimistic-winner demotion,
-per-component held-row TTL/dead-letter, and a full authenticated multi-context
-sync E2E — all Phase 18/19 (Stage B+). The indicator deliberately does not claim
-offline durability or multi-device conflict resolution.
+**Deferred to later stages (as designed):** durable per-trigger offline retry
+with exponential backoff, full multi-device concurrent conflict resolution /
+pessimistic-winner demotion, a scheduled purge/dead-letter job for EXPIRED
+pending-parent rows (the per-component cap + TTL that bound the _live_ backlog
+are built; a background purge of the expired rows themselves is Stage B+, see
+RISK_REGISTER #21), the guest→account merge (Phase 17), and a full authenticated
+multi-context sync E2E — all Phase 17/18/19 (Stage A completion + Stage B+). The
+indicator deliberately does not claim offline durability or multi-device
+conflict resolution.

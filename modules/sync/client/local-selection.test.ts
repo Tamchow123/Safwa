@@ -223,16 +223,27 @@ describe("countPendingScheduling", () => {
     expect(await countPendingScheduling(db, "user-1")).toBe(1);
   });
 
-  it("is unbounded — counts beyond a single push page", async () => {
+  it("counts beyond a single push page (up to the scan cap)", async () => {
     for (let i = 0; i < 7; i++) {
       const att = makeAttempt();
       await insert(att, makeEvent(att));
     }
-    // selectUnsyncedScheduling caps at the limit; the count reflects the backlog.
+    // selectUnsyncedScheduling caps at the limit; the count reflects the backlog
+    // (7 is well under the default PENDING_COUNT_SCAN_CAP, so it is exact).
     expect(
       (await selectUnsyncedScheduling(db, 3, "user-1")).events,
     ).toHaveLength(3);
     expect(await countPendingScheduling(db, "user-1")).toBe(7);
+  });
+
+  it("caps the scan so the badge poll never scales with a huge backlog (REL-001)", async () => {
+    for (let i = 0; i < 5; i++) {
+      const att = makeAttempt();
+      await insert(att, makeEvent(att));
+    }
+    // With an injected cap of 3, only the first 3 events are scanned/counted —
+    // the badge shows the cap rather than doing an unbounded per-event join.
+    expect(await countPendingScheduling(db, "user-1", 3)).toBe(3);
   });
 });
 
