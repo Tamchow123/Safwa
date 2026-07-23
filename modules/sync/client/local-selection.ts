@@ -107,25 +107,36 @@ export function toWireAttempt(attempt: AttemptRecord): WireAttempt | null {
  * `syncStatus === "local"` review-events. This is the "pending changes" number
  * the status indicator surfaces (§20); it counts SENDABILITY candidates, matching
  * `selectUnsyncedScheduling`'s source rows (an event whose attempt is missing is
- * still pending — it is unsynced work, just not yet sendable). Unbounded count,
- * so it reflects the true backlog rather than a page-capped selection.
+ * still pending — it is unsynced work, just not yet sendable). It reflects the
+ * true backlog exactly up to the scan cap below (a large backlog reads as the
+ * cap), rather than the smaller per-push page.
  *
  * ACCOUNT SCOPING (§18, EXT-F1): counts only events OWNED by the active account
  * — those whose linked attempt's `attempt.userId === userId`. Guest events
  * (attempt.userId === null) and any other account's leftover events are NOT
  * counted, so a guest's local history is never surfaced as this account's
  * pending work and login never implies a merge. `review_events` carry no userId
- * of their own, so ownership is read from the linked attempt payload; this makes
- * the count a scan + per-event attempt read rather than an indexed count, which
- * is acceptable for the modest Stage-A local backlog.
+ * of their own, so ownership is read from the linked attempt payload — a scan +
+ * per-event attempt read rather than an indexed count.
+ *
+ * BOUNDED SCAN (§20): because ownership requires the attempt join, the scan is
+ * capped at `scanCap` events (default `PENDING_COUNT_SCAN_CAP`) so this
+ * frequently-polled status-badge count never scales with an arbitrarily large
+ * offline backlog — for a backlog past the cap the badge shows the cap, which
+ * still reads as "many pending" (the exact number past that point is not
+ * user-meaningful). The cap is generous relative to a legitimate session.
  */
+export const PENDING_COUNT_SCAN_CAP = 500;
+
 export async function countPendingScheduling(
   db: SafwaDb,
   userId: string,
+  scanCap: number = PENDING_COUNT_SCAN_CAP,
 ): Promise<number> {
   const local = await db.reviewEvents
     .where("syncStatus")
     .equals("local")
+    .limit(scanCap)
     .toArray();
   let count = 0;
   for (const ev of local) {
