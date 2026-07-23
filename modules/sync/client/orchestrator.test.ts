@@ -14,6 +14,12 @@ import type {
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 
 import type { SyncApiResult } from "./api";
+import { toWireAttempt } from "./local-selection";
+import {
+  enqueueBookmarkMutation,
+  enqueueReinforcementMutation,
+  enqueueRevocationMutation,
+} from "./mutation-queue";
 import { isSyncRunning, runSync, type RunSyncDeps } from "./orchestrator";
 
 let db: SafwaDb;
@@ -183,11 +189,114 @@ describe("runSync", () => {
     expect((await db.reviewEvents.get(eventId))?.syncStatus).toBe("accepted");
   });
 
-  it("skips the push when there are no local events", async () => {
+  it("skips the push when there is no local work at all", async () => {
     const push = vi.fn(async () => pushOk());
     const result = await runSync(deps({ userId: "u-nopush", push }));
     expect(result.outcome).toBe("synced");
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("pushes queued mutations even with no scheduling events, and acks them (EXT-F2)", async () => {
+    await enqueueBookmarkMutation(db, {
+      userId: "u-mut",
+      entryId: 7,
+      createdAt: 1,
+      deleted: false,
+      now: 1,
+    });
+    const push = vi.fn(async (req: PushRequest) => {
+      expect(req.events).toHaveLength(0);
+      expect(req.bookmarks).toEqual([
+        { entryId: 7, createdAt: 1, deleted: false },
+      ]);
+      return pushOk([
+        {
+          itemId: "7",
+          itemKind: "bookmark",
+          status: "accepted",
+          reasonCode: "accepted",
+          duplicate: false,
+          recoverable: false,
+        },
+      ]);
+    });
+    const result = await runSync(deps({ userId: "u-mut", push }));
+    expect(result.outcome).toBe("synced");
+    expect(push).toHaveBeenCalledOnce();
+    // Accepted → the queued mutation was removed from the outbox.
+    expect(await db.mutationQueue.count()).toBe(0);
+  });
+
+  it("merges reinforcement attempts into the attempts array (EXT-F2)", async () => {
+    const attemptId = randomUUID();
+    // The real mapper drops the local-only userId to produce a strict WireAttempt.
+    const attempt = toWireAttempt({
+      ...makeAttempt("u-reinf"),
+      id: attemptId,
+      isReinforcement: true,
+    })!;
+    await enqueueReinforcementMutation(db, {
+      userId: "u-reinf",
+      attempt,
+      now: 1,
+    });
+    const push = vi.fn(async (req: PushRequest) => {
+      expect(req.events).toHaveLength(0);
+      expect(req.attempts).toHaveLength(1);
+      expect(req.attempts[0]?.id).toBe(attemptId);
+      return pushOk([
+        {
+          itemId: attemptId,
+          itemKind: "attempt",
+          status: "accepted",
+          reasonCode: "accepted",
+          duplicate: false,
+          recoverable: false,
+        },
+      ]);
+    });
+    const result = await runSync(deps({ userId: "u-reinf", push }));
+    expect(result.outcome).toBe("synced");
+    expect(await db.mutationQueue.count()).toBe(0);
+  });
+
+  it("sends scheduling AND a queued revocation together (mutations not starved, REL-001)", async () => {
+    await insertLocalEvent("u-mix");
+    await insertLocalEvent("u-mix");
+    await enqueueRevocationMutation(db, {
+      userId: "u-mix",
+      revocation: {
+        revocationId: randomUUID(),
+        eventId: randomUUID(),
+        studyComponentId:
+          "entry:1:skill:meaning_recognition:field:madi:direction:arabic_to_english",
+        deviceId: "device-1",
+        occurredAtClient: "2026-07-20T10:00:00.000Z",
+      },
+      now: 1,
+    });
+    const push = vi.fn(async (req: PushRequest) => {
+      expect(req.events).toHaveLength(2); // scheduling still sent
+      expect(req.revocations).toHaveLength(1); // and the revocation is NOT starved
+      return pushOk();
+    });
+    const result = await runSync(deps({ userId: "u-mix", push }));
+    expect(result.outcome).toBe("synced");
+    expect(push).toHaveBeenCalledOnce();
+  });
+
+  it("does not upload another account's queued mutations (EXT-F1)", async () => {
+    await enqueueBookmarkMutation(db, {
+      userId: "someone-else",
+      entryId: 7,
+      createdAt: 1,
+      deleted: false,
+      now: 1,
+    });
+    const push = vi.fn(async () => pushOk());
+    const result = await runSync(deps({ userId: "u-scoped", push }));
+    expect(result.outcome).toBe("synced");
+    expect(push).not.toHaveBeenCalled(); // nothing of THIS account's to send
   });
 
   it("pages the pull until hasMore is false", async () => {

@@ -19,6 +19,8 @@ import {
   type WireEvent,
 } from "@/modules/sync/protocol";
 
+import { countPendingMutations } from "./mutation-queue";
+
 export type SchedulingSelection = {
   events: WireEvent[];
   attempts: WireAttempt[];
@@ -132,6 +134,25 @@ export async function countPendingScheduling(
     if (stored?.attempt?.userId === userId) count += 1;
   }
   return count;
+}
+
+/**
+ * The account's total pending-change count for the §20 status badge: the
+ * scheduling backlog PLUS the outstanding queued mutations (bookmarks, lists,
+ * settings, revocations, reinforcement attempts — EXT-F2), so the indicator
+ * reflects ALL unsynced work, not only scheduling events. Both halves are
+ * account-scoped (EXT-F1); dead-lettered mutations are excluded (surfaced as
+ * attention separately). This is the `countPending` the sync controller uses.
+ */
+export async function countPendingChanges(
+  db: SafwaDb,
+  userId: string,
+): Promise<number> {
+  const [scheduling, mutations] = await Promise.all([
+    countPendingScheduling(db, userId),
+    countPendingMutations(db, userId),
+  ]);
+  return scheduling + mutations;
 }
 
 /**

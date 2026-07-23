@@ -43,7 +43,7 @@ import {
   createSyncController,
   type SyncController,
 } from "@/modules/sync/client/controller";
-import { countPendingScheduling } from "@/modules/sync/client/local-selection";
+import { countPendingChanges } from "@/modules/sync/client/local-selection";
 import {
   deriveSyncStatus,
   type SyncStatus,
@@ -218,7 +218,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
           // A torn-down (account-switched) controller is no longer current, so
           // an in-flight run for the old account stops without writing.
           isCurrentAccount: (id) => !disposed && id === userId,
-          countPending: countPendingScheduling,
+          countPending: countPendingChanges,
         });
         controllerRef.current = controller;
         unsubscribe = controller.subscribe((next) => {
