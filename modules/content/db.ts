@@ -1,11 +1,15 @@
 /**
- * Dexie (IndexedDB) mirror — schema version 3 (`SAFWA_DB_VERSION`).
+ * Dexie (IndexedDB) mirror — current schema version is `SAFWA_DB_VERSION`
+ * (each `this.version(n).stores(...)` block below is the authoritative record
+ * of what that version added).
  *
  * v1: content cache stores only. v2 (Phase 5) adds the local learner-state
  * stores from DATA_MODEL.md §9: study components (keyed by the shared
  * natural key string), attempts, review events, sessions, bookmarks, lists,
  * settings, the outbound mutation queue and the anonymous device profile.
- * v3 (Phase 12) adds the `daily_activity` derived analytics cache.
+ * v3 (Phase 12) adds the `daily_activity` derived analytics cache. v4 (Phase
+ * 16) adds the `sync_state` cursor store; v5 (Phase 16) adds the outbox
+ * indexes to `mutation_queue`.
  * Content and learning state live in separate stores of one database:
  * cached content releases are immutable verified artifacts, never editable
  * copies.
@@ -43,7 +47,7 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
  * no upgrade function, no change to any existing store's keys or indexes.
  */
 export const SAFWA_DB_NAME = "safwa-content";
-export const SAFWA_DB_VERSION = 4;
+export const SAFWA_DB_VERSION = 5;
 
 /* ------------------------------------------------------------------ */
 /* Learner-state records (schema v2) and derived-cache records (v3)    */
@@ -186,6 +190,44 @@ export type DailyActivityRecord = {
   derivedAt: number;
 };
 
+/**
+ * The single source of truth for the set of known mutation kinds. The
+ * `MutationQueueKind` union is DERIVED from this array (below), so adding a kind
+ * in one place keeps the union, the runtime narrowing and any exhaustive record
+ * in lock-step — neither direction can drift.
+ */
+export const MUTATION_QUEUE_KINDS = [
+  "revocation",
+  "bookmark",
+  "list",
+  "setting",
+  "reinforcement",
+] as const;
+
+/** The Phase-16 outbound mutation categories carried by the queue (§9.1). */
+export type MutationQueueKind = (typeof MUTATION_QUEUE_KINDS)[number];
+
+/**
+ * Narrow a stored `MutationQueueRecord.type` (kept a broad `string` so a legacy
+ * or generic-mechanics row still type-checks) to a known `MutationQueueKind`, or
+ * null if it is off-contract. The one sanctioned narrowing lives here with the
+ * schema owner so consumers never re-derive it with unsafe casts.
+ */
+export function asMutationQueueKind(type: string): MutationQueueKind | null {
+  return (MUTATION_QUEUE_KINDS as readonly string[]).includes(type)
+    ? (type as MutationQueueKind)
+    : null;
+}
+
+/**
+ * Outbound-queue lifecycle (Phase 16 §19, OFFLINE_AND_SYNC §4). `local` = not
+ * yet accepted (selected + retried on every flush); `pushed` = held server-side
+ * (recoverable), resolved by a later push/pull; `dead` = a permanent (non-
+ * recoverable) rejection moved to the dead-letter state — retained and surfaced,
+ * never silently dropped. An absent `status` on a legacy row is read as `local`.
+ */
+export type MutationQueueStatus = "local" | "pushed" | "dead";
+
 export type MutationQueueRecord = {
   /** Auto-incremented outbound order; assigned by Dexie on add. */
   seq?: number;
@@ -193,6 +235,21 @@ export type MutationQueueRecord = {
   type: string;
   payload: unknown;
   createdAt: number;
+  /**
+   * Phase-16 sync-outbox fields. Optional so a pre-Phase-16 row (the store has
+   * existed, unused, since v2) still type-checks and is safely treated as an
+   * un-owned `local` row. `enqueueMutation` always writes them explicitly.
+   */
+  /** Owning account (`attempt.userId` semantics); null/undefined = not account-owned, never selected for sync. */
+  userId?: string | null;
+  /** Stable per-target key (the server itemId) for latest-state-wins coalescing and result matching. */
+  target?: string;
+  /** Sync lifecycle; absent = `local`. */
+  status?: MutationQueueStatus;
+  /** Push attempts so far (retry/backoff accounting). */
+  attempts?: number;
+  /** Last rejection reason code, for the dead-letter surface. */
+  lastReason?: string | null;
 };
 
 /**
@@ -262,8 +319,21 @@ export class SafwaDb extends Dexie {
     });
     // v4 (Phase 16): the online-sync client state (single "account" row).
     // Purely additive — no upgrade function needed.
-    this.version(SAFWA_DB_VERSION).stores({
+    this.version(4).stores({
       sync_state: "key",
+    });
+    // v5 (Phase 16): the mutation_queue becomes the live sync outbox for
+    // bookmarks/lists/settings/revocations/reinforcement (§9.1, EXT-F2). This
+    // only ADDS indexes to the existing store so the account-scoped selector,
+    // ack and status-badge counts can narrow the cursor to the caller's own
+    // account + lifecycle instead of scanning the whole table: the compound
+    // `[userId+status]` drives the hot pending/dead-letter counts and the push
+    // selection, and `[type+userId+target]` drives the coalesce lookup. The
+    // primary key and unique idempotencyKey are unchanged, existing rows are
+    // re-indexed in place, and no data-moving upgrade function is needed.
+    this.version(SAFWA_DB_VERSION).stores({
+      mutation_queue:
+        "++seq, &idempotencyKey, type, userId, status, [userId+status], [type+userId+target]",
     });
     // Code-facing accessors stay camelCase per TS convention; the mapping
     // to the snake_case physical stores lives here and nowhere else.
