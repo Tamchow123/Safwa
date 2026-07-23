@@ -577,4 +577,180 @@ describe("ingestSchedulingBatch", () => {
       expect(storedAttempts).toHaveLength(2); // both attempts stored as history
     });
   });
+
+  describe("pending-parent reprocessor (T9c, §14.2)", () => {
+    it("promotes a held child when its parent arrives in a later batch", async () => {
+      const userId = await createTestUser();
+      const attP = attempt();
+      const pid = randomUUID();
+      const p = event(attP, {
+        eventId: pid,
+        clientComponentRevision: 1,
+        parentEventId: null,
+      });
+      const attC = attempt();
+      const c = event(attC, { clientComponentRevision: 2, parentEventId: pid });
+
+      // Batch 1: the child arrives before its parent → held pending.
+      const first = await ingestSchedulingBatch(userId, [c], [attC], {
+        nowMs: NOW,
+      });
+      expect(first.results[0]).toMatchObject({
+        status: "pending",
+        reasonCode: "pending_parent",
+      });
+      const db = getDb();
+      let [component] = await db
+        .select()
+        .from(studyComponents)
+        .where(eq(studyComponents.userId, userId));
+      expect(component?.revision).toBe(0); // a pending child does not advance the chain
+
+      // Batch 2: the parent arrives → parent accepted AND the held child promoted.
+      const second = await ingestSchedulingBatch(userId, [p], [attP], {
+        nowMs: NOW,
+      });
+      expect(second.results[0]).toMatchObject({ status: "accepted" });
+      const events = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId));
+      expect(events).toHaveLength(2);
+      expect(events.every((e) => e.status === "scheduling")).toBe(true);
+      [component] = await db
+        .select()
+        .from(studyComponents)
+        .where(eq(studyComponents.userId, userId));
+      expect(component?.revision).toBe(2); // parent + promoted child
+      expect(component?.reps).toBe(2); // FSRS advanced by both, via replay
+      // The promoted child's cursor is stamped (pullable to other devices).
+      expect(second.serverCursor).toBeGreaterThan(0);
+    });
+
+    it("promotes a transitive held chain when the root arrives", async () => {
+      const userId = await createTestUser();
+      const aid = randomUUID();
+      const bid = randomUUID();
+      const attA = attempt();
+      const a = event(attA, {
+        eventId: aid,
+        clientComponentRevision: 1,
+        parentEventId: null,
+      });
+      const attB = attempt();
+      const b = event(attB, {
+        eventId: bid,
+        clientComponentRevision: 2,
+        parentEventId: aid,
+      });
+      const attC = attempt();
+      const c = event(attC, { clientComponentRevision: 3, parentEventId: bid });
+
+      // Batch 1: B and C arrive before the root A → both held.
+      await ingestSchedulingBatch(userId, [b, c], [attB, attC], { nowMs: NOW });
+      const db = getDb();
+      let events = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId));
+      expect(events.filter((e) => e.status === "pending_parent")).toHaveLength(
+        2,
+      );
+
+      // Batch 2: A arrives → A accepted, then B and C promote transitively.
+      await ingestSchedulingBatch(userId, [a], [attA], { nowMs: NOW });
+      events = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId));
+      expect(events).toHaveLength(3);
+      expect(events.every((e) => e.status === "scheduling")).toBe(true);
+      const [component] = await db
+        .select()
+        .from(studyComponents)
+        .where(eq(studyComponents.userId, userId));
+      expect(component?.revision).toBe(3);
+      expect(component?.reps).toBe(3);
+    });
+
+    it("leaves a held child pending when a non-parent event arrives", async () => {
+      const userId = await createTestUser();
+      const missingParent = randomUUID();
+      const attC = attempt();
+      const c = event(attC, {
+        clientComponentRevision: 2,
+        parentEventId: missingParent,
+      });
+      await ingestSchedulingBatch(userId, [c], [attC], { nowMs: NOW });
+
+      // An unrelated NEW root arrives — it does not satisfy the held child's
+      // (different) missing parent, so the child stays pending.
+      const attRoot = attempt();
+      const root = event(attRoot, {
+        clientComponentRevision: 1,
+        parentEventId: null,
+      });
+      await ingestSchedulingBatch(userId, [root], [attRoot], { nowMs: NOW });
+
+      const db = getDb();
+      const events = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId));
+      const held = events.find((e) => e.eventId === c.eventId);
+      expect(held?.status).toBe("pending_parent"); // still held
+    });
+
+    it("promotes only the contiguous child among many held siblings of one parent (bounded)", async () => {
+      const userId = await createTestUser();
+      const pid = randomUUID();
+      // Many held children ALL parented on the (missing) pid, at revisions 2..9.
+      // Only the revision-2 child is a contiguous extension of the parent; the
+      // rest are competing stale branches once the head advances.
+      const siblings = [];
+      for (let rev = 2; rev <= 9; rev++) {
+        const att = attempt();
+        siblings.push({
+          att,
+          ev: event(att, { clientComponentRevision: rev, parentEventId: pid }),
+        });
+      }
+      await ingestSchedulingBatch(
+        userId,
+        siblings.map((s) => s.ev),
+        siblings.map((s) => s.att),
+        { nowMs: NOW },
+      );
+
+      // The parent finally arrives.
+      const attP = attempt();
+      const p = event(attP, {
+        eventId: pid,
+        clientComponentRevision: 1,
+        parentEventId: null,
+      });
+      await ingestSchedulingBatch(userId, [p], [attP], { nowMs: NOW });
+
+      const db = getDb();
+      const events = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId));
+      // Parent + the single revision-2 child are scheduling; the other 7
+      // stale-branch siblings stay held pending_parent.
+      const scheduling = events.filter((e) => e.status === "scheduling");
+      const pending = events.filter((e) => e.status === "pending_parent");
+      expect(scheduling).toHaveLength(2);
+      expect(pending).toHaveLength(7);
+      const rev2 = siblings.find((s) => s.ev.clientComponentRevision === 2)!;
+      expect(events.find((e) => e.eventId === rev2.ev.eventId)?.status).toBe(
+        "scheduling",
+      );
+      const [component] = await db
+        .select()
+        .from(studyComponents)
+        .where(eq(studyComponents.userId, userId));
+      expect(component?.revision).toBe(2);
+    });
+  });
 });

@@ -68,6 +68,15 @@ export type IngestResult = {
 
 const OBJECTIVE_MODES = new Set(["mc", "timed", "test", "timed_test"]);
 
+/**
+ * Upper bound on how many held `pending_parent` children a single request may
+ * promote (§14.2, T9c). A very long held chain finishing all at once would make
+ * one transaction do unbounded work; capping it keeps each request bounded, and
+ * any remainder is promoted by the next request that touches the component. Set
+ * well above any realistic held depth.
+ */
+const MAX_PENDING_REPROCESS = 1000;
+
 /** A row loaded from review_events that we reason about during ingestion. */
 type EventRow = typeof reviewEvents.$inferSelect;
 
@@ -815,6 +824,92 @@ async function processComponentGroup(
         clockSuspect: canonicalTime.clockSuspect,
         canonicalOccurredAt: canonicalTime.occurredAtCanonical,
       });
+    }
+
+    // T9c (§14.2): promote children held `pending_parent` from an EARLIER batch
+    // whose parent is now accepted. Only a child whose parent is the CURRENT head
+    // with the contiguous NEXT revision can accept (classifyLineage rejects a
+    // stale branch off a non-head parent), so instead of re-classifying every
+    // held sibling we walk the chain FORWARD from the head via an O(1)
+    // parent+revision index. This keeps per-request work bounded by the number of
+    // PROMOTIONS regardless of how many stale/held siblings accumulated — a
+    // malicious client cannot force unbounded classification work (SEC-T9c-001).
+    // Held rows always carry a non-null parent (a root is never held pending).
+    const heldByParentRev = new Map<string, Map<number, EventRow>>();
+    for (const row of existingRows) {
+      if (row.status !== "pending_parent" || row.parentEventId === null)
+        continue;
+      const byRevision =
+        heldByParentRev.get(row.parentEventId) ?? new Map<number, EventRow>();
+      // A fork sharing (parent, revision) is a competing branch; keep the
+      // lexicographically-smallest event id for a deterministic winner and hold
+      // the other (Stage A holds competing branches for pull/rebase).
+      const incumbent = byRevision.get(row.clientComponentRevision);
+      if (!incumbent || row.eventId < incumbent.eventId) {
+        byRevision.set(row.clientComponentRevision, row);
+      }
+      heldByParentRev.set(row.parentEventId, byRevision);
+    }
+    if (heldByParentRev.size > 0) {
+      const promotedIds: string[] = [];
+      let budget = MAX_PENDING_REPROCESS;
+      while (budget > 0 && chain.headEventId !== null) {
+        const child = heldByParentRev
+          .get(chain.headEventId)
+          ?.get(chain.headRevision + 1);
+        if (!child) break;
+        // Structural safety net (cycle/contiguity) via the same classifier the
+        // main loop uses — belt-and-suspenders on top of the parent+revision key.
+        const lineage = classifyLineage(
+          {
+            eventId: child.eventId,
+            parentEventId: child.parentEventId,
+            clientComponentRevision: child.clientComponentRevision,
+          },
+          {
+            headEventId: chain.headEventId,
+            headRevision: chain.headRevision,
+            acceptedEventIds: chain.acceptedEventIds,
+          },
+          {
+            parentByEventId: chain.parentByEventId,
+            pendingEventIds: chain.pendingEventIds,
+          },
+        );
+        if (lineage.decision !== "accept") break;
+
+        chain.acceptedEventIds.add(child.eventId);
+        chain.pendingEventIds.delete(child.eventId);
+        chain.accepted.push({
+          eventId: child.eventId,
+          status: "scheduling",
+          rating: child.rating as ComponentReplayEvent["rating"],
+          clientComponentRevision: child.clientComponentRevision,
+          parentEventId: child.parentEventId,
+          occurredAtCanonical: child.occurredAtCanonical,
+          localDateAtEvent: child.localDateAtEvent,
+        });
+        chain.headEventId = child.eventId;
+        chain.headRevision = child.clientComponentRevision;
+        chain.headCanonicalMs = child.occurredAtCanonical.getTime();
+        acceptedThisBatch.push(child.eventId);
+        promotedIds.push(child.eventId);
+        budget -= 1;
+      }
+      if (promotedIds.length > 0) {
+        // ONE batched status flip (not one round trip per child) so the advisory
+        // lock is not held across N sequential updates.
+        await tx
+          .update(reviewEvents)
+          .set({ status: "scheduling" })
+          .where(inArray(reviewEvents.eventId, promotedIds));
+        changed = true;
+      }
+      if (budget <= 0) {
+        console.warn(
+          `[sync] ingest: pending-parent reprocess hit the ${MAX_PENDING_REPROCESS} cap for component ${component.id}; remainder promotes on the next request`,
+        );
+      }
     }
 
     if (!changed) return results;
