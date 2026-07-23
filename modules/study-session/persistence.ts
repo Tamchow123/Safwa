@@ -25,6 +25,8 @@ import type {
 } from "@/modules/content/db";
 import { DEVICE_PROFILE_KEY } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
+import { toWireAttempt } from "@/modules/sync/client/local-selection";
+import { enqueueReinforcementMutation } from "@/modules/sync/client/mutation-queue";
 import type {
   SchedulingEventSummary,
   StoredComponentState,
@@ -262,6 +264,7 @@ export async function recordGradedAttempt(
       db.sessions,
       db.settings,
       db.profile,
+      db.mutationQueue,
     ],
     async () => {
       // Bind the device identity atomically with this write (first progress):
@@ -296,6 +299,21 @@ export async function recordGradedAttempt(
       });
 
       if (!shouldCreateEvent(boundAttempt)) {
+        // Reinforcement-only attempt (no scheduling event): history that must
+        // still sync (§11, EXT-F2) but never advances FSRS. A signed-in
+        // account's reinforcement attempt is enqueued to the sync outbox
+        // (owner from the attempt itself, matching EXT-F1 scheduling ownership);
+        // a guest's (userId null) is not — it syncs on the Phase-17 merge.
+        if (boundAttempt.userId) {
+          const wire = toWireAttempt(boundAttempt);
+          if (wire) {
+            await enqueueReinforcementMutation(db, {
+              userId: boundAttempt.userId,
+              attempt: wire,
+              now: context.now,
+            });
+          }
+        }
         return {
           attemptId: boundAttempt.id,
           componentKey,
@@ -347,7 +365,7 @@ export async function undoGradedAttempt(
 ): Promise<void> {
   await db.transaction(
     "rw",
-    [db.studyAttempts, db.reviewEvents, db.studyComponents],
+    [db.studyAttempts, db.reviewEvents, db.studyComponents, db.mutationQueue],
     async () => {
       if (persisted.eventId !== null) {
         const componentKey = persisted.componentKey;
@@ -373,6 +391,25 @@ export async function undoGradedAttempt(
           remaining,
           now,
         );
+      } else {
+        // A reinforcement-only attempt (no scheduling event) may have been
+        // enqueued to the sync outbox (EXT-F2). Undoing it removes that queued
+        // row so the server never records an attempt the user reversed
+        // (REL-001). A `local` row was never transmitted, so this fully retracts
+        // it. A `pushed` row was already sent once and the server replied
+        // `pending` (still processing) — deleting it cancels any RESEND but
+        // cannot recall the in-flight copy; that residual resolves under the
+        // accepted Stage-A eventual-consistency posture (reinforcement is
+        // analytics history, not authoritative scheduling, and has no revocation
+        // path). Once the server has ACCEPTED the attempt the queued row is
+        // already gone (acked + deleted), so there is nothing here to remove.
+        const queued = await db.mutationQueue
+          .where("idempotencyKey")
+          .equals(`reinforcement:${persisted.attemptId}`)
+          .first();
+        if (queued?.seq !== undefined) {
+          await db.mutationQueue.delete(queued.seq);
+        }
       }
       await db.studyAttempts.delete(persisted.attemptId);
     },

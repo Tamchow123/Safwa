@@ -12,6 +12,9 @@ import {
   type StorageManagerLike,
 } from "@/modules/profile/persistence";
 import type { DeviceProfileOptions } from "@/modules/profile/device";
+import { SETTING_KEYS } from "@/modules/profile/setting-keys";
+import { enqueueSettingMutation } from "@/modules/sync/client/mutation-queue";
+import { mapLocalSettingToWire } from "@/modules/sync/client/settings-sync";
 import {
   APP_THEME_STORAGE_KEY,
   isAppTheme,
@@ -25,13 +28,7 @@ import {
   type ArabicFontScale,
 } from "@/lib/preferences/arabic-font-scale";
 
-export const SETTING_KEYS = {
-  arabicFontScale: "arabic-font-scale",
-  registerPromptDismissed: "register-prompt-dismissed",
-  sessionDefaults: "session-defaults",
-  theme: "theme",
-  timezone: "timezone",
-} as const;
+export { SETTING_KEYS };
 
 export async function readSetting(db: SafwaDb, key: string): Promise<unknown> {
   const record = await db.settings.get(key);
@@ -72,8 +69,37 @@ export async function writeGuestSetting(
   storage?: StorageManagerLike,
   options: DeviceProfileOptions = {},
 ): Promise<void> {
+  const now = options.now ?? Date.now;
+  const at = now();
   await Promise.all([
-    writeSetting(db, key, value, options.now ?? Date.now),
+    // The setting write and its sync-outbox enqueue share ONE transaction, so
+    // the queued (coalesced, latest-state-wins) mutation can never disagree with
+    // the value actually stored — two rapid writes to the same key commit both
+    // halves in the same order (REL-002). Phase 16 (EXT-F2): mirror a SIGNED-IN
+    // account's syncable setting change to the outbox. A guest (owner null)
+    // never enqueues — settings sync on the Phase-17 merge, not on login. This
+    // runs on the explicit user-action path only; the silent startup
+    // reconciliation writes via `writeSetting` directly, so it never produces a
+    // phantom sync mutation. The key/value mapping IS the syncability gate — a
+    // non-account-safe key maps to nothing.
+    db.transaction(
+      "rw",
+      [db.settings, db.mutationQueue, db.syncState],
+      async () => {
+        await writeSetting(db, key, value, () => at);
+        const owner = (await db.syncState.get("account"))?.userId ?? null;
+        if (!owner) return;
+        for (const wire of mapLocalSettingToWire(key, value, at)) {
+          await enqueueSettingMutation(db, {
+            userId: owner,
+            key: wire.key,
+            value: wire.value,
+            updatedAt: wire.updatedAt,
+            now: at,
+          });
+        }
+      },
+    ),
     ensureDurableGuestState(db, storage, options),
   ]);
 }
