@@ -76,9 +76,10 @@ export default async function AccountPage() {
             <h2 className="text-base font-semibold">Your progress</h2>
           </CardTitle>
           <CardDescription>
-            Study progress stays on this device only — signing in does not back
-            up or sync it yet. Manage local settings and export your data from
-            Settings.
+            Your study progress syncs to your account while you’re online, so
+            it’s backed up beyond this device. You can keep studying offline —
+            changes sync when you reconnect. Manage local settings and export
+            your data from Settings.
           </CardDescription>
         </CardHeader>
         <CardContent>

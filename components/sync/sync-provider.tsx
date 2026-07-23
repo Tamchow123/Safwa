@@ -82,6 +82,16 @@ export function useSyncStatus(): SyncContextValue {
   return value;
 }
 
+/**
+ * Non-throwing status read: returns null when rendered OUTSIDE a SyncProvider.
+ * The status indicator lives in the shared header, which is also rendered in
+ * isolation (e.g. guest-independence unit tests) where no provider wraps it —
+ * so the indicator degrades to nothing rather than crashing the shell.
+ */
+export function useOptionalSyncStatus(): SyncContextValue | null {
+  return useContext(SyncContext);
+}
+
 /** Stable no-op used when a component renders outside a SyncProvider. */
 const NOOP_SESSION_END = () => {};
 
