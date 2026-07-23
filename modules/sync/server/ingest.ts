@@ -878,13 +878,278 @@ async function processComponentGroup(
 }
 
 /**
- * Ingest a batch of scheduling events (with their attempts). Groups events by
- * component and processes each component in its own advisory-locked transaction.
- * Returns a per-item result for every event and the resulting account cursor.
+ * Ingest the batch's REINFORCEMENT-ONLY attempts — attempts with no scheduling
+ * event (§12, ledger T9b). They persist as authoritative history/analytics with
+ * server-canonical correctness, but NEVER advance FSRS: no review event is
+ * written, the component revision is unchanged, and the account cursor is not
+ * bumped (they carry no scheduling change to pull). Same per-component advisory
+ * lock as the event path, so a reinforcement attempt and a scheduling event for
+ * one component still serialise.
+ */
+async function processReinforcementAttempts(
+  db: Database,
+  userId: string,
+  componentKey: string,
+  attempts: WireAttempt[],
+  options: IngestOptions,
+  contextCache: Map<string, QuestionContext | null>,
+): Promise<SyncItemResult[]> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`${userId}:${componentKey}`}), 0)`,
+    );
+
+    const first = attempts[0]!;
+    const resolved = await resolveReleaseForIngestion(first.releaseId, options);
+    if (contextCache.has(first.releaseId) === false) {
+      contextCache.set(
+        first.releaseId,
+        resolved.ok
+          ? createQuestionContextFromRelease(resolved.release.learner)
+          : null,
+      );
+    }
+    const context = contextCache.get(first.releaseId) ?? null;
+    if (!context) {
+      const code: SyncReasonCode = resolved.ok
+        ? "invalid_release"
+        : resolved.reasonCode;
+      return Promise.all(
+        attempts.map(async (att) => {
+          await writeSyncAudit(tx, {
+            userId,
+            itemKind: "attempt",
+            itemId: att.id,
+            reasonCode: code,
+            severity: "warning",
+            releaseId: att.releaseId,
+            componentKey,
+            correlationId: options.correlationId,
+          });
+          return reject({ itemId: att.id, itemKind: "attempt" }, code);
+        }),
+      );
+    }
+
+    const validation = validateComponent(context, {
+      componentKey,
+      entryId: first.entryId,
+      skillType: first.skillTypeId,
+      sourceField: first.sourceField,
+      direction: first.direction,
+    });
+    if (!validation.ok) {
+      return Promise.all(
+        attempts.map(async (att) => {
+          await writeSyncAudit(tx, {
+            userId,
+            itemKind: "attempt",
+            itemId: att.id,
+            reasonCode: validation.reasonCode,
+            severity: "warning",
+            releaseId: att.releaseId,
+            componentKey,
+            correlationId: options.correlationId,
+          });
+          return reject(
+            { itemId: att.id, itemKind: "attempt" },
+            validation.reasonCode,
+          );
+        }),
+      );
+    }
+    const identity = validation.identity;
+    const component = await findOrCreateComponent(tx, userId, {
+      entryId: identity.entryId,
+      skillType: identity.skillType,
+      componentShape: identity.componentShape,
+      sourceField: identity.sourceField,
+      direction: identity.direction,
+    });
+
+    // The chain head only supplies the clock-suspect baseline; a reinforcement
+    // attempt never extends the chain, so nothing here is written back to it.
+    const existingRows = await tx
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.studyComponentId, component.id));
+    const chain = buildChainState(existingRows);
+
+    const results: SyncItemResult[] = [];
+    for (const att of attempts) {
+      // A no-event attempt that does not declare itself reinforcement is
+      // inconsistent (a scheduling attempt must carry its event) — reject it
+      // rather than silently persist a non-scheduling "first attempt".
+      if (!att.isReinforcement) {
+        await writeSyncAudit(tx, {
+          userId,
+          itemKind: "attempt",
+          itemId: att.id,
+          reasonCode: "malformed_item",
+          severity: "warning",
+          componentKey,
+          correlationId: options.correlationId,
+        });
+        results.push(
+          reject({ itemId: att.id, itemKind: "attempt" }, "malformed_item"),
+        );
+        continue;
+      }
+
+      // Idempotency: a re-delivered attempt id is a duplicate if its immutable
+      // payload matches, or a payload_conflict if it differs.
+      const hash = payloadHash(attemptPayload(att));
+      const [existing] = await tx
+        .select({ hash: studyAttempts.idempotencyPayloadHash })
+        .from(studyAttempts)
+        .where(eq(studyAttempts.id, att.id));
+      if (existing) {
+        if (existing.hash === hash) {
+          results.push({
+            itemId: att.id,
+            itemKind: "attempt",
+            status: "duplicate",
+            reasonCode: "duplicate",
+            duplicate: true,
+            recoverable: false,
+            componentKey,
+          });
+        } else {
+          await writeSyncAudit(tx, {
+            userId,
+            itemKind: "attempt",
+            itemId: att.id,
+            reasonCode: "payload_conflict",
+            severity: "critical",
+            componentKey,
+            correlationId: options.correlationId,
+          });
+          results.push(
+            reject({ itemId: att.id, itemKind: "attempt" }, "payload_conflict"),
+          );
+        }
+        continue;
+      }
+
+      // Server-canonical correctness (never the client claim). Flashcards are
+      // self-rated (no objective answer to grade); objective modes are graded.
+      let canonicalIsCorrect: boolean;
+      let canonicalCorrectAnswer: unknown;
+      let correctnessCorrected = false;
+      if (att.mode === "flashcard") {
+        canonicalIsCorrect = att.isCorrect;
+        canonicalCorrectAnswer = att.correctAnswerRef;
+      } else if (OBJECTIVE_MODES.has(att.mode)) {
+        const grade = gradeObjectiveAttempt(context, {
+          identity,
+          mode: att.mode as "mc" | "timed" | "test" | "timed_test",
+          questionSeed: att.questionSeed,
+          questionPosition: att.questionPosition,
+          optionCount: att.optionCount,
+          promptField: att.promptField,
+          questionInstanceId: att.questionInstanceId,
+          questionGeneratorVersion: att.questionGeneratorVersion,
+          selectedAnswerRef: att.selectedAnswerRef,
+          hintUsed: att.hintUsed,
+          claimedIsCorrect: att.isCorrect,
+        });
+        if (!grade.ok) {
+          await writeSyncAudit(tx, {
+            userId,
+            itemKind: "attempt",
+            itemId: att.id,
+            reasonCode: grade.reasonCode,
+            severity: "warning",
+            releaseId: att.releaseId,
+            componentKey,
+            correlationId: options.correlationId,
+          });
+          results.push(
+            reject({ itemId: att.id, itemKind: "attempt" }, grade.reasonCode),
+          );
+          continue;
+        }
+        canonicalIsCorrect = grade.isCorrect;
+        canonicalCorrectAnswer = grade.correctAnswerRef;
+        correctnessCorrected = grade.correctnessCorrected;
+      } else {
+        results.push(
+          reject({ itemId: att.id, itemKind: "attempt" }, "malformed_item"),
+        );
+        continue;
+      }
+
+      // Each reinforcement attempt is clamped against the component's SCHEDULING
+      // chain head (its clock-suspect floor is "not before the last accepted
+      // scheduling event, not in the future"). It is deliberately NOT chained to
+      // the OTHER reinforcement attempts in this batch: reinforcement attempts
+      // are independent practice events with no causal lineage or revision order
+      // (unlike scheduling events, which advance the chain head as they accept),
+      // so their intra-batch relative ordering is not an enforced invariant. This
+      // has no scheduling consequence, and day-level analytics/streaks key off
+      // localDateAtEvent (the day), not sub-day ordering, so it is not a
+      // correctness gap — see the reliability review of ledger T9b.
+      const canonicalTime = computeCanonicalEventTime({
+        // The attempt's own client instant (attempts carry occurredAtUtc; the
+        // occurredAtClient name is event-only).
+        occurredAtClient: att.occurredAtUtc,
+        timezoneAtEvent: att.timezoneAtEvent,
+        utcOffsetMinutesAtEvent: att.utcOffsetMinutesAtEvent,
+        localDateAtEvent: att.localDateAtEvent,
+        timezoneSource: att.timezoneSource,
+        serverReceivedAtMs: options.nowMs,
+        previousAcceptedCanonicalMs: chain.headCanonicalMs,
+      });
+
+      // Persist as history only — no event, no replay, no revision/cursor bump.
+      await persistAttempt(
+        tx,
+        userId,
+        component.id,
+        att,
+        {
+          isCorrect: canonicalIsCorrect,
+          correctAnswerRef: canonicalCorrectAnswer,
+        },
+        canonicalTime,
+      );
+      if (correctnessCorrected) {
+        await writeSyncAudit(tx, {
+          userId,
+          itemKind: "attempt",
+          itemId: att.id,
+          reasonCode: "correctness_corrected",
+          severity: "warning",
+          componentKey,
+          correlationId: options.correlationId,
+        });
+      }
+      results.push({
+        itemId: att.id,
+        itemKind: "attempt",
+        status: correctnessCorrected ? "corrected" : "accepted",
+        reasonCode: correctnessCorrected ? "correctness_corrected" : "accepted",
+        duplicate: false,
+        recoverable: false,
+        componentKey,
+        clockSuspect: canonicalTime.clockSuspect,
+        canonicalOccurredAt: canonicalTime.occurredAtCanonical,
+      });
+    }
+    return results;
+  });
+}
+
+/**
+ * Ingest a batch of scheduling events (with their attempts) AND any
+ * reinforcement-only attempts (no scheduling event, §12/T9b). Groups events by
+ * component and processes each component in its own advisory-locked transaction;
+ * then processes the reinforcement-only attempts the same way. Returns a
+ * per-item result for every event and every reinforcement attempt, plus the
+ * resulting account cursor.
  *
- * Reinforcement-only attempts (no scheduling event, ledger T9b) and the
- * bounded cross-batch pending-parent reprocessor (§14.2, ledger T9c) are
- * tracked follow-up tasks within this phase.
+ * The bounded cross-batch pending-parent reprocessor (§14.2, ledger T9c) is a
+ * tracked follow-up task within this phase.
  */
 export async function ingestSchedulingBatch(
   userId: string,
@@ -939,6 +1204,55 @@ export async function ingestSchedulingBatch(
         }
         results.push(
           reject({ itemId: ev.eventId, itemKind: "event" }, "internal_error"),
+        );
+      }
+    }
+  }
+
+  // Reinforcement-only attempts (§12/T9b): every attempt NOT referenced by a
+  // scheduling event in this batch. Grouped by component and processed with the
+  // same per-component isolation as events.
+  const referencedByEvent = new Set(events.map((ev) => ev.attemptId));
+  const reinforcementByComponent = new Map<string, WireAttempt[]>();
+  for (const att of attempts) {
+    if (referencedByEvent.has(att.id)) continue;
+    const group = reinforcementByComponent.get(att.studyComponentId) ?? [];
+    group.push(att);
+    reinforcementByComponent.set(att.studyComponentId, group);
+  }
+  for (const [componentKey, group] of reinforcementByComponent) {
+    try {
+      const groupResults = await processReinforcementAttempts(
+        db,
+        userId,
+        componentKey,
+        group,
+        options,
+        contextCache,
+      );
+      results.push(...groupResults);
+    } catch (error) {
+      // Isolate one component's failure exactly as the event loop does.
+      console.error(
+        `[sync] ingest: reinforcement component ${componentKey} aborted`,
+        error,
+      );
+      for (const att of group) {
+        try {
+          await writeSyncAudit(db, {
+            userId,
+            itemKind: "attempt",
+            itemId: att.id,
+            reasonCode: "internal_error",
+            severity: "critical",
+            componentKey,
+            correlationId: options.correlationId,
+          });
+        } catch {
+          // Never let audit failure mask the original error handling.
+        }
+        results.push(
+          reject({ itemId: att.id, itemKind: "attempt" }, "internal_error"),
         );
       }
     }

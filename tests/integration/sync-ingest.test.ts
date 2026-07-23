@@ -433,4 +433,148 @@ describe("ingestSchedulingBatch", () => {
     expect(component?.stability).toBeCloseTo(fresh.stability ?? 0, 6);
     expect(component?.learnerState).toBe(fresh.learnerState);
   });
+
+  describe("reinforcement-only attempts (T9b, §12)", () => {
+    it("persists a reinforcement attempt as history without advancing FSRS", async () => {
+      const userId = await createTestUser();
+      const att = attempt({ isReinforcement: true, isFirstAttempt: false });
+      const { results, serverCursor } = await ingestSchedulingBatch(
+        userId,
+        [], // no scheduling event
+        [att],
+        { nowMs: NOW },
+      );
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({
+        itemId: att.id,
+        itemKind: "attempt",
+        status: "accepted",
+      });
+      // No scheduling change → the account cursor does not move.
+      expect(serverCursor).toBe(0);
+
+      const db = getDb();
+      const storedAttempts = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId));
+      expect(storedAttempts).toHaveLength(1);
+      expect(storedAttempts[0]?.isReinforcement).toBe(true);
+      // NO review event and NO FSRS advance.
+      const storedEvents = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId));
+      expect(storedEvents).toHaveLength(0);
+      const [component] = await db
+        .select()
+        .from(studyComponents)
+        .where(eq(studyComponents.userId, userId));
+      expect(component?.revision).toBe(0);
+      expect(component?.reps).toBe(0);
+    });
+
+    it("is idempotent — a duplicate reinforcement attempt id is stored once", async () => {
+      const userId = await createTestUser();
+      const att = attempt({ isReinforcement: true, isFirstAttempt: false });
+      await ingestSchedulingBatch(userId, [], [att], { nowMs: NOW });
+      const second = await ingestSchedulingBatch(userId, [], [att], {
+        nowMs: NOW,
+      });
+      expect(second.results[0]).toMatchObject({
+        itemKind: "attempt",
+        status: "duplicate",
+        duplicate: true,
+      });
+      const db = getDb();
+      const storedAttempts = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId));
+      expect(storedAttempts).toHaveLength(1);
+    });
+
+    it("corrects a false is_correct claim on a reinforcement attempt (server-canonical)", async () => {
+      const userId = await createTestUser();
+      const att = attempt({
+        isReinforcement: true,
+        isFirstAttempt: false,
+        selectedAnswerRef: aDistractor(),
+        isCorrect: true, // client claim overridden
+      });
+      const { results } = await ingestSchedulingBatch(userId, [], [att], {
+        nowMs: NOW,
+      });
+      expect(results[0]?.status).toBe("corrected");
+
+      const db = getDb();
+      const [stored] = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId));
+      expect(stored?.isCorrect).toBe(false); // server-derived, not the claim
+      const audits = await db
+        .select()
+        .from(syncAuditLog)
+        .where(eq(syncAuditLog.userId, userId));
+      expect(audits.some((a) => a.reasonCode === "correctness_corrected")).toBe(
+        true,
+      );
+    });
+
+    it("rejects a no-event attempt that is not marked reinforcement (malformed_item)", async () => {
+      const userId = await createTestUser();
+      const att = attempt({ isReinforcement: false }); // no event, not reinforcement
+      const { results } = await ingestSchedulingBatch(userId, [], [att], {
+        nowMs: NOW,
+      });
+      expect(results[0]).toMatchObject({
+        itemKind: "attempt",
+        status: "rejected",
+        reasonCode: "malformed_item",
+      });
+      const db = getDb();
+      const storedAttempts = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId));
+      expect(storedAttempts).toHaveLength(0);
+    });
+
+    it("a reinforcement attempt never bumps a scheduled component's revision or the cursor", async () => {
+      const userId = await createTestUser();
+      // First a real scheduling event → revision 1, cursor 1.
+      const a1 = attempt();
+      const e1 = event(a1);
+      await ingestSchedulingBatch(userId, [e1], [a1], { nowMs: NOW });
+
+      // Then a reinforcement attempt for the SAME component.
+      const a2 = attempt({ isReinforcement: true, isFirstAttempt: false });
+      const { results, serverCursor } = await ingestSchedulingBatch(
+        userId,
+        [],
+        [a2],
+        { nowMs: NOW },
+      );
+      expect(results[0]?.status).toBe("accepted");
+      expect(serverCursor).toBe(1); // unchanged by the reinforcement attempt
+
+      const db = getDb();
+      const [component] = await db
+        .select()
+        .from(studyComponents)
+        .where(eq(studyComponents.userId, userId));
+      expect(component?.revision).toBe(1); // still just the one scheduling event
+      const storedEvents = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId));
+      expect(storedEvents).toHaveLength(1); // no new event from the reinforcement
+      const storedAttempts = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId));
+      expect(storedAttempts).toHaveLength(2); // both attempts stored as history
+    });
+  });
 });
