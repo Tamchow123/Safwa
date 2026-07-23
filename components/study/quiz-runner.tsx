@@ -69,6 +69,7 @@ import type { QuizDelivery } from "@/modules/study-session/quizzes";
 import {
   recordGradedAttempt,
   SupersededUndoError,
+  UndoNotYetSyncedError,
   undoGradedAttempt,
   type PersistedAttempt,
 } from "@/modules/study-session/persistence";
@@ -485,6 +486,12 @@ export function QuizRunner({
         setSession({ ...session, previous: null });
         setActionError(
           "This question was reviewed again elsewhere and can no longer be undone.",
+        );
+      } else if (error instanceof UndoNotYetSyncedError) {
+        // Transient: the review is still syncing. Keep the undo affordance so the
+        // learner can retry once it settles (do NOT retire the snapshot).
+        setActionError(
+          "This review is still syncing — try undo again in a moment.",
         );
       } else {
         setActionError("Couldn't undo that. Please try again.");

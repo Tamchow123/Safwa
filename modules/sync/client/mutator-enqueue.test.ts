@@ -16,6 +16,7 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
 import {
   recordGradedAttempt,
   undoGradedAttempt,
+  UndoNotYetSyncedError,
 } from "@/modules/study-session/persistence";
 
 import { countPendingMutations, selectQueuedMutations } from "./mutation-queue";
@@ -164,6 +165,106 @@ describe("setting enqueue", () => {
 
   it("does not enqueue for a guest", async () => {
     await writeGuestSetting(db, "theme", "dark", undefined, { now: () => 5 });
+    expect(await db.mutationQueue.count()).toBe(0);
+  });
+});
+
+function schedulingAttempt(userId: string | null): AttemptRecord {
+  return {
+    ...reinforcementAttempt(userId),
+    isFirstAttempt: true,
+    isReinforcement: false,
+  };
+}
+
+describe("durable post-sync undo (EXT-F3)", () => {
+  it("physically deletes an UNSYNCED (local) scheduling event, no revocation", async () => {
+    const persisted = await recordGradedAttempt(db, schedulingAttempt(USER), {
+      now: 1,
+      eventId: randomUUID(),
+    });
+    expect(persisted.eventId).not.toBeNull();
+    await undoGradedAttempt(db, persisted, 2);
+    expect(await db.reviewEvents.get(persisted.eventId!)).toBeUndefined();
+    expect(await db.studyAttempts.get(persisted.attemptId)).toBeUndefined();
+    // A never-sent event needs no revocation.
+    expect(await db.mutationQueue.count()).toBe(0);
+  });
+
+  it("queues a revocation and KEEPS history for a SERVER-KNOWN (accepted) event", async () => {
+    const persisted = await recordGradedAttempt(db, schedulingAttempt(USER), {
+      now: 1,
+      eventId: randomUUID(),
+    });
+    // Simulate the server having accepted the event.
+    await db.reviewEvents.update(persisted.eventId!, {
+      syncStatus: "accepted",
+    });
+    await undoGradedAttempt(db, persisted, 2);
+    // The event is KEPT but revoked; the attempt is KEPT (history, §16).
+    expect((await db.reviewEvents.get(persisted.eventId!))?.status).toBe(
+      "revoked",
+    );
+    expect(await db.studyAttempts.get(persisted.attemptId)).toBeDefined();
+    // The component's FSRS reverts optimistically (its only event is revoked, so
+    // it becomes never-reviewed) — the undo shows immediately, before sync.
+    expect(
+      await db.studyComponents.get(persisted.componentKey),
+    ).toBeUndefined();
+    // A revocation targeting the event is durably queued for the account.
+    const sel = await selectQueuedMutations(db, USER);
+    expect(sel.revocations).toHaveLength(1);
+    expect(sel.revocations[0]?.eventId).toBe(persisted.eventId);
+    expect(sel.revocations[0]?.studyComponentId).toBe(persisted.componentKey);
+  });
+
+  it("DEFERS undo of a still-syncing (pushed) event rather than losing it (REL-001)", async () => {
+    const persisted = await recordGradedAttempt(db, schedulingAttempt(USER), {
+      now: 1,
+      eventId: randomUUID(),
+    });
+    // The server is holding this event as pending (not yet authoritative).
+    await db.reviewEvents.update(persisted.eventId!, { syncStatus: "pushed" });
+    await expect(undoGradedAttempt(db, persisted, 2)).rejects.toBeInstanceOf(
+      UndoNotYetSyncedError,
+    );
+    // Nothing was revoked, deleted, or queued — the undo is retryable later.
+    expect((await db.reviewEvents.get(persisted.eventId!))?.status).toBe(
+      "scheduling",
+    );
+    expect(await db.mutationQueue.count()).toBe(0);
+  });
+
+  it("is idempotent on an already-undone event — never a second revocation (REL-002)", async () => {
+    const persisted = await recordGradedAttempt(db, schedulingAttempt(USER), {
+      now: 1,
+      eventId: randomUUID(),
+    });
+    await db.reviewEvents.update(persisted.eventId!, {
+      syncStatus: "accepted",
+    });
+    await undoGradedAttempt(db, persisted, 2);
+    await undoGradedAttempt(db, persisted, 3); // second undo — no-op
+    expect((await selectQueuedMutations(db, USER)).revocations).toHaveLength(1);
+  });
+
+  it("REFUSES to revoke a server-known event with no resolvable owner (ARCH-001)", async () => {
+    // A guest (null-owner) event can never legitimately be server-known; if it
+    // somehow is, the undo must refuse rather than silently diverge.
+    const persisted = await recordGradedAttempt(db, schedulingAttempt(null), {
+      now: 1,
+      eventId: randomUUID(),
+    });
+    await db.reviewEvents.update(persisted.eventId!, {
+      syncStatus: "accepted",
+    });
+    await expect(undoGradedAttempt(db, persisted, 2)).rejects.toThrow(
+      /no resolvable owner/,
+    );
+    // The refusal rolled back — nothing was marked revoked or queued.
+    expect((await db.reviewEvents.get(persisted.eventId!))?.status).toBe(
+      "scheduling",
+    );
     expect(await db.mutationQueue.count()).toBe(0);
   });
 });

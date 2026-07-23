@@ -23,10 +23,14 @@ import type {
   SafwaDb,
   StudyComponentRecord,
 } from "@/modules/content/db";
+import { uuidv7 } from "@/lib/uuid";
 import { DEVICE_PROFILE_KEY } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 import { toWireAttempt } from "@/modules/sync/client/local-selection";
-import { enqueueReinforcementMutation } from "@/modules/sync/client/mutation-queue";
+import {
+  enqueueReinforcementMutation,
+  enqueueRevocationMutation,
+} from "@/modules/sync/client/mutation-queue";
 import type {
   SchedulingEventSummary,
   StoredComponentState,
@@ -65,6 +69,21 @@ export class SupersededUndoError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "SupersededUndoError";
+  }
+}
+
+/**
+ * Thrown when a scheduling event cannot be undone YET because the server is
+ * still holding it as `pending` (sent but not yet authoritative — e.g. an
+ * unknown-parent hold). Revoking it now would be rejected non-recoverably and
+ * silently lost, then a later pull would resurrect it (EXT-F3). The undo is
+ * TRANSIENT-rejected so the caller keeps the undo affordance and can retry once
+ * the event resolves to accepted; unlike `SupersededUndoError` it is recoverable.
+ */
+export class UndoNotYetSyncedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UndoNotYetSyncedError";
   }
 }
 
@@ -347,16 +366,30 @@ export async function recordGradedAttempt(
 }
 
 /**
- * Reverse exactly one recorded attempt (single-step undo), atomically. For an
- * attempt that created a scheduling event, the attempt row and the event row are
- * removed TOGETHER and the chain re-replayed — but only while the event is still
- * the chain head. If a later review already extends it (its eventId is another
- * event's parent — e.g. the same component graded again in another tab sharing
- * this IndexedDB), the undo is REJECTED: the transaction throws
- * `SupersededUndoError`, rolling back so both rows stay intact and consistent
- * (rebasing a superseded branch is Phase 19). A reinforcement-recovery attempt
- * (no event) always undoes. Idempotent on an already-undone attempt. Mode-
- * agnostic — the undo unit is the same for flashcards and multiple choice.
+ * Reverse exactly one recorded attempt (single-step undo), atomically — but only
+ * while the reversed event is still the chain HEAD. If a later review already
+ * extends it (its eventId is another event's parent — e.g. the same component
+ * graded again in another tab sharing this IndexedDB), the undo is REJECTED: the
+ * transaction throws `SupersededUndoError`, rolling back so everything stays
+ * consistent (rebasing a superseded branch is Phase 19).
+ *
+ * DURABLE POST-SYNC UNDO (EXT-F3, §16). How a scheduling event is reversed
+ * depends on whether the SERVER has it:
+ *   - `syncStatus === "local"` (never sent): the server never saw it, so the
+ *     event row and its attempt are physically deleted together and the chain
+ *     re-replayed — a clean local reversal.
+ *   - otherwise (accepted/pushed/…): a physical delete would DIVERGE from the
+ *     server, which would keep replaying the event. Instead we queue a
+ *     revocation mutation (pushed + replayed server-side), mark the event
+ *     `revoked` locally (the projection filters non-`scheduling` events, so FSRS
+ *     reflects the undo immediately), and KEEP the event + its attempt as history
+ *     — revocation affects the scheduling effect and replay, not the historical
+ *     existence of the attempt (§16). The undo only reports success once that
+ *     revocation is durably queued (this transaction commits).
+ *
+ * A reinforcement-recovery attempt (no event) always undoes (and retracts any
+ * queued reinforcement mutation). Idempotent on an already-undone attempt.
+ * Mode-agnostic — the undo unit is the same for flashcards and multiple choice.
  */
 export async function undoGradedAttempt(
   db: SafwaDb,
@@ -371,7 +404,7 @@ export async function undoGradedAttempt(
         const componentKey = persisted.componentKey;
         const chain = await readComponentEvents(db, componentKey);
         // A later event depending on this one means it is no longer the head;
-        // reject before deleting anything so attempt + event remain consistent.
+        // reject before touching anything so the chain stays consistent.
         const superseded = chain.some(
           (event) => event.parentEventId === persisted.eventId,
         );
@@ -380,6 +413,76 @@ export async function undoGradedAttempt(
             `event ${persisted.eventId} was superseded by a later review and can no longer be undone`,
           );
         }
+        const record = await db.reviewEvents.get(persisted.eventId);
+        // Idempotent: an already-undone (revoked) event is a no-op — never
+        // enqueue a second revocation (REL-002/ARCH-002). A revoked event is
+        // already excluded from `chain` (readComponentEvents filters
+        // `scheduling`), so this is the direct check.
+        if (record?.status === "revoked") return;
+        // A `pushed` event is still HELD server-side (pending, not yet
+        // authoritative). Revoking it now would be rejected non-recoverably and
+        // silently lost, and a later pull would resurrect it — so defer the undo
+        // transiently rather than lose it (REL-001). The caller keeps the undo
+        // affordance and retries once it resolves to `accepted`.
+        if (record?.syncStatus === "pushed") {
+          throw new UndoNotYetSyncedError(
+            `event ${persisted.eventId} is still syncing and cannot be undone yet`,
+          );
+        }
+        // The server holds the event AUTHORITATIVELY only when accepted/demoted;
+        // `local` (never sent) and `rejected` (server refused it) are not
+        // server-authoritative, so they take the safe physical-delete path below.
+        const serverKnown =
+          record != null &&
+          (record.syncStatus === "accepted" || record.syncStatus === "demoted");
+        if (serverKnown) {
+          // Durable post-sync undo: queue a revocation, mark the event revoked,
+          // keep it + its attempt, and reproject with it excluded (the
+          // projection ignores non-`scheduling` events). Owner from the attempt.
+          const stored = await db.studyAttempts.get(persisted.attemptId);
+          const owner = stored?.attempt?.userId ?? null;
+          if (!owner) {
+            // Invariant: only owned events are ever pushed (selectUnsyncedScheduling
+            // gates on attempt.userId), so a server-known event always resolves an
+            // owner. Refuse rather than mark revoked with NO durable revocation —
+            // that would be exactly the silent divergence EXT-F3 removes (ARCH-001).
+            throw new Error(
+              `server-known event ${persisted.eventId} has no resolvable owner; refusing to revoke without a durable revocation`,
+            );
+          }
+          await enqueueRevocationMutation(db, {
+            userId: owner,
+            revocation: {
+              revocationId: uuidv7(now),
+              eventId: persisted.eventId,
+              studyComponentId: componentKey,
+              deviceId: record.deviceId ?? persisted.deviceId,
+              occurredAtClient: new Date(now).toISOString(),
+            },
+            now,
+          });
+          await db.reviewEvents.update(persisted.eventId, {
+            status: "revoked",
+          });
+          // Reproject from the chain WITHOUT the revoked head — the SAME input
+          // shape as the delete path (scheduling-only events), so an empty
+          // result correctly reverts the component to never-reviewed. The event
+          // ROW is kept (marked `revoked`) and is excluded from every future read
+          // (readComponentEvents filters `status === "scheduling"`).
+          const remaining = chain.filter(
+            (event) => event.eventId !== persisted.eventId,
+          );
+          await writeComponentProjection(
+            db,
+            componentKey,
+            entryIdFromComponentKey(componentKey),
+            remaining,
+            now,
+          );
+          // KEEP the attempt (history) — do not fall through to the delete.
+          return;
+        }
+        // Unsynced (local) event: the server never saw it — safe physical delete.
         await db.reviewEvents.delete(persisted.eventId);
         const remaining = chain.filter(
           (event) => event.eventId !== persisted.eventId,
