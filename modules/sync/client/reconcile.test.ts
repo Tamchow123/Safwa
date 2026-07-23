@@ -150,6 +150,40 @@ describe("applyPullResponse", () => {
     expect((await db.settings.get("theme"))?.value).toBe("dark");
   });
 
+  it("maps pulled server settings back to the LOCAL keys/shapes so context B can read them (EXT-F2)", async () => {
+    await applyPullResponse(
+      db,
+      "user-1",
+      pull({
+        settings: [
+          { key: "arabicFontScale", value: "large", updatedAt: 3 },
+          {
+            key: "timezone",
+            value: { mode: "iana", name: "Europe/London" },
+            updatedAt: 4,
+          },
+          { key: "questionCount", value: 15, updatedAt: 5 },
+          { key: "dailyReviewTarget", value: 40, updatedAt: 6 },
+        ],
+      }),
+      1000,
+    );
+    // The camelCase server keys land under the LOCAL kebab keys the app reads.
+    expect((await db.settings.get("arabic-font-scale"))?.value).toBe("large");
+    expect((await db.settings.get("timezone"))?.value).toEqual({
+      mode: "iana",
+      timezone: "Europe/London",
+    });
+    // The four session-defaults keys merge into the one local blob.
+    expect((await db.settings.get("session-defaults"))?.value).toMatchObject({
+      questionCount: 15,
+      reviewsPerDay: 40,
+    });
+    // The camelCase keys are NOT left lying around as unreadable rows.
+    expect(await db.settings.get("arabicFontScale")).toBeUndefined();
+    expect(await db.settings.get("questionCount")).toBeUndefined();
+  });
+
   it("applies tombstones by deleting the named bookmark and list", async () => {
     await db.bookmarks.add({ entryId: 5, createdAt: 1 });
     await db.lists.add({

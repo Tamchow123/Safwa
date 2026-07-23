@@ -22,8 +22,14 @@ import {
   applyListTombstone,
 } from "@/modules/collections/persistence";
 import type { SafwaDb } from "@/modules/content/db";
+import {
+  DEFAULT_SESSION_DEFAULTS,
+  sanitizeSessionDefaults,
+} from "@/modules/profile/session-defaults-core";
+import { SETTING_KEYS } from "@/modules/profile/setting-keys";
 import type { PullResponse } from "@/modules/sync/protocol";
 
+import { foldPulledSettings } from "./settings-sync";
 import { recordSyncProgress } from "./sync-state";
 
 /** Map a pulled event status to the local ReviewEventRecord.status vocabulary. */
@@ -97,12 +103,26 @@ export async function applyPullResponse(
       for (const list of pull.lists) {
         await applyAuthoritativeList(db, list);
       }
-      for (const setting of pull.settings) {
-        await db.settings.put({
-          key: setting.key,
-          value: setting.value,
-          updatedAt: setting.updatedAt,
-        });
+      // Settings are mapped from the server's camelCase keys/values back to the
+      // LOCAL kebab keys/shapes the app reads (§23, EXT-F2) — the inverse of the
+      // push mapping. The four session-defaults keys merge into the one local
+      // `session-defaults` blob, so we read its current value first.
+      if (pull.settings.length > 0) {
+        const currentDefaults = sanitizeSessionDefaults(
+          (await db.settings.get(SETTING_KEYS.sessionDefaults))?.value ??
+            DEFAULT_SESSION_DEFAULTS,
+        );
+        const folded = foldPulledSettings(pull.settings, currentDefaults);
+        for (const put of folded.directPuts) {
+          await db.settings.put(put);
+        }
+        if (folded.sessionDefaults) {
+          await db.settings.put({
+            key: SETTING_KEYS.sessionDefaults,
+            value: folded.sessionDefaults,
+            updatedAt: folded.sessionDefaultsUpdatedAt,
+          });
+        }
       }
 
       // 4. Tombstones — propagate deletions from another context. Applied after
