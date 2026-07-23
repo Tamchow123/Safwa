@@ -1,4 +1,5 @@
 import { AccountMenu } from "@/components/auth/account-menu";
+import { SyncStatusIndicator } from "@/components/sync/sync-status-indicator";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 /** Compact top header: app name on mobile (the sidebar owns it on desktop). */
@@ -9,6 +10,7 @@ export function AppHeader() {
         Safwa
       </span>
       <div className="ml-auto flex items-center gap-1">
+        <SyncStatusIndicator />
         <AccountMenu />
         <ThemeToggle />
       </div>
