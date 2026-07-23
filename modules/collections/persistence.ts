@@ -1,10 +1,15 @@
 /**
  * Dexie persistence adapter for bookmarks and custom lists (Phase 14,
  * docs/phases/phases-14.md §9). The impure boundary for this module: it is
- * the only place that reads/writes `db.bookmarks`/`db.lists`, mints list ids
- * (`uuidv7`) and calls the durable guest-state boundary. Every function here
- * composes the pure builders/validators from `modules/collections/{bookmarks,
- * lists,validation}.ts` with a Dexie transaction.
+ * the only place that reads/writes INDIVIDUAL `db.bookmarks`/`db.lists` rows,
+ * mints list ids (`uuidv7`) and calls the durable guest-state boundary. Every
+ * function here composes the pure builders/validators from
+ * `modules/collections/{bookmarks,lists,validation}.ts` with a Dexie
+ * transaction. The ONE sanctioned exception is the whole-store wipe in
+ * `modules/sync/client/logout.ts` (`clearAccountLocalState`, via the schema
+ * owner's `accountScopedTables`), which bulk-`.clear()`s these stores on
+ * logout/account-switch — a full wipe has no per-row canonicalisation invariant
+ * to preserve, so it does not route through this adapter.
  *
  * DURABLE GUEST STATE (§9): every write below fires `ensureDurableGuestState`
  * BEFORE the Dexie transaction runs — deliberately at the user action,

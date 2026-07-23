@@ -21,7 +21,7 @@
  * BROWSER-ONLY: server components must never import or instantiate this.
  * Creation is lazy; tests use fake-indexeddb.
  */
-import Dexie, { type EntityTable } from "dexie";
+import Dexie, { type EntityTable, type Table } from "dexie";
 
 import {
   learnerReleaseSchema,
@@ -274,6 +274,45 @@ export class SafwaDb extends Dexie {
     this.mutationQueue = this.table("mutation_queue");
     this.syncState = this.table("sync_state");
   }
+}
+
+/**
+ * The account-owned (private, per-account) stores. SINGLE SOURCE OF TRUTH for
+ * this security-relevant grouping (the schema owner owns it): these are the
+ * stores cleared on logout / account switch so a shared device never leaks one
+ * account's data to the next (Phase 16 §18, SEC-002-T15d), and the same set a
+ * future Phase 17 guest-merge / account-deletion reset must use. A NEW
+ * account-owned store MUST be classified here — the `accountScopedTables +
+ * deviceAndContentTables === all tables` coverage test fails otherwise, turning
+ * silent drift (a stale store leaking across accounts) into a build signal.
+ */
+export function accountScopedTables(db: SafwaDb): Table[] {
+  return [
+    db.studyComponents,
+    db.studyAttempts,
+    db.reviewEvents,
+    db.dailyActivity,
+    db.sessions,
+    db.bookmarks,
+    db.lists,
+    db.settings,
+    db.mutationQueue,
+    db.syncState,
+  ] as unknown as Table[];
+}
+
+/**
+ * The device / shared-content stores PRESERVED across a logout: the anonymous
+ * device profile (device identity, not account data) and the immutable,
+ * hash-verified content cache. The complement of `accountScopedTables`.
+ */
+export function deviceAndContentTables(db: SafwaDb): Table[] {
+  return [
+    db.profile,
+    db.contentReleases,
+    db.contentEntries,
+    db.contentMetadata,
+  ] as unknown as Table[];
 }
 
 let singleton: SafwaDb | null = null;

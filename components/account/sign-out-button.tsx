@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "@/modules/auth/client";
+import { signOutAndClearLocalState } from "@/components/account/sign-out-action";
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
@@ -11,7 +11,9 @@ export function SignOutButton() {
     if (pending) return;
     setPending(true);
     try {
-      await signOut();
+      // The single sign-out path: end the session, then best-effort wipe the
+      // previous account's local state + UI-preference mirrors (SEC-002-T15d).
+      await signOutAndClearLocalState();
     } finally {
       setPending(false);
     }
