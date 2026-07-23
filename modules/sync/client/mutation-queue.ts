@@ -250,7 +250,7 @@ export async function enqueueSettingMutation(
   });
 }
 
-/** Enqueue a post-sync undo revocation (append-only; de-duped by revocationId). */
+/** Enqueue a post-sync undo revocation (append-only; de-duped by target event). */
 export async function enqueueRevocationMutation(
   db: SafwaDb,
   params: { userId: string; revocation: WireRevocation; now: number },
@@ -258,12 +258,14 @@ export async function enqueueRevocationMutation(
   await enqueue({
     db,
     userId: params.userId,
+    // Ack still matches on the revocationId the server echoes back.
     type: "revocation",
     target: params.revocation.revocationId,
     payload: params.revocation,
-    // The revocationId is itself a unique UUID — reuse it so a double undo of
-    // the same event can never enqueue two revocations.
-    idempotencyKey: params.revocation.revocationId,
+    // De-dupe by the TARGET EVENT, not the (freshly-minted) revocationId, so a
+    // repeated undo of the same event can never enqueue a second revocation even
+    // if the persistence-layer guard is bypassed (REL-002).
+    idempotencyKey: `revocation:${params.revocation.eventId}`,
     now: params.now,
     coalesce: false,
   });
