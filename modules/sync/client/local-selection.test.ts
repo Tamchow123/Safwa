@@ -7,7 +7,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ReviewEventRecord, SafwaDb } from "@/modules/content/db";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 
-import { selectUnsyncedScheduling } from "./local-selection";
+import {
+  countPendingScheduling,
+  selectUnsyncedScheduling,
+} from "./local-selection";
 
 let db: SafwaDb;
 let counter = 0;
@@ -160,5 +163,39 @@ describe("selectUnsyncedScheduling", () => {
     const selection = await selectUnsyncedScheduling(db, 100);
     expect(selection.events).toHaveLength(2);
     expect(selection.attempts).toHaveLength(1); // shared attempt sent once
+  });
+});
+
+describe("countPendingScheduling", () => {
+  it("counts only the local (unsynced) review events", async () => {
+    const local = makeAttempt();
+    await insert(local, makeEvent(local));
+    const accepted = makeAttempt();
+    await insert(accepted, makeEvent(accepted, { syncStatus: "accepted" }));
+
+    expect(await countPendingScheduling(db)).toBe(1);
+  });
+
+  it("is zero when there is no unsynced work", async () => {
+    expect(await countPendingScheduling(db)).toBe(0);
+  });
+
+  it("counts an unsendable local event (missing attempt is still pending work)", async () => {
+    const att = makeAttempt();
+    // Event but no attempt: not sendable, yet still unsynced local work.
+    await db.reviewEvents.add(makeEvent(att));
+    expect(await countPendingScheduling(db)).toBe(1);
+    // ...and it is NOT selected for a push (sendability differs from pending).
+    expect((await selectUnsyncedScheduling(db, 100)).events).toHaveLength(0);
+  });
+
+  it("is unbounded — counts beyond a single push page", async () => {
+    for (let i = 0; i < 7; i++) {
+      const att = makeAttempt();
+      await insert(att, makeEvent(att));
+    }
+    // selectUnsyncedScheduling caps at the limit; the count reflects the backlog.
+    expect((await selectUnsyncedScheduling(db, 3)).events).toHaveLength(3);
+    expect(await countPendingScheduling(db)).toBe(7);
   });
 });
