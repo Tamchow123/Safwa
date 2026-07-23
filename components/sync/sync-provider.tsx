@@ -3,7 +3,11 @@
 /**
  * Phase 16 — the React wiring for online sync (§18 triggers, §20 status). This
  * is the ONLY place DOM timers/listeners and the Better Auth session meet the
- * framework-light sync controller; study/collection UI never imports sync logic.
+ * framework-light sync controller. Study/collection UI never imports sync
+ * decision logic; the sole exception is `useSessionEndSync()` below — an opaque,
+ * non-throwing trigger carrying NO push/pull/selection logic, exported so a
+ * study runner can request an end-of-session sync without depending on (or
+ * knowing anything about) the sync layer.
  *
  * Lifecycle, keyed on the signed-in account id:
  *  - GUEST (no user id): no controller is built and NO trigger fires — guests
@@ -23,7 +27,14 @@
  * runSync, so at most one run per account is ever in flight. Clock/online are
  * read live; the whole thing self-gates, so mounting it app-wide is safe.
  */
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { useSession } from "@/modules/auth/client";
 import { getSafwaDb } from "@/modules/content/db";
@@ -46,6 +57,18 @@ export type SyncContextValue = {
   status: SyncStatus;
   /** Manual retry from the attention state (§18/§20) — a no-op for a guest. */
   retry: () => void;
+  /**
+   * Request a push+pull because a study session just ended (§18 "push at
+   * successful session end"). A no-op for a guest / before the controller
+   * exists; overlapping triggers coalesce, so calling it is always safe. If a
+   * session completes in the brief window before the async controller build
+   * resolves, this specific nudge is dropped — the freshly-completed data is
+   * still durably in Dexie and reaches the server via the bootstrap sync (which
+   * runs as soon as the controller comes up) or the next periodic/visibility
+   * sync. That best-effort coverage is deliberate for Stage A (no durable
+   * per-trigger retry).
+   */
+  notifySessionEnd: () => void;
 };
 
 const SyncContext = createContext<SyncContextValue | null>(null);
@@ -57,6 +80,20 @@ export function useSyncStatus(): SyncContextValue {
     throw new Error("useSyncStatus must be used within a SyncProvider");
   }
   return value;
+}
+
+/** Stable no-op used when a component renders outside a SyncProvider. */
+const NOOP_SESSION_END = () => {};
+
+/**
+ * The session-end sync trigger, safe to call from a study runner. Unlike
+ * `useSyncStatus`, this does NOT require a provider: outside one (e.g. a runner
+ * rendered in isolation in a test) it returns a stable no-op, so study UI can
+ * request an end-of-session sync without depending on the sync layer or knowing
+ * anything about it (§18 "Do not put sync logic directly into study UI").
+ */
+export function useSessionEndSync(): () => void {
+  return useContext(SyncContext)?.notifySessionEnd ?? NOOP_SESSION_END;
 }
 
 function onlineNow(): boolean {
@@ -212,7 +249,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     };
   }, [userId, retryToken]);
 
-  const retry = (): void => {
+  const retry = useCallback((): void => {
     if (controllerRef.current) {
       void controllerRef.current.sync("manual");
     } else if (userId !== null) {
@@ -221,7 +258,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       setRetryToken((token) => token + 1);
     }
     // Guest (userId null): retry is a no-op — guests never call the server.
-  };
+  }, [userId]);
+
+  // Stable so a study runner can list it as an effect dependency without churn.
+  const notifySessionEnd = useCallback((): void => {
+    void controllerRef.current?.sync("session-end");
+  }, []);
 
   // Guest status is derived at render; a signed-in account shows ITS controller
   // status once subscribed (matched by userId so a stale status from a previous
@@ -234,7 +276,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         : initialSignedInStatus();
 
   return (
-    <SyncContext.Provider value={{ status, retry }}>
+    <SyncContext.Provider value={{ status, retry, notifySessionEnd }}>
       {children}
     </SyncContext.Provider>
   );

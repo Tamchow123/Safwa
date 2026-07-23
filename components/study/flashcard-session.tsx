@@ -7,6 +7,7 @@ import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
 import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
 import { Flashcard } from "@/components/flashcard";
+import { useSessionEndSync } from "@/components/sync/sync-provider";
 import {
   FieldValue,
   FIELD_LABELS,
@@ -244,6 +245,9 @@ export function FlashcardRunner({
   const [status, setStatus] = useState<RunnerStatus>("initialising");
   const [session, setSession] = useState<SessionState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Nudge an end-of-session sync when the run completes (§18 "push at
+  // successful session end"). A no-op for guests / outside a SyncProvider.
+  const notifySessionEnd = useSessionEndSync();
   // Transient, recoverable error from a failed grade/undo persistence write.
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -341,6 +345,12 @@ export function FlashcardRunner({
       cancelled = true;
     };
   }, [context, entries, buildPlan, presetClock]);
+
+  // When the run completes, request an end-of-session sync (§18). notifySessionEnd
+  // is a stable no-op outside a SyncProvider / for guests, so this is safe here.
+  useEffect(() => {
+    if (status === "complete") notifySessionEnd();
+  }, [status, notifySessionEnd]);
 
   const instance: QuestionInstance | null = useMemo(() => {
     if (!session || !context || session.status !== "active") return null;

@@ -56,14 +56,19 @@ vi.mock("@/modules/sync/client/controller", () => ({
   createSyncController: (deps: RunSyncDeps) => createSyncControllerMock(deps),
 }));
 
-import { SyncProvider, useSyncStatus } from "@/components/sync/sync-provider";
+import {
+  SyncProvider,
+  useSessionEndSync,
+  useSyncStatus,
+} from "@/components/sync/sync-provider";
 
 function Consumer() {
-  const { status, retry } = useSyncStatus();
+  const { status, retry, notifySessionEnd } = useSyncStatus();
   return (
     <div>
       <span data-testid="kind">{status.kind}</span>
       <button onClick={retry}>retry</button>
+      <button onClick={notifySessionEnd}>session-end</button>
     </div>
   );
 }
@@ -338,9 +343,34 @@ describe("SyncProvider", () => {
     );
   });
 
+  it("notifySessionEnd triggers a session-end sync", async () => {
+    sessionState = SIGNED_IN;
+    render(
+      <SyncProvider>
+        <Consumer />
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(createSyncControllerMock).toHaveBeenCalled());
+    controllerSync.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "session-end" }));
+    expect(controllerSync).toHaveBeenCalledWith("session-end");
+  });
+
   it("throws if useSyncStatus is used outside a provider", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => render(<Consumer />)).toThrow(/within a SyncProvider/);
     spy.mockRestore();
+  });
+
+  it("useSessionEndSync is a safe no-op outside a provider (study runners render standalone)", () => {
+    function StandaloneRunner() {
+      const notify = useSessionEndSync();
+      // Calling it without a provider must not throw.
+      notify();
+      return <span>ok</span>;
+    }
+    expect(() => render(<StandaloneRunner />)).not.toThrow();
+    expect(screen.getByText("ok")).toBeInTheDocument();
   });
 });
