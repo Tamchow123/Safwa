@@ -89,7 +89,9 @@ class LearnerDbV2 extends Dexie {
 
 // Physical store names are a durable contract: the learner-state stores use
 // the documented snake_case names (DATA_MODEL.md §9); the v1 content stores
-// keep their shipped camelCase names; v3 adds only daily_activity.
+// keep their shipped camelCase names; v3 adds daily_activity and v4 (Phase 16)
+// adds the sync_state cursor store. This is the full store set at the current
+// SAFWA_DB_VERSION, which the additive upgrades all converge to.
 const V3_STORE_NAMES = [
   "bookmarks",
   "contentEntries",
@@ -104,6 +106,7 @@ const V3_STORE_NAMES = [
   "settings",
   "study_attempts",
   "study_components",
+  "sync_state",
 ];
 
 let dbName = "";

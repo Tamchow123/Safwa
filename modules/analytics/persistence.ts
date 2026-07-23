@@ -4,7 +4,10 @@
  * (Phase 12 §14–15). Mirrors modules/study-session/persistence.ts: the pure
  * modules never import Dexie; this is the ONE place analytics rows are read
  * and `writeDailyActivityCache` below is the ONE writer of the
- * `daily_activity` derived cache.
+ * `daily_activity` derived cache — the sole exception being the logout wipe
+ * (`clearAccountLocalState`, Phase 16) that bulk-`.clear()`s the cache along
+ * with every other account-scoped store on account switch (a rebuildable cache,
+ * safe to drop; it re-derives on next use).
  *
  * AUTHORITY MODEL (§14.2): `study_attempts` + `review_events` remain the
  * learner truth. `daily_activity` is a REBUILDABLE cache — every read path
