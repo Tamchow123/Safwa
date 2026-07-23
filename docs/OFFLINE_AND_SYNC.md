@@ -192,3 +192,32 @@ attention needed), detail view listing recoverable issues.
 Stage A assumes connectivity for account features (guests are always fully
 local). Offline correctness across devices is only claimed after Stage C's
 test suite (including cross-browser and iOS PWA verification) passes.
+
+## As built — Stage A (Phase 16)
+
+Stage A (server-authoritative learning-state sync) is implemented. Delivered:
+
+- **Server** (`modules/sync/server/*`, `app/api/sync/{push,pull}`): the wire
+  protocol + Zod schemas; the `SYNC_ENABLED` kill-switch; the authenticated,
+  email-verified request guard (503-before-auth); server-authoritative
+  objective grading (client `is_correct`/`rating` never trusted) + flashcard
+  validation; canonical event time; causal-lineage classification; deterministic
+  FSRS replay; the account-wide monotonic cursor with gap-free pagination;
+  idempotency (payload hashing + `payload_conflict`); per-component
+  advisory-locked transactional ingest with per-component error isolation;
+  reinforcement-only attempt ingestion (history, never advances FSRS); the
+  bounded cross-batch pending-parent reprocessor; revocation/undo; and
+  allow-listed audit-log redaction.
+- **Client** (`modules/sync/client/*`, `components/sync/*`): the typed API
+  client (request+response validated against the wire schemas), the pure status
+  state machine, local unsynced selection, push-result apply, pull reconcile,
+  the coalescing orchestrator (single-flight, per-request timeout, logout guard),
+  the framework-light trigger controller, the `SyncProvider` (bootstrap /
+  periodic-while-visible / visibility / online / session-end / manual-retry
+  triggers), the §20 status indicator, and the shared-device logout wipe.
+
+**Deferred to later stages (as designed):** durable per-trigger offline retry,
+full multi-device concurrent conflict resolution / pessimistic-winner demotion,
+per-component held-row TTL/dead-letter, and a full authenticated multi-context
+sync E2E — all Phase 18/19 (Stage B+). The indicator deliberately does not claim
+offline durability or multi-device conflict resolution.
