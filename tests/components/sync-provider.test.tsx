@@ -33,7 +33,10 @@ vi.mock("@/modules/profile/device", () => ({
 }));
 
 vi.mock("@/modules/sync/client/local-selection", () => ({
-  countPendingScheduling: vi.fn(async () => 0),
+  // The provider wires the controller's countPending to countPendingChanges
+  // (scheduling backlog + queued mutations, EXT-F2); stub it — these tests
+  // exercise the provider's triggers/status, not the count itself.
+  countPendingChanges: vi.fn(async () => 0),
 }));
 
 let capturedListener: ((status: unknown) => void) | null = null;
