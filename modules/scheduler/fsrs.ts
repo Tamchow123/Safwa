@@ -21,8 +21,15 @@ import {
   type Grade,
 } from "ts-fsrs";
 
-/** The four ratings this app produces (Easy is not currently exposed, §5). */
-export type SchedulerRating = "again" | "hard" | "good" | "easy";
+/**
+ * The four FSRS grades the scheduler can apply. Note the app's automatic rating
+ * derivation (`ratingForAttempt`) never emits `easy` (§5) — but `easy` remains a
+ * valid grade in the type/array because ts-fsrs defines it and the scheduler
+ * must accept it if ever supplied. Canonical runtime list — never re-declare
+ * these literals elsewhere; import this array (two copies would drift).
+ */
+export const SCHEDULER_RATINGS = ["again", "hard", "good", "easy"] as const;
+export type SchedulerRating = (typeof SCHEDULER_RATINGS)[number];
 
 /** Learner-visible FSRS lifecycle state (mirrors ts-fsrs State). */
 export type FsrsState = "new" | "learning" | "review" | "relearning";

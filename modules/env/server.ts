@@ -46,6 +46,11 @@ const rawServerEnvSchema = z.object({
     .string()
     .url("NEXT_PUBLIC_APP_URL must be a valid URL"),
   AUTH_ENABLED: booleanFlag(true),
+  // Online-sync feature flag / rollback kill-switch (Phase 16). When false the
+  // sync endpoints report a safe "unavailable" state and signed-in users
+  // continue local-only study; auth and guests are unaffected. Requires
+  // AUTH_ENABLED (sync is meaningless without an authenticated account).
+  SYNC_ENABLED: booleanFlag(true),
   EMAIL_TRANSPORT: z.enum(["console-file", "resend"]).default("console-file"),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
@@ -89,6 +94,7 @@ export type ServerEnv = {
   betterAuthUrl: string;
   appUrl: string;
   authEnabled: boolean;
+  syncEnabled: boolean;
   emailTransport: EmailTransportKind;
   resendApiKey: string | undefined;
   emailFrom: string | undefined;
@@ -136,6 +142,13 @@ function assertProductionInvariants(
       problems.push("EMAIL_FROM is required when EMAIL_TRANSPORT=resend");
     }
   }
+  // Online sync is authenticated-only: a signed-in account is derived from the
+  // server session on every sync endpoint. Enabling sync without auth would be
+  // a broken configuration (every sync request would 401), so reject it rather
+  // than ship a silently non-functional feature.
+  if (raw.SYNC_ENABLED && !raw.AUTH_ENABLED) {
+    problems.push("SYNC_ENABLED=true requires AUTH_ENABLED=true");
+  }
 
   if (problems.length > 0) {
     throw new Error(
@@ -172,6 +185,7 @@ export function getServerEnv(): ServerEnv {
     betterAuthUrl: parsed.data.BETTER_AUTH_URL,
     appUrl: parsed.data.NEXT_PUBLIC_APP_URL,
     authEnabled: parsed.data.AUTH_ENABLED,
+    syncEnabled: parsed.data.SYNC_ENABLED,
     emailTransport: parsed.data.EMAIL_TRANSPORT,
     resendApiKey: parsed.data.RESEND_API_KEY,
     emailFrom: parsed.data.EMAIL_FROM,

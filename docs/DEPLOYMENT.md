@@ -185,3 +185,29 @@ If a proxy/CDN is ever added in front of Vercel, `advanced.ipAddress.trustedProx
 in `modules/auth/server.ts` must be updated to name that proxy's real
 egress IPs/CIDR ranges (not a broad range that could also cover clients)
 before that change ships.
+
+## Online sync (Phase 16, Stage A)
+
+Server-authoritative learning-state sync is gated by the `SYNC_ENABLED`
+environment flag (a kill-switch):
+
+- `SYNC_ENABLED=true` (default) turns on the `POST /api/sync/push` and
+  `GET /api/sync/pull` endpoints. It **requires `AUTH_ENABLED=true`**;
+  `SYNC_ENABLED=true` with `AUTH_ENABLED=false` is rejected at env-parse time
+  (`modules/env/server.ts`), since sync derives the account from the session.
+- `SYNC_ENABLED=false` disables sync at the server: both endpoints return a
+  clean `503` **before** any session read (the flag is checked first in
+  `modules/sync/server/auth-guard.ts`), and the client degrades gracefully —
+  local study is unaffected, the status indicator reads "Sync off". Flip this
+  to instantly stop all sync traffic without a code change; guests and local
+  study are never affected either way.
+
+No new infrastructure beyond the Phase 15 Postgres database: sync tables
+(`user_sync_state`, `sync_audit_log`, and the `last_sync_seq`/lineage columns on
+the learner tables) ship in the same Drizzle migration set (`pnpm db:migrate`).
+The account-wide monotonic sync cursor lives in `user_sync_state.sync_revision`.
+
+Local verification uses the disposable `safwa_test` database (see the Commands
+section in `CLAUDE.md`): `pnpm test:integration` covers ingest/pull/revoke
+against real Postgres; `pnpm test:e2e` includes the `SYNC_ENABLED=false`
+kill-switch config (`playwright.sync-disabled.config.ts`).

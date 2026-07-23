@@ -6,7 +6,7 @@ import "fake-indexeddb/auto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SafwaDb } from "@/modules/content/db";
+import { SAFWA_DB_VERSION, SafwaDb } from "@/modules/content/db";
 import {
   addEntryToList,
   createList,
@@ -394,6 +394,7 @@ describe("no unintended side effects on other stores", () => {
     expect(await db.reviewEvents.count()).toBe(0);
     expect(await db.mutationQueue.count()).toBe(0);
     expect(await db.dailyActivity.count()).toBe(0);
-    expect(db.verno).toBe(3);
+    // The collection write must not bump the schema version past the current one.
+    expect(db.verno).toBe(SAFWA_DB_VERSION);
   });
 });

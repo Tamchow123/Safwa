@@ -1,11 +1,15 @@
 /**
- * Dexie (IndexedDB) mirror — schema version 3 (`SAFWA_DB_VERSION`).
+ * Dexie (IndexedDB) mirror — current schema version is `SAFWA_DB_VERSION`
+ * (each `this.version(n).stores(...)` block below is the authoritative record
+ * of what that version added).
  *
  * v1: content cache stores only. v2 (Phase 5) adds the local learner-state
  * stores from DATA_MODEL.md §9: study components (keyed by the shared
  * natural key string), attempts, review events, sessions, bookmarks, lists,
  * settings, the outbound mutation queue and the anonymous device profile.
- * v3 (Phase 12) adds the `daily_activity` derived analytics cache.
+ * v3 (Phase 12) adds the `daily_activity` derived analytics cache. v4 (Phase
+ * 16) adds the `sync_state` cursor store; v5 (Phase 16) adds the outbox
+ * indexes to `mutation_queue`.
  * Content and learning state live in separate stores of one database:
  * cached content releases are immutable verified artifacts, never editable
  * copies.
@@ -21,7 +25,7 @@
  * BROWSER-ONLY: server components must never import or instantiate this.
  * Creation is lazy; tests use fake-indexeddb.
  */
-import Dexie, { type EntityTable } from "dexie";
+import Dexie, { type EntityTable, type Table } from "dexie";
 
 import {
   learnerReleaseSchema,
@@ -43,7 +47,7 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
  * no upgrade function, no change to any existing store's keys or indexes.
  */
 export const SAFWA_DB_NAME = "safwa-content";
-export const SAFWA_DB_VERSION = 3;
+export const SAFWA_DB_VERSION = 5;
 
 /* ------------------------------------------------------------------ */
 /* Learner-state records (schema v2) and derived-cache records (v3)    */
@@ -186,6 +190,44 @@ export type DailyActivityRecord = {
   derivedAt: number;
 };
 
+/**
+ * The single source of truth for the set of known mutation kinds. The
+ * `MutationQueueKind` union is DERIVED from this array (below), so adding a kind
+ * in one place keeps the union, the runtime narrowing and any exhaustive record
+ * in lock-step — neither direction can drift.
+ */
+export const MUTATION_QUEUE_KINDS = [
+  "revocation",
+  "bookmark",
+  "list",
+  "setting",
+  "reinforcement",
+] as const;
+
+/** The Phase-16 outbound mutation categories carried by the queue (§9.1). */
+export type MutationQueueKind = (typeof MUTATION_QUEUE_KINDS)[number];
+
+/**
+ * Narrow a stored `MutationQueueRecord.type` (kept a broad `string` so a legacy
+ * or generic-mechanics row still type-checks) to a known `MutationQueueKind`, or
+ * null if it is off-contract. The one sanctioned narrowing lives here with the
+ * schema owner so consumers never re-derive it with unsafe casts.
+ */
+export function asMutationQueueKind(type: string): MutationQueueKind | null {
+  return (MUTATION_QUEUE_KINDS as readonly string[]).includes(type)
+    ? (type as MutationQueueKind)
+    : null;
+}
+
+/**
+ * Outbound-queue lifecycle (Phase 16 §19, OFFLINE_AND_SYNC §4). `local` = not
+ * yet accepted (selected + retried on every flush); `pushed` = held server-side
+ * (recoverable), resolved by a later push/pull; `dead` = a permanent (non-
+ * recoverable) rejection moved to the dead-letter state — retained and surfaced,
+ * never silently dropped. An absent `status` on a legacy row is read as `local`.
+ */
+export type MutationQueueStatus = "local" | "pushed" | "dead";
+
 export type MutationQueueRecord = {
   /** Auto-incremented outbound order; assigned by Dexie on add. */
   seq?: number;
@@ -193,6 +235,38 @@ export type MutationQueueRecord = {
   type: string;
   payload: unknown;
   createdAt: number;
+  /**
+   * Phase-16 sync-outbox fields. Optional so a pre-Phase-16 row (the store has
+   * existed, unused, since v2) still type-checks and is safely treated as an
+   * un-owned `local` row. `enqueueMutation` always writes them explicitly.
+   */
+  /** Owning account (`attempt.userId` semantics); null/undefined = not account-owned, never selected for sync. */
+  userId?: string | null;
+  /** Stable per-target key (the server itemId) for latest-state-wins coalescing and result matching. */
+  target?: string;
+  /** Sync lifecycle; absent = `local`. */
+  status?: MutationQueueStatus;
+  /** Push attempts so far (retry/backoff accounting). */
+  attempts?: number;
+  /** Last rejection reason code, for the dead-letter surface. */
+  lastReason?: string | null;
+};
+
+/**
+ * Online-sync client state (schema v4, Phase 16). A single row keyed "account"
+ * persisting the account this device last synced as, the account-wide pull
+ * cursor (`serverCursor`), and the last successful sync time. The `userId` is
+ * how the client detects an account switch / logout and invalidates the prior
+ * user's sync context (§18) — a mismatch means the stored cursor is not ours.
+ */
+export type SyncStateRecord = {
+  key: "account";
+  /** The signed-in account this cursor belongs to; null when signed out. */
+  userId: string | null;
+  /** The account-wide pull cursor last reconciled (0 = never / bootstrap). */
+  serverCursor: number;
+  /** Last successful push+pull completion (epoch ms), or null. */
+  lastSyncAt: number | null;
 };
 
 export class SafwaDb extends Dexie {
@@ -209,6 +283,7 @@ export class SafwaDb extends Dexie {
   settings!: EntityTable<SettingRecord, "key">;
   mutationQueue!: EntityTable<MutationQueueRecord, "seq">;
   profile!: EntityTable<DeviceProfileRecord, "key">;
+  syncState!: EntityTable<SyncStateRecord, "key">;
 
   constructor(name: string = SAFWA_DB_NAME) {
     super(name);
@@ -239,8 +314,26 @@ export class SafwaDb extends Dexie {
     // v3 (Phase 12): the daily_activity DERIVED cache, keyed by the stored
     // event-time local date. Purely additive — every earlier store and its
     // data carry forward untouched, no upgrade function needed.
-    this.version(SAFWA_DB_VERSION).stores({
+    this.version(3).stores({
       daily_activity: "localDate",
+    });
+    // v4 (Phase 16): the online-sync client state (single "account" row).
+    // Purely additive — no upgrade function needed.
+    this.version(4).stores({
+      sync_state: "key",
+    });
+    // v5 (Phase 16): the mutation_queue becomes the live sync outbox for
+    // bookmarks/lists/settings/revocations/reinforcement (§9.1, EXT-F2). This
+    // only ADDS indexes to the existing store so the account-scoped selector,
+    // ack and status-badge counts can narrow the cursor to the caller's own
+    // account + lifecycle instead of scanning the whole table: the compound
+    // `[userId+status]` drives the hot pending/dead-letter counts and the push
+    // selection, and `[type+userId+target]` drives the coalesce lookup. The
+    // primary key and unique idempotencyKey are unchanged, existing rows are
+    // re-indexed in place, and no data-moving upgrade function is needed.
+    this.version(SAFWA_DB_VERSION).stores({
+      mutation_queue:
+        "++seq, &idempotencyKey, type, userId, status, [userId+status], [type+userId+target]",
     });
     // Code-facing accessors stay camelCase per TS convention; the mapping
     // to the snake_case physical stores lives here and nowhere else.
@@ -249,7 +342,47 @@ export class SafwaDb extends Dexie {
     this.reviewEvents = this.table("review_events");
     this.dailyActivity = this.table("daily_activity");
     this.mutationQueue = this.table("mutation_queue");
+    this.syncState = this.table("sync_state");
   }
+}
+
+/**
+ * The account-owned (private, per-account) stores. SINGLE SOURCE OF TRUTH for
+ * this security-relevant grouping (the schema owner owns it): these are the
+ * stores cleared on logout / account switch so a shared device never leaks one
+ * account's data to the next (Phase 16 §18, SEC-002-T15d), and the same set a
+ * future Phase 17 guest-merge / account-deletion reset must use. A NEW
+ * account-owned store MUST be classified here — the `accountScopedTables +
+ * deviceAndContentTables === all tables` coverage test fails otherwise, turning
+ * silent drift (a stale store leaking across accounts) into a build signal.
+ */
+export function accountScopedTables(db: SafwaDb): Table[] {
+  return [
+    db.studyComponents,
+    db.studyAttempts,
+    db.reviewEvents,
+    db.dailyActivity,
+    db.sessions,
+    db.bookmarks,
+    db.lists,
+    db.settings,
+    db.mutationQueue,
+    db.syncState,
+  ] as unknown as Table[];
+}
+
+/**
+ * The device / shared-content stores PRESERVED across a logout: the anonymous
+ * device profile (device identity, not account data) and the immutable,
+ * hash-verified content cache. The complement of `accountScopedTables`.
+ */
+export function deviceAndContentTables(db: SafwaDb): Table[] {
+  return [
+    db.profile,
+    db.contentReleases,
+    db.contentEntries,
+    db.contentMetadata,
+  ] as unknown as Table[];
 }
 
 let singleton: SafwaDb | null = null;

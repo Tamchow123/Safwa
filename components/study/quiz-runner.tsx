@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArabicText } from "@/components/arabic-text";
 import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
 import { useCollections } from "@/components/collections/use-collections";
+import { useSessionEndSync } from "@/components/sync/sync-provider";
 import {
   FieldValue,
   formLabel,
@@ -68,6 +69,7 @@ import type { QuizDelivery } from "@/modules/study-session/quizzes";
 import {
   recordGradedAttempt,
   SupersededUndoError,
+  UndoNotYetSyncedError,
   undoGradedAttempt,
   type PersistedAttempt,
 } from "@/modules/study-session/persistence";
@@ -199,6 +201,9 @@ export function QuizRunner({
   const [status, setStatus] = useState<RunnerStatus>("initialising");
   const [session, setSession] = useState<SessionState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Nudge an end-of-session sync when the run completes (§18 "push at
+  // successful session end"). A no-op for guests / outside a SyncProvider.
+  const notifySessionEnd = useSessionEndSync();
   // Feedback for the just-answered question (immediate/timed). Null while a
   // question is awaiting an answer or in test mode (feedback withheld).
   const [answered, setAnswered] = useState<AnsweredState | null>(null);
@@ -318,6 +323,12 @@ export function QuizRunner({
     optionCount,
     presetClock,
   ]);
+
+  // When the run completes, request an end-of-session sync (§18). notifySessionEnd
+  // is a stable no-op outside a SyncProvider / for guests, so this is safe here.
+  useEffect(() => {
+    if (status === "complete") notifySessionEnd();
+  }, [status, notifySessionEnd]);
 
   // Render-time question generation is guarded: a generation failure (e.g. a
   // pool unable to fill the configured option count in an unforeseen case)
@@ -475,6 +486,12 @@ export function QuizRunner({
         setSession({ ...session, previous: null });
         setActionError(
           "This question was reviewed again elsewhere and can no longer be undone.",
+        );
+      } else if (error instanceof UndoNotYetSyncedError) {
+        // Transient: the review is still syncing. Keep the undo affordance so the
+        // learner can retry once it settles (do NOT retire the snapshot).
+        setActionError(
+          "This review is still syncing — try undo again in a moment.",
         );
       } else {
         setActionError("Couldn't undo that. Please try again.");

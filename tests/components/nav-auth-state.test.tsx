@@ -13,10 +13,19 @@ vi.mock("@/modules/auth/client", () => ({
   signOut: (...args: unknown[]) => signOutMock(...args),
 }));
 
+// The global header sign-out MUST go through the single shared wipe helper so
+// this path also clears the previous account's local state on a shared device
+// (SEC-002-T15d) — not just the /account page button.
+const signOutAndClearMock = vi.fn(async () => {});
+vi.mock("@/components/account/sign-out-action", () => ({
+  signOutAndClearLocalState: () => signOutAndClearMock(),
+}));
+
 import { AccountMenu } from "@/components/auth/account-menu";
 
 beforeEach(() => {
   signOutMock.mockReset();
+  signOutAndClearMock.mockClear();
   sessionState = { data: null, isPending: false, error: null };
 });
 
@@ -92,8 +101,7 @@ describe("AccountMenu", () => {
     ).toBeInTheDocument();
   });
 
-  it("calls signOut when Sign out is activated", async () => {
-    signOutMock.mockResolvedValue(undefined);
+  it("signs out via the shared wipe helper so the header path also clears local state", async () => {
     sessionState = {
       data: { user: { email: "learner@example.com", id: "user-1" } },
       isPending: false,
@@ -105,6 +113,8 @@ describe("AccountMenu", () => {
     await user.click(screen.getByRole("button", { name: "Account menu" }));
     await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
-    await waitFor(() => expect(signOutMock).toHaveBeenCalledTimes(1));
+    // The global header sign-out routes through signOutAndClearLocalState (which
+    // ends the session AND wipes local account state), never bare signOut().
+    await waitFor(() => expect(signOutAndClearMock).toHaveBeenCalledTimes(1));
   });
 });

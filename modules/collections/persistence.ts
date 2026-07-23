@@ -1,10 +1,15 @@
 /**
  * Dexie persistence adapter for bookmarks and custom lists (Phase 14,
  * docs/phases/phases-14.md §9). The impure boundary for this module: it is
- * the only place that reads/writes `db.bookmarks`/`db.lists`, mints list ids
- * (`uuidv7`) and calls the durable guest-state boundary. Every function here
- * composes the pure builders/validators from `modules/collections/{bookmarks,
- * lists,validation}.ts` with a Dexie transaction.
+ * the only place that reads/writes INDIVIDUAL `db.bookmarks`/`db.lists` rows,
+ * mints list ids (`uuidv7`) and calls the durable guest-state boundary. Every
+ * function here composes the pure builders/validators from
+ * `modules/collections/{bookmarks,lists,validation}.ts` with a Dexie
+ * transaction. The ONE sanctioned exception is the whole-store wipe in
+ * `modules/sync/client/logout.ts` (`clearAccountLocalState`, via the schema
+ * owner's `accountScopedTables`), which bulk-`.clear()`s these stores on
+ * logout/account-switch — a full wipe has no per-row canonicalisation invariant
+ * to preserve, so it does not route through this adapter.
  *
  * DURABLE GUEST STATE (§9): every write below fires `ensureDurableGuestState`
  * BEFORE the Dexie transaction runs — deliberately at the user action,
@@ -34,6 +39,15 @@
  * it. This module never imports the content-release layer itself, so the
  * caller (a React hook backed by `useActiveContent`) always supplies the
  * current set.
+ *
+ * SYNC OUTBOX (Phase 16, EXT-F2): every mutating transaction below ALSO reads
+ * `db.syncState` for the active account and, when signed in, enqueues the change
+ * into `db.mutationQueue` (via `modules/sync/client/mutation-queue.ts`) in the
+ * SAME transaction, so the local write and its outbound sync mutation commit
+ * atomically. A guest (no active account) enqueues nothing — collection edits
+ * sync on the Phase-17 merge, not on login (§18, EXT-F1). This is why each
+ * transaction scope lists `db.mutationQueue` and `db.syncState` alongside the
+ * collection store.
  */
 import { uuidv7 } from "@/lib/uuid";
 import type {
@@ -42,6 +56,10 @@ import type {
   SafwaDb,
 } from "@/modules/content/db";
 import { ensureDurableGuestState } from "@/modules/profile/persistence";
+import {
+  enqueueBookmarkMutation,
+  enqueueListMutation,
+} from "@/modules/sync/client/mutation-queue";
 
 import { buildBookmarkRecord } from "@/modules/collections/bookmarks";
 import type { CollectionMembership } from "@/modules/collections/filters";
@@ -53,6 +71,8 @@ import {
 } from "@/modules/collections/lists";
 import {
   canCreateAnotherList,
+  canonicaliseMembership,
+  cleanListNameInput,
   isDuplicateListName,
   isValidEntryId,
   validateListName,
@@ -129,6 +149,57 @@ function kickOffDurableGuestState(db: SafwaDb): void {
   void ensureDurableGuestState(db).catch(() => {});
 }
 
+/**
+ * The active account that owns a Phase-16 sync mutation, or null when signed
+ * out. A guest (null) never enqueues — its collection edits stay local until the
+ * Phase-17 merge (§18, EXT-F1). Read from the `sync_state` row inside the SAME
+ * transaction as the collection write, so ownership and the enqueue commit
+ * atomically with it; every mutating transaction below therefore lists
+ * `db.syncState` and `db.mutationQueue` in its scope.
+ */
+async function currentSyncOwner(db: SafwaDb): Promise<string | null> {
+  return (await db.syncState.get("account"))?.userId ?? null;
+}
+
+/**
+ * Enqueue a list snapshot (upsert, or a delete carrying the last-known snapshot
+ * so the wire shape is complete) for the active account, if signed in. Called
+ * inside the mutating transaction after the local write.
+ */
+async function enqueueListChange(
+  db: SafwaDb,
+  list: CustomListRecord,
+  deleted: boolean,
+  now: number,
+): Promise<void> {
+  const owner = await currentSyncOwner(db);
+  if (owner)
+    await enqueueListMutation(db, { userId: owner, list, deleted, now });
+}
+
+/**
+ * Enqueue a bookmark upsert/delete for the active account, if signed in (the
+ * bookmark analogue of `enqueueListChange`). Called inside the mutating
+ * transaction after the local write.
+ */
+async function enqueueBookmarkChange(
+  db: SafwaDb,
+  entryId: number,
+  createdAt: number,
+  deleted: boolean,
+  now: number,
+): Promise<void> {
+  const owner = await currentSyncOwner(db);
+  if (owner)
+    await enqueueBookmarkMutation(db, {
+      userId: owner,
+      entryId,
+      createdAt,
+      deleted,
+      now,
+    });
+}
+
 /* ------------------------------------------------------------------ */
 /* Reads — never mint a device profile.                                */
 /* ------------------------------------------------------------------ */
@@ -198,16 +269,25 @@ export async function setBookmarked(
 ): Promise<void> {
   if (bookmarked) requireKnownEntry(entryId, knownEntryIds);
   kickOffDurableGuestState(db);
-  await db.transaction("rw", [db.bookmarks], async () => {
-    const existing = await db.bookmarks.get(entryId);
-    if (bookmarked) {
-      if (existing) return;
-      await db.bookmarks.put(buildBookmarkRecord(entryId, now));
-    } else {
-      if (!existing) return;
-      await db.bookmarks.delete(entryId);
-    }
-  });
+  await db.transaction(
+    "rw",
+    [db.bookmarks, db.mutationQueue, db.syncState],
+    async () => {
+      const existing = await db.bookmarks.get(entryId);
+      let createdAt: number;
+      if (bookmarked) {
+        if (existing) return; // no-op: neither rewrite nor enqueue
+        const record = buildBookmarkRecord(entryId, now);
+        await db.bookmarks.put(record);
+        createdAt = record.createdAt;
+      } else {
+        if (!existing) return; // no-op
+        createdAt = existing.createdAt;
+        await db.bookmarks.delete(entryId);
+      }
+      await enqueueBookmarkChange(db, entryId, createdAt, !bookmarked, now);
+    },
+  );
 }
 
 /** Toggle the bookmark for `entryId`; returns the NEW bookmarked state. */
@@ -219,15 +299,22 @@ export async function toggleBookmark(
 ): Promise<boolean> {
   requireKnownEntry(entryId, knownEntryIds);
   kickOffDurableGuestState(db);
-  return db.transaction("rw", [db.bookmarks], async () => {
-    const existing = await db.bookmarks.get(entryId);
-    if (existing) {
-      await db.bookmarks.delete(entryId);
-      return false;
-    }
-    await db.bookmarks.put(buildBookmarkRecord(entryId, now));
-    return true;
-  });
+  return db.transaction(
+    "rw",
+    [db.bookmarks, db.mutationQueue, db.syncState],
+    async () => {
+      const existing = await db.bookmarks.get(entryId);
+      if (existing) {
+        await db.bookmarks.delete(entryId);
+        await enqueueBookmarkChange(db, entryId, existing.createdAt, true, now);
+        return false;
+      }
+      const record = buildBookmarkRecord(entryId, now);
+      await db.bookmarks.put(record);
+      await enqueueBookmarkChange(db, entryId, record.createdAt, false, now);
+      return true;
+    },
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -252,6 +339,7 @@ async function insertNewList(
   }
   const record = buildListRecord({ id: uuidv7(now), name, entryIds, now });
   await db.lists.add(record);
+  await enqueueListChange(db, record, false, now);
   return record;
 }
 
@@ -262,7 +350,7 @@ export async function createList(
 ): Promise<CustomListRecord> {
   requireValidName(params.name);
   kickOffDurableGuestState(db);
-  return db.transaction("rw", [db.lists], () =>
+  return db.transaction("rw", [db.lists, db.mutationQueue, db.syncState], () =>
     insertNewList(db, params.name, [], params.now),
   );
 }
@@ -280,7 +368,7 @@ export async function createListWithEntry(
   requireValidName(params.name);
   requireKnownEntry(params.entryId, params.knownEntryIds);
   kickOffDurableGuestState(db);
-  return db.transaction("rw", [db.lists], () =>
+  return db.transaction("rw", [db.lists, db.mutationQueue, db.syncState], () =>
     insertNewList(db, params.name, [params.entryId], params.now),
   );
 }
@@ -294,25 +382,41 @@ export async function renameList(
 ): Promise<CustomListRecord> {
   requireValidName(name);
   kickOffDurableGuestState(db);
-  return db.transaction("rw", [db.lists], async () => {
-    const current = await db.lists.get(listId);
-    if (!current) throw new ListNotFoundError(listId);
-    const existing = await db.lists.toArray();
-    requireNoDuplicate(existing, name, listId);
-    const updated = withRenamedList(current, name, now);
-    await db.lists.put(updated);
-    return updated;
-  });
+  return db.transaction(
+    "rw",
+    [db.lists, db.mutationQueue, db.syncState],
+    async () => {
+      const current = await db.lists.get(listId);
+      if (!current) throw new ListNotFoundError(listId);
+      const existing = await db.lists.toArray();
+      requireNoDuplicate(existing, name, listId);
+      const updated = withRenamedList(current, name, now);
+      await db.lists.put(updated);
+      await enqueueListChange(db, updated, false, now);
+      return updated;
+    },
+  );
 }
 
 /** Delete exactly the selected list. Bookmarks and other lists are untouched. */
-export async function deleteList(db: SafwaDb, listId: string): Promise<void> {
+export async function deleteList(
+  db: SafwaDb,
+  listId: string,
+  now: number = Date.now(),
+): Promise<void> {
   kickOffDurableGuestState(db);
-  await db.transaction("rw", [db.lists], async () => {
-    const current = await db.lists.get(listId);
-    if (!current) throw new ListNotFoundError(listId);
-    await db.lists.delete(listId);
-  });
+  await db.transaction(
+    "rw",
+    [db.lists, db.mutationQueue, db.syncState],
+    async () => {
+      const current = await db.lists.get(listId);
+      if (!current) throw new ListNotFoundError(listId);
+      await db.lists.delete(listId);
+      // Send the last-known snapshot with deleted=true so the wire shape is
+      // complete and the server tombstones the list by id.
+      await enqueueListChange(db, current, true, now);
+    },
+  );
 }
 
 /** Add an entry to a list (idempotent). */
@@ -325,14 +429,19 @@ export async function addEntryToList(
 ): Promise<CustomListRecord> {
   requireKnownEntry(entryId, knownEntryIds);
   kickOffDurableGuestState(db);
-  return db.transaction("rw", [db.lists], async () => {
-    const current = await db.lists.get(listId);
-    if (!current) throw new ListNotFoundError(listId);
-    if (current.entryIds.includes(entryId)) return current;
-    const updated = withEntryAdded(current, entryId, now);
-    await db.lists.put(updated);
-    return updated;
-  });
+  return db.transaction(
+    "rw",
+    [db.lists, db.mutationQueue, db.syncState],
+    async () => {
+      const current = await db.lists.get(listId);
+      if (!current) throw new ListNotFoundError(listId);
+      if (current.entryIds.includes(entryId)) return current; // no-op
+      const updated = withEntryAdded(current, entryId, now);
+      await db.lists.put(updated);
+      await enqueueListChange(db, updated, false, now);
+      return updated;
+    },
+  );
 }
 
 /** Remove an entry from a list (idempotent). */
@@ -343,12 +452,76 @@ export async function removeEntryFromList(
   now: number,
 ): Promise<CustomListRecord> {
   kickOffDurableGuestState(db);
-  return db.transaction("rw", [db.lists], async () => {
-    const current = await db.lists.get(listId);
-    if (!current) throw new ListNotFoundError(listId);
-    if (!current.entryIds.includes(entryId)) return current;
-    const updated = withEntryRemoved(current, entryId, now);
-    await db.lists.put(updated);
-    return updated;
+  return db.transaction(
+    "rw",
+    [db.lists, db.mutationQueue, db.syncState],
+    async () => {
+      const current = await db.lists.get(listId);
+      if (!current) throw new ListNotFoundError(listId);
+      if (!current.entryIds.includes(entryId)) return current; // no-op
+      const updated = withEntryRemoved(current, entryId, now);
+      await db.lists.put(updated);
+      await enqueueListChange(db, updated, false, now);
+      return updated;
+    },
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Phase 16 — server-authoritative sync apply.                            */
+/*                                                                        */
+/* Online-sync reconciliation (§19) applies the server's authoritative    */
+/* bookmark/list state pulled from another context. These are the ONLY    */
+/* sync-side writers of db.bookmarks/db.lists, keeping this module the     */
+/* single writer of those stores. They run WITHIN the caller's Dexie      */
+/* transaction (reconcile opens one over all synced stores), take NO new  */
+/* transaction, and DON'T fire the guest-durability boundary — this is an */
+/* account (signed-in) write, not a guest UI action. Membership + name    */
+/* are canonicalised (dedupe/sort, NFC/trim) so the local invariants hold */
+/* identically to the guest mutators; SERVER timestamps are preserved.    */
+/* ---------------------------------------------------------------------- */
+
+/** Upsert a server-authoritative bookmark (within the caller's transaction). */
+export async function applyAuthoritativeBookmark(
+  db: SafwaDb,
+  entryId: number,
+  createdAt: number,
+): Promise<void> {
+  await db.bookmarks.put(buildBookmarkRecord(entryId, createdAt));
+}
+
+/** Delete a bookmark row propagated by a tombstone (within the caller's tx). */
+export async function applyBookmarkTombstone(
+  db: SafwaDb,
+  entryId: number,
+): Promise<void> {
+  await db.bookmarks.delete(entryId);
+}
+
+/** Upsert a server-authoritative list with canonical name + membership. */
+export async function applyAuthoritativeList(
+  db: SafwaDb,
+  list: {
+    id: string;
+    name: string;
+    entryIds: readonly number[];
+    createdAt: number;
+    updatedAt: number;
+  },
+): Promise<void> {
+  await db.lists.put({
+    id: list.id,
+    name: cleanListNameInput(list.name),
+    entryIds: canonicaliseMembership(list.entryIds),
+    createdAt: list.createdAt,
+    updatedAt: list.updatedAt,
   });
+}
+
+/** Delete a list row propagated by a tombstone (within the caller's tx). */
+export async function applyListTombstone(
+  db: SafwaDb,
+  listId: string,
+): Promise<void> {
+  await db.lists.delete(listId);
 }

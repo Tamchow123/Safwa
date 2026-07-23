@@ -85,6 +85,7 @@ describe("Dexie schema v3", () => {
       "settings",
       "study_attempts",
       "study_components",
+      "sync_state",
     ]);
   });
 
