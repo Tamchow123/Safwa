@@ -52,8 +52,9 @@ function toWireEvent(record: ReviewEventRecord): WireEvent | null {
 /**
  * Map a stored attempt to the wire shape (explicitly, dropping the local-only
  * `userId` the server derives from the session), or null if it fails validation.
+ * Shared with the reinforcement-attempt enqueue path (study-session persistence).
  */
-function toWireAttempt(attempt: AttemptRecord): WireAttempt | null {
+export function toWireAttempt(attempt: AttemptRecord): WireAttempt | null {
   const parsed = wireAttemptSchema.safeParse({
     id: attempt.id,
     sessionId: attempt.sessionId,
