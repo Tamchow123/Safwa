@@ -34,6 +34,7 @@ import {
 } from "@/modules/study-engine/generator";
 import {
   isRecoverableReason,
+  SYNC_BOUNDS,
   type SyncItemResult,
   type SyncReasonCode,
   type WireAttempt,
@@ -58,6 +59,12 @@ export type IngestOptions = ReleaseLoadOptions & {
   nowMs: number;
   /** Correlation id for the request, recorded in audit rows. */
   correlationId?: string;
+  /**
+   * Override the per-component pending-parent cap (EXT-F4). Defaults to
+   * SYNC_BOUNDS.maxPendingPerComponent; injectable so operators can tune it and
+   * tests can exercise the boundary without seeding hundreds of rows.
+   */
+  maxPendingPerComponent?: number;
 };
 
 export type IngestResult = {
@@ -382,6 +389,9 @@ async function persistEvent(
   rating: string,
   status: "scheduling" | "pending_parent",
   canonicalTime: CanonicalTimeResult,
+  // EXT-F4: when held as pending_parent, the instant this hold expires (never
+  // promoted after, purgeable). Null for an accepted scheduling event.
+  pendingExpiresAt: Date | null = null,
 ): Promise<void> {
   await tx.insert(reviewEvents).values({
     eventId: ev.eventId,
@@ -390,6 +400,7 @@ async function persistEvent(
     attemptId: ev.attemptId,
     rating,
     status,
+    pendingExpiresAt,
     baseServerRevision: ev.baseServerRevision,
     parentEventId: ev.parentEventId,
     clientComponentRevision: ev.clientComponentRevision,
@@ -523,6 +534,19 @@ async function processComponentGroup(
       .where(eq(reviewEvents.studyComponentId, component.id));
     const rowById = new Map(existingRows.map((r) => [r.eventId, r]));
     const chain = buildChainState(existingRows);
+
+    // EXT-F4 (REL-001): the pending cap counts only LIVE (non-expired) holds —
+    // an expired row is never promoted and must not permanently consume a quota
+    // slot (a purge job reclaims the row later). Seed from the stored non-expired
+    // pending rows; increment as this batch adds new holds.
+    const pendingCap =
+      options.maxPendingPerComponent ?? SYNC_BOUNDS.maxPendingPerComponent;
+    let livePendingCount = existingRows.filter(
+      (r) =>
+        r.status === "pending_parent" &&
+        (r.pendingExpiresAt === null ||
+          r.pendingExpiresAt.getTime() >= options.nowMs),
+    ).length;
 
     const results: SyncItemResult[] = [];
     const acceptedThisBatch: string[] = [];
@@ -807,6 +831,70 @@ async function processComponentGroup(
       );
 
       if (lineage.decision === "pending") {
+        // EXT-F4: the parent is unknown WITHIN this component. Look it up
+        // globally to distinguish a genuinely-nonexistent parent (legitimately
+        // held) from one that EXISTS but belongs to another component or user —
+        // the latter is never a valid parent and must be rejected, not held
+        // forever (classifyLineage cannot see it, because ingest only loads the
+        // current component's events).
+        if (ev.parentEventId !== null) {
+          const [parentRow] = await tx
+            .select({
+              ownerId: reviewEvents.userId,
+              componentRowId: reviewEvents.studyComponentId,
+            })
+            .from(reviewEvents)
+            .where(eq(reviewEvents.eventId, ev.parentEventId))
+            .limit(1);
+          if (
+            parentRow &&
+            (parentRow.ownerId !== userId ||
+              parentRow.componentRowId !== component.id)
+          ) {
+            const crossCode: SyncReasonCode =
+              parentRow.ownerId !== userId
+                ? "cross_user_parent"
+                : "cross_component_parent";
+            await writeSyncAudit(tx, {
+              userId,
+              itemKind: "event",
+              itemId: ev.eventId,
+              reasonCode: crossCode,
+              severity: "warning",
+              componentKey,
+              correlationId: options.correlationId,
+            });
+            results.push(
+              reject({ itemId: ev.eventId, itemKind: "event" }, crossCode),
+            );
+            continue;
+          }
+          // else: the parent genuinely does not exist yet, or is itself a
+          // pending row in THIS component — a legitimate hold; fall through.
+        }
+
+        // EXT-F4: bound the per-component LIVE pending backlog. Once it reaches
+        // the cap, refuse to pin more storage with events whose parents may
+        // never arrive (expired holds don't count — see livePendingCount).
+        if (livePendingCount >= pendingCap) {
+          await writeSyncAudit(tx, {
+            userId,
+            itemKind: "event",
+            itemId: ev.eventId,
+            reasonCode: "pending_quota_exceeded",
+            severity: "warning",
+            componentKey,
+            correlationId: options.correlationId,
+          });
+          results.push(
+            reject(
+              { itemId: ev.eventId, itemKind: "event" },
+              "pending_quota_exceeded",
+            ),
+          );
+          continue;
+        }
+
         await persistEvent(
           tx,
           userId,
@@ -815,9 +903,13 @@ async function processComponentGroup(
           canonicalRating,
           "pending_parent",
           canonicalTime,
+          // EXT-F4: stamp the expiry so a never-arriving parent's hold can be
+          // purged and is never promoted after it lapses.
+          new Date(options.nowMs + SYNC_BOUNDS.pendingTtlMs),
         );
         chain.pendingEventIds.add(ev.eventId);
         chain.parentByEventId.set(ev.eventId, ev.parentEventId);
+        livePendingCount += 1; // this new hold is live (just-stamped expiry)
         results.push({
           itemId: ev.eventId,
           itemKind: "event",
@@ -896,6 +988,12 @@ async function processComponentGroup(
     const heldByParentRev = new Map<string, Map<number, EventRow>>();
     for (const row of existingRows) {
       if (row.status !== "pending_parent" || row.parentEventId === null)
+        continue;
+      // EXT-F4: an expired hold is never promoted (it is purgeable dead weight).
+      if (
+        row.pendingExpiresAt !== null &&
+        row.pendingExpiresAt.getTime() < options.nowMs
+      )
         continue;
       const byRevision =
         heldByParentRev.get(row.parentEventId) ?? new Map<number, EventRow>();

@@ -96,6 +96,10 @@ export const SYNC_REASON_CODES = [
   "sync_disabled",
   "malformed_item",
   "internal_error",
+  // storage safety (EXT-F4): a component already holds the maximum number of
+  // pending-parent events; the client retries once the real parent arrives (so
+  // the child accepts directly) or the backlog is purged.
+  "pending_quota_exceeded",
 ] as const;
 export type SyncReasonCode = (typeof SYNC_REASON_CODES)[number];
 
@@ -144,6 +148,18 @@ export const SYNC_BOUNDS = {
   /** Pull page size cap (phases-16.md §30 — bound pull page size). */
   maxPullPageSize: 200,
   defaultPullPageSize: 100,
+  /**
+   * Maximum pending-parent events one component may hold at once (EXT-F4). A
+   * held child waits for its (unarrived) parent; capping the backlog bounds the
+   * authenticated storage a client can pin with events whose parents never come.
+   */
+  maxPendingPerComponent: 500,
+  /**
+   * How long a pending-parent event may wait for its parent before it is
+   * considered expired (EXT-F4). Expired holds are never promoted and may be
+   * purged; 30 days is well beyond any legitimate offline gap in Stage A.
+   */
+  pendingTtlMs: 30 * 24 * 60 * 60 * 1000,
 } as const;
 
 /** Reason codes that classify as recoverable (client can repair + resubmit). */
@@ -159,6 +175,9 @@ export const RECOVERABLE_REASON_CODES: ReadonlySet<SyncReasonCode> = new Set([
   // demotion or producing a broken chain (phases-16.md §16).
   "revocation_has_descendants",
   "internal_error",
+  // EXT-F4: a full pending backlog is transient — the client retries once the
+  // parent arrives directly or the backlog is purged.
+  "pending_quota_exceeded",
 ]);
 
 /** True when a rejection is safe for the client to retry after repair/pull. */

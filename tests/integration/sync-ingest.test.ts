@@ -847,4 +847,169 @@ describe("ingestSchedulingBatch", () => {
       expect(component?.revision).toBe(2);
     });
   });
+
+  describe("pending-parent ownership + expiry (EXT-F4)", () => {
+    it("rejects a child whose parent belongs to a different component (cross_component_parent)", async () => {
+      const userId = await createTestUser();
+      // Establish comp2 with an accepted event.
+      const a2 = attempt({}, comp2);
+      const e2 = event(a2);
+      await ingestSchedulingBatch(userId, [e2], [a2], { nowMs: NOW });
+      // A child in comp1 parented on comp2's event.
+      const a1 = attempt({}, comp1);
+      const child = event(a1, {
+        clientComponentRevision: 2,
+        parentEventId: e2.eventId,
+      });
+      const { results } = await ingestSchedulingBatch(userId, [child], [a1], {
+        nowMs: NOW,
+      });
+      expect(results[0]).toMatchObject({
+        status: "rejected",
+        reasonCode: "cross_component_parent",
+      });
+    });
+
+    it("rejects a child whose parent belongs to another user (cross_user_parent)", async () => {
+      const userA = await createTestUser();
+      const userB = await createTestUser();
+      const aA = attempt();
+      const eA = event(aA);
+      await ingestSchedulingBatch(userA, [eA], [aA], { nowMs: NOW });
+      // User B submits a child parented on A's event id.
+      const aB = attempt();
+      const child = event(aB, {
+        clientComponentRevision: 2,
+        parentEventId: eA.eventId,
+      });
+      const { results } = await ingestSchedulingBatch(userB, [child], [aB], {
+        nowMs: NOW,
+      });
+      expect(results[0]).toMatchObject({
+        status: "rejected",
+        reasonCode: "cross_user_parent",
+      });
+    });
+
+    it("stamps a genuinely-held pending event with an expiry", async () => {
+      const userId = await createTestUser();
+      const a = attempt();
+      const child = event(a, {
+        clientComponentRevision: 2,
+        parentEventId: randomUUID(), // a genuinely nonexistent parent
+      });
+      await ingestSchedulingBatch(userId, [child], [a], { nowMs: NOW });
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.eventId, child.eventId));
+      expect(row?.status).toBe("pending_parent");
+      expect(row?.pendingExpiresAt).not.toBeNull();
+      expect(row!.pendingExpiresAt!.getTime()).toBe(
+        NOW + 30 * 24 * 60 * 60 * 1000,
+      );
+    });
+
+    it("does not promote an EXPIRED pending child when its parent arrives", async () => {
+      const userId = await createTestUser();
+      const pid = randomUUID();
+      const aChild = attempt();
+      const child = event(aChild, {
+        clientComponentRevision: 2,
+        parentEventId: pid,
+      });
+      await ingestSchedulingBatch(userId, [child], [aChild], { nowMs: NOW });
+      const db = getDb();
+      // Force the hold to have already expired.
+      await db
+        .update(reviewEvents)
+        .set({ pendingExpiresAt: new Date(NOW - 1000) })
+        .where(eq(reviewEvents.eventId, child.eventId));
+      // The real parent arrives.
+      const aP = attempt();
+      const parent = event(aP, {
+        eventId: pid,
+        clientComponentRevision: 1,
+        parentEventId: null,
+      });
+      await ingestSchedulingBatch(userId, [parent], [aP], { nowMs: NOW });
+      const [childRow] = await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.eventId, child.eventId));
+      expect(childRow?.status).toBe("pending_parent"); // expired → NOT promoted
+      const [component] = await db
+        .select()
+        .from(studyComponents)
+        .where(eq(studyComponents.userId, userId));
+      expect(component?.revision).toBe(1); // only the parent accepted
+    });
+
+    it("rejects a new pending event once the per-component LIVE cap is reached", async () => {
+      const userId = await createTestUser();
+      // A tiny injected cap so the boundary is exercised without seeding 500.
+      const opts = { nowMs: NOW, maxPendingPerComponent: 2 };
+      const a1 = attempt();
+      const e1 = event(a1, {
+        clientComponentRevision: 2,
+        parentEventId: randomUUID(),
+      });
+      const a2 = attempt();
+      const e2 = event(a2, {
+        clientComponentRevision: 3,
+        parentEventId: randomUUID(),
+      });
+      const a3 = attempt();
+      const e3 = event(a3, {
+        clientComponentRevision: 4,
+        parentEventId: randomUUID(),
+      });
+      const { results } = await ingestSchedulingBatch(
+        userId,
+        [e1, e2, e3],
+        [a1, a2, a3],
+        opts,
+      );
+      const byId = (id: string) => results.find((r) => r.itemId === id);
+      expect(byId(e1.eventId)?.status).toBe("pending");
+      expect(byId(e2.eventId)?.status).toBe("pending"); // fills the cap (2)
+      expect(byId(e3.eventId)).toMatchObject({
+        status: "rejected",
+        reasonCode: "pending_quota_exceeded",
+        recoverable: true,
+      });
+    });
+
+    it("expired holds do not consume the pending cap (REL-001)", async () => {
+      const userId = await createTestUser();
+      const opts = { nowMs: NOW, maxPendingPerComponent: 2 };
+      const a1 = attempt();
+      const e1 = event(a1, {
+        clientComponentRevision: 2,
+        parentEventId: randomUUID(),
+      });
+      const a2 = attempt();
+      const e2 = event(a2, {
+        clientComponentRevision: 3,
+        parentEventId: randomUUID(),
+      });
+      await ingestSchedulingBatch(userId, [e1, e2], [a1, a2], opts); // fills cap
+      const db = getDb();
+      // Both holds lapse.
+      await db
+        .update(reviewEvents)
+        .set({ pendingExpiresAt: new Date(NOW - 1000) })
+        .where(eq(reviewEvents.userId, userId));
+      // A new pending event is still accepted as a hold — expired ones freed the
+      // quota, so it is NOT rejected pending_quota_exceeded.
+      const a3 = attempt();
+      const e3 = event(a3, {
+        clientComponentRevision: 4,
+        parentEventId: randomUUID(),
+      });
+      const { results } = await ingestSchedulingBatch(userId, [e3], [a3], opts);
+      expect(results[0]?.status).toBe("pending");
+    });
+  });
 });
