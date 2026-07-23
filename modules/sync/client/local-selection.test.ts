@@ -8,9 +8,11 @@ import { type ReviewEventRecord, SafwaDb } from "@/modules/content/db";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 
 import {
+  countPendingChanges,
   countPendingScheduling,
   selectUnsyncedScheduling,
 } from "./local-selection";
+import { enqueueBookmarkMutation } from "./mutation-queue";
 
 let db: SafwaDb;
 let counter = 0;
@@ -231,5 +233,32 @@ describe("countPendingScheduling", () => {
       (await selectUnsyncedScheduling(db, 3, "user-1")).events,
     ).toHaveLength(3);
     expect(await countPendingScheduling(db, "user-1")).toBe(7);
+  });
+});
+
+describe("countPendingChanges", () => {
+  it("sums the scheduling backlog and the queued mutations for the account", async () => {
+    const att = makeAttempt({ userId: "user-1" });
+    await insert(att, makeEvent(att)); // 1 scheduling
+    await enqueueBookmarkMutation(db, {
+      userId: "user-1",
+      entryId: 5,
+      createdAt: 1,
+      deleted: false,
+      now: 1,
+    }); // 1 mutation
+    // Another account's mutation must not be counted (EXT-F1).
+    await enqueueBookmarkMutation(db, {
+      userId: "user-2",
+      entryId: 6,
+      createdAt: 1,
+      deleted: false,
+      now: 2,
+    });
+    expect(await countPendingChanges(db, "user-1")).toBe(2);
+  });
+
+  it("is zero for an account with no unsynced work", async () => {
+    expect(await countPendingChanges(db, "user-1")).toBe(0);
   });
 });

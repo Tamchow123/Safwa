@@ -1,8 +1,13 @@
 /**
  * Phase 16 — sync orchestrator (§18). One coalesced push→pull run per account:
  *
- *   1. PUSH: select unsynced local scheduling (events + attempts), send it,
- *      and mark each event by its per-item result (applyPushResults).
+ *   1. PUSH: gather this account's unsynced scheduling (events + attempts) AND
+ *      its queued non-scheduling mutations (revocations, bookmarks, lists,
+ *      settings, reinforcement attempts — EXT-F2), bound them into one request
+ *      within the wire caps (buildBoundedPushRequest, reserving batch room for
+ *      the small latency-sensitive mutations), send it, then mark each scheduling
+ *      event (applyPushResults) and acknowledge each queued mutation
+ *      (applyQueueResults) by its per-item result.
  *   2. PULL: page from the account cursor, applying each page authoritatively
  *      (applyPullResponse) until `hasMore` is false.
  *
@@ -34,7 +39,6 @@
 import type { SafwaDb } from "@/modules/content/db";
 import {
   SYNC_BOUNDS,
-  SYNC_PROTOCOL_VERSION,
   type PullQuery,
   type PullResponse,
   type PushRequest,
@@ -44,6 +48,8 @@ import {
 import type { SyncApiFailure, SyncApiResult } from "./api";
 import { applyPushResults } from "./apply-push-results";
 import { selectUnsyncedScheduling } from "./local-selection";
+import { applyQueueResults, selectQueuedMutations } from "./mutation-queue";
+import { buildBoundedPushRequest, schedulingEventLimit } from "./push-batch";
 import { applyPullResponse } from "./reconcile";
 import { readCursorForAccount } from "./sync-state";
 
@@ -139,27 +145,41 @@ async function runSyncOnce(deps: RunSyncDeps): Promise<SyncRunResult> {
   const timeoutMs = deps.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
   // --- 1. PUSH ---
-  // Only this account's OWN events are selected — a guest's local history is
-  // never uploaded on login (§18, EXT-F1).
-  const selection = await selectUnsyncedScheduling(db, PUSH_LIMIT, userId);
-  if (selection.events.length > 0) {
-    const request: PushRequest = {
-      protocolVersion: SYNC_PROTOCOL_VERSION,
-      deviceId: deps.deviceId,
-      attempts: selection.attempts,
-      events: selection.events,
-      revocations: [],
-      bookmarks: [],
-      lists: [],
-      settings: [],
-    };
+  // Only this account's OWN work is selected — a guest's local history is never
+  // uploaded on login (§18, EXT-F1). Select the queued mutations first so their
+  // count can reserve batch room (schedulingEventLimit), preventing a heavy
+  // scheduling backlog from starving latency-sensitive mutations (REL-001), then
+  // select scheduling under that limit and build one bounded request.
+  const queued = await selectQueuedMutations(db, userId);
+  const mutationCount =
+    queued.revocations.length +
+    queued.bookmarks.length +
+    queued.lists.length +
+    queued.settings.length +
+    queued.reinforcementAttempts.length;
+  const selection = await selectUnsyncedScheduling(
+    db,
+    schedulingEventLimit(mutationCount, PUSH_LIMIT),
+    userId,
+  );
+  const request = buildBoundedPushRequest({
+    deviceId: deps.deviceId,
+    events: selection.events,
+    schedulingAttempts: selection.attempts,
+    queued,
+  });
+  if (request) {
     const pushed = await callWithTimeout(timeoutMs, (init) =>
       push(request, init),
     );
     if (!pushed.ok) return { outcome: outcomeForFailure(pushed.reason) };
     // Logout guard: don't write another account's push results.
     if (!deps.isCurrentAccount(userId)) return { outcome: "invalidated" };
+    // Scheduling events are marked by applyPushResults; the queued mutation
+    // categories are acknowledged (accepted->removed, recoverable->retry,
+    // permanent->dead-letter) by applyQueueResults, scoped to this account.
     await applyPushResults(db, pushed.data.results);
+    await applyQueueResults(db, userId, pushed.data.results);
   }
 
   // --- 2. PULL (bounded loop until no more pages) ---
