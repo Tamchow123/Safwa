@@ -139,7 +139,9 @@ async function runSyncOnce(deps: RunSyncDeps): Promise<SyncRunResult> {
   const timeoutMs = deps.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
   // --- 1. PUSH ---
-  const selection = await selectUnsyncedScheduling(db, PUSH_LIMIT);
+  // Only this account's OWN events are selected — a guest's local history is
+  // never uploaded on login (§18, EXT-F1).
+  const selection = await selectUnsyncedScheduling(db, PUSH_LIMIT, userId);
   if (selection.events.length > 0) {
     const request: PushRequest = {
       protocolVersion: SYNC_PROTOCOL_VERSION,

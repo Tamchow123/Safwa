@@ -107,21 +107,46 @@ function toWireAttempt(attempt: AttemptRecord): WireAttempt | null {
  * still pending — it is unsynced work, just not yet sendable). Unbounded count,
  * so it reflects the true backlog rather than a page-capped selection.
  *
- * ACCOUNT SCOPING: like `selectUnsyncedScheduling`, this query is not itself
- * account-scoped — the local store holds one account's rows at a time because
- * sign-out wipes every account-scoped store (`clearAccountLocalState`, Phase 16
- * logout slice), so a clean sign-out/sign-in leaves this count at 0 for the next
- * account. If per-account partitioning ever replaces the logout wipe, this
- * count MUST be scoped in lockstep with `selectUnsyncedScheduling` so the
- * visible badge and the actual push selection stay consistent.
+ * ACCOUNT SCOPING (§18, EXT-F1): counts only events OWNED by the active account
+ * — those whose linked attempt's `attempt.userId === userId`. Guest events
+ * (attempt.userId === null) and any other account's leftover events are NOT
+ * counted, so a guest's local history is never surfaced as this account's
+ * pending work and login never implies a merge. `review_events` carry no userId
+ * of their own, so ownership is read from the linked attempt payload; this makes
+ * the count a scan + per-event attempt read rather than an indexed count, which
+ * is acceptable for the modest Stage-A local backlog.
  */
-export async function countPendingScheduling(db: SafwaDb): Promise<number> {
-  return db.reviewEvents.where("syncStatus").equals("local").count();
+export async function countPendingScheduling(
+  db: SafwaDb,
+  userId: string,
+): Promise<number> {
+  const local = await db.reviewEvents
+    .where("syncStatus")
+    .equals("local")
+    .toArray();
+  let count = 0;
+  for (const ev of local) {
+    if (!ev.attemptId) continue;
+    const stored = await db.studyAttempts.get(ev.attemptId);
+    if (stored?.attempt?.userId === userId) count += 1;
+  }
+  return count;
 }
 
+/**
+ * Select up to `limit` unsynced scheduling events OWNED by `userId`, with their
+ * attempts, ready to push. ACCOUNT OWNERSHIP (§18, EXT-F1): an event is included
+ * only if its linked attempt's `attempt.userId === userId`. Guest events
+ * (attempt.userId === null) and any leftover events belonging to a different
+ * account are NEVER uploaded — logging in must not merge a guest's local history
+ * (the Phase-17 merge flow is the only path that promotes guest rows). An event
+ * whose attempt is missing/invalid is also skipped (the server grades an
+ * objective event by reconstructing its attempt). Attempts are de-duplicated.
+ */
 export async function selectUnsyncedScheduling(
   db: SafwaDb,
   limit: number,
+  userId: string,
 ): Promise<SchedulingSelection> {
   const localEvents = await db.reviewEvents
     .where("syncStatus")
@@ -137,13 +162,15 @@ export async function selectUnsyncedScheduling(
     const wireEvent = toWireEvent(record);
     if (!wireEvent) continue;
 
-    // The event must carry a valid, sendable attempt (already selected or freshly loaded).
+    const stored = await db.studyAttempts.get(wireEvent.attemptId);
+    // OWNERSHIP GATE: only this account's own events are sendable. A guest event
+    // (attempt.userId === null) or another account's event is dropped, never
+    // uploaded — no implicit guest merge on login (§18).
+    if (!stored?.attempt || stored.attempt.userId !== userId) continue;
+
     if (!includedAttempts.has(wireEvent.attemptId)) {
-      const stored = await db.studyAttempts.get(wireEvent.attemptId);
-      const wireAttempt = stored?.attempt
-        ? toWireAttempt(stored.attempt)
-        : null;
-      if (!wireAttempt) continue; // event not sendable without its attempt
+      const wireAttempt = toWireAttempt(stored.attempt);
+      if (!wireAttempt) continue; // event not sendable without a valid attempt
       attempts.push(wireAttempt);
       includedAttempts.add(wireEvent.attemptId);
     }

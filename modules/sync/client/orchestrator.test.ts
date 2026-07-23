@@ -75,11 +75,11 @@ function deps(over: Partial<RunSyncDeps> = {}): RunSyncDeps {
   };
 }
 
-function makeAttempt(): AttemptRecord {
+function makeAttempt(ownerId = "u"): AttemptRecord {
   return {
     id: randomUUID(),
     sessionId: randomUUID(),
-    userId: "u",
+    userId: ownerId,
     deviceId: "device-1",
     studyComponentId:
       "entry:1:skill:meaning_recognition:field:madi:direction:arabic_to_english",
@@ -114,8 +114,10 @@ function makeAttempt(): AttemptRecord {
   };
 }
 
-async function insertLocalEvent(): Promise<string> {
-  const att = makeAttempt();
+// The seeded event is OWNED by `ownerId` — the push selector only sends the
+// active account's own rows (§18, EXT-F1), so the owner must match runSync's userId.
+async function insertLocalEvent(ownerId = "u"): Promise<string> {
+  const att = makeAttempt(ownerId);
   await db.studyAttempts.add({
     id: att.id,
     componentKey: att.studyComponentId,
@@ -159,7 +161,7 @@ describe("runSync", () => {
   });
 
   it("pushes local events, applies results, pulls, and returns synced", async () => {
-    const eventId = await insertLocalEvent();
+    const eventId = await insertLocalEvent("u-full");
     const push = vi.fn(async (req: PushRequest) => {
       expect(req.events).toHaveLength(1);
       expect(req.attempts).toHaveLength(1);
@@ -216,7 +218,7 @@ describe("runSync", () => {
   });
 
   it("stops without applying when the account changes mid-run (logout guard)", async () => {
-    const eventId = await insertLocalEvent();
+    const eventId = await insertLocalEvent("u-logout");
     // Account is current for the push guard, then NOT current for the pull guard.
     const isCurrentAccount = vi
       .fn<(u: string) => boolean>()
@@ -247,7 +249,7 @@ describe("runSync", () => {
   });
 
   it("maps a network push failure to retry, not attempting the pull", async () => {
-    await insertLocalEvent();
+    await insertLocalEvent("u-neterr");
     const pull = vi.fn(async () => pullPage(false, 1));
     const result = await runSync(
       deps({

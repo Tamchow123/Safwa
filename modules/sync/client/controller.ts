@@ -70,8 +70,12 @@ export type SyncControllerDeps = {
   online: () => boolean;
   /** True iff `userId` is still the signed-in account (logout/switch guard). */
   isCurrentAccount: (userId: string) => boolean;
-  /** Count of local changes not yet accepted by the server (pending badge). */
-  countPending: (db: SafwaDb) => Promise<number>;
+  /**
+   * Count of THIS account's local changes not yet accepted by the server
+   * (pending badge). Scoped by userId so a guest's local history is never
+   * counted as this account's pending work (§18, EXT-F1).
+   */
+  countPending: (db: SafwaDb, userId: string) => Promise<number>;
   /** Injectable orchestrator (defaults to the real coalescing runSync). */
   run?: (deps: RunSyncDeps) => Promise<SyncRunResult>;
   /** Injectable in-flight probe (defaults to the real isSyncRunning). */
@@ -126,13 +130,14 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
   }
 
   async function refreshPending(): Promise<void> {
-    if (deps.userId === null) {
+    const { userId } = deps;
+    if (userId === null) {
       pendingCount = 0;
       notify();
       return;
     }
     try {
-      pendingCount = await deps.countPending(deps.db);
+      pendingCount = await deps.countPending(deps.db, userId);
     } catch {
       // A failed count must never break status; keep the last known value.
     }
