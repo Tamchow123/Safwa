@@ -4,6 +4,7 @@ import { createEmptyCard, fsrs, generatorParameters } from "ts-fsrs";
 import {
   chainHead,
   ChainError,
+  isChainRoot,
   orderCausally,
   replayChain,
   undoLastEvent,
@@ -128,6 +129,27 @@ describe("causal chain — validation", () => {
     ];
     // The revoked event is ignored; only the root remains (a valid 1-event chain).
     expect(replayChain(withRevoked).scheduledEventCount).toBe(1);
+  });
+});
+
+describe("causal chain — root classification", () => {
+  // Shared with the SERVER's head selection (`modules/sync/server/chain-head.ts`
+  // counts roots to pick which head rule applies), so these cases pin the
+  // meaning both sides depend on rather than only this module's use of it.
+  it("an event with no parent is a root", () => {
+    expect(isChainRoot(null, new Set(["a"]))).toBe(true);
+  });
+
+  it("an event whose parent is in the set is NOT a root", () => {
+    expect(isChainRoot("a", new Set(["a", "b"]))).toBe(false);
+  });
+
+  it("an event whose parent is outside the set IS a root — its history is elsewhere", () => {
+    expect(isChainRoot("elsewhere", new Set(["b"]))).toBe(true);
+  });
+
+  it("accepts any `has`-bearing collection, so a Map of events qualifies", () => {
+    expect(isChainRoot("a", new Map([["a", { eventId: "a" }]]))).toBe(false);
   });
 });
 
