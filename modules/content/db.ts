@@ -27,6 +27,13 @@
  * migration in v7 and the drop of the originals in v8); review_events,
  * study_attempts, sessions and lists keep their globally-unique primary keys —
  * imported ids must never change — and gain an indexed `ownerKey`.
+ *
+ * v9 (Phase 17 §12) adds the `guest_imports` store — the device's durable record
+ * of a guest→account import, keyed by the target account — additively: a new
+ * store, no upgrade function, no change to any existing store. It exists so the
+ * import key is persisted before the first network mutation and an interrupted
+ * merge resumes rather than importing the same history twice.
+ *
  * Content and learning state live in separate stores of one database:
  * cached content releases are immutable verified artifacts, never editable
  * copies.
@@ -69,7 +76,7 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
  * no upgrade function, no change to any existing store's keys or indexes.
  */
 export const SAFWA_DB_NAME = "safwa-content";
-export const SAFWA_DB_VERSION = 8;
+export const SAFWA_DB_VERSION = 9;
 
 /**
  * Physical names of the four stores schema v7 RECREATED with an owner-keyed
@@ -388,6 +395,49 @@ export type SyncStateRecord = {
 };
 
 /**
+ * How far a guest→account import has got (schema v9, phases-17.md §12). The
+ * distinction that matters is `preparing` vs everything after it: while the
+ * import is still `preparing` NOTHING has been sent, so the key may still be
+ * re-tied to a fresh snapshot and the user may still cancel with no server
+ * effect (§29 "allow cancellation before server mutation begins"). From
+ * `uploading` onwards the key is bound server-side to a payload and must not be
+ * silently reused for different content.
+ */
+export type GuestImportStatus =
+  "preparing" | "uploading" | "completed" | "failed";
+
+/**
+ * The device's durable record of a guest→account import (schema v9,
+ * phases-17.md §12). One row per TARGET ACCOUNT: merging the same guest data
+ * into two different accounts is two independent imports, and the import key
+ * must not be shared between them (§15 "an import key cannot be claimed across
+ * accounts").
+ *
+ * It holds no learner data — only the identity of an in-flight import — so it
+ * is safe to keep alongside guest rows and cheap to discard.
+ */
+export type GuestImportRecord = {
+  /** Primary key: the account the guest data is being merged INTO. */
+  userId: string;
+  /** The durable, client-generated idempotency key for this import. */
+  importKey: string;
+  /** Canonical hash of the snapshot this key is bound to (§12). */
+  snapshotHash: string;
+  status: GuestImportStatus;
+  createdAt: number;
+  /** Items durably accepted so far — the resume point for a chunked upload. */
+  uploadedItems: number;
+  /**
+   * The key this one replaced, when the guest's data changed after an upload had
+   * already begun. Retained purely as a local audit breadcrumb; the abandoned
+   * key's partial upload is harmless because attempt/event idempotency makes the
+   * overlap a no-op (§12).
+   */
+  supersededImportKey?: string;
+  completedAt?: number;
+};
+
+/**
  * The v7 data-moving upgrade (Phase 17 §10). IndexedDB cannot change an
  * existing store's key path, and Dexie refuses it outright ("UpgradeError: Not
  * yet support for changing primary key"), so the four stores whose identity
@@ -572,6 +622,8 @@ export class SafwaDb extends Dexie {
   mutationQueue!: EntityTable<MutationQueueRecord, "seq">;
   profile!: EntityTable<DeviceProfileRecord, "key">;
   syncState!: EntityTable<SyncStateRecord, "key">;
+  /** Durable guest→account import identities, one per target account (v9). */
+  guestImports!: EntityTable<GuestImportRecord, "userId">;
 
   constructor(name: string = SAFWA_DB_NAME) {
     super(name);
@@ -686,11 +738,20 @@ export class SafwaDb extends Dexie {
     // their rows. Separate version because a version's schema changes are
     // applied BEFORE its own upgrade function runs — deleting them in v7 would
     // destroy the source rows before they could be copied.
-    this.version(SAFWA_DB_VERSION).stores({
+    this.version(8).stores({
       study_components: null,
       bookmarks: null,
       settings: null,
       daily_activity: null,
+    });
+    // v9 (Phase 17 §12): the durable client-side record of a guest→account
+    // import. Purely additive — a new store, no upgrade function, no change to
+    // any existing store. It exists so the import key is persisted BEFORE the
+    // first network mutation and survives a reload, a crashed tab or a lost
+    // connection mid-upload, which is what makes an interrupted merge resumable
+    // instead of duplicated.
+    this.version(SAFWA_DB_VERSION).stores({
+      guest_imports: "userId, importKey",
     });
     // Code-facing accessors stay camelCase per TS convention; the mapping
     // to the physical stores lives here and nowhere else.
@@ -702,6 +763,7 @@ export class SafwaDb extends Dexie {
     this.settings = this.table(OWNED_STORE_NAMES.settings);
     this.mutationQueue = this.table("mutation_queue");
     this.syncState = this.table("sync_state");
+    this.guestImports = this.table("guest_imports");
   }
 }
 
@@ -741,6 +803,12 @@ export function accountScopedTables(db: SafwaDb): Table[] {
     ...ownerScopedTables(db),
     db.mutationQueue,
     db.syncState,
+    // An import row names the account it targets, so it is that account's — it
+    // goes when the account's local state goes. Abandoning an in-flight import
+    // at sign-out costs nothing: the guest's rows survive (§11), so the merge
+    // can simply be offered again, and re-uploading what the abandoned key
+    // already delivered is a no-op under attempt/event idempotency.
+    db.guestImports,
   ] as unknown as Table[];
 }
 

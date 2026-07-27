@@ -5,5 +5,6 @@
  * and `modules/sync/server` (Node/Postgres). Never re-export anything that
  * pulls in React, Dexie, `server-only` or the database from here.
  */
+export * from "./canonical-json";
 export * from "./constants";
 export * from "./wire";
