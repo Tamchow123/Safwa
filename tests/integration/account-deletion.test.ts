@@ -120,6 +120,9 @@ async function seedUserWithAppRows(email: string): Promise<string> {
     userId,
     deviceId: "device-1",
     importKey: randomUUID(),
+    snapshotHash: "a".repeat(64),
+    status: "completed",
+    completedAt: new Date(),
     result: "applied",
   });
 
