@@ -13,7 +13,12 @@
  *
  * Pure TypeScript: no React, DOM or DB imports.
  */
-import { replayChain, type ChainReplay } from "@/modules/scheduler/chain";
+import {
+  replayChain,
+  type ChainReplay,
+  type ChainReplayOptions,
+  type ChainShape,
+} from "@/modules/scheduler/chain";
 import type { ReviewEvent } from "@/modules/scheduler/events";
 import {
   FSRS_STATE_VALUES,
@@ -118,19 +123,34 @@ export type ComponentProjection = {
   masteryDates: string[];
   masteryDayCount: number;
   scheduledEventCount: number;
+  /** The replayed event set's shape (Phase 17: `merged` after a guest import). */
+  shape: ChainShape;
+  /**
+   * Whether the replayed set contained its own whole history. A `false` here
+   * means the projection is a partial replay (an anchor-rooted local chain) and
+   * must NOT overwrite the server-authoritative card — see {@link ChainReplay}.
+   */
+  complete: boolean;
 };
 
-/** Replay a component's events and project its full learner state. */
+/**
+ * Replay a component's events and project its full learner state. A merge union
+ * (≥2 disjoint chains) is only replayable with `options.allowMergeUnion` — every
+ * ordinary caller keeps failing loudly on a shape it should never see (§14).
+ */
 export function projectComponent(
   events: readonly ReviewEvent[],
   nowMs: number,
+  options: ChainReplayOptions = {},
 ): ComponentProjection {
-  const replay = replayChain(events);
+  const replay = replayChain(events, options);
   return {
     state: learnerStateFromReplay(replay, nowMs),
     card: replay.card,
     masteryDates: replay.masteryDates,
     masteryDayCount: replay.masteryDates.length,
     scheduledEventCount: replay.scheduledEventCount,
+    shape: replay.shape,
+    complete: replay.complete,
   };
 }
