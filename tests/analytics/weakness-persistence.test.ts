@@ -15,6 +15,7 @@ import {
 } from "@/modules/analytics/weakness-persistence";
 import { qualifyingWeaknessScore } from "@/modules/analytics/weakness";
 import { deriveAllComponents } from "@/modules/study-engine/components";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 let dbCounter = 0;
 let db: SafwaDb;
@@ -66,6 +67,7 @@ function babEntry(overrides: Partial<LearnerEntry> = {}): LearnerEntry {
 
 async function seedIncorrectBabAttempt(): Promise<void> {
   await db.studyComponents.put({
+    ownerKey: GUEST_OWNER_KEY,
     componentKey: KEY,
     entryId: 1,
     learnerState: "learning",
@@ -77,6 +79,7 @@ async function seedIncorrectBabAttempt(): Promise<void> {
   for (const id of ["attempt-1", "attempt-2"]) {
     await db.studyAttempts.put({
       id,
+      ownerKey: GUEST_OWNER_KEY,
       componentKey: KEY,
       sessionId: "session-1",
       attemptedAt: NOW,

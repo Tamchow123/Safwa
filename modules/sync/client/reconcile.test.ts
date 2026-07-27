@@ -3,6 +3,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SafwaDb } from "@/modules/content/db";
+import { accountOwnerKey, GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 import type { PullResponse, WireComponentState } from "@/modules/sync/protocol";
 
 import { applyPullResponse } from "./reconcile";
@@ -10,6 +11,10 @@ import { readCursorForAccount } from "./sync-state";
 
 let db: SafwaDb;
 let counter = 0;
+
+/** The signed-in account every pull in this file is applied for. */
+const ACCOUNT = "user-1";
+const ACCOUNT_KEY = accountOwnerKey(ACCOUNT);
 
 beforeEach(async () => {
   db = new SafwaDb(`safwa-reconcile-test-${counter++}`);
@@ -71,7 +76,10 @@ describe("applyPullResponse", () => {
     const comp = component();
     await applyPullResponse(db, "user-1", pull({ components: [comp] }), 1000);
 
-    const stored = await db.studyComponents.get(comp.componentKey);
+    const stored = await db.studyComponents.get([
+      ACCOUNT_KEY,
+      comp.componentKey,
+    ]);
     expect(stored?.revision).toBe(2);
     expect(stored?.learnerState).toBe("learning");
     expect(stored?.fsrs).toEqual(CARD);
@@ -86,9 +94,16 @@ describe("applyPullResponse", () => {
     });
     await applyPullResponse(db, "user-1", pull({ components: [comp] }), 1000);
 
-    const stored = await db.studyComponents.get(comp.componentKey);
-    // R2-F3: scoped to the account so a guest never reads it as theirs.
-    expect(stored?.userId).toBe("user-1");
+    const stored = await db.studyComponents.get([
+      ACCOUNT_KEY,
+      comp.componentKey,
+    ]);
+    // Owner-keyed (schema v7): the card IS the account's row, so a guest can
+    // neither read it as theirs nor be overwritten by it.
+    expect(stored?.ownerKey).toBe(ACCOUNT_KEY);
+    expect(
+      await db.studyComponents.get([GUEST_OWNER_KEY, comp.componentKey]),
+    ).toBeUndefined();
     // R2-F2: the accepted server head, so a fresh device extends the chain.
     expect(stored?.syncedHeadEventId).toBe(
       "11111111-1111-4111-8111-111111111111",
@@ -103,7 +118,10 @@ describe("applyPullResponse", () => {
       pull({ components: [component()] }),
       1000,
     );
-    const stored = await db.studyComponents.get(component().componentKey);
+    const stored = await db.studyComponents.get([
+      ACCOUNT_KEY,
+      component().componentKey,
+    ]);
     expect(stored?.syncedHeadEventId).toBeNull();
     expect(stored?.syncedHeadClientRevision).toBeNull();
   });
@@ -111,6 +129,7 @@ describe("applyPullResponse", () => {
   it("marks a known synced event by server status but preserves a local one", async () => {
     await db.reviewEvents.add({
       eventId: "ev-synced",
+      ownerKey: ACCOUNT_KEY,
       componentKey: "c",
       parentEventId: null,
       clientComponentRevision: 1,
@@ -119,6 +138,7 @@ describe("applyPullResponse", () => {
     });
     await db.reviewEvents.add({
       eventId: "ev-local",
+      ownerKey: ACCOUNT_KEY,
       componentKey: "c",
       parentEventId: null,
       clientComponentRevision: 2,
@@ -175,9 +195,11 @@ describe("applyPullResponse", () => {
       }),
       1000,
     );
-    expect(await db.bookmarks.get(5)).toMatchObject({ entryId: 5 });
+    expect(await db.bookmarks.get([ACCOUNT_KEY, 5])).toMatchObject({
+      entryId: 5,
+    });
     expect((await db.lists.get("l1"))?.entryIds).toEqual([1, 2]);
-    expect((await db.settings.get("theme"))?.value).toBe("dark");
+    expect((await db.settings.get([ACCOUNT_KEY, "theme"]))?.value).toBe("dark");
   });
 
   it("maps pulled server settings back to the LOCAL keys/shapes so context B can read them (EXT-F2)", async () => {
@@ -199,19 +221,27 @@ describe("applyPullResponse", () => {
       1000,
     );
     // The camelCase server keys land under the LOCAL kebab keys the app reads.
-    expect((await db.settings.get("arabic-font-scale"))?.value).toBe("large");
-    expect((await db.settings.get("timezone"))?.value).toEqual({
+    expect(
+      (await db.settings.get([ACCOUNT_KEY, "arabic-font-scale"]))?.value,
+    ).toBe("large");
+    expect((await db.settings.get([ACCOUNT_KEY, "timezone"]))?.value).toEqual({
       mode: "iana",
       timezone: "Europe/London",
     });
     // The four session-defaults keys merge into the one local blob.
-    expect((await db.settings.get("session-defaults"))?.value).toMatchObject({
+    expect(
+      (await db.settings.get([ACCOUNT_KEY, "session-defaults"]))?.value,
+    ).toMatchObject({
       questionCount: 15,
       reviewsPerDay: 40,
     });
     // The camelCase keys are NOT left lying around as unreadable rows.
-    expect(await db.settings.get("arabicFontScale")).toBeUndefined();
-    expect(await db.settings.get("questionCount")).toBeUndefined();
+    expect(
+      await db.settings.get([ACCOUNT_KEY, "arabicFontScale"]),
+    ).toBeUndefined();
+    expect(
+      await db.settings.get([ACCOUNT_KEY, "questionCount"]),
+    ).toBeUndefined();
   });
 
   it("returns the pulled theme + font-scale for mirror adoption (R2-F5)", async () => {
@@ -243,13 +273,21 @@ describe("applyPullResponse", () => {
   });
 
   it("applies tombstones by deleting the named bookmark and list", async () => {
-    await db.bookmarks.add({ entryId: 5, createdAt: 1 });
+    await db.bookmarks.add({ ownerKey: ACCOUNT_KEY, entryId: 5, createdAt: 1 });
     await db.lists.add({
+      ownerKey: ACCOUNT_KEY,
       id: "l1",
       name: "X",
       entryIds: [],
       createdAt: 1,
       updatedAt: 1,
+    });
+    // A GUEST bookmark for the SAME entry must survive an account tombstone
+    // (schema v7 §10/§11: the two are different rows).
+    await db.bookmarks.add({
+      ownerKey: GUEST_OWNER_KEY,
+      entryId: 5,
+      createdAt: 1,
     });
 
     await applyPullResponse(
@@ -263,13 +301,15 @@ describe("applyPullResponse", () => {
       }),
       1000,
     );
-    expect(await db.bookmarks.get(5)).toBeUndefined();
+    expect(await db.bookmarks.get([ACCOUNT_KEY, 5])).toBeUndefined();
     expect(await db.lists.get("l1")).toBeUndefined();
+    expect(await db.bookmarks.get([GUEST_OWNER_KEY, 5])).toBeDefined();
   });
 
   it("retains local study attempts (never deletes history)", async () => {
     await db.studyAttempts.add({
       id: "a1",
+      ownerKey: ACCOUNT_KEY,
       componentKey: "c",
       sessionId: "s1",
       attemptedAt: 1,

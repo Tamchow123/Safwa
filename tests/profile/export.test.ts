@@ -20,6 +20,7 @@ import {
   serializeExport,
 } from "@/modules/profile/export";
 import { writeSetting } from "@/modules/profile/settings";
+import { GUEST_OWNER_KEY, toOwnerKey } from "@/modules/content/owner-key";
 
 const ensureDurableGuestStateSpy = vi.fn(async () => ({ deviceId: "dev-1" }));
 
@@ -73,6 +74,7 @@ describe("buildExportPayload", () => {
     // The cache is rebuildable from study_attempts/review_events; exporting
     // it would ship derived data as if it were learner truth.
     await db.dailyActivity.put({
+      ownerKey: GUEST_OWNER_KEY,
       localDate: "2026-07-17",
       attempts: 3,
       reviews: 1,
@@ -91,21 +93,32 @@ describe("buildExportPayload", () => {
       randomUUID: () => "uuid-export",
     });
     await writeSetting(db, "arabic-font-scale", "large", () => 2);
-    await db.bookmarks.add({ entryId: 7, createdAt: 3 });
+    await db.bookmarks.add({
+      ownerKey: GUEST_OWNER_KEY,
+      entryId: 7,
+      createdAt: 3,
+    });
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "My verbs",
       entryIds: [7, 9],
       createdAt: 4,
       updatedAt: 4,
     });
-    await db.sessions.add({ id: "session-1", startedAt: 5 });
+    await db.sessions.add({
+      ownerKey: GUEST_OWNER_KEY,
+      id: "session-1",
+      startedAt: 5,
+    });
     await db.studyComponents.add({
+      ownerKey: GUEST_OWNER_KEY,
       componentKey:
         "entry:7:skill:meaning_recognition:field:madi:direction:arabic_to_english",
       entryId: 7,
     });
     await db.studyAttempts.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "attempt-1",
       componentKey:
         "entry:7:skill:meaning_recognition:field:madi:direction:arabic_to_english",
@@ -113,6 +126,7 @@ describe("buildExportPayload", () => {
       attemptedAt: 6,
     });
     await db.reviewEvents.add({
+      ownerKey: GUEST_OWNER_KEY,
       eventId: "event-1",
       componentKey:
         "entry:7:skill:meaning_recognition:field:madi:direction:arabic_to_english",
@@ -153,7 +167,9 @@ describe("buildExportPayload", () => {
       content_version: "2.0.0",
     });
     expect(payload.settings).toHaveLength(1);
-    expect(payload.bookmarks).toEqual([{ entryId: 7, createdAt: 3 }]);
+    expect(payload.bookmarks).toEqual([
+      { ownerKey: GUEST_OWNER_KEY, entryId: 7, createdAt: 3 },
+    ]);
     expect(payload.lists).toHaveLength(1);
     expect(payload.sessions).toHaveLength(1);
     expect(payload.study_components).toHaveLength(1);
@@ -189,7 +205,7 @@ describe("buildExportPayload", () => {
       await toggleBookmark(db, 7, KNOWN, 10, null);
       const payload = await buildExportPayload(db, () => 20);
       expect(payload.bookmarks).toEqual([
-        { entryId: 7, createdAt: 10, userId: null },
+        { ownerKey: GUEST_OWNER_KEY, entryId: 7, createdAt: 10 },
       ]);
     });
 
@@ -268,7 +284,7 @@ describe("buildExportPayload", () => {
       const payload = await buildExportPayload(db, () => 3);
       expect(payload.lists).toEqual([]);
       expect(payload.bookmarks).toEqual([
-        { entryId: 7, createdAt: 1, userId: null },
+        { ownerKey: GUEST_OWNER_KEY, entryId: 7, createdAt: 1 },
       ]);
     });
 
@@ -321,28 +337,34 @@ describe("buildExportPayload owner scoping (R2-F3 / ARCH-001)", () => {
     entryId: number,
     suffix: string,
   ): Promise<void> {
-    await db.bookmarks.put({ entryId, createdAt: 1, userId: owner });
+    await db.bookmarks.put({
+      ownerKey: toOwnerKey(owner),
+      entryId,
+      createdAt: 1,
+    });
     await db.lists.put({
+      ownerKey: toOwnerKey(owner),
       id: `list-${suffix}`,
       name: `List ${suffix}`,
       entryIds: [entryId],
       createdAt: 1,
       updatedAt: 1,
-      userId: owner,
     });
     await db.settings.put({
       key: `setting-${suffix}`,
       value: suffix,
       updatedAt: 1,
-      userId: owner,
+      ownerKey: toOwnerKey(owner),
     });
     await db.studyComponents.put({
+      ownerKey: toOwnerKey(owner),
       componentKey: `entry:${entryId}:skill:bab_identification`,
       entryId,
-      userId: owner,
+
       learnerState: "learning",
     });
     await db.studyAttempts.put({
+      ownerKey: toOwnerKey(owner),
       id: `attempt-${suffix}`,
       componentKey: `entry:${entryId}:skill:bab_identification`,
       sessionId: `session-${suffix}`,
@@ -350,9 +372,10 @@ describe("buildExportPayload owner scoping (R2-F3 / ARCH-001)", () => {
       attempt: { userId: owner, entryId } as never,
     });
     await db.reviewEvents.put({
+      ownerKey: toOwnerKey(owner),
       eventId: `event-${suffix}`,
       componentKey: `entry:${entryId}:skill:bab_identification`,
-      userId: owner,
+
       parentEventId: null,
       clientComponentRevision: 1,
       syncStatus: "local",
@@ -405,13 +428,38 @@ describe("buildExportPayload owner scoping (R2-F3 / ARCH-001)", () => {
     ]);
   });
 
-  it("device-level rows (profile, sessions, active content) are NOT owner-filtered", async () => {
-    await db.sessions.put({ id: "session-x", startedAt: 5 });
+  it("device-level rows (profile, active content) are NOT owner-filtered", async () => {
     await getOrCreateDeviceProfile(db, { now: () => 1 });
 
     const payload = await buildExportPayload(db, () => 0, ACCOUNT);
-    expect(payload.sessions.map((s) => s.id)).toEqual(["session-x"]);
+    // The anonymous device identity is device-level: it carries no learner
+    // content and is preserved across identities, so it is never scoped.
     expect(payload.device_profile).not.toBeNull();
+  });
+
+  it("sessions ARE owner-scoped since schema v7", async () => {
+    // A study session belongs to whoever was studying: it now carries an owner
+    // (phases-17.md §10), so one identity's export never lists another's
+    // sessions — previously they were exported to everyone.
+    await db.sessions.put({
+      ownerKey: GUEST_OWNER_KEY,
+      id: "session-guest",
+      startedAt: 5,
+    });
+    await db.sessions.put({
+      ownerKey: toOwnerKey(ACCOUNT),
+      id: "session-account",
+      startedAt: 6,
+    });
+
+    expect(
+      (await buildExportPayload(db, () => 0, ACCOUNT)).sessions.map(
+        (s) => s.id,
+      ),
+    ).toEqual(["session-account"]);
+    expect(
+      (await buildExportPayload(db, () => 0, null)).sessions.map((s) => s.id),
+    ).toEqual(["session-guest"]);
   });
 });
 

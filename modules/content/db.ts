@@ -15,6 +15,18 @@
  * settings) so a signed-in account never reads/extends/overwrites a guest's (or
  * another account's) rows sharing the same natural key — additive (new columns
  * + indexes only, no key change, no data move).
+ *
+ * v7/v8 (Phase 17 §10) finish that job: the owner becomes part of a private
+ * row's IDENTITY, not just a column, so a guest's and an account's rows for the
+ * same natural key COEXIST instead of one physically replacing the other. The
+ * owner is the non-null `OwnerKey` (`guest` | `account:<id>` —
+ * modules/content/owner-key.ts), because IndexedDB cannot index `null` and a
+ * compound key containing it is not a valid key at all. study_components,
+ * bookmarks, settings and daily_activity are re-keyed to `[ownerKey+…]` (a
+ * key-path change IndexedDB cannot make in place, hence the copy-into-new-store
+ * migration in v7 and the drop of the originals in v8); review_events,
+ * study_attempts, sessions and lists keep their globally-unique primary keys —
+ * imported ids must never change — and gain an indexed `ownerKey`.
  * Content and learning state live in separate stores of one database:
  * cached content releases are immutable verified artifacts, never editable
  * copies.
@@ -30,7 +42,7 @@
  * BROWSER-ONLY: server components must never import or instantiate this.
  * Creation is lazy; tests use fake-indexeddb.
  */
-import Dexie, { type EntityTable, type Table } from "dexie";
+import Dexie, { type EntityTable, type Table, type Transaction } from "dexie";
 
 import {
   learnerReleaseSchema,
@@ -40,6 +52,11 @@ import {
   type LearnerEntry,
   type LearnerRelease,
 } from "@/modules/content/schema";
+import {
+  GUEST_OWNER_KEY,
+  ownerKeyFromLegacyUserId,
+  type OwnerKey,
+} from "@/modules/content/owner-key";
 import { sha256HexBrowser } from "@/modules/content/sha256-browser";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 
@@ -52,7 +69,31 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
  * no upgrade function, no change to any existing store's keys or indexes.
  */
 export const SAFWA_DB_NAME = "safwa-content";
-export const SAFWA_DB_VERSION = 6;
+export const SAFWA_DB_VERSION = 8;
+
+/**
+ * Physical names of the four stores schema v7 RECREATED with an owner-keyed
+ * compound primary key. IndexedDB cannot change an existing store's key path, so
+ * the owner-keyed store is a new one and the v6 store is dropped in v8 — see the
+ * version blocks below. The names are an implementation detail of this module:
+ * every consumer goes through the camelCase accessors (`db.bookmarks`, …).
+ */
+const OWNED_STORE_NAMES = {
+  studyComponents: "study_components_owned",
+  bookmarks: "bookmarks_owned",
+  settings: "settings_owned",
+  dailyActivity: "daily_activity_owned",
+} as const;
+
+/** A row as stored under the v6 contract, whose owner was the nullable `userId`. */
+type LegacyOwnedRow = { userId?: string | null };
+
+/**
+ * How many rows the v7 upgrade reads and writes at a time. Bounds the peak
+ * memory of a one-off migration over a multi-year learner history without
+ * making the pass chatty (a few hundred rows per round trip).
+ */
+const MIGRATION_BATCH_SIZE = 500;
 
 /* ------------------------------------------------------------------ */
 /* Learner-state records (schema v2) and derived-cache records (v3)    */
@@ -73,39 +114,57 @@ export type DeviceProfileRecord = {
   /** navigator.storage.persist() outcome; null until first requested. */
   persistenceRequestedAt: number | null;
   persistenceGranted: boolean | null;
+  /**
+   * Last issued per-DEVICE monotonic `client_sequence` (schema v7). It lives on
+   * the device profile — not in `settings` — because it belongs to the device,
+   * not to any one identity: the counter must keep advancing across a guest, an
+   * account and a merge that removes the guest's rows, which an owner-keyed
+   * settings row could not guarantee. Absent until the first scheduling event.
+   */
+  lastClientSequence?: number;
 };
 
 /**
- * The local owner of a private learner-state row (schema v6, R2-F3). The
- * signed-in account id, or `null`/absent for a guest. Reads/writes/selection are
- * scoped by this so a signed-in account never sees, extends or overwrites a
- * guest's (or another account's) rows that share the same natural key; an absent
- * value on a pre-v6 row is read as a guest row. Login never merges guest rows;
- * logout still wipes the whole store (`accountScopedTables`) — the owner scoping
- * governs the coexistence window BEFORE that wipe, not the wipe itself.
+ * The local owner of a private learner-state row: the signed-in account id, or
+ * `null` for a guest. This is the LOGICAL owner every adapter and hook passes
+ * around; its durable, IndexedDB-valid encoding is the `OwnerKey`
+ * (`modules/content/owner-key.ts`), which is what rows actually store and what
+ * the compound primary keys are built from.
+ *
+ * Since schema v7 (Phase 17 §10) the owner is part of a private row's IDENTITY,
+ * not merely a column: a guest's and an account's rows for the same natural key
+ * COEXIST instead of one replacing the other, which is what makes a deferred
+ * merge (and a scoped logout that preserves guest data) possible at all.
  */
 export type LocalOwnerId = string | null;
 
 export type SettingRecord = {
+  /** Owner half of the compound primary key `[ownerKey+key]` (schema v7). */
+  ownerKey: OwnerKey;
   key: string;
   value: unknown;
   updatedAt: number;
-  userId?: LocalOwnerId;
 };
 
 export type BookmarkRecord = {
+  /** Owner half of the compound primary key `[ownerKey+entryId]` (schema v7). */
+  ownerKey: OwnerKey;
   entryId: number;
   createdAt: number;
-  userId?: LocalOwnerId;
 };
 
 export type CustomListRecord = {
+  /**
+   * Owning identity (schema v7). The primary key stays the globally-unique
+   * `id`, so an imported guest list can keep its uuid; `ownerKey` is the
+   * indexed scope every read narrows on.
+   */
+  ownerKey: OwnerKey;
   id: string;
   name: string;
   entryIds: number[];
   createdAt: number;
   updatedAt: number;
-  userId?: LocalOwnerId;
 };
 
 /**
@@ -116,10 +175,10 @@ export type CustomListRecord = {
  * pure and does the writing via a thin adapter in later phases.
  */
 export type StudyComponentRecord = {
+  /** Owner half of the compound primary key `[ownerKey+componentKey]` (schema v7). */
+  ownerKey: OwnerKey;
   componentKey: string;
   entryId: number;
-  /** Local owner (schema v6, R2-F3); absent = guest. See {@link LocalOwnerId}. */
-  userId?: LocalOwnerId;
   /** FSRS card fields (present once the component has been reviewed). */
   fsrs?: {
     stability: number;
@@ -152,6 +211,13 @@ export type StudyComponentRecord = {
 
 export type StudyAttemptRecord = {
   id: string;
+  /**
+   * Owning identity (schema v7), lifted out of the embedded engine payload so
+   * attempts can be selected, re-keyed by a merge and cleaned up by owner. The
+   * primary key stays the globally-unique attempt `id` — server idempotency
+   * depends on it, so an import never changes it (§10).
+   */
+  ownerKey: OwnerKey;
   componentKey: string;
   sessionId: string;
   attemptedAt: number;
@@ -175,11 +241,13 @@ export type ReviewEventRecord = {
   eventId: string;
   componentKey: string;
   /**
-   * Local owner (schema v6, R2-F3); absent = guest. Stamped from the linked
-   * attempt's `userId` at write time so scheduling selection + chain reads scope
-   * to the active account and an account event never parents a guest event.
+   * Owning identity (schema v7). Stamped from the linked attempt's owner at
+   * write time so scheduling selection and chain reads scope to the active
+   * identity and an account event never parents a guest event. The primary key
+   * stays the globally-unique `eventId` — server idempotency and the imported
+   * chain's internal lineage both depend on it (§9.4, §10).
    */
-  userId?: LocalOwnerId;
+  ownerKey: OwnerKey;
   /** Head of the local causal chain (null for a chain root). */
   parentEventId: string | null;
   clientComponentRevision: number;
@@ -208,6 +276,8 @@ export type ReviewEventRecord = {
 
 export type StudySessionRecord = {
   id: string;
+  /** Owning identity (schema v7); the primary key stays the session uuid. */
+  ownerKey: OwnerKey;
   startedAt: number;
 };
 
@@ -219,6 +289,12 @@ export type StudySessionRecord = {
  * loses nothing.
  */
 export type DailyActivityRecord = {
+  /**
+   * Owner half of the compound primary key `[ownerKey+localDate]` (schema v7):
+   * a guest's and an account's activity for the same calendar day are different
+   * rows, where before one silently overwrote the other.
+   */
+  ownerKey: OwnerKey;
   /** "YYYY-MM-DD" — the immutable stored event-time local date. */
   localDate: string;
   attempts: number;
@@ -308,18 +384,188 @@ export type SyncStateRecord = {
   lastSyncAt: number | null;
 };
 
+/**
+ * The v7 data-moving upgrade (Phase 17 §10). IndexedDB cannot change an
+ * existing store's key path, and Dexie refuses it outright ("UpgradeError: Not
+ * yet support for changing primary key"), so the four stores whose identity
+ * gains the owner are RECREATED under new physical names and their rows copied
+ * across in this upgrade function; v8 then drops the originals. (Deleting them
+ * in v7 is impossible: a version's schema changes are applied BEFORE its upgrade
+ * function runs, so the source rows would already be gone.) An error anywhere in
+ * the sequence rolls the whole version-change transaction back, so the database
+ * either fully migrates or stays exactly as it was.
+ */
+async function upgradeToOwnerKeyedStores(tx: Transaction): Promise<void> {
+  /**
+   * Read one store in bounded BATCHES, in primary-key order, handing each batch
+   * to `onBatch`. A years-long learner history can hold tens of thousands of
+   * attempts and events, and this runs inside the one version-change transaction
+   * that blocks every other connection to the database, so neither the rows nor
+   * their mapped copies may be held in memory all at once. Paging by key range
+   * (rather than `offset`) keeps the whole pass linear: each batch resumes from
+   * the last key instead of re-walking the rows already migrated.
+   */
+  async function forEachBatch<Row>(
+    name: string,
+    /** The row's primary-key value — every migrated store has an INBOUND key. */
+    keyOf: (row: Row) => string | number,
+    onBatch: (rows: Row[]) => Promise<void>,
+  ): Promise<void> {
+    const table = tx.table(name);
+    let after: string | number | undefined;
+    for (;;) {
+      const collection =
+        after === undefined
+          ? table.orderBy(":id")
+          : table.where(":id").above(after);
+      const rows = (await collection
+        .limit(MIGRATION_BATCH_SIZE)
+        .toArray()) as Row[];
+      if (rows.length === 0) return;
+      await onBatch(rows);
+      if (rows.length < MIGRATION_BATCH_SIZE) return;
+      after = keyOf(rows[rows.length - 1]);
+    }
+  }
+
+  /** Copy every row of `from` into `to`, mapped by `map`, batch by batch. */
+  async function copyStore<Source, Target>(
+    from: string,
+    to: string,
+    keyOf: (row: Source) => string | number,
+    map: (row: Source) => Target,
+  ): Promise<void> {
+    await forEachBatch<Source>(from, keyOf, async (rows) => {
+      await tx.table(to).bulkPut(rows.map(map));
+    });
+  }
+
+  /** Rewrite every row of a store IN PLACE (same primary key, new owner field). */
+  async function rewriteStore<Row>(
+    name: string,
+    keyOf: (row: Row) => string | number,
+    map: (row: Row) => Row,
+  ): Promise<void> {
+    await forEachBatch<Row>(name, keyOf, async (rows) => {
+      await tx.table(name).bulkPut(rows.map(map));
+    });
+  }
+
+  // A v6 row carries the owner in `userId` (null/absent = guest); a pre-v6 row
+  // has no owner field at all and is likewise a guest's. `ownerKeyFromLegacyUserId`
+  // owns that rule (§10 "existing pre-v6 rows with absent owner are treated as
+  // guest rows"), and `userId` is dropped so only one owner field survives.
+  const ownerOf = (row: { userId?: string | null }): OwnerKey =>
+    ownerKeyFromLegacyUserId(row.userId);
+
+  await copyStore<LegacyOwnedRow & Record<string, unknown>, unknown>(
+    "study_components",
+    OWNED_STORE_NAMES.studyComponents,
+    (row) => row.componentKey as string,
+    ({ userId: _userId, ...rest }) => ({
+      ...rest,
+      ownerKey: ownerOf({ userId: _userId }),
+    }),
+  );
+  await copyStore<LegacyOwnedRow & Record<string, unknown>, unknown>(
+    "bookmarks",
+    OWNED_STORE_NAMES.bookmarks,
+    (row) => row.entryId as number,
+    ({ userId: _userId, ...rest }) => ({
+      ...rest,
+      ownerKey: ownerOf({ userId: _userId }),
+    }),
+  );
+  await copyStore<LegacyOwnedRow & Record<string, unknown>, unknown>(
+    "settings",
+    OWNED_STORE_NAMES.settings,
+    (row) => row.key as string,
+    ({ userId: _userId, ...rest }) => ({
+      ...rest,
+      ownerKey: ownerOf({ userId: _userId }),
+    }),
+  );
+  // `daily_activity` is deliberately NOT copied. It is a DERIVED cache (§10 "the
+  // derived daily_activity cache may be rebuilt rather than treated as
+  // authoritative") whose pre-v7 rows carry no owner at all, so attributing them
+  // to any identity would be a guess. Dropping them loses nothing: the next
+  // analytics read rebuilds the cache from the raw attempts/events it owns.
+
+  // Stores whose primary key already is globally unique keep it and are only
+  // re-stamped in place.
+  await rewriteStore<LegacyOwnedRow & Record<string, unknown>>(
+    "lists",
+    (row) => row.id as string,
+    ({ userId: _userId, ...rest }) => ({
+      ...rest,
+      ownerKey: ownerOf({ userId: _userId }),
+    }),
+  );
+  await rewriteStore<LegacyOwnedRow & Record<string, unknown>>(
+    "review_events",
+    (row) => row.eventId as string,
+    ({ userId: _userId, ...rest }) => ({
+      ...rest,
+      ownerKey: ownerOf({ userId: _userId }),
+    }),
+  );
+
+  // An attempt's owner lived INSIDE its engine payload (`attempt.userId`), which
+  // stays where it is — it is part of the immutable attempt record the sync wire
+  // is built from. The owner is lifted to an indexed top-level `ownerKey` so
+  // attempts can be selected, re-keyed and cleaned up by owner like every other
+  // private store.
+  //
+  // Sessions never stored an owner at all, so the same pass records which
+  // identity each session's attempts belonged to (a session belongs to whoever
+  // was studying). Only that small session→owner map is retained across
+  // batches; the attempt rows themselves are released after each batch.
+  const ownerBySession = new Map<string, OwnerKey>();
+  await forEachBatch<
+    StudyAttemptRecord & { attempt?: { userId?: string | null } }
+  >(
+    "study_attempts",
+    (row) => row.id,
+    async (rows) => {
+      await tx.table("study_attempts").bulkPut(
+        rows.map((row) => {
+          const ownerKey = ownerKeyFromLegacyUserId(row.attempt?.userId);
+          if (typeof row.sessionId === "string") {
+            ownerBySession.set(row.sessionId, ownerKey);
+          }
+          return { ...row, ownerKey };
+        }),
+      );
+    },
+  );
+  // A session with no surviving attempt is the guest's — the same default
+  // every other ownerless row takes.
+  await rewriteStore<StudySessionRecord>(
+    "sessions",
+    (row) => row.id,
+    (row) => ({
+      ...row,
+      ownerKey: ownerBySession.get(row.id) ?? GUEST_OWNER_KEY,
+    }),
+  );
+}
+
 export class SafwaDb extends Dexie {
   contentReleases!: EntityTable<ContentReleaseRecord, "releaseId">;
   contentEntries!: EntityTable<ContentEntryRecord, "releaseId">;
   contentMetadata!: EntityTable<ContentMetadataRecord, "key">;
-  studyComponents!: EntityTable<StudyComponentRecord, "componentKey">;
+  /** Owner-keyed (schema v7): the primary key is `[ownerKey+componentKey]`. */
+  studyComponents!: Table<StudyComponentRecord, [OwnerKey, string]>;
   studyAttempts!: EntityTable<StudyAttemptRecord, "id">;
   reviewEvents!: EntityTable<ReviewEventRecord, "eventId">;
-  dailyActivity!: EntityTable<DailyActivityRecord, "localDate">;
+  /** Owner-keyed (schema v7): the primary key is `[ownerKey+localDate]`. */
+  dailyActivity!: Table<DailyActivityRecord, [OwnerKey, string]>;
   sessions!: EntityTable<StudySessionRecord, "id">;
-  bookmarks!: EntityTable<BookmarkRecord, "entryId">;
+  /** Owner-keyed (schema v7): the primary key is `[ownerKey+entryId]`. */
+  bookmarks!: Table<BookmarkRecord, [OwnerKey, number]>;
   lists!: EntityTable<CustomListRecord, "id">;
-  settings!: EntityTable<SettingRecord, "key">;
+  /** Owner-keyed (schema v7): the primary key is `[ownerKey+key]`. */
+  settings!: Table<SettingRecord, [OwnerKey, string]>;
   mutationQueue!: EntityTable<MutationQueueRecord, "seq">;
   profile!: EntityTable<DeviceProfileRecord, "key">;
   syncState!: EntityTable<SyncStateRecord, "key">;
@@ -389,7 +635,7 @@ export class SafwaDb extends Dexie {
     //   - bookmarks        `[userId+entryId]` scopes the per-entry lookup.
     //   - settings         `[userId+key]` scopes account-syncable settings.
     //   - lists            `userId` scopes the (uuid-keyed) list rows.
-    this.version(SAFWA_DB_VERSION).stores({
+    this.version(6).stores({
       study_components: "componentKey, entryId, userId, [userId+componentKey]",
       review_events:
         "eventId, componentKey, parentEventId, syncStatus, userId, [userId+syncStatus], [userId+componentKey]",
@@ -397,12 +643,60 @@ export class SafwaDb extends Dexie {
       lists: "id, name, userId",
       settings: "key, userId, [userId+key]",
     });
+    // v7 (Phase 17 §10): the OWNER becomes part of the row's IDENTITY, so a
+    // guest's and an account's rows for the same natural key can coexist instead
+    // of one physically replacing the other (the Phase 16 limitation §10 names).
+    //
+    // The four stores whose logical key collides across owners get a compound
+    // `[ownerKey+naturalKey]` primary key. That is a key-path change, which
+    // IndexedDB cannot do in place, so each is created as a NEW store here and
+    // its rows are copied by `upgradeToOwnerKeyedStores`; v8 then drops the
+    // originals (see that function's comment for why the drop cannot happen in
+    // this same version). The stores whose primary key is already globally
+    // unique — review_events/study_attempts/sessions by uuid, lists by uuidv7 —
+    // keep it and only gain the indexed `ownerKey` column, so no imported
+    // attempt/event id ever changes (§10 "do not change globally unique
+    // attempt/event ids unnecessarily; preserve original ids used by server
+    // idempotency").
+    //
+    // Every owner-scoped read now narrows on an INDEXED, non-null owner key, so
+    // the v6-era "IndexedDB cannot index null, so guests must scan" split is
+    // gone: guest reads are indexed exactly like an account's.
+    this.version(7)
+      .stores({
+        [OWNED_STORE_NAMES.studyComponents]:
+          "[ownerKey+componentKey], ownerKey, componentKey, entryId, [ownerKey+entryId]",
+        [OWNED_STORE_NAMES.bookmarks]:
+          "[ownerKey+entryId], ownerKey, entryId, createdAt",
+        [OWNED_STORE_NAMES.settings]: "[ownerKey+key], ownerKey, key",
+        [OWNED_STORE_NAMES.dailyActivity]:
+          "[ownerKey+localDate], ownerKey, localDate",
+        study_attempts:
+          "id, componentKey, sessionId, attemptedAt, ownerKey, [ownerKey+componentKey]",
+        review_events:
+          "eventId, componentKey, parentEventId, syncStatus, ownerKey, [ownerKey+syncStatus], [ownerKey+componentKey]",
+        sessions: "id, startedAt, ownerKey",
+        lists: "id, name, ownerKey",
+      })
+      .upgrade(upgradeToOwnerKeyedStores);
+    // v8 (Phase 17 §10): drop the four superseded stores now that v7 has copied
+    // their rows. Separate version because a version's schema changes are
+    // applied BEFORE its own upgrade function runs — deleting them in v7 would
+    // destroy the source rows before they could be copied.
+    this.version(SAFWA_DB_VERSION).stores({
+      study_components: null,
+      bookmarks: null,
+      settings: null,
+      daily_activity: null,
+    });
     // Code-facing accessors stay camelCase per TS convention; the mapping
-    // to the snake_case physical stores lives here and nowhere else.
-    this.studyComponents = this.table("study_components");
+    // to the physical stores lives here and nowhere else.
+    this.studyComponents = this.table(OWNED_STORE_NAMES.studyComponents);
     this.studyAttempts = this.table("study_attempts");
     this.reviewEvents = this.table("review_events");
-    this.dailyActivity = this.table("daily_activity");
+    this.dailyActivity = this.table(OWNED_STORE_NAMES.dailyActivity);
+    this.bookmarks = this.table(OWNED_STORE_NAMES.bookmarks);
+    this.settings = this.table(OWNED_STORE_NAMES.settings);
     this.mutationQueue = this.table("mutation_queue");
     this.syncState = this.table("sync_state");
   }

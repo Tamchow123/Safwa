@@ -7,6 +7,7 @@ import {
   deviceAndContentTables,
   SafwaDb,
 } from "@/modules/content/db";
+import { accountOwnerKey, GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 import { clearAccountLocalState } from "./logout";
 import { readSyncState, recordSyncProgress } from "./sync-state";
@@ -21,16 +22,26 @@ beforeEach(async () => {
 
 afterEach(() => db.close());
 
+const ACCOUNT = "user-1";
+const ACCOUNT_KEY = accountOwnerKey(ACCOUNT);
+
 async function seedAccountState(): Promise<void> {
-  await db.studyComponents.add({ componentKey: "c1", entryId: 1, revision: 3 });
+  await db.studyComponents.add({
+    ownerKey: ACCOUNT_KEY,
+    componentKey: "c1",
+    entryId: 1,
+    revision: 3,
+  });
   await db.studyAttempts.add({
     id: "a1",
+    ownerKey: ACCOUNT_KEY,
     componentKey: "c1",
     sessionId: "s1",
     attemptedAt: 1,
   });
   await db.reviewEvents.add({
     eventId: "e1",
+    ownerKey: ACCOUNT_KEY,
     componentKey: "c1",
     parentEventId: null,
     clientComponentRevision: 1,
@@ -38,6 +49,7 @@ async function seedAccountState(): Promise<void> {
     createdAt: 1,
   });
   await db.dailyActivity.add({
+    ownerKey: ACCOUNT_KEY,
     localDate: "2026-07-20",
     attempts: 1,
     reviews: 1,
@@ -45,23 +57,29 @@ async function seedAccountState(): Promise<void> {
     studyMs: 100,
     derivedAt: 1,
   });
-  await db.sessions.add({ id: "s1", startedAt: 1 });
-  await db.bookmarks.add({ entryId: 5, createdAt: 1 });
+  await db.sessions.add({ id: "s1", ownerKey: ACCOUNT_KEY, startedAt: 1 });
+  await db.bookmarks.add({ ownerKey: ACCOUNT_KEY, entryId: 5, createdAt: 1 });
   await db.lists.add({
+    ownerKey: ACCOUNT_KEY,
     id: "l1",
     name: "Verbs",
     entryIds: [1, 2],
     createdAt: 1,
     updatedAt: 1,
   });
-  await db.settings.add({ key: "theme", value: "dark", updatedAt: 1 });
+  await db.settings.add({
+    ownerKey: ACCOUNT_KEY,
+    key: "theme",
+    value: "dark",
+    updatedAt: 1,
+  });
   await db.mutationQueue.add({
     idempotencyKey: "m1",
     type: "x",
     payload: {},
     createdAt: 1,
   });
-  await recordSyncProgress(db, "user-1", 7, 1000);
+  await recordSyncProgress(db, ACCOUNT, 7, 1000);
 }
 
 describe("clearAccountLocalState", () => {
@@ -108,31 +126,37 @@ describe("clearAccountLocalState", () => {
   });
 
   it("wipes a coexisting GUEST's rows too — the deliberate shared-device trade-off (SEC-003)", async () => {
-    // Since schema v6 a guest's rows live in the SAME physical tables as an
-    // account's, so the wholesale clear destroys them as well. This asserts
-    // that destructive scope EXPLICITLY rather than leaving it implied: it is
-    // the human-approved choice (shared-device confidentiality over guest-data
-    // continuity, E2E §60.9 / commit 30fa7ee), so it must only ever change
-    // deliberately — with this test as the tripwire.
-    await db.bookmarks.add({ entryId: 42, createdAt: 1, userId: null });
+    // A guest's rows live in the SAME physical tables as an account's, so the
+    // wholesale clear destroys them as well. This asserts that destructive scope
+    // EXPLICITLY rather than leaving it implied: it is the human-approved Phase
+    // 16 choice (shared-device confidentiality over guest-data continuity, E2E
+    // §60.9 / commit 30fa7ee), so it must only ever change deliberately — with
+    // this test as the tripwire. Phase 17 §11 replaces it with an owner-scoped
+    // cleanup that PRESERVES a deferred guest merge; until that slice lands, the
+    // wholesale behaviour stands and is pinned here.
+    await db.bookmarks.add({
+      ownerKey: GUEST_OWNER_KEY,
+      entryId: 42,
+      createdAt: 1,
+    });
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "guest-list",
       name: "Guest list",
       entryIds: [42],
       createdAt: 1,
       updatedAt: 1,
-      userId: null,
     });
     await db.settings.add({
+      ownerKey: GUEST_OWNER_KEY,
       key: "guest-setting",
       value: "kept-local",
       updatedAt: 1,
-      userId: null,
     });
     await db.studyComponents.add({
+      ownerKey: GUEST_OWNER_KEY,
       componentKey: "guest-c1",
       entryId: 42,
-      userId: null,
       revision: 1,
     });
     await seedAccountState();

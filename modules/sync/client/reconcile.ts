@@ -22,6 +22,8 @@ import {
   applyListTombstone,
 } from "@/modules/collections/persistence";
 import type { SafwaDb } from "@/modules/content/db";
+import { toOwnerKey } from "@/modules/content/owner-key";
+import { ownedKey } from "@/modules/content/owner-scope";
 import {
   DEFAULT_SESSION_DEFAULTS,
   sanitizeSessionDefaults,
@@ -83,12 +85,12 @@ export async function applyPullResponse(
       //    card + effective learner state are stored authoritatively here.
       for (const component of pull.components) {
         await db.studyComponents.put({
+          // The account OWNS this authoritative card (schema v7): it is keyed
+          // [ownerKey+componentKey], so it can never be read as, or overwritten
+          // by, a guest's card for the same component.
+          ownerKey: toOwnerKey(userId),
           componentKey: component.componentKey,
           entryId: component.entryId,
-          // Stamp the account owner (R2-F3) so this authoritative card is scoped
-          // to the account and never read as, or overwritten by, a guest's row
-          // for the same natural key.
-          userId,
           fsrs: component.card ?? undefined,
           learnerState: component.learnerState,
           revision: component.revision,
@@ -133,22 +135,22 @@ export async function applyPullResponse(
       // push mapping. The four session-defaults keys merge into the one local
       // `session-defaults` blob, so we read its current value first.
       if (pull.settings.length > 0) {
-        // Read the account's OWN current session-defaults blob to merge the
-        // pulled per-key changes into (R2-F3): a row owned by a different
-        // identity (a pre-login guest's) must not seed the account's merge.
+        // Read the account's own current session-defaults blob to merge the
+        // pulled per-key changes into. The lookup is owner-KEYED (schema v7), so
+        // it can only ever return this account's row.
         const currentDefaultsRow = await db.settings.get(
-          SETTING_KEYS.sessionDefaults,
+          ownedKey(userId, SETTING_KEYS.sessionDefaults),
         );
         const currentDefaults = sanitizeSessionDefaults(
-          currentDefaultsRow && (currentDefaultsRow.userId ?? null) === userId
+          currentDefaultsRow
             ? currentDefaultsRow.value
             : DEFAULT_SESSION_DEFAULTS,
         );
         const folded = foldPulledSettings(pull.settings, currentDefaults);
         for (const put of folded.directPuts) {
-          // Stamp the account owner (R2-F3) so a pulled account setting is scoped
-          // to the account, not read as a guest's value for the same key.
-          await db.settings.put({ ...put, userId });
+          // The owner is part of the row's identity (schema v7), so a guest's
+          // value for the same key is a different row entirely.
+          await db.settings.put({ ...put, ownerKey: toOwnerKey(userId) });
           // R2-F5: surface the theme / font-scale values so the caller can
           // force their localStorage mirrors — otherwise the stale mirror would
           // shadow this pulled value on the next reconcile and the second
@@ -160,10 +162,10 @@ export async function applyPullResponse(
         }
         if (folded.sessionDefaults) {
           await db.settings.put({
+            ownerKey: toOwnerKey(userId),
             key: SETTING_KEYS.sessionDefaults,
             value: folded.sessionDefaults,
             updatedAt: folded.sessionDefaultsUpdatedAt,
-            userId,
           });
         }
       }
@@ -174,10 +176,10 @@ export async function applyPullResponse(
         if (tombstone.kind === "bookmark") {
           const entryId = Number(tombstone.ref);
           if (Number.isInteger(entryId)) {
-            await applyBookmarkTombstone(db, entryId);
+            await applyBookmarkTombstone(db, entryId, userId);
           }
         } else {
-          await applyListTombstone(db, tombstone.ref);
+          await applyListTombstone(db, tombstone.ref, userId);
         }
       }
 
