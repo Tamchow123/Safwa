@@ -107,6 +107,45 @@ describe("clearAccountLocalState", () => {
     expect(await db.contentMetadata.count()).toBe(1);
   });
 
+  it("wipes a coexisting GUEST's rows too — the deliberate shared-device trade-off (SEC-003)", async () => {
+    // Since schema v6 a guest's rows live in the SAME physical tables as an
+    // account's, so the wholesale clear destroys them as well. This asserts
+    // that destructive scope EXPLICITLY rather than leaving it implied: it is
+    // the human-approved choice (shared-device confidentiality over guest-data
+    // continuity, E2E §60.9 / commit 30fa7ee), so it must only ever change
+    // deliberately — with this test as the tripwire.
+    await db.bookmarks.add({ entryId: 42, createdAt: 1, userId: null });
+    await db.lists.add({
+      id: "guest-list",
+      name: "Guest list",
+      entryIds: [42],
+      createdAt: 1,
+      updatedAt: 1,
+      userId: null,
+    });
+    await db.settings.add({
+      key: "guest-setting",
+      value: "kept-local",
+      updatedAt: 1,
+      userId: null,
+    });
+    await db.studyComponents.add({
+      componentKey: "guest-c1",
+      entryId: 42,
+      userId: null,
+      revision: 1,
+    });
+    await seedAccountState();
+
+    await clearAccountLocalState(db);
+
+    // The guest's own rows are gone along with the account's — by design.
+    expect(await db.bookmarks.count()).toBe(0);
+    expect(await db.lists.count()).toBe(0);
+    expect(await db.settings.count()).toBe(0);
+    expect(await db.studyComponents.count()).toBe(0);
+  });
+
   it("is safe to call on an already-empty database (idempotent)", async () => {
     await clearAccountLocalState(db);
     await clearAccountLocalState(db);

@@ -243,6 +243,14 @@ Stage A (server-authoritative learning-state sync) is implemented. Delivered:
   the synced value instead of a stale pre-paint mirror), and the shared-device
   logout wipe (which clears the `mutation_queue` with the other account-scoped
   stores).
+- **Sign-out wipes this device's local learner state — including a guest's.**
+  The wipe is what makes a shared device safe (the next account can never read
+  the previous one's bookmarks, lists, review history, FSRS cards or settings),
+  and since v6 a guest's rows live in the same physical stores, so they go too.
+  This is a deliberate trade-off of guest-data continuity for shared-device
+  confidentiality, pinned by `logout.test.ts` and E2E §60.9, and it supersedes
+  the earlier Phase-15 expectation that guest data survives login/logout.
+  Per-identity coexistence across a sign-out is Phase-17 merge work.
 - **Local owner scoping** (Dexie schema **v6**, DATA_MODEL §9.1): the private
   learner-state stores carry a `userId` owner (`null` = guest) with owner-scoped
   indexes, so a signed-in account never reads, extends or overwrites a guest's

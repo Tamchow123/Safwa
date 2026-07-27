@@ -19,6 +19,21 @@
  * them separately so a returning-to-defaults experience is a UI concern, not a
  * confidentiality one.
  *
+ * BLAST RADIUS — this is a WHOLESALE clear, not an owner-filtered delete
+ * (SEC-003). Since schema v6 a guest's rows (`userId` null) share these physical
+ * tables with an account's, so a guest's own local bookmarks/lists/settings and
+ * study history on this device are destroyed too, not just the departing
+ * account's. That is DELIBERATE and human-approved: the shared-device
+ * confidentiality guarantee is the whole point of the wipe, a partial wipe would
+ * leave rows whose owner cannot be re-verified after the session is gone, and
+ * the E2E contract was updated to assert it (e2e/auth.spec.ts §60.9, commit
+ * 30fa7ee, superseding the earlier Phase-15 "guest data survives login/logout"
+ * expectation). It is a data-loss trade-off on shared devices, never a
+ * confidentiality leak. `clearAccountLocalState wipes a coexisting GUEST's rows
+ * too` in logout.test.ts pins the behaviour so it can only change deliberately.
+ * Per-identity coexistence across a sign-out needs composite `[userId+key]`
+ * primary keys and belongs with the Phase-17 guest-merge work.
+ *
  * Runs in ONE Dexie transaction so a partial clear can't leave a mixed-account
  * state. Browser-only.
  */

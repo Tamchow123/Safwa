@@ -322,7 +322,17 @@ async function ensureSession(
   }
 }
 
-/** Persist the graded attempt with the server-canonical correctness/answer. */
+/**
+ * Persist the graded attempt with the server-canonical correctness/answer.
+ *
+ * PRECONDITION (R2-F4, CLEAN-001): call this ONLY after EVERY rejection path
+ * for the item has passed — including the pending-branch global cross-parent
+ * lookup and the per-component live-pending quota check. `study_attempts` is
+ * NOT bounded by the pending cap, so persisting before those checks lets an
+ * authenticated client grow the table without limit by pairing unique valid
+ * attempts with quota-/cross-parent-rejected events. Both call sites are
+ * positioned after their rejection paths; keep any new call site there too.
+ */
 async function persistAttempt(
   tx: SyncTx,
   userId: string,
