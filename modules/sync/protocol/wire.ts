@@ -59,12 +59,21 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const uuidSchema = z.string().regex(UUID_PATTERN, "invalid uuid");
 
-const boundedId = z.string().min(1).max(SYNC_BOUNDS.maxIdLength);
+/**
+ * Shared bounded primitives. EXPORTED so the Phase-17 guest-merge protocol
+ * composes the same instances rather than re-declaring identically-shaped ones:
+ * a future tightening here (a stricter device-id rule, say) must reach every
+ * protocol that uses it, not just the file it was edited in.
+ */
+export const boundedId = z.string().min(1).max(SYNC_BOUNDS.maxIdLength);
 const componentKeySchema = z
   .string()
   .min(1)
   .max(SYNC_BOUNDS.maxComponentKeyLength);
-const shortString = z.string().min(1).max(SYNC_BOUNDS.maxShortStringLength);
+export const shortString = z
+  .string()
+  .min(1)
+  .max(SYNC_BOUNDS.maxShortStringLength);
 const timezoneName = z.string().min(1).max(SYNC_BOUNDS.maxTimezoneLength);
 
 /** Epoch milliseconds, bounded to a sane range (0 .. year ~2100). */

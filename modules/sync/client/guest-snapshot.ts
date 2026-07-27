@@ -26,6 +26,7 @@ import { readOwnedRows } from "@/modules/content/owner-scope";
 import { sha256HexBrowser } from "@/modules/content/sha256-browser";
 import {
   canonicalJson,
+  GUEST_MERGE_BOUNDS,
   wireBookmarkSchema,
   wireListSchema,
   type WireAttempt,
@@ -50,7 +51,10 @@ export const GUEST_SNAPSHOT_BOUNDS = {
   maxEvents: 20_000,
   maxAttempts: 20_000,
   maxBookmarks: 10_000,
-  maxLists: 500,
+  // Derived, not repeated: the wire is the authority on how many lists ONE
+  // import may carry, so a client ceiling that merely equalled it by convention
+  // could drift and refuse to collect a history the server would have accepted.
+  maxLists: GUEST_MERGE_BOUNDS.maxLists,
 } as const;
 
 /** The kinds `GUEST_SNAPSHOT_BOUNDS` caps, named as the snapshot names them. */
