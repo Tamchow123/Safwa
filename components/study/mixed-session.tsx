@@ -12,6 +12,7 @@
 import { useCallback, useState } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
   ContentStateFallback,
   QuizRunner,
@@ -35,6 +36,7 @@ import { readSchedulingSnapshot } from "@/modules/study-session/persistence";
 /** Top-level: loads content, reads local scheduling state, mounts the runner. */
 export function MixedSession() {
   const { state, retry } = useActiveContent();
+  const resolveOwner = useResolveOwner();
   // The learner-editable session defaults (§4.4): daily targets + count.
   const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
   // Bumping this token remounts the runner, starting a fresh session (used by
@@ -48,7 +50,12 @@ export function MixedSession() {
       clock: AttemptClock,
     ): Promise<QuizPlanEntry[]> => {
       const db = getSafwaDb();
-      const snapshot = await readSchedulingSnapshot(db);
+      // ARCH-005 (same class): a session BUILD is a one-shot action, not a
+      // self-correcting live view, so resolve the owner at action time — a plan
+      // built from a guest's scheduling state during the auth-pending window
+      // would then be studied and recorded under the account.
+      const owner = await resolveOwner();
+      const snapshot = await readSchedulingSnapshot(db, owner);
       // Today's REMAINING budgets: the runner's session-frozen EFFECTIVE
       // clock (timezone preference aware) decides what "today" means, the
       // same clock/zone that stamps this session's events — so consumption
@@ -64,7 +71,7 @@ export function MixedSession() {
       // Areas and the Custom Session weak filter (never a second/parallel
       // weakness computation for the mixed-revision weak tier).
       const derived = deriveAllComponents(entries);
-      const weakScores = await loadWeakScores(db, derived, nowMs);
+      const weakScores = await loadWeakScores(db, derived, nowMs, owner);
       return buildMixedPlan(
         entries,
         snapshot.components,
@@ -74,7 +81,12 @@ export function MixedSession() {
         defaults.questionCount,
       );
     },
-    [defaults.newPerDay, defaults.reviewsPerDay, defaults.questionCount],
+    [
+      defaults.newPerDay,
+      defaults.reviewsPerDay,
+      defaults.questionCount,
+      resolveOwner,
+    ],
   );
 
   if (

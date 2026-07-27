@@ -29,6 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArabicText } from "@/components/arabic-text";
 import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
   FlashcardRunner,
   type FlashcardPlanBuilder,
@@ -135,6 +136,7 @@ type RunningSession = {
 
 export function CustomSession() {
   const { state, retry } = useActiveContent();
+  const resolveOwner = useResolveOwner();
   const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
   // Drives the setup screen's list picker only — Start/Study Again always
   // re-read membership fresh from Dexie (§19), never from this snapshot.
@@ -233,7 +235,12 @@ export function CustomSession() {
     setStartError(null);
     try {
       const db = getSafwaDb();
-      const snapshot = await readSchedulingSnapshot(db);
+      // ARCH-005 (same class): a session BUILD is a one-shot action, not a
+      // self-correcting live view, so resolve the owner at action time — a plan
+      // built from a guest's scheduling state during the auth-pending window
+      // would then be studied and recorded under the account.
+      const owner = await resolveOwner();
+      const snapshot = await readSchedulingSnapshot(db, owner);
       const stored = new Map(
         snapshot.components.map((component) => [
           component.componentKey,
@@ -243,18 +250,18 @@ export function CustomSession() {
       // The session's ONE effective-clock resolution (§10.6): this clock is
       // frozen into the snapshot and later handed to the runner, so the
       // state-filter evaluation here and the graded events share one zone.
-      const clock = await readEffectiveClock(db);
+      const clock = await readEffectiveClock(db, owner);
       const nowMs = clock.now();
       // Phase 13 weakness v2: the ONE authoritative score, shared with Weak
       // Areas and mixed revision (never a second/parallel weakness
       // computation for the Custom Session weak filter — §22 agreement).
       const derived = deriveAllComponents(state.entries);
-      const weakScores = await loadWeakScores(db, derived, nowMs);
+      const weakScores = await loadWeakScores(db, derived, nowMs, owner);
       // Bookmarks/lists are re-read fresh every Start — including "Study
       // again" — never from the setup screen's (possibly stale) live hook
       // snapshot: a list edit made mid-session must affect the next plan
       // (§19 "Study Again").
-      const membership = await readCollectionMembership(db);
+      const membership = await readCollectionMembership(db, owner);
       const resolved = effectiveFilters();
 
       const matching = filterByStates(
@@ -323,6 +330,7 @@ export function CustomSession() {
     testMode,
     isFlashcards,
     defaults.questionCount,
+    resolveOwner,
   ]);
 
   if (

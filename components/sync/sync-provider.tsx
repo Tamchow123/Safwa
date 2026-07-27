@@ -44,6 +44,7 @@ import {
   type SyncController,
 } from "@/modules/sync/client/controller";
 import { countPendingChanges } from "@/modules/sync/client/local-selection";
+import { countDeadLetterMutations } from "@/modules/sync/client/mutation-queue";
 import {
   deriveSyncStatus,
   type SyncStatus,
@@ -219,6 +220,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
           // an in-flight run for the old account stops without writing.
           isCurrentAccount: (id) => !disposed && id === userId,
           countPending: countPendingChanges,
+          // A permanent dead-letter forces the honest attention state (R2-F6).
+          countDeadLetter: countDeadLetterMutations,
         });
         controllerRef.current = controller;
         unsubscribe = controller.subscribe((next) => {

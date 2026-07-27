@@ -8,6 +8,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  useLocalOwner,
+  useResolveOwner,
+} from "@/components/sync/use-local-owner";
 import { DB_READ_TIMEOUT_MS, withTimeout } from "@/lib/with-timeout";
 import { getSafwaDb } from "@/modules/content/db";
 import {
@@ -24,6 +28,10 @@ export function useSessionDefaults(): {
   /** Persist new defaults durably (guest action) and update local state. */
   update: (next: SessionDefaults) => Promise<void>;
 } {
+  // Owner-scoped (R2-F3): a signed-in account reads/writes its own defaults,
+  // never a pre-login guest's, from the account-authoritative Auth session.
+  const owner = useLocalOwner();
+  const resolveOwner = useResolveOwner();
   const [defaults, setDefaults] = useState<SessionDefaults>(
     DEFAULT_SESSION_DEFAULTS,
   );
@@ -37,7 +45,7 @@ export function useSessionDefaults(): {
         // open) must not gate a page on `loaded` forever — it falls back to
         // the documented defaults like any other read failure.
         const stored = await withTimeout(
-          readSessionDefaults(getSafwaDb()),
+          readSessionDefaults(getSafwaDb(), owner),
           DB_READ_TIMEOUT_MS,
           "session-defaults read timed out",
         );
@@ -51,17 +59,23 @@ export function useSessionDefaults(): {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [owner]);
 
-  const update = useCallback(async (next: SessionDefaults) => {
-    // Persist first; the state reflects the SANITISED value actually stored.
-    const stored = await persistSessionDefaults(
-      getSafwaDb(),
-      next,
-      navigator.storage,
-    );
-    setDefaults(stored);
-  }, []);
+  const update = useCallback(
+    async (next: SessionDefaults) => {
+      // Persist first; the state reflects the SANITISED value actually stored.
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const stored = await persistSessionDefaults(
+        getSafwaDb(),
+        next,
+        navigator.storage,
+        {},
+        await resolveOwner(),
+      );
+      setDefaults(stored);
+    },
+    [resolveOwner],
+  );
 
   return { defaults, loaded, update };
 }

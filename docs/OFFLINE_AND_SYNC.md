@@ -219,9 +219,11 @@ Stage A (server-authoritative learning-state sync) is implemented. Delivered:
   promoted); revocation/undo; and allow-listed audit-log redaction.
 - **Client** (`modules/sync/client/*`, `components/sync/*`): the typed API
   client (request+response validated against the wire schemas), the pure status
-  state machine, local unsynced scheduling selection **account-scoped by the
-  linked attempt's owner** (a guest's / another account's rows are never
-  uploaded, so login never merges), the Dexie **`mutation_queue` sync outbox**
+  state machine, local unsynced scheduling selection **owner-scoped on the
+  event's own `userId`** via the indexed `[userId+syncStatus]` slice (a guest's
+  / another account's rows are never uploaded, so login never merges — and no
+  scan cap is needed, so a foreign backlog can neither inflate nor starve this
+  account's pending count), the Dexie **`mutation_queue` sync outbox**
   for the non-scheduling categories (bookmark / list / setting upserts+deletes,
   post-sync-undo revocations, and reinforcement-only attempts) with coalescing,
   per-item ack, recoverable-retry and permanent dead-letter, push-result apply,
@@ -234,9 +236,36 @@ Stage A (server-authoritative learning-state sync) is implemented. Delivered:
   history is kept; a still-pending event defers), the framework-light trigger
   controller, the `SyncProvider` (bootstrap / periodic-while-visible /
   visibility / online / session-end / manual-retry triggers), the §20 status
-  indicator (pending count includes the queued mutations), and the shared-device
+  indicator (pending count includes the queued mutations; a permanent
+  **dead-letter** forces the honest `attention` state so a silently-failed change
+  can never read as "Synced"), the localStorage-mirror adoption for pulled
+  preferences (theme / Arabic font scale, so a second context actually displays
+  the synced value instead of a stale pre-paint mirror), and the shared-device
   logout wipe (which clears the `mutation_queue` with the other account-scoped
   stores).
+- **Local owner scoping** (Dexie schema **v6**, DATA_MODEL §9.1): the private
+  learner-state stores carry a `userId` owner (`null` = guest) with owner-scoped
+  indexes, so a signed-in account never reads, extends or overwrites a guest's
+  (or another account's) rows sharing a natural key during the coexistence
+  window before the sign-out wipe. Scoping covers collections, settings,
+  scheduling selection and chain reads, the dashboard/progress/**weakness
+  analytics**, and **"export my data"**. The owner comes from the AUTH session
+  (never `sync_state`, which is only populated after the first pull) and is
+  resolved at ACTION time for writes, so a write issued before the session
+  resolves is not mis-stamped as a guest's. Because v6 left primary keys
+  unchanged, `userId` scopes reads but is not part of row identity: a second
+  identity writing the same natural key REPLACES the first identity's row —
+  accepted for Stage A (local-only state has no cross-identity durability
+  guarantee and sign-out wipes these stores anyway); per-identity coexistence
+  needs composite primary keys and is left to the Phase-17 merge.
+- **Lineage anchor**: the pull response carries each component's authoritative
+  accepted chain head (`headEventId` + `headClientRevision`), stored locally on
+  the component. A device with no local events for that component (fresh
+  bootstrap, or post-sign-out-wipe) parents its next review onto the anchor so
+  it EXTENDS the server chain rather than rooting a branch the server would
+  reject as a stale-branch conflict. Such an anchor-managed component stays
+  server-authoritative: its card advances on the next pull rather than by a
+  local replay the device lacks the full chain for.
 
 **Deferred to later stages (as designed):** durable per-trigger offline retry
 with exponential backoff, full multi-device concurrent conflict resolution /

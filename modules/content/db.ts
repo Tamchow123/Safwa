@@ -9,7 +9,12 @@
  * settings, the outbound mutation queue and the anonymous device profile.
  * v3 (Phase 12) adds the `daily_activity` derived analytics cache. v4 (Phase
  * 16) adds the `sync_state` cursor store; v5 (Phase 16) adds the outbox
- * indexes to `mutation_queue`.
+ * indexes to `mutation_queue`. v6 (Phase 16, R2-F3) adds a local OWNER
+ * (`userId`, null = guest) + owner-scoped compound indexes to the private
+ * learner-state stores (study_components, review_events, bookmarks, lists,
+ * settings) so a signed-in account never reads/extends/overwrites a guest's (or
+ * another account's) rows sharing the same natural key — additive (new columns
+ * + indexes only, no key change, no data move).
  * Content and learning state live in separate stores of one database:
  * cached content releases are immutable verified artifacts, never editable
  * copies.
@@ -47,7 +52,7 @@ import type { AttemptRecord } from "@/modules/study-engine/attempts";
  * no upgrade function, no change to any existing store's keys or indexes.
  */
 export const SAFWA_DB_NAME = "safwa-content";
-export const SAFWA_DB_VERSION = 5;
+export const SAFWA_DB_VERSION = 6;
 
 /* ------------------------------------------------------------------ */
 /* Learner-state records (schema v2) and derived-cache records (v3)    */
@@ -70,15 +75,28 @@ export type DeviceProfileRecord = {
   persistenceGranted: boolean | null;
 };
 
+/**
+ * The local owner of a private learner-state row (schema v6, R2-F3). The
+ * signed-in account id, or `null`/absent for a guest. Reads/writes/selection are
+ * scoped by this so a signed-in account never sees, extends or overwrites a
+ * guest's (or another account's) rows that share the same natural key; an absent
+ * value on a pre-v6 row is read as a guest row. Login never merges guest rows;
+ * logout still wipes the whole store (`accountScopedTables`) — the owner scoping
+ * governs the coexistence window BEFORE that wipe, not the wipe itself.
+ */
+export type LocalOwnerId = string | null;
+
 export type SettingRecord = {
   key: string;
   value: unknown;
   updatedAt: number;
+  userId?: LocalOwnerId;
 };
 
 export type BookmarkRecord = {
   entryId: number;
   createdAt: number;
+  userId?: LocalOwnerId;
 };
 
 export type CustomListRecord = {
@@ -87,6 +105,7 @@ export type CustomListRecord = {
   entryIds: number[];
   createdAt: number;
   updatedAt: number;
+  userId?: LocalOwnerId;
 };
 
 /**
@@ -99,6 +118,8 @@ export type CustomListRecord = {
 export type StudyComponentRecord = {
   componentKey: string;
   entryId: number;
+  /** Local owner (schema v6, R2-F3); absent = guest. See {@link LocalOwnerId}. */
+  userId?: LocalOwnerId;
   /** FSRS card fields (present once the component has been reviewed). */
   fsrs?: {
     stability: number;
@@ -115,6 +136,18 @@ export type StudyComponentRecord = {
   learnerState?: "not_started" | "learning" | "mastered" | "needs_review";
   /** Head client_component_revision of the local chain (0 = none). */
   revision?: number;
+  /**
+   * Lineage ANCHOR (R2-F2), set only by a server pull: the authoritative
+   * accepted chain head's event id + that head's client_component_revision. When
+   * this account has NO local events for the component (a fresh bootstrap, or
+   * after a logout wiped the local chain), the next review parents onto this
+   * anchor so it extends the server chain instead of rooting a rejected stale
+   * branch. Cleared the moment a local event exists (a projection write omits
+   * them), after which the local chain head is authoritative. Null head = the
+   * server has no accepted scheduling head to extend.
+   */
+  syncedHeadEventId?: string | null;
+  syncedHeadClientRevision?: number | null;
 };
 
 export type StudyAttemptRecord = {
@@ -141,6 +174,12 @@ export type StudyAttemptRecord = {
 export type ReviewEventRecord = {
   eventId: string;
   componentKey: string;
+  /**
+   * Local owner (schema v6, R2-F3); absent = guest. Stamped from the linked
+   * attempt's `userId` at write time so scheduling selection + chain reads scope
+   * to the active account and an account event never parents a guest event.
+   */
+  userId?: LocalOwnerId;
   /** Head of the local causal chain (null for a chain root). */
   parentEventId: string | null;
   clientComponentRevision: number;
@@ -331,9 +370,32 @@ export class SafwaDb extends Dexie {
     // selection, and `[type+userId+target]` drives the coalesce lookup. The
     // primary key and unique idempotencyKey are unchanged, existing rows are
     // re-indexed in place, and no data-moving upgrade function is needed.
-    this.version(SAFWA_DB_VERSION).stores({
+    this.version(5).stores({
       mutation_queue:
         "++seq, &idempotencyKey, type, userId, status, [userId+status], [type+userId+target]",
+    });
+    // v6 (Phase 16, R2-F3): add a local OWNER (`userId`, null = guest) plus
+    // owner-scoped compound indexes to the private learner-state stores, so a
+    // signed-in account's reads/selection/writes never touch a guest's (or
+    // another account's) rows sharing the same natural key. Additive: each
+    // store's PRIMARY KEY is unchanged (existing rows keep their identity and
+    // are re-indexed in place with an absent `userId`, read as guest); only new
+    // indexes are added, so no data-moving upgrade function is needed.
+    //   - review_events   `[userId+syncStatus]` drives the owner-scoped push
+    //     selection + pending count (no starvation by a guest backlog);
+    //     `[userId+componentKey]` scopes the causal-chain read so an account
+    //     event never parents a guest event.
+    //   - study_components `[userId+componentKey]` scopes the projected card.
+    //   - bookmarks        `[userId+entryId]` scopes the per-entry lookup.
+    //   - settings         `[userId+key]` scopes account-syncable settings.
+    //   - lists            `userId` scopes the (uuid-keyed) list rows.
+    this.version(SAFWA_DB_VERSION).stores({
+      study_components: "componentKey, entryId, userId, [userId+componentKey]",
+      review_events:
+        "eventId, componentKey, parentEventId, syncStatus, userId, [userId+syncStatus], [userId+componentKey]",
+      bookmarks: "entryId, createdAt, userId, [userId+entryId]",
+      lists: "id, name, userId",
+      settings: "key, userId, [userId+key]",
     });
     // Code-facing accessors stay camelCase per TS convention; the mapping
     // to the snake_case physical stores lives here and nowhere else.

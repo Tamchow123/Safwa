@@ -817,19 +817,14 @@ async function processComponentGroup(
         continue;
       }
 
-      // Persist the attempt with the server-canonical correctness/answer.
-      await persistAttempt(
-        tx,
-        userId,
-        component.id,
-        att,
-        {
-          isCorrect: canonicalIsCorrect,
-          correctAnswerRef: canonicalCorrectAnswer,
-        },
-        canonicalTime,
-      );
-
+      // R2-F4: for a PENDING event, run every rejection check (global parent
+      // existence + per-component pending quota) BEFORE persisting the attempt.
+      // Otherwise a rejected pending event leaves its attempt row committed —
+      // and the attempt table, unlike the event table, is NOT bounded by the
+      // pending cap, so an authenticated client could grow it without limit by
+      // pairing unique valid attempts with quota-/cross-parent-rejected events.
+      // The attempt is persisted only once the event is guaranteed to be
+      // accepted or legitimately held.
       if (lineage.decision === "pending") {
         // EXT-F4: the parent is unknown WITHIN this component. Look it up
         // globally to distinguish a genuinely-nonexistent parent (legitimately
@@ -894,7 +889,25 @@ async function processComponentGroup(
           );
           continue;
         }
+      }
 
+      // Persist the attempt with the server-canonical correctness/answer. Only
+      // reached once every rejection path above — INCLUDING the pending-branch
+      // parent/quota checks — has passed, so a rejected event never leaves a
+      // committed attempt (R2-F4).
+      await persistAttempt(
+        tx,
+        userId,
+        component.id,
+        att,
+        {
+          isCorrect: canonicalIsCorrect,
+          correctAnswerRef: canonicalCorrectAnswer,
+        },
+        canonicalTime,
+      );
+
+      if (lineage.decision === "pending") {
         await persistEvent(
           tx,
           userId,

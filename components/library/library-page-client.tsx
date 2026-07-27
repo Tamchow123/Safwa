@@ -11,6 +11,7 @@ import {
 
 import { useActiveContent } from "@/components/content/use-active-content";
 import { useCollections } from "@/components/collections/use-collections";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
 import { LibraryToolbar } from "@/components/library/library-toolbar";
 import { useLibraryQuery } from "@/components/library/use-library-query";
@@ -94,6 +95,7 @@ function LoadedLibrary({
     [entries],
   );
 
+  const resolveOwner = useResolveOwner();
   const { state: collections, refresh: refreshCollections } = useCollections();
   const bookmarkedEntryIds = useMemo(
     () =>
@@ -104,10 +106,18 @@ function LoadedLibrary({
   );
   const handleToggleBookmark = useCallback(
     async (entryId: number) => {
-      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const owner = await resolveOwner();
+      await toggleBookmark(
+        getSafwaDb(),
+        entryId,
+        knownEntryIds,
+        Date.now(),
+        owner,
+      );
       refreshCollections();
     },
-    [knownEntryIds, refreshCollections],
+    [knownEntryIds, refreshCollections, resolveOwner],
   );
 
   const { query, updateQuery, resetFilters } = useLibraryQuery(options);

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,11 +28,23 @@ import {
  */
 export function DataSettings() {
   const [exporting, setExporting] = useState(false);
+  // The identity whose data is exported (R2-F3 / ARCH-001): a signed-in account
+  // downloads only its own rows, a guest only the un-owned ones — never both.
+  // Resolved at ACTION time (ARCH-005), not from a possibly-still-pending
+  // session read: an export is a ONE-SHOT artifact, not a self-correcting live
+  // view, so an owner that read as guest during the pending window would
+  // permanently produce a file missing the account's own data — and the success
+  // toast would give no hint anything was wrong.
+  const resolveOwner = useResolveOwner();
 
   async function exportData() {
     setExporting(true);
     try {
-      const payload = await buildExportPayload(getSafwaDb());
+      const payload = await buildExportPayload(
+        getSafwaDb(),
+        Date.now,
+        await resolveOwner(),
+      );
       triggerJsonDownload(serializeExport(payload), exportFilename());
       toast("Data exported", {
         description: "Your study data was downloaded as a JSON file.",

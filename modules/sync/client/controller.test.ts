@@ -208,6 +208,53 @@ describe("createSyncController", () => {
     });
   });
 
+  describe("dead-letter surfacing (R2-F6)", () => {
+    it("forces attention when a mutation has dead-lettered, even after a synced run", async () => {
+      const deps = makeDeps({ countDeadLetter: vi.fn(async () => 1) });
+      const controller = createSyncController(deps);
+
+      await controller.sync("bootstrap"); // outcome synced, 0 pending
+      // A permanent, non-recoverable failure must never read as `synced` (§20).
+      expect(controller.getStatus().kind).toBe("attention");
+    });
+
+    it("does not count a dead-letter as pending backlog", async () => {
+      const deps = makeDeps({
+        countPending: vi.fn(async () => 0),
+        countDeadLetter: vi.fn(async () => 2),
+      });
+      const controller = createSyncController(deps);
+
+      await controller.sync("bootstrap");
+      const status = controller.getStatus();
+      expect(status.kind).toBe("attention");
+      expect(status.pendingCount).toBe(0); // dead rows are not "pending N"
+    });
+
+    it("reports synced when there is no dead-letter and nothing pending", async () => {
+      const deps = makeDeps({ countDeadLetter: vi.fn(async () => 0) });
+      const controller = createSyncController(deps);
+
+      await controller.sync("bootstrap");
+      expect(controller.getStatus().kind).toBe("synced");
+    });
+
+    it("keeps the last known dead-letter count when its query throws", async () => {
+      const countDeadLetter = vi
+        .fn<() => Promise<number>>()
+        .mockResolvedValueOnce(1)
+        .mockRejectedValueOnce(new Error("dexie down"));
+      const deps = makeDeps({ countDeadLetter });
+      const controller = createSyncController(deps);
+
+      await controller.refreshPending();
+      expect(controller.getStatus().kind).toBe("attention");
+
+      await controller.refreshPending(); // throws internally, swallowed
+      expect(controller.getStatus().kind).toBe("attention"); // last known kept
+    });
+  });
+
   describe("refreshPending resilience", () => {
     it("keeps the last known count when the count query throws", async () => {
       const countPending = vi

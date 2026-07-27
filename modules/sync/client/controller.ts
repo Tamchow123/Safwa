@@ -76,6 +76,14 @@ export type SyncControllerDeps = {
    * counted as this account's pending work (§18, EXT-F1).
    */
   countPending: (db: SafwaDb, userId: string) => Promise<number>;
+  /**
+   * Count of THIS account's DEAD-LETTERED mutations — permanent, non-recoverable
+   * rejections that will never retry (R2-F6). A non-zero count forces the honest
+   * `attention` state even after an otherwise-`synced` run, so a silently-failed
+   * change never reads as "Synced" (§20). Optional: when omitted (older tests),
+   * dead-letter surfacing is simply off and the count stays 0.
+   */
+  countDeadLetter?: (db: SafwaDb, userId: string) => Promise<number>;
   /** Injectable orchestrator (defaults to the real coalescing runSync). */
   run?: (deps: RunSyncDeps) => Promise<SyncRunResult>;
   /** Injectable in-flight probe (defaults to the real isSyncRunning). */
@@ -106,6 +114,11 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
   let stopped = false; // an `auth_lost`/`invalidated` outcome stops automatic runs.
   let needsAttention = false;
   let pendingCount = 0;
+  // Permanent dead-letter backlog (R2-F6). Kept separate from `pendingCount`
+  // (dead rows are NOT "pending" — they will never retry) and OR-ed into the
+  // attention signal at derive time, so it never clobbers the outcome-driven
+  // `needsAttention` (retry/auth_lost) and a `synced` outcome can't hide it.
+  let deadLetterCount = 0;
   // Raised synchronously around our own run so the START notification reads
   // `syncing` even though runSync only registers the account in its in-flight
   // map *inside* the call (after our pre-run notify would otherwise fire).
@@ -120,7 +133,10 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
       online: deps.online(),
       running: runningNow || (deps.userId !== null && running(deps.userId)),
       pendingCount,
-      needsAttention,
+      // A permanent dead-letter is an actionable failure the user must see, so
+      // OR it into attention here (R2-F6) — combined at derive time so it
+      // neither clears nor is cleared by the outcome-driven needsAttention.
+      needsAttention: needsAttention || deadLetterCount > 0,
     });
   }
 
@@ -133,6 +149,7 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
     const { userId } = deps;
     if (userId === null) {
       pendingCount = 0;
+      deadLetterCount = 0;
       notify();
       return;
     }
@@ -140,6 +157,13 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
       pendingCount = await deps.countPending(deps.db, userId);
     } catch {
       // A failed count must never break status; keep the last known value.
+    }
+    try {
+      deadLetterCount = deps.countDeadLetter
+        ? await deps.countDeadLetter(deps.db, userId)
+        : 0;
+    } catch {
+      // As above: a failed dead-letter count keeps the last known value.
     }
     notify();
   }

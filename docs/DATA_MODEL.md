@@ -290,6 +290,55 @@ needs_review`) is recomputed from replayed state + distinct qualifying
 | `sessions`, `settings`, `profile` | —                      | local equivalents                                                                                                                                                                                                                                                                             |
 | `mutation_queue`                  | seq                    | ordered outbound mutations with idempotency keys                                                                                                                                                                                                                                              |
 
+### 9.1 Local owner scoping (schema v6, Phase 16 R2-F3)
+
+Since Phase 16 a guest's and a signed-in account's private rows can **coexist**
+in the same stores — signing in does not require (or trigger) a sign-out wipe
+first. Schema **v6** therefore adds a local owner column, `userId`
+(`null`/absent = guest, a string = that account), plus owner-scoped indexes to
+the five private learner-state stores:
+
+| Store              | Added indexes                                            | Scopes                                             |
+| ------------------ | -------------------------------------------------------- | -------------------------------------------------- |
+| `review_events`    | `userId`, `[userId+syncStatus]`, `[userId+componentKey]` | push selection + pending count; causal-chain reads |
+| `study_components` | `userId`, `[userId+componentKey]`                        | the projected card                                 |
+| `bookmarks`        | `userId`, `[userId+entryId]`                             | per-entry lookup                                   |
+| `lists`            | `userId`                                                 | the uuid-keyed list rows                           |
+| `settings`         | `userId`, `[userId+key]`                                 | account-syncable settings                          |
+
+`study_attempts` carries its owner inside the engine payload
+(`attempt.userId`) rather than as a column; `mutation_queue` already had its own
+`userId` (v5).
+
+Rules:
+
+- **Reads** are owner-scoped everywhere private learner state is surfaced —
+  collections, scheduling selection, the dashboard/progress/weakness analytics
+  and "export my data". `modules/content/owner-scope.ts` is the single place
+  that implements the comparison (absent and `null` both mean guest) and the
+  read split IndexedDB forces (it cannot index `null`, so guest reads scan the
+  natural-key index and filter in memory).
+- **Login never merges guest rows.** A guest's rows are not uploaded and are not
+  visible to the account; the merge is Phase 17 (§10).
+- **Primary keys are unchanged** — v6 is additive (new columns + indexes, no
+  data-moving upgrade). `userId` therefore scopes reads but is _not_ part of a
+  row's identity: a second identity writing the same natural key **replaces**
+  the first identity's row rather than coexisting with it. Accepted for
+  Stage A — local-only state carries no durability guarantee across an identity
+  switch, and sign-out wipes these stores wholesale
+  (`clearAccountLocalState`). Per-identity coexistence would need composite
+  `[userId+key]` primary keys, a data-moving migration left to Phase 17.
+- **Writes resolve the owner at action time** (`useResolveOwner`), never from a
+  still-pending session read — a pending read is indistinguishable from
+  signed-out and would stamp a signed-in user's row as a guest's.
+
+`study_components` additionally stores a **lineage anchor** written only by a
+server pull: `syncedHeadEventId` + `syncedHeadClientRevision`, the authoritative
+accepted chain head. A device with no local events for a component (a fresh
+bootstrap, or after a sign-out wipe) parents its next review onto that anchor so
+it EXTENDS the server chain instead of rooting a branch the server rejects as a
+stale-branch conflict.
+
 The published app configuration ships authoritative skill metadata
 (`skill_type_id, component_shape, allowed_source_fields, allowed_directions`);
 the shared key builder enforces identical component identity on both sides.

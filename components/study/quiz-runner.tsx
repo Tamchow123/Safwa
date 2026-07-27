@@ -15,6 +15,7 @@ import { ArabicText } from "@/components/arabic-text";
 import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
 import { useCollections } from "@/components/collections/use-collections";
 import { useSessionEndSync } from "@/components/sync/sync-provider";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
   FieldValue,
   formLabel,
@@ -204,6 +205,17 @@ export function QuizRunner({
   // Nudge an end-of-session sync when the run completes (§18 "push at
   // successful session end"). A no-op for guests / outside a SyncProvider.
   const notifySessionEnd = useSessionEndSync();
+  // The signed-in account id (null = guest), stamped onto the session so every
+  // attempt/event carries its OWNER (R2-F1). Without this the engine defaults
+  // the owner to null and a signed-in learner's scheduling never syncs (the
+  // owner-scoped selector drops null-owner events). Resolved at session-BUILD
+  // time rather than read from a possibly-still-pending session hook (ARCH-002)
+  // — a pending read is indistinguishable from signed-out, so starting a
+  // session right after a page load would otherwise own the whole run as a
+  // guest. Resolving inside the async build also means a late auth read never
+  // remounts an in-progress session: a session is owned by the identity that
+  // was in effect when it started.
+  const resolveOwner = useResolveOwner();
   // Feedback for the just-answered question (immediate/timed). Null while a
   // question is awaiting an answer or in test mode (feedback withheld).
   const [answered, setAnswered] = useState<AnsweredState | null>(null);
@@ -266,7 +278,12 @@ export function QuizRunner({
       (async () => {
         const db = getSafwaDb();
         sessionStartedAt.current = Date.now();
-        const clock = presetClock ?? (await readEffectiveClock(db));
+        // ONE owner resolution for the whole session (ARCH-002/R2-F1): the
+        // same value scopes the effective-clock read and stamps the session.
+        const sessionOwner = await resolveOwner();
+        if (cancelled) return;
+        const clock =
+          presetClock ?? (await readEffectiveClock(db, sessionOwner));
         if (cancelled) return;
         sessionClock.current = clock;
         const existing = await peekDeviceProfile(db);
@@ -285,6 +302,7 @@ export function QuizRunner({
             sessionId: uuidv7(),
             seed,
             deviceId,
+            userId: sessionOwner,
             config: {
               ...sessionConfigForDelivery(delivery),
               ...(perQuestionLimitMs !== undefined && isTimedDelivery(delivery)
@@ -322,6 +340,7 @@ export function QuizRunner({
     perQuestionLimitMs,
     optionCount,
     presetClock,
+    resolveOwner,
   ]);
 
   // When the run completes, request an end-of-session sync (§18). notifySessionEnd
@@ -514,10 +533,18 @@ export function QuizRunner({
       : new Set<number>();
   const handleToggleBookmark = useCallback(
     async (entryId: number) => {
-      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      // ARCH-002: resolve the owner at action time (see useResolveOwner) —
+      // a bookmark toggled before the session resolves must not be a guest's.
+      await toggleBookmark(
+        getSafwaDb(),
+        entryId,
+        knownEntryIds,
+        Date.now(),
+        await resolveOwner(),
+      );
       refreshCollections();
     },
-    [knownEntryIds, refreshCollections],
+    [knownEntryIds, refreshCollections, resolveOwner],
   );
 
   if (!context || status === "error" || instance === "generation_failed") {

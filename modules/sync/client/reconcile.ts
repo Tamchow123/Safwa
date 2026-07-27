@@ -41,17 +41,31 @@ type LocalEventStatus =
   | "pending_parent";
 
 /**
+ * The server-authoritative preference values (§23) a pulled page carried, if
+ * any, for the caller to adopt into their localStorage MIRRORS (R2-F5). Kept as
+ * raw values (validated at the mirror-adoption boundary); absent keys mean the
+ * page changed no such setting. This module stays pure-Dexie — the mirror/DOM
+ * side-effect is the browser caller's (orchestrator) job.
+ */
+export type PulledSettingMirrors = {
+  theme?: unknown;
+  arabicFontScale?: unknown;
+};
+
+/**
  * Apply one pulled page for `userId` and advance the cursor to
  * `pull.serverCursor`. Idempotent: re-applying the same page is a no-op (puts
- * are upserts, deletes/status-marks converge). Returns nothing; throws only on a
- * genuine Dexie failure (the caller treats that as a recoverable sync failure).
+ * are upserts, deletes/status-marks converge). Returns the pulled preference
+ * mirror values (R2-F5) for the caller to adopt; throws only on a genuine Dexie
+ * failure (the caller treats that as a recoverable sync failure).
  */
 export async function applyPullResponse(
   db: SafwaDb,
   userId: string,
   pull: PullResponse,
   now: number,
-): Promise<void> {
+): Promise<PulledSettingMirrors> {
+  const mirrors: PulledSettingMirrors = {};
   await db.transaction(
     "rw",
     [
@@ -71,9 +85,19 @@ export async function applyPullResponse(
         await db.studyComponents.put({
           componentKey: component.componentKey,
           entryId: component.entryId,
+          // Stamp the account owner (R2-F3) so this authoritative card is scoped
+          // to the account and never read as, or overwritten by, a guest's row
+          // for the same natural key.
+          userId,
           fsrs: component.card ?? undefined,
           learnerState: component.learnerState,
           revision: component.revision,
+          // Store the lineage anchor (R2-F2) so a device with no local events
+          // for this component extends the server chain on its next review
+          // instead of rooting a rejected stale branch. `?? null` normalises an
+          // older server that omits the field.
+          syncedHeadEventId: component.headEventId ?? null,
+          syncedHeadClientRevision: component.headClientRevision ?? null,
         });
       }
 
@@ -98,29 +122,48 @@ export async function applyPullResponse(
           db,
           bookmark.entryId,
           bookmark.createdAt,
+          userId,
         );
       }
       for (const list of pull.lists) {
-        await applyAuthoritativeList(db, list);
+        await applyAuthoritativeList(db, list, userId);
       }
       // Settings are mapped from the server's camelCase keys/values back to the
       // LOCAL kebab keys/shapes the app reads (§23, EXT-F2) — the inverse of the
       // push mapping. The four session-defaults keys merge into the one local
       // `session-defaults` blob, so we read its current value first.
       if (pull.settings.length > 0) {
+        // Read the account's OWN current session-defaults blob to merge the
+        // pulled per-key changes into (R2-F3): a row owned by a different
+        // identity (a pre-login guest's) must not seed the account's merge.
+        const currentDefaultsRow = await db.settings.get(
+          SETTING_KEYS.sessionDefaults,
+        );
         const currentDefaults = sanitizeSessionDefaults(
-          (await db.settings.get(SETTING_KEYS.sessionDefaults))?.value ??
-            DEFAULT_SESSION_DEFAULTS,
+          currentDefaultsRow && (currentDefaultsRow.userId ?? null) === userId
+            ? currentDefaultsRow.value
+            : DEFAULT_SESSION_DEFAULTS,
         );
         const folded = foldPulledSettings(pull.settings, currentDefaults);
         for (const put of folded.directPuts) {
-          await db.settings.put(put);
+          // Stamp the account owner (R2-F3) so a pulled account setting is scoped
+          // to the account, not read as a guest's value for the same key.
+          await db.settings.put({ ...put, userId });
+          // R2-F5: surface the theme / font-scale values so the caller can
+          // force their localStorage mirrors — otherwise the stale mirror would
+          // shadow this pulled value on the next reconcile and the second
+          // context would never display the synced setting (§23).
+          if (put.key === SETTING_KEYS.theme) mirrors.theme = put.value;
+          else if (put.key === SETTING_KEYS.arabicFontScale) {
+            mirrors.arabicFontScale = put.value;
+          }
         }
         if (folded.sessionDefaults) {
           await db.settings.put({
             key: SETTING_KEYS.sessionDefaults,
             value: folded.sessionDefaults,
             updatedAt: folded.sessionDefaultsUpdatedAt,
+            userId,
           });
         }
       }
@@ -143,4 +186,5 @@ export async function applyPullResponse(
       await recordSyncProgress(db, userId, pull.serverCursor, now);
     },
   );
+  return mirrors;
 }

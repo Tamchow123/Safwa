@@ -78,6 +78,36 @@ describe("applyPullResponse", () => {
     expect(await readCursorForAccount(db, "user-1")).toBe(9);
   });
 
+  it("stamps the account owner + stores the lineage anchor (R2-F3/R2-F2)", async () => {
+    const comp = component({
+      revision: 5,
+      headEventId: "11111111-1111-4111-8111-111111111111",
+      headClientRevision: 3,
+    });
+    await applyPullResponse(db, "user-1", pull({ components: [comp] }), 1000);
+
+    const stored = await db.studyComponents.get(comp.componentKey);
+    // R2-F3: scoped to the account so a guest never reads it as theirs.
+    expect(stored?.userId).toBe("user-1");
+    // R2-F2: the accepted server head, so a fresh device extends the chain.
+    expect(stored?.syncedHeadEventId).toBe(
+      "11111111-1111-4111-8111-111111111111",
+    );
+    expect(stored?.syncedHeadClientRevision).toBe(3);
+  });
+
+  it("normalises a missing anchor to null for an older server (R2-F2)", async () => {
+    await applyPullResponse(
+      db,
+      "user-1",
+      pull({ components: [component()] }),
+      1000,
+    );
+    const stored = await db.studyComponents.get(component().componentKey);
+    expect(stored?.syncedHeadEventId).toBeNull();
+    expect(stored?.syncedHeadClientRevision).toBeNull();
+  });
+
   it("marks a known synced event by server status but preserves a local one", async () => {
     await db.reviewEvents.add({
       eventId: "ev-synced",
@@ -182,6 +212,34 @@ describe("applyPullResponse", () => {
     // The camelCase keys are NOT left lying around as unreadable rows.
     expect(await db.settings.get("arabicFontScale")).toBeUndefined();
     expect(await db.settings.get("questionCount")).toBeUndefined();
+  });
+
+  it("returns the pulled theme + font-scale for mirror adoption (R2-F5)", async () => {
+    const mirrors = await applyPullResponse(
+      db,
+      "user-1",
+      pull({
+        settings: [
+          { key: "theme", value: "dark", updatedAt: 3 },
+          { key: "arabicFontScale", value: "large", updatedAt: 4 },
+        ],
+      }),
+      1000,
+    );
+    // The caller force-writes these into the localStorage mirrors so the
+    // account-authoritative value is not shadowed by a stale mirror (§23).
+    expect(mirrors).toEqual({ theme: "dark", arabicFontScale: "large" });
+  });
+
+  it("returns no mirror values when the page changed no theme/font setting (R2-F5)", async () => {
+    const mirrors = await applyPullResponse(
+      db,
+      "user-1",
+      pull({ settings: [{ key: "questionCount", value: 15, updatedAt: 5 }] }),
+      1000,
+    );
+    expect(mirrors.theme).toBeUndefined();
+    expect(mirrors.arabicFontScale).toBeUndefined();
   });
 
   it("applies tombstones by deleting the named bookmark and list", async () => {

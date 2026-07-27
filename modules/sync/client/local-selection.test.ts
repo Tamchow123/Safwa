@@ -71,6 +71,9 @@ function makeEvent(
   return {
     eventId: randomUUID(),
     componentKey: attempt.studyComponentId,
+    // Stamp the owner from the attempt, exactly as production `toEventRecord`
+    // does (R2-F3) — the owner-scoped `[userId+syncStatus]` index reads it.
+    userId: attempt.userId,
     parentEventId: null,
     clientComponentRevision: 1,
     syncStatus: "local",
@@ -202,12 +205,15 @@ describe("countPendingScheduling", () => {
     expect(await countPendingScheduling(db, "user-1")).toBe(0);
   });
 
-  it("does not count an orphan event (missing attempt → ownership unattributable)", async () => {
+  it("counts an owned event but never SELECTS one whose attempt is missing", async () => {
     const att = makeAttempt();
-    // Event but no attempt: neither sendable nor attributable to an account, so
-    // it is not counted as this account's pending work (EXT-F1 ownership).
+    // The event now carries its own owner (R2-F3), so it counts as this
+    // account's pending work even with no stored attempt — but it is still not
+    // sendable (the server grades by reconstructing the attempt), so selection
+    // drops it. In practice event+attempt are always written atomically; this is
+    // the degenerate guard.
     await db.reviewEvents.add(makeEvent(att));
-    expect(await countPendingScheduling(db, "user-1")).toBe(0);
+    expect(await countPendingScheduling(db, "user-1")).toBe(1);
     expect(
       (await selectUnsyncedScheduling(db, 100, "user-1")).events,
     ).toHaveLength(0);
@@ -223,27 +229,29 @@ describe("countPendingScheduling", () => {
     expect(await countPendingScheduling(db, "user-1")).toBe(1);
   });
 
-  it("counts beyond a single push page (up to the scan cap)", async () => {
+  it("counts the full backlog beyond a single push page", async () => {
     for (let i = 0; i < 7; i++) {
       const att = makeAttempt();
       await insert(att, makeEvent(att));
     }
-    // selectUnsyncedScheduling caps at the limit; the count reflects the backlog
-    // (7 is well under the default PENDING_COUNT_SCAN_CAP, so it is exact).
+    // selectUnsyncedScheduling pages at the limit; the count reflects the whole
+    // owned backlog (owner-scoped indexed count — R2-F3).
     expect(
       (await selectUnsyncedScheduling(db, 3, "user-1")).events,
     ).toHaveLength(3);
     expect(await countPendingScheduling(db, "user-1")).toBe(7);
   });
 
-  it("caps the scan so the badge poll never scales with a huge backlog (REL-001)", async () => {
-    for (let i = 0; i < 5; i++) {
+  it("counts a large backlog EXACTLY — no scan cap to under-report behind (R2-F3)", async () => {
+    // The old attempt-join count capped its scan at 500, so a backlog past the
+    // cap read as exactly the cap. The owner-scoped `[userId+syncStatus]` index
+    // count is exact at any size — here 520, well past the retired cap.
+    const rows = 520;
+    for (let i = 0; i < rows; i++) {
       const att = makeAttempt();
       await insert(att, makeEvent(att));
     }
-    // With an injected cap of 3, only the first 3 events are scanned/counted —
-    // the badge shows the cap rather than doing an unbounded per-event join.
-    expect(await countPendingScheduling(db, "user-1", 3)).toBe(3);
+    expect(await countPendingScheduling(db, "user-1")).toBe(rows);
   });
 });
 

@@ -92,7 +92,7 @@ describe("sanitizeTimezonePreference", () => {
 
 describe("read / persist (guest-durable settings path)", () => {
   it("absent setting reads as browser mode", async () => {
-    expect(await readTimezonePreference(db)).toEqual({ mode: "browser" });
+    expect(await readTimezonePreference(db, null)).toEqual({ mode: "browser" });
   });
 
   it("a corrupt stored row falls back to browser mode", async () => {
@@ -100,7 +100,7 @@ describe("read / persist (guest-durable settings path)", () => {
       mode: "iana",
       timezone: "Broken/Zone",
     });
-    expect(await readTimezonePreference(db)).toEqual({ mode: "browser" });
+    expect(await readTimezonePreference(db, null)).toEqual({ mode: "browser" });
   });
 
   it("persists a valid zone through the guest-durable path (profile minted)", async () => {
@@ -109,10 +109,10 @@ describe("read / persist (guest-durable settings path)", () => {
       timezone: "Asia/Tokyo",
     });
     expect(stored).toEqual({ mode: "iana", timezone: "Asia/Tokyo" });
-    expect(await readSetting(db, SETTING_KEYS.timezone)).toEqual(stored);
+    expect(await readSetting(db, SETTING_KEYS.timezone, null)).toEqual(stored);
     // writeGuestSetting arms durable guest state: the device profile exists.
     expect(await peekDeviceProfile(db)).not.toBeNull();
-    expect(await readTimezonePreference(db)).toEqual(stored);
+    expect(await readTimezonePreference(db, null)).toEqual(stored);
   });
 
   it("sanitises BEFORE writing: an invalid choice stores browser mode", async () => {
@@ -121,7 +121,7 @@ describe("read / persist (guest-durable settings path)", () => {
       timezone: "Not/AZone",
     });
     expect(stored).toEqual({ mode: "browser" });
-    expect(await readSetting(db, SETTING_KEYS.timezone)).toEqual({
+    expect(await readSetting(db, SETTING_KEYS.timezone, null)).toEqual({
       mode: "browser",
     });
   });
@@ -167,7 +167,7 @@ describe("resolveEffectiveClock (§10.5)", () => {
       mode: "iana",
       timezone: "America/New_York",
     });
-    const clock = await readEffectiveClock(db);
+    const clock = await readEffectiveClock(db, null);
     expect(clock.timezone).toBe("America/New_York");
     expect(clock.timezoneSource).toBe("user_setting");
   });
@@ -180,21 +180,21 @@ describe("resolveEffectiveClock (§10.5)", () => {
       mode: "iana",
       timezone: "Asia/Tokyo",
     });
-    const first = await readEffectiveClock(db);
+    const first = await readEffectiveClock(db, null);
     expect(first.timezone).toBe("Asia/Tokyo");
 
     await persistTimezonePreference(db, {
       mode: "iana",
       timezone: "Europe/London",
     });
-    const second = await readEffectiveClock(db);
+    const second = await readEffectiveClock(db, null);
     expect(second.timezone).toBe("Europe/London");
     expect(second.timezone).not.toBe(first.timezone);
     expect(second.timezoneSource).toBe("user_setting");
 
     // And back to browser mode: the third session follows the browser again.
     await persistTimezonePreference(db, { mode: "browser" });
-    const third = await readEffectiveClock(db);
+    const third = await readEffectiveClock(db, null);
     expect(third.timezone).toBe(detectBrowserTimezone());
     expect(third.timezoneSource).toBe("browser_detected");
   });

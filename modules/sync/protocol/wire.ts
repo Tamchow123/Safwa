@@ -296,6 +296,15 @@ export const wireComponentStateSchema = z.strictObject({
   learnerState: z.enum(LEARNER_STATE_VALUES),
   card: wireCardSchema.nullable(),
   masteryDates: z.array(localDateSchema).max(4096),
+  // Lineage ANCHOR (R2-F2): the authoritative accepted chain head — its event id
+  // and that head's client_component_revision — so a device with no local events
+  // for this component (a fresh bootstrap, or after a logout wiped the local
+  // chain) can EXTEND the server chain on its next review instead of rooting a
+  // new branch the server rejects as a stale-branch conflict. Null when the
+  // component has no accepted scheduling head. Optional for back-compat: an older
+  // server that omits it simply provides no anchor (chain-extension unavailable).
+  headEventId: z.string().uuid().nullable().optional(),
+  headClientRevision: z.number().int().min(0).nullable().optional(),
 });
 export type WireComponentState = z.infer<typeof wireComponentStateSchema>;
 

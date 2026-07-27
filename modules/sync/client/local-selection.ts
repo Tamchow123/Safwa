@@ -103,48 +103,24 @@ export function toWireAttempt(attempt: AttemptRecord): WireAttempt | null {
  * events could reference one attempt in principle).
  */
 /**
- * Count the local scheduling events not yet accepted by the server — the
- * `syncStatus === "local"` review-events. This is the "pending changes" number
- * the status indicator surfaces (§20); it counts SENDABILITY candidates, matching
- * `selectUnsyncedScheduling`'s source rows (an event whose attempt is missing is
- * still pending — it is unsynced work, just not yet sendable). It reflects the
- * true backlog exactly up to the scan cap below (a large backlog reads as the
- * cap), rather than the smaller per-push page.
- *
- * ACCOUNT SCOPING (§18, EXT-F1): counts only events OWNED by the active account
- * — those whose linked attempt's `attempt.userId === userId`. Guest events
- * (attempt.userId === null) and any other account's leftover events are NOT
- * counted, so a guest's local history is never surfaced as this account's
- * pending work and login never implies a merge. `review_events` carry no userId
- * of their own, so ownership is read from the linked attempt payload — a scan +
- * per-event attempt read rather than an indexed count.
- *
- * BOUNDED SCAN (§20): because ownership requires the attempt join, the scan is
- * capped at `scanCap` events (default `PENDING_COUNT_SCAN_CAP`) so this
- * frequently-polled status-badge count never scales with an arbitrarily large
- * offline backlog — for a backlog past the cap the badge shows the cap, which
- * still reads as "many pending" (the exact number past that point is not
- * user-meaningful). The cap is generous relative to a legitimate session.
+ * Count THIS account's unsynced scheduling events — the `syncStatus === "local"`
+ * review-events it owns (§20 pending badge). Since schema v6 (R2-F3) review
+ * events carry their OWN `userId`, this is a single owner-scoped INDEXED count
+ * over `[userId+syncStatus]` — no attempt-join, and no scan cap. A guest's (or
+ * another account's) local backlog is simply not in this account's index slice,
+ * so it can neither inflate the badge nor — as under the old bounded scan +
+ * attempt-join — starve/undercount this account's true backlog behind a cap
+ * (the EXT-F1 join is retired). Guest events have a null owner, which IndexedDB
+ * does not index; guests never sync, so they never call this.
  */
-export const PENDING_COUNT_SCAN_CAP = 500;
-
 export async function countPendingScheduling(
   db: SafwaDb,
   userId: string,
-  scanCap: number = PENDING_COUNT_SCAN_CAP,
 ): Promise<number> {
-  const local = await db.reviewEvents
-    .where("syncStatus")
-    .equals("local")
-    .limit(scanCap)
-    .toArray();
-  let count = 0;
-  for (const ev of local) {
-    if (!ev.attemptId) continue;
-    const stored = await db.studyAttempts.get(ev.attemptId);
-    if (stored?.attempt?.userId === userId) count += 1;
-  }
-  return count;
+  return db.reviewEvents
+    .where("[userId+syncStatus]")
+    .equals([userId, "local"])
+    .count();
 }
 
 /**
@@ -181,9 +157,15 @@ export async function selectUnsyncedScheduling(
   limit: number,
   userId: string,
 ): Promise<SchedulingSelection> {
+  // Owner-scoped selection (R2-F3): the `[userId+syncStatus]` index yields ONLY
+  // this account's unsynced events, so the `limit` page can never be starved by
+  // a guest's (or another account's) local backlog sitting AHEAD of it in an
+  // unscoped `syncStatus`-only scan (the EXT-F1/-F3 starvation the old `.limit`
+  // before the ownership filter allowed). Guest events (null owner) are not in
+  // this index; guests never sync, so login never uploads guest history (§18).
   const localEvents = await db.reviewEvents
-    .where("syncStatus")
-    .equals("local")
+    .where("[userId+syncStatus]")
+    .equals([userId, "local"])
     .limit(limit)
     .toArray();
 
@@ -194,12 +176,11 @@ export async function selectUnsyncedScheduling(
   for (const record of localEvents) {
     const wireEvent = toWireEvent(record);
     if (!wireEvent) continue;
-
+    // The index already scoped ownership; we still load the stored attempt to
+    // build the wire payload (the server grades an objective event by
+    // reconstructing its attempt) and drop the event if it is missing/invalid.
     const stored = await db.studyAttempts.get(wireEvent.attemptId);
-    // OWNERSHIP GATE: only this account's own events are sendable. A guest event
-    // (attempt.userId === null) or another account's event is dropped, never
-    // uploaded — no implicit guest merge on login (§18).
-    if (!stored?.attempt || stored.attempt.userId !== userId) continue;
+    if (!stored?.attempt) continue;
 
     if (!includedAttempts.has(wireEvent.attemptId)) {
       const wireAttempt = toWireAttempt(stored.attempt);
