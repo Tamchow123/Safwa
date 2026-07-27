@@ -61,13 +61,14 @@ test.describe("sync kill-switch (SYNC_ENABLED=false)", () => {
               req.onerror = () => reject(req.error);
             });
             try {
-              if (!db.objectStoreNames.contains("settings")) return null;
+              if (!db.objectStoreNames.contains("settings_owned")) return null;
               const row = await new Promise<{ value?: string } | null>(
                 (resolve, reject) => {
+                  // Owner-keyed since schema v7: this is the GUEST's value.
                   const r = db
-                    .transaction("settings", "readonly")
-                    .objectStore("settings")
-                    .get("arabic-font-scale");
+                    .transaction("settings_owned", "readonly")
+                    .objectStore("settings_owned")
+                    .get(["guest", "arabic-font-scale"]);
                   r.onsuccess = () => resolve(r.result ?? null);
                   r.onerror = () => reject(r.error);
                 },

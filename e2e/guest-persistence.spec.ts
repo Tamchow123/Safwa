@@ -41,21 +41,29 @@ function persistCalls(page: Page): Promise<number> {
 }
 
 /** Read a row from the app's IndexedDB directly (independent of app code). */
+/**
+ * Read one row by key. The `settings` store is owner-keyed since schema v7
+ * (physical name `settings_owned`, primary key `[ownerKey+key]`), so a read for
+ * a guest setting takes the compound key; `profile` is device-level and keeps
+ * its plain key.
+ */
 function readIdbRow(page: Page, store: string, key: string): Promise<unknown> {
+  const owned = store === "settings";
   return page.evaluate(
-    async ({ store, key }) => {
+    async ({ store, key, owned }) => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open("safwa-content");
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
+      const physical = owned ? "settings_owned" : store;
       try {
-        if (!database.objectStoreNames.contains(store)) return null;
+        if (!database.objectStoreNames.contains(physical)) return null;
         return await new Promise((resolve, reject) => {
           const request = database
-            .transaction(store, "readonly")
-            .objectStore(store)
-            .get(key);
+            .transaction(physical, "readonly")
+            .objectStore(physical)
+            .get(owned ? ["guest", key] : key);
           request.onsuccess = () => resolve(request.result ?? null);
           request.onerror = () => reject(request.error);
         });
@@ -63,7 +71,7 @@ function readIdbRow(page: Page, store: string, key: string): Promise<unknown> {
         database.close();
       }
     },
-    { store, key },
+    { store, key, owned },
   );
 }
 

@@ -9,8 +9,33 @@ import type { Page } from "@playwright/test";
 
 const DB_NAME = "safwa-content";
 
+/**
+ * The GUEST owner key (`modules/content/owner-key.ts`). Duplicated as a literal
+ * because these helpers run inside `page.evaluate`, which cannot import app
+ * code; `tests/content/owner-key.test.ts` pins the value it must equal.
+ */
+export const E2E_GUEST_OWNER_KEY = "guest";
+
+/**
+ * Schema v7 (phases-17.md §10) re-keyed four stores to `[ownerKey+naturalKey]`,
+ * which IndexedDB can only do by creating a new store — so their PHYSICAL names
+ * changed and the v6 originals were dropped. Specs keep using the logical names
+ * they always did; this map is the one place that knows the difference.
+ */
+export const PHYSICAL_STORE_NAMES: Record<string, string> = {
+  study_components: "study_components_owned",
+  bookmarks: "bookmarks_owned",
+  settings: "settings_owned",
+  daily_activity: "daily_activity_owned",
+};
+
+function physicalStore(store: string): string {
+  return PHYSICAL_STORE_NAMES[store] ?? store;
+}
+
 /** Read every row of an app IndexedDB object store. */
 export function idbAll(page: Page, store: string): Promise<unknown[]> {
+  store = physicalStore(store);
   return page.evaluate(
     async ({ dbName, store }) => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -19,7 +44,11 @@ export function idbAll(page: Page, store: string): Promise<unknown[]> {
         request.onerror = () => reject(request.error);
       });
       try {
-        if (!database.objectStoreNames.contains(store)) return [];
+        if (!database.objectStoreNames.contains(store)) {
+          throw new Error(
+            `idbAll: store "${store}" not found — a stale physical name would make assertions pass vacuously`,
+          );
+        }
         return await new Promise<unknown[]>((resolve, reject) => {
           const request = database
             .transaction(store, "readonly")
@@ -38,6 +67,7 @@ export function idbAll(page: Page, store: string): Promise<unknown[]> {
 
 /** Count rows in an app IndexedDB object store. */
 export function idbCount(page: Page, store: string): Promise<number> {
+  store = physicalStore(store);
   return page.evaluate(
     async ({ dbName, store }) => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -46,7 +76,11 @@ export function idbCount(page: Page, store: string): Promise<number> {
         request.onerror = () => reject(request.error);
       });
       try {
-        if (!database.objectStoreNames.contains(store)) return 0;
+        if (!database.objectStoreNames.contains(store)) {
+          throw new Error(
+            `idbCount: store "${store}" not found — a stale physical name would make assertions pass vacuously`,
+          );
+        }
         return await new Promise<number>((resolve, reject) => {
           const request = database
             .transaction(store, "readonly")
@@ -74,6 +108,16 @@ export function idbSeed(
   store: string,
   rows: readonly unknown[],
 ): Promise<void> {
+  store = physicalStore(store);
+  // Every private store is owner-keyed since schema v7, and a spec that seeds
+  // learner state is seeding the GUEST's state unless it says otherwise — so
+  // the owner is stamped here rather than in ~10 specs. An explicit `ownerKey`
+  // on a row wins, for the specs that seed an account's rows.
+  const owned = rows.map((row) =>
+    typeof row === "object" && row !== null
+      ? { ownerKey: E2E_GUEST_OWNER_KEY, ...row }
+      : row,
+  );
   return page.evaluate(
     async ({ dbName, store, rows }) => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -98,7 +142,7 @@ export function idbSeed(
         database.close();
       }
     },
-    { dbName: DB_NAME, store, rows },
+    { dbName: DB_NAME, store, rows: owned },
   );
 }
 

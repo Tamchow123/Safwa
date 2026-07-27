@@ -76,9 +76,12 @@ export const SAFWA_DB_VERSION = 8;
  * compound primary key. IndexedDB cannot change an existing store's key path, so
  * the owner-keyed store is a new one and the v6 store is dropped in v8 — see the
  * version blocks below. The names are an implementation detail of this module:
- * every consumer goes through the camelCase accessors (`db.bookmarks`, …).
+ * every consumer goes through the camelCase accessors (`db.bookmarks`, …). It
+ * is exported only so the E2E raw-IndexedDB helpers — which cannot import Dexie
+ * into `page.evaluate` — can be CHECKED against it rather than drifting from it
+ * (tests/e2e-helpers/idb-store-names.test.ts).
  */
-const OWNED_STORE_NAMES = {
+export const OWNED_STORE_NAMES = {
   studyComponents: "study_components_owned",
   bookmarks: "bookmarks_owned",
   settings: "settings_owned",
@@ -703,16 +706,16 @@ export class SafwaDb extends Dexie {
 }
 
 /**
- * The account-owned (private, per-account) stores. SINGLE SOURCE OF TRUTH for
- * this security-relevant grouping (the schema owner owns it): these are the
- * stores cleared on logout / account switch so a shared device never leaks one
- * account's data to the next (Phase 16 §18, SEC-002-T15d), and the same set a
- * future Phase 17 guest-merge / account-deletion reset must use. A NEW
- * account-owned store MUST be classified here — the `accountScopedTables +
- * deviceAndContentTables === all tables` coverage test fails otherwise, turning
- * silent drift (a stale store leaking across accounts) into a build signal.
+ * The private, OWNER-SCOPED stores: every row in them carries an `ownerKey` and
+ * belongs to exactly one identity (a guest or one account). SINGLE SOURCE OF
+ * TRUTH for this security-relevant grouping (the schema owner owns it) — the
+ * scoped sign-out / account-switch cleanup (phases-17.md §11) and the
+ * guest-merge re-keying both iterate exactly this set, so a NEW private store
+ * must be classified here or it silently escapes both.
  */
-export function accountScopedTables(db: SafwaDb): Table[] {
+export function ownerScopedTables(
+  db: SafwaDb,
+): Table<{ ownerKey: OwnerKey }>[] {
   return [
     db.studyComponents,
     db.studyAttempts,
@@ -722,6 +725,20 @@ export function accountScopedTables(db: SafwaDb): Table[] {
     db.bookmarks,
     db.lists,
     db.settings,
+  ] as unknown as Table<{ ownerKey: OwnerKey }>[];
+}
+
+/**
+ * Every store whose contents belong to an account rather than the device: the
+ * owner-scoped private stores plus the outbound queue and the sync cursor
+ * (which carry their own account `userId` rather than an owner key). A NEW
+ * account-owned store MUST be classified here — the `accountScopedTables +
+ * deviceAndContentTables === all tables` coverage test fails otherwise, turning
+ * silent drift (a stale store leaking across accounts) into a build signal.
+ */
+export function accountScopedTables(db: SafwaDb): Table[] {
+  return [
+    ...ownerScopedTables(db),
     db.mutationQueue,
     db.syncState,
   ] as unknown as Table[];

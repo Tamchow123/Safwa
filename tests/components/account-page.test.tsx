@@ -9,6 +9,9 @@ vi.mock("@/modules/auth/client", () => ({
   changePassword: (...args: unknown[]) => changePasswordMock(...args),
   signOut: (...args: unknown[]) => signOutMock(...args),
   deleteUser: (...args: unknown[]) => deleteUserMock(...args),
+  // The sign-out button reads the signed-in id so the owner-scoped cleanup
+  // (phases-17.md §11) can be told which account is departing.
+  useSession: () => ({ data: { user: { id: "user-1" } } }),
 }));
 
 const toastMock = vi.fn();
