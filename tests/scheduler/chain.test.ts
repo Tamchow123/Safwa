@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyCard, fsrs, generatorParameters, Rating } from "ts-fsrs";
+import { createEmptyCard, fsrs, generatorParameters } from "ts-fsrs";
 
 import {
   chainHead,
@@ -11,22 +11,14 @@ import {
 import type { ReviewEvent } from "@/modules/scheduler/events";
 import type { SchedulerCard } from "@/modules/scheduler/fsrs";
 
-import { buildChain, buildNaturalChain } from "./fixtures";
+import {
+  buildChain,
+  buildNaturalChain,
+  RAW_FSRS_GRADE,
+  RAW_FSRS_STATE,
+} from "./fixtures";
 
 const T0 = Date.UTC(2026, 6, 17, 9, 0, 0);
-
-const GRADE = {
-  again: Rating.Again,
-  hard: Rating.Hard,
-  good: Rating.Good,
-  easy: Rating.Easy,
-} as const;
-const STATE: Record<number, SchedulerCard["state"]> = {
-  0: "new",
-  1: "learning",
-  2: "review",
-  3: "relearning",
-};
 
 /**
  * INDEPENDENT oracle: replay a chain by driving RAW ts-fsrs (not the module's
@@ -42,14 +34,14 @@ function rawReplay(events: readonly ReviewEvent[]): SchedulerCard {
     card = f.next(
       card,
       new Date(Date.parse(event.occurredAtClient)),
-      GRADE[event.rating],
+      RAW_FSRS_GRADE[event.rating],
     ).card;
   }
   return {
     stability: card.stability,
     difficulty: card.difficulty,
     dueAtMs: card.due.getTime(),
-    state: STATE[card.state],
+    state: RAW_FSRS_STATE[card.state],
     reps: card.reps,
     lapses: card.lapses,
     scheduledDays: card.scheduled_days,
