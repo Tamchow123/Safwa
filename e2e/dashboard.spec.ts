@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { deriveAllComponents } from "../modules/study-engine/components";
 import { expect, test } from "./fixtures";
+import { idbAll, idbSeed } from "./helpers/idb";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { loadLearnerRelease } from "./helpers/learner-release";
 
@@ -23,69 +24,6 @@ import { loadLearnerRelease } from "./helpers/learner-release";
  * retry policy re-anchors both steps to the same day. The due-today test
  * is fully deterministic by construction instead (see §26.7).
  */
-
-const DB_NAME = "safwa-content";
-
-/** Read all rows of an app IndexedDB store, independent of app code. */
-function idbAll(page: Page, store: string): Promise<unknown[]> {
-  return page.evaluate(
-    async ({ dbName, store }) => {
-      const database = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(dbName);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      try {
-        if (!database.objectStoreNames.contains(store)) return [];
-        return await new Promise<unknown[]>((resolve, reject) => {
-          const request = database
-            .transaction(store, "readonly")
-            .objectStore(store)
-            .getAll();
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-      } finally {
-        database.close();
-      }
-    },
-    { dbName: DB_NAME, store },
-  );
-}
-
-/** Put rows into an app IndexedDB store (schema must already exist). */
-function idbSeed(
-  page: Page,
-  store: string,
-  rows: readonly unknown[],
-): Promise<void> {
-  return page.evaluate(
-    async ({ dbName, store, rows }) => {
-      const database = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(dbName);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      try {
-        if (!database.objectStoreNames.contains(store)) {
-          throw new Error(
-            `idbSeed: store "${store}" not found — navigate to the app first so its schema exists`,
-          );
-        }
-        await new Promise<void>((resolve, reject) => {
-          const transaction = database.transaction(store, "readwrite");
-          const objectStore = transaction.objectStore(store);
-          for (const row of rows) objectStore.put(row);
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error);
-        });
-      } finally {
-        database.close();
-      }
-    },
-    { dbName: DB_NAME, store, rows },
-  );
-}
 
 /** The dd value that follows an exact-matching dt in a summary list. */
 function statValue(page: Page, label: RegExp) {

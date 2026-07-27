@@ -1,9 +1,14 @@
 /**
  * Shared raw-IndexedDB helpers for specs that seed or read app state directly
- * (bypassing the UI), independent of app code. Every existing spec that needs
- * this currently duplicates it locally; this is the first spec to factor it
- * out — existing specs are left with their own copies (out of scope to
- * retrofit here).
+ * (bypassing the UI), independent of app code.
+ *
+ * These helpers own the two things a spec must not get wrong since schema v7:
+ * the logical→PHYSICAL store-name mapping (see PHYSICAL_STORE_NAMES) and the
+ * guest OWNER stamped on seeded rows. auth, collections, dashboard and
+ * weak-areas import them; bab-root-mixed, flashcards and mc-quiz still carry
+ * their own local copies, which is safe only because they touch stores whose
+ * physical names did not change (study_attempts, review_events) or were fixed
+ * in place — a spec touching a renamed store MUST use these helpers instead.
  */
 import type { Page } from "@playwright/test";
 
