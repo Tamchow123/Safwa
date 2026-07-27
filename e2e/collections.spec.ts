@@ -739,11 +739,14 @@ test.describe("31.12 — export", () => {
     const path = await download.path();
     const fs = await import("node:fs");
     const parsed = JSON.parse(fs.readFileSync(path!, "utf8")) as {
-      bookmarks: { entryId: number; createdAt: number }[];
+      bookmarks: { ownerKey: string; entryId: number; createdAt: number }[];
       lists: { id: string; name: string; entryIds: number[] }[];
     };
 
+    // The exported row carries its OWNER since schema v7 — the export is
+    // owner-scoped, so a guest downloads exactly the rows keyed to the guest.
     expect(parsed.bookmarks).toContainEqual({
+      ownerKey: "guest",
       entryId: bookmarkedEntry.id,
       createdAt: 1,
     });
