@@ -42,6 +42,7 @@ import {
 } from "@/modules/sync/protocol";
 
 import { writeSyncAudit } from "./audit";
+import { selectHead, type HeadCandidate } from "./chain-head";
 import {
   computeCanonicalEventTime,
   type CanonicalTimeResult,
@@ -124,9 +125,16 @@ function buildChainState(rows: EventRow[]): ChainState {
   const pendingEventIds = new Set<string>();
   const parentByEventId = new Map<string, string | null>();
   const accepted: ComponentReplayEvent[] = [];
-  let headEventId: string | null = null;
-  let headRevision = 0;
-  let headCanonicalMs: number | null = null;
+  const headCandidates: HeadCandidate[] = [];
+  /**
+   * The MAXIMUM revision across every accepted event, which for a MERGED
+   * component is not necessarily the head's own. `deriveNextLineage` pairs the
+   * chronological head with the union's maximum so a new event's revision is
+   * unique across both merged histories and the contiguity check still sees "one
+   * past the highest"; the server has to agree, or it rejects the very event the
+   * client derived.
+   */
+  let maxRevision = 0;
 
   for (const row of rows) {
     parentByEventId.set(row.eventId, row.parentEventId);
@@ -141,19 +149,32 @@ function buildChainState(rows: EventRow[]): ChainState {
         occurredAtCanonical: row.occurredAtCanonical,
         localDateAtEvent: row.localDateAtEvent,
       });
-      if (row.clientComponentRevision > headRevision) {
-        headRevision = row.clientComponentRevision;
-        headEventId = row.eventId;
-        headCanonicalMs = row.occurredAtCanonical.getTime();
+      headCandidates.push({
+        eventId: row.eventId,
+        clientComponentRevision: row.clientComponentRevision,
+        canonicalMs: row.occurredAtCanonical.getTime(),
+        parentEventId: row.parentEventId,
+      });
+      if (row.clientComponentRevision > maxRevision) {
+        maxRevision = row.clientComponentRevision;
       }
     } else if (row.status === "pending_parent") {
       pendingEventIds.add(row.eventId);
     }
   }
+
+  // Head selection is shape-aware (./chain-head.ts): an ordinary single-rooted
+  // chain keeps Phase 16's structural highest-revision tip, and only a MERGED
+  // (multi-rooted) component uses the chronological rule the client's
+  // `chainHead` applies to a union.
+  const head = selectHead(headCandidates);
+
   return {
-    headEventId,
-    headRevision,
-    headCanonicalMs,
+    headEventId: head?.eventId ?? null,
+    // What a new event's revision must be one past: the union's MAXIMUM, which
+    // for a single chain is the head's own and for a merged one may not be.
+    headRevision: maxRevision,
+    headCanonicalMs: head?.canonicalMs ?? null,
     acceptedEventIds,
     parentByEventId,
     pendingEventIds,
@@ -968,8 +989,16 @@ async function processComponentGroup(
         occurredAtCanonical: new Date(canonicalTime.occurredAtCanonicalMs),
         localDateAtEvent: canonicalTime.localDateAtEvent,
       });
+      // A newly accepted event was required to parent on the current head and
+      // to carry the next revision, so it becomes the head. `headRevision`
+      // tracks the MAXIMUM rather than the head's own (see `buildChainState`);
+      // for an event accepted here the two coincide, but taking the max keeps
+      // that true even if a merged component's stored maximum was higher.
       chain.headEventId = ev.eventId;
-      chain.headRevision = ev.clientComponentRevision;
+      chain.headRevision = Math.max(
+        chain.headRevision,
+        ev.clientComponentRevision,
+      );
       chain.headCanonicalMs = canonicalTime.occurredAtCanonicalMs;
       acceptedThisBatch.push(ev.eventId);
       changed = true;
@@ -1068,8 +1097,15 @@ async function processComponentGroup(
           occurredAtCanonical: child.occurredAtCanonical,
           localDateAtEvent: child.localDateAtEvent,
         });
+        // A promoted child was selected as the one whose revision is exactly
+        // `headRevision + 1`, so `Math.max` and a plain assignment coincide here
+        // — but `headRevision` means the MAXIMUM (see `buildChainState`), and
+        // writing it as a max keeps that true if the selection ever widens.
         chain.headEventId = child.eventId;
-        chain.headRevision = child.clientComponentRevision;
+        chain.headRevision = Math.max(
+          chain.headRevision,
+          child.clientComponentRevision,
+        );
         chain.headCanonicalMs = child.occurredAtCanonical.getTime();
         acceptedThisBatch.push(child.eventId);
         promotedIds.push(child.eventId);

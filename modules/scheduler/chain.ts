@@ -153,6 +153,41 @@ export type ChainPartition = {
 };
 
 /**
+ * Is this event the ROOT of a chain within `present` — the set of events being
+ * considered? True when it has no parent at all, and also when its parent is
+ * outside the set, because then its earlier history lives somewhere else and it
+ * begins a chain here regardless.
+ *
+ * Exported for the same reason as {@link compareChainOrder}: the server counts
+ * roots to decide WHICH head rule applies (`modules/sync/server/chain-head.ts`)
+ * and this function decides what a root is, so a second transcription could
+ * drift and make the server classify a component differently from the client
+ * that derived the event — the stuck-component failure this pairing exists to
+ * prevent. `present` is anything with a `has`, so a `Map` of events and a `Set`
+ * of accepted ids both qualify.
+ */
+export function isChainRoot(
+  parentEventId: string | null,
+  present: { has(eventId: string): boolean },
+): boolean {
+  return !linksToParent(parentEventId, present);
+}
+
+/**
+ * The same question asked the other way round, as a type guard: an event LINKS
+ * when its parent exists inside `present`, which is also the only case in which
+ * `parentEventId` is known to be a string. {@link isChainRoot} is its negation,
+ * so the rule is still written once; both names exist because a boolean return
+ * cannot narrow the id for the caller that then indexes by it.
+ */
+export function linksToParent(
+  parentEventId: string | null,
+  present: { has(eventId: string): boolean },
+): parentEventId is string {
+  return parentEventId !== null && present.has(parentEventId);
+}
+
+/**
  * Partition a component's `scheduling` events into their causal chains, or throw
  * {@link ChainError} when the set is structurally impossible — or is a merge
  * union the caller did not opt into.
@@ -192,7 +227,7 @@ export function partitionScheduling(
   const roots: ReviewEvent[] = [];
   for (const event of scheduling) {
     const parentId = event.parentEventId;
-    if (parentId === null || !byId.has(parentId)) {
+    if (!linksToParent(parentId, byId)) {
       roots.push(event);
       continue;
     }
@@ -293,6 +328,31 @@ type MergeCandidate = {
   positionInChain: number;
 };
 
+/** The three keys the canonical order compares, and nothing else. */
+export type ChainOrderKey = {
+  instantMs: number;
+  revision: number;
+  eventId: string;
+};
+
+/**
+ * THE canonical order, on the minimal shape it needs. Exported so the SERVER's
+ * head selection (`modules/sync/server/chain-head.ts`) can call this exact
+ * function rather than transcribe the rule into a second implementation: the
+ * client derives a new event's parent from this order and the server decides
+ * whether that parent is the head, so the two agreeing is not a nicety — a
+ * divergence makes a merged component silently stop accepting reviews. A shared
+ * function makes drift impossible; a shared comment only makes it unlikely.
+ *
+ * The server compares database rows with canonical times and the client compares
+ * `ReviewEvent` records, so the shapes differ; the KEYS do not.
+ */
+export function compareChainOrder(a: ChainOrderKey, b: ChainOrderKey): number {
+  if (a.instantMs !== b.instantMs) return a.instantMs - b.instantMs;
+  if (a.revision !== b.revision) return a.revision - b.revision;
+  return a.eventId < b.eventId ? -1 : a.eventId > b.eventId ? 1 : 0;
+}
+
 /**
  * Canonical order of two candidates: earlier instant first, then the lower
  * `clientComponentRevision`, then the lower `eventId`. Total and deterministic —
@@ -301,15 +361,18 @@ type MergeCandidate = {
  * rather than of the input array's order.
  */
 function compareCandidates(a: MergeCandidate, b: MergeCandidate): number {
-  if (a.instantMs !== b.instantMs) return a.instantMs - b.instantMs;
-  if (a.event.clientComponentRevision !== b.event.clientComponentRevision) {
-    return a.event.clientComponentRevision - b.event.clientComponentRevision;
-  }
-  return a.event.eventId < b.event.eventId
-    ? -1
-    : a.event.eventId > b.event.eventId
-      ? 1
-      : 0;
+  return compareChainOrder(
+    {
+      instantMs: a.instantMs,
+      revision: a.event.clientComponentRevision,
+      eventId: a.event.eventId,
+    },
+    {
+      instantMs: b.instantMs,
+      revision: b.event.clientComponentRevision,
+      eventId: b.event.eventId,
+    },
+  );
 }
 
 /** Minimal binary min-heap over {@link compareCandidates} (push/pop are O(log k)). */
