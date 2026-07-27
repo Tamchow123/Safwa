@@ -25,7 +25,7 @@
  * The clock instant is INJECTED by the caller — this adapter never invents
  * time.
  */
-import type { SafwaDb } from "@/modules/content/db";
+import type { LocalOwnerId, SafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { effectiveComponents } from "@/modules/analytics/progress";
 import { readAnalyticsRawSnapshot } from "@/modules/analytics/persistence";
@@ -61,11 +61,15 @@ async function readComponentWeakness(
   db: SafwaDb,
   derived: readonly DerivedComponent[],
   nowMs: number,
+  owner: LocalOwnerId,
 ): Promise<{
   weaknessEvidence: ReadonlyMap<string, WeaknessComponentEvidence>;
   componentWeakness: ReadonlyMap<string, ComponentWeakness>;
 }> {
-  const persisted = await readAnalyticsRawSnapshot(db);
+  // OWNER-SCOPED (R2-F3 / SEC-001): weakness is private learner state derived
+  // from this identity's own cards/attempts/events — never a pre-login guest's
+  // (or, before the logout wipe, another account's) history.
+  const persisted = await readAnalyticsRawSnapshot(db, owner);
   const effective = effectiveComponents(derived, persisted.components, nowMs);
   const weaknessEvidence = prepareWeaknessEvidence(
     effective,
@@ -92,11 +96,13 @@ export async function loadWeaknessView(
   derived: readonly DerivedComponent[],
   entries: readonly LearnerEntry[],
   nowMs: number,
+  owner: LocalOwnerId,
 ): Promise<WeaknessView> {
   const { weaknessEvidence, componentWeakness } = await readComponentWeakness(
     db,
     derived,
     nowMs,
+    owner,
   );
   const groups = buildAllWeaknessGroups(
     componentWeakness,
@@ -123,8 +129,14 @@ export async function loadWeakScores(
   db: SafwaDb,
   derived: readonly DerivedComponent[],
   nowMs: number,
+  owner: LocalOwnerId,
 ): Promise<ReadonlyMap<string, number>> {
-  const { componentWeakness } = await readComponentWeakness(db, derived, nowMs);
+  const { componentWeakness } = await readComponentWeakness(
+    db,
+    derived,
+    nowMs,
+    owner,
+  );
   const scores = new Map<string, number>();
   for (const [key, cw] of componentWeakness) {
     scores.set(key, qualifyingWeaknessScore(cw));
@@ -146,9 +158,10 @@ export async function loadWeaknessEvidence(
   db: SafwaDb,
   derived: readonly DerivedComponent[],
   nowMs: number,
+  owner: LocalOwnerId,
 ): Promise<{
   weaknessEvidence: ReadonlyMap<string, WeaknessComponentEvidence>;
   componentWeakness: ReadonlyMap<string, ComponentWeakness>;
 }> {
-  return readComponentWeakness(db, derived, nowMs);
+  return readComponentWeakness(db, derived, nowMs, owner);
 }

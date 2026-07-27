@@ -21,6 +21,7 @@ import { getSafwaDb } from "@/modules/content/db";
 import type { CustomListRecord } from "@/modules/content/db";
 import { renameList } from "@/modules/collections/persistence";
 import { LIST_NAME_MAX_LENGTH } from "@/modules/collections/validation";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 
 export function RenameListDialog({
   trigger,
@@ -31,6 +32,7 @@ export function RenameListDialog({
   list: CustomListRecord;
   onRenamed: (list: CustomListRecord) => void;
 }) {
+  const resolveOwner = useResolveOwner();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(list.name);
   const [pending, setPending] = useState(false);
@@ -42,7 +44,15 @@ export function RenameListDialog({
     setPending(true);
     setError(null);
     try {
-      const renamed = await renameList(getSafwaDb(), list.id, name, Date.now());
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const owner = await resolveOwner();
+      const renamed = await renameList(
+        getSafwaDb(),
+        list.id,
+        name,
+        Date.now(),
+        owner,
+      );
       onRenamed(renamed);
       setOpen(false);
     } catch (submitError) {

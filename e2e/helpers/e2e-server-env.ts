@@ -45,6 +45,8 @@ export const E2E_PORTS = {
   authDisabled: 3101,
   /** Auth-enabled, deliberately tight rate limit (phases-15.md §60.7). */
   rateLimited: 3102,
+  /** Auth-enabled but SYNC_ENABLED=false — the sync kill-switch (phases-16.md §16, T19). */
+  syncDisabled: 3103,
 } as const;
 
 function baseUrlFor(port: number): string {
@@ -70,6 +72,7 @@ function commonEnv(port: number): E2EServerEnv {
 export const E2E_MAIN_BASE_URL = baseUrlFor(E2E_PORTS.main);
 export const E2E_AUTH_DISABLED_BASE_URL = baseUrlFor(E2E_PORTS.authDisabled);
 export const E2E_RATE_LIMITED_BASE_URL = baseUrlFor(E2E_PORTS.rateLimited);
+export const E2E_SYNC_DISABLED_BASE_URL = baseUrlFor(E2E_PORTS.syncDisabled);
 
 export function mainServerEnv(): E2EServerEnv {
   return {
@@ -100,6 +103,21 @@ export function authDisabledServerEnv(): E2EServerEnv {
   return {
     ...commonEnv(E2E_PORTS.authDisabled),
     AUTH_ENABLED: "false",
+  };
+}
+
+export function syncDisabledServerEnv(): E2EServerEnv {
+  return {
+    ...commonEnv(E2E_PORTS.syncDisabled),
+    // Auth stays ON (SYNC_ENABLED=true would REQUIRE it) so a signed-in user
+    // exercises the kill-switch: the server refuses sync (503) and the client
+    // must degrade gracefully — study still works, no error surfaces.
+    AUTH_ENABLED: "true",
+    SYNC_ENABLED: "false",
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
+    AUTH_RATE_LIMIT_MAX: "1000",
+    AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "60",
+    AUTH_RATE_LIMIT_DEFAULT_MAX: "100000",
   };
 }
 

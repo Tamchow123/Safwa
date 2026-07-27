@@ -56,7 +56,7 @@ describe("recordGradedAttempt → readAnalyticsSnapshot", () => {
       now: 1_784_000_000_000,
     });
 
-    const snapshot = await readAnalyticsSnapshot(db, 1_784_000_000_500);
+    const snapshot = await readAnalyticsSnapshot(db, 1_784_000_000_500, null);
     // The attempt's IMMUTABLE stored local date keys the activity row, and
     // the first scheduling event counts as the day's one new item.
     expect(snapshot.dailyActivity).toEqual([

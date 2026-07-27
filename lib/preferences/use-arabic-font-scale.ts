@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
   applyArabicFontScale,
   ARABIC_FONT_SCALE_STORAGE_KEY,
@@ -10,6 +11,7 @@ import {
   writeArabicFontScale,
   type ArabicFontScale,
 } from "@/lib/preferences/arabic-font-scale";
+import type { LocalOwnerId } from "@/modules/content/db";
 import { getSafwaDb } from "@/modules/content/db";
 import {
   persistArabicFontScale,
@@ -117,9 +119,15 @@ export async function reconcileArabicFontScaleFromDb(): Promise<void> {
   if (typeof indexedDB === "undefined") return;
   const observedWrites = userWriteCount;
   try {
+    // Device-global (owner null): runs at the app root before the Auth session
+    // resolves; the font-scale mirror is device-level (applies before
+    // hydration). A signed-in account's pulled scale is carried by the mirror
+    // force-write on pull (R2-F5), not by this pre-auth Dexie read.
     const { effective, restoreMirror } = await syncArabicFontScale(
       getSafwaDb(),
       window.localStorage,
+      Date.now,
+      null,
     );
     if (userWriteCount !== observedWrites) {
       // The user picked a scale while the read was in flight; their write
@@ -146,21 +154,48 @@ export async function reconcileArabicFontScaleFromDb(): Promise<void> {
  * the synchronous mirror write has already updated the UI; a Dexie failure
  * only weakens durability, never the current session.
  */
-async function persistScaleDurably(next: ArabicFontScale): Promise<void> {
+async function persistScaleDurably(
+  next: ArabicFontScale,
+  owner: LocalOwnerId,
+): Promise<void> {
   if (typeof indexedDB === "undefined") return;
   try {
+    // R2-F1/R2-F3: stamp + enqueue under the AUTH owner so a signed-in
+    // account's scale change syncs (and stores as the account's); the
+    // device-global mirror remains the pre-hydration display source.
     await persistArabicFontScale(
       getSafwaDb(),
       next,
       window.localStorage,
       navigator.storage,
+      {},
+      owner,
     );
   } catch {
     // Same rationale as reconcile: durable write is best-effort.
   }
 }
 
+/**
+ * Adopt a SERVER-AUTHORITATIVE pulled scale (§23 account-wins, R2-F5). Unlike
+ * `reconcileArabicFontScaleFromDb` — which protects a possibly-newer,
+ * interrupted LOCAL write and so treats a valid mirror as authoritative — a
+ * value pulled from the account IS canonical and MUST win: force the mirror,
+ * the in-memory snapshot, the applied CSS scale, and notify subscribers so a
+ * mounted control updates live (not only after a reload). Deliberately does NOT
+ * bump `userWriteCount` (this is not a user action; a concurrent reconcile
+ * would merely re-derive the same durable value). No-op outside the browser.
+ */
+export function adoptPulledArabicFontScale(scale: ArabicFontScale): void {
+  if (typeof window === "undefined") return;
+  clientScale = scale;
+  writeArabicFontScale(window.localStorage, scale);
+  applyArabicFontScale(document.documentElement, scale);
+  emitChange();
+}
+
 export function useArabicFontScale() {
+  const resolveOwner = useResolveOwner();
   const scale = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   // Keep the CSS custom property in sync with the current value.
@@ -168,16 +203,21 @@ export function useArabicFontScale() {
     applyArabicFontScale(document.documentElement, scale);
   }, [scale]);
 
-  const setScale = useCallback((next: ArabicFontScale) => {
-    userWriteCount += 1;
-    // In-memory first: the user's choice must hold even if the mirror
-    // write below fails (the durable Dexie write still carries it).
-    clientScale = next;
-    writeArabicFontScale(window.localStorage, next);
-    applyArabicFontScale(document.documentElement, next);
-    emitChange();
-    void persistScaleDurably(next);
-  }, []);
+  const setScale = useCallback(
+    (next: ArabicFontScale) => {
+      userWriteCount += 1;
+      // In-memory first: the user's choice must hold even if the mirror
+      // write below fails (the durable Dexie write still carries it).
+      clientScale = next;
+      writeArabicFontScale(window.localStorage, next);
+      applyArabicFontScale(document.documentElement, next);
+      emitChange();
+      // ARCH-002: resolve the owner at action time (see useResolveOwner) so a
+      // scale picked before the session resolves is not stamped as a guest's.
+      void resolveOwner().then((owner) => persistScaleDurably(next, owner));
+    },
+    [resolveOwner],
+  );
 
   const reset = useCallback(() => {
     setScale(DEFAULT_ARABIC_FONT_SCALE);

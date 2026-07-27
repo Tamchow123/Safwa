@@ -40,22 +40,72 @@ afterEach(async () => {
   await db.delete();
 });
 
+describe("settings owner scoping (R2-F3)", () => {
+  const ACCOUNT = "user-1";
+
+  it("a signed-in account never reads a guest's value for the same key", async () => {
+    // Guest wrote the key before login (owner null); the account has none yet.
+    await writeSetting(db, "theme", "guest-dark", () => 1, null);
+    expect(await readSetting(db, "theme", ACCOUNT)).toBeUndefined();
+    expect(await readSetting(db, "theme", null)).toBe("guest-dark");
+    // The account claims the key; each identity now reads its own value.
+    await writeSetting(db, "theme", "account-light", () => 2, ACCOUNT);
+    expect(await readSetting(db, "theme", ACCOUNT)).toBe("account-light");
+  });
+
+  it("claiming a key REPLACES the other identity's row — the documented Stage-A trade-off (SEC-002)", async () => {
+    // Made explicit rather than left implicit: `settings` keeps its pre-v6
+    // PRIMARY KEY (`key`), so `userId` is a scoping column, not part of the
+    // row identity. A second identity writing the same key therefore replaces
+    // the first identity's row outright rather than coexisting with it.
+    //
+    // This is ACCEPTED for Stage A: local-only settings are device state with
+    // no durability guarantee across an identity switch, and sign-out already
+    // wipes every account-scoped store wholesale (the human-approved
+    // clearAccountLocalState policy, E2E §60.9). Giving these stores a
+    // composite `[userId+key]` primary key would be a data-moving Dexie
+    // migration, which is deliberately out of scope for this remediation and
+    // belongs with the Phase-17 guest-merge work.
+    await writeSetting(db, "theme", "guest-dark", () => 1, null);
+    await writeSetting(db, "theme", "account-light", () => 2, ACCOUNT);
+
+    // The account's value stands; the guest's is GONE, not merely hidden.
+    expect(await readSetting(db, "theme", ACCOUNT)).toBe("account-light");
+    expect(await readSetting(db, "theme", null)).toBeUndefined();
+    expect(await db.settings.where("key").equals("theme").count()).toBe(1);
+  });
+
+  it("writeGuestSetting enqueues under the AUTH owner even before the first pull (R2-F1)", async () => {
+    // No sync_state row exists (the account has not pulled yet), yet the
+    // account's setting change must still enqueue + stamp under its identity.
+    await writeGuestSetting(db, "theme", "dark", undefined, {}, ACCOUNT);
+    expect((await db.settings.get("theme"))?.userId).toBe(ACCOUNT);
+    const queued = await db.mutationQueue
+      .where("userId")
+      .equals(ACCOUNT)
+      .count();
+    expect(queued).toBe(1);
+  });
+});
+
 describe("settings store", () => {
   it("round-trips values through Dexie", async () => {
-    expect(await readSetting(db, "missing")).toBeUndefined();
+    expect(await readSetting(db, "missing", null)).toBeUndefined();
     await writeSetting(db, "some-key", { nested: true }, () => 42);
-    expect(await readSetting(db, "some-key")).toEqual({ nested: true });
+    expect(await readSetting(db, "some-key", null)).toEqual({ nested: true });
     expect(await db.settings.get("some-key")).toEqual({
       key: "some-key",
       value: { nested: true },
       updatedAt: 42,
+      // R2-F3: writeSetting stamps the local owner (null = guest by default).
+      userId: null,
     });
   });
 
   it("writeGuestSetting persists the value AND ensures durable guest state", async () => {
     const persist = vi.fn().mockResolvedValue(true);
     await writeGuestSetting(db, "k", "v", { persist });
-    expect(await readSetting(db, "k")).toBe("v");
+    expect(await readSetting(db, "k", null)).toBe("v");
     const profile = await peekDeviceProfile(db);
     expect(profile).not.toBeNull();
     expect(persist).toHaveBeenCalledTimes(1);
@@ -90,8 +140,10 @@ describe("settings store", () => {
       }),
     ]);
     expect(persist).toHaveBeenCalledTimes(1);
-    expect(await readSetting(db, SETTING_KEYS.theme)).toBe("dark");
-    expect(await readSetting(db, SETTING_KEYS.arabicFontScale)).toBe("large");
+    expect(await readSetting(db, SETTING_KEYS.theme, null)).toBe("dark");
+    expect(await readSetting(db, SETTING_KEYS.arabicFontScale, null)).toBe(
+      "large",
+    );
     const profile = await peekDeviceProfile(db);
     expect(profile).not.toBeNull();
     expect(profile!.persistenceGranted).toBe(true);
@@ -114,6 +166,7 @@ describe("syncArabicFontScale", () => {
       key: SETTING_KEYS.arabicFontScale,
       value: "large",
       updatedAt: 2,
+      userId: null,
     });
     // The heal is a silent write: no profile mint on page load.
     expect(await peekDeviceProfile(db)).toBeNull();
@@ -155,6 +208,7 @@ describe("syncArabicFontScale", () => {
       key: SETTING_KEYS.arabicFontScale,
       value: "large",
       updatedAt: 99,
+      userId: null,
     });
     // Migration is a silent write: no profile is minted on page load.
     expect(await peekDeviceProfile(db)).toBeNull();
@@ -172,6 +226,7 @@ describe("syncArabicFontScale", () => {
       key: SETTING_KEYS.arabicFontScale,
       value: "default",
       updatedAt: 11,
+      userId: null,
     });
   });
 
@@ -204,6 +259,7 @@ describe("syncTheme", () => {
       key: SETTING_KEYS.theme,
       value: "dark",
       updatedAt: 2,
+      userId: null,
     });
     // Silent write: no profile mint on page load.
     expect(await peekDeviceProfile(db)).toBeNull();
@@ -242,6 +298,7 @@ describe("syncTheme", () => {
       key: SETTING_KEYS.theme,
       value: "system",
       updatedAt: 21,
+      userId: null,
     });
     // Migration is a silent write: no profile is minted on page load.
     expect(await peekDeviceProfile(db)).toBeNull();
@@ -258,7 +315,7 @@ describe("persistTheme", () => {
   it("records the theme durably as a guest action", async () => {
     const persist = vi.fn().mockResolvedValue(true);
     await persistTheme(db, "dark", { persist });
-    expect(await readSetting(db, SETTING_KEYS.theme)).toBe("dark");
+    expect(await readSetting(db, SETTING_KEYS.theme, null)).toBe("dark");
     expect(persist).toHaveBeenCalledTimes(1);
     const profile = await peekDeviceProfile(db);
     expect(profile).not.toBeNull();
@@ -272,7 +329,9 @@ describe("persistArabicFontScale", () => {
     const mirror = memoryStorage();
     await persistArabicFontScale(db, "large", mirror, { persist });
     expect(mirror.dump()[ARABIC_FONT_SCALE_STORAGE_KEY]).toBe("large");
-    expect(await readSetting(db, SETTING_KEYS.arabicFontScale)).toBe("large");
+    expect(await readSetting(db, SETTING_KEYS.arabicFontScale, null)).toBe(
+      "large",
+    );
     expect(persist).toHaveBeenCalledTimes(1);
     expect(await peekDeviceProfile(db)).not.toBeNull();
   });
@@ -280,11 +339,11 @@ describe("persistArabicFontScale", () => {
 
 describe("register prompt dismissal", () => {
   it("defaults to not dismissed and records a durable dismissal", async () => {
-    expect(await isRegisterPromptDismissed(db)).toBe(false);
+    expect(await isRegisterPromptDismissed(db, null)).toBe(false);
     await dismissRegisterPrompt(db);
-    expect(await isRegisterPromptDismissed(db)).toBe(true);
-    expect(await readSetting(db, SETTING_KEYS.registerPromptDismissed)).toBe(
-      true,
-    );
+    expect(await isRegisterPromptDismissed(db, null)).toBe(true);
+    expect(
+      await readSetting(db, SETTING_KEYS.registerPromptDismissed, null),
+    ).toBe(true);
   });
 });

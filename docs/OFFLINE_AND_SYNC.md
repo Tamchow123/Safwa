@@ -92,7 +92,11 @@ Timestamps never establish causality.
    concurrent branch · unknown parent · cycle · invalid revision.
 5. Reject cycles and impossible lineage (recoverable errors). Hold
    unknown-parent events as `pending_parent`; reprocess when the parent
-   arrives; TTL (~14 days) + client chain-resubmission if it never does.
+   arrives; a per-hold TTL + client chain-resubmission if it never does. (As
+   built, Stage A uses `SYNC_BOUNDS.pendingTtlMs` = 30 days — deliberately wider
+   than this original ~14-day sketch, to comfortably exceed any legitimate
+   Stage-A offline gap before a stricter Stage-B policy tightens it; an expired
+   hold is excluded from the per-component live cap and never promoted.)
 6. Resolve genuine branch conflicts: **most pessimistic rating wins**
    (Again < Hard < Good < Easy), ties by canonical order. The losing branch's
    initial event **and its scheduling descendants** become `conflict_demoted`
@@ -192,3 +196,91 @@ attention needed), detail view listing recoverable issues.
 Stage A assumes connectivity for account features (guests are always fully
 local). Offline correctness across devices is only claimed after Stage C's
 test suite (including cross-browser and iOS PWA verification) passes.
+
+## As built — Stage A (Phase 16)
+
+Stage A (server-authoritative learning-state sync) is implemented. Delivered:
+
+- **Server** (`modules/sync/server/*`, `app/api/sync/{push,pull}`): the wire
+  protocol + Zod schemas; the `SYNC_ENABLED` kill-switch; the authenticated,
+  email-verified request guard (503-before-auth); server-authoritative
+  objective grading (client `is_correct`/`rating` never trusted) + flashcard
+  validation; canonical event time; causal-lineage classification with a GLOBAL
+  parent lookup that rejects cross-user / cross-component parents rather than
+  holding them; deterministic FSRS replay; the account-wide monotonic cursor
+  with gap-free pagination; idempotency (payload hashing + `payload_conflict`);
+  per-component advisory-locked transactional ingest with per-component error
+  isolation; independent per-event **and per-attempt** validation (a batch never
+  grades later items using the first item's identity); reinforcement-only
+  attempt ingestion (history, never advances FSRS); the bounded cross-batch
+  pending-parent reprocessor with a per-component **live-pending cap**
+  (`SYNC_BOUNDS.maxPendingPerComponent`) + a per-hold **expiry**
+  (`pendingExpiresAt`; expired holds are excluded from the cap and never
+  promoted); revocation/undo; and allow-listed audit-log redaction.
+- **Client** (`modules/sync/client/*`, `components/sync/*`): the typed API
+  client (request+response validated against the wire schemas), the pure status
+  state machine, local unsynced scheduling selection **owner-scoped on the
+  event's own `userId`** via the indexed `[userId+syncStatus]` slice (a guest's
+  / another account's rows are never uploaded, so login never merges — and no
+  scan cap is needed, so a foreign backlog can neither inflate nor starve this
+  account's pending count), the Dexie **`mutation_queue` sync outbox**
+  for the non-scheduling categories (bookmark / list / setting upserts+deletes,
+  post-sync-undo revocations, and reinforcement-only attempts) with coalescing,
+  per-item ack, recoverable-retry and permanent dead-letter, push-result apply,
+  pull reconcile (including the settings server↔local key/shape round-trip
+  mapping), the bounded push-batch builder (per-kind + total wire caps with room
+  reserved so small latency-sensitive mutations are never starved), the
+  coalescing orchestrator (single-flight, per-request timeout, logout guard),
+  **durable post-sync undo** (a never-sent event is deleted locally; a
+  server-accepted event is revoked via a queued revocation + replay while its
+  history is kept; a still-pending event defers), the framework-light trigger
+  controller, the `SyncProvider` (bootstrap / periodic-while-visible /
+  visibility / online / session-end / manual-retry triggers), the §20 status
+  indicator (pending count includes the queued mutations; a permanent
+  **dead-letter** forces the honest `attention` state so a silently-failed change
+  can never read as "Synced"), the localStorage-mirror adoption for pulled
+  preferences (theme / Arabic font scale, so a second context actually displays
+  the synced value instead of a stale pre-paint mirror), and the shared-device
+  logout wipe (which clears the `mutation_queue` with the other account-scoped
+  stores).
+- **Sign-out wipes this device's local learner state — including a guest's.**
+  The wipe is what makes a shared device safe (the next account can never read
+  the previous one's bookmarks, lists, review history, FSRS cards or settings),
+  and since v6 a guest's rows live in the same physical stores, so they go too.
+  This is a deliberate trade-off of guest-data continuity for shared-device
+  confidentiality, pinned by `logout.test.ts` and E2E §60.9, and it supersedes
+  the earlier Phase-15 expectation that guest data survives login/logout.
+  Per-identity coexistence across a sign-out is Phase-17 merge work.
+- **Local owner scoping** (Dexie schema **v6**, DATA_MODEL §9.1): the private
+  learner-state stores carry a `userId` owner (`null` = guest) with owner-scoped
+  indexes, so a signed-in account never reads, extends or overwrites a guest's
+  (or another account's) rows sharing a natural key during the coexistence
+  window before the sign-out wipe. Scoping covers collections, settings,
+  scheduling selection and chain reads, the dashboard/progress/**weakness
+  analytics**, and **"export my data"**. The owner comes from the AUTH session
+  (never `sync_state`, which is only populated after the first pull) and is
+  resolved at ACTION time for writes, so a write issued before the session
+  resolves is not mis-stamped as a guest's. Because v6 left primary keys
+  unchanged, `userId` scopes reads but is not part of row identity: a second
+  identity writing the same natural key REPLACES the first identity's row —
+  accepted for Stage A (local-only state has no cross-identity durability
+  guarantee and sign-out wipes these stores anyway); per-identity coexistence
+  needs composite primary keys and is left to the Phase-17 merge.
+- **Lineage anchor**: the pull response carries each component's authoritative
+  accepted chain head (`headEventId` + `headClientRevision`), stored locally on
+  the component. A device with no local events for that component (fresh
+  bootstrap, or post-sign-out-wipe) parents its next review onto the anchor so
+  it EXTENDS the server chain rather than rooting a branch the server would
+  reject as a stale-branch conflict. Such an anchor-managed component stays
+  server-authoritative: its card advances on the next pull rather than by a
+  local replay the device lacks the full chain for.
+
+**Deferred to later stages (as designed):** durable per-trigger offline retry
+with exponential backoff, full multi-device concurrent conflict resolution /
+pessimistic-winner demotion, a scheduled purge/dead-letter job for EXPIRED
+pending-parent rows (the per-component cap + TTL that bound the _live_ backlog
+are built; a background purge of the expired rows themselves is Stage B+, see
+RISK_REGISTER #21), the guest→account merge (Phase 17), and a full authenticated
+multi-context sync E2E — all Phase 17/18/19 (Stage A completion + Stage B+). The
+indicator deliberately does not claim offline durability or multi-device
+conflict resolution.

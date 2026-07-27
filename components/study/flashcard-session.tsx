@@ -7,6 +7,8 @@ import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
 import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
 import { Flashcard } from "@/components/flashcard";
+import { useSessionEndSync } from "@/components/sync/sync-provider";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
   FieldValue,
   FIELD_LABELS,
@@ -56,6 +58,7 @@ import {
 import {
   recordGradedAttempt,
   SupersededUndoError,
+  UndoNotYetSyncedError,
   undoGradedAttempt,
   type PersistedAttempt,
 } from "@/modules/study-session/persistence";
@@ -244,6 +247,20 @@ export function FlashcardRunner({
   const [status, setStatus] = useState<RunnerStatus>("initialising");
   const [session, setSession] = useState<SessionState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Nudge an end-of-session sync when the run completes (§18 "push at
+  // successful session end"). A no-op for guests / outside a SyncProvider.
+  const notifySessionEnd = useSessionEndSync();
+  // The signed-in account id (null = guest), stamped onto the session so every
+  // attempt/event carries its OWNER (R2-F1). Without this the engine defaults
+  // the owner to null and a signed-in learner's scheduling never syncs (the
+  // owner-scoped selector drops null-owner events). Resolved at session-BUILD
+  // time rather than read from a possibly-still-pending session hook (ARCH-002)
+  // — a pending read is indistinguishable from signed-out, so starting a
+  // session right after a page load would otherwise own the whole run as a
+  // guest. Resolving inside the async build also means a late auth read never
+  // remounts an in-progress session: a session is owned by the identity that
+  // was in effect when it started.
+  const resolveOwner = useResolveOwner();
   // Transient, recoverable error from a failed grade/undo persistence write.
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -297,7 +314,12 @@ export function FlashcardRunner({
       (async () => {
         const db = getSafwaDb();
         sessionStartedAt.current = Date.now();
-        const clock = presetClock ?? (await readEffectiveClock(db));
+        // ONE owner resolution for the whole session (ARCH-002/R2-F1): the
+        // same value scopes the effective-clock read and stamps the session.
+        const sessionOwner = await resolveOwner();
+        if (cancelled) return;
+        const clock =
+          presetClock ?? (await readEffectiveClock(db, sessionOwner));
         if (cancelled) return;
         sessionClock.current = clock;
         // READ-ONLY at init: reuse an existing device id if the guest already
@@ -320,6 +342,7 @@ export function FlashcardRunner({
             sessionId: uuidv7(),
             seed,
             deviceId,
+            userId: sessionOwner,
             config: { mode: "flashcard" },
             items: plan.map((item) => ({ identity: item.identity })),
           },
@@ -340,7 +363,13 @@ export function FlashcardRunner({
     return () => {
       cancelled = true;
     };
-  }, [context, entries, buildPlan, presetClock]);
+  }, [context, entries, buildPlan, presetClock, resolveOwner]);
+
+  // When the run completes, request an end-of-session sync (§18). notifySessionEnd
+  // is a stable no-op outside a SyncProvider / for guests, so this is safe here.
+  useEffect(() => {
+    if (status === "complete") notifySessionEnd();
+  }, [status, notifySessionEnd]);
 
   const instance: QuestionInstance | null = useMemo(() => {
     if (!session || !context || session.status !== "active") return null;
@@ -450,6 +479,12 @@ export function FlashcardRunner({
         setActionError(
           "This card was reviewed again elsewhere and can no longer be undone.",
         );
+      } else if (error instanceof UndoNotYetSyncedError) {
+        // Transient: the review is still syncing. Keep the undo affordance so the
+        // learner can retry once it settles (do NOT retire the snapshot).
+        setActionError(
+          "This review is still syncing — try undo again in a moment.",
+        );
       } else {
         setActionError("Couldn't undo that. Please try again.");
       }
@@ -471,10 +506,18 @@ export function FlashcardRunner({
       : new Set<number>();
   const handleToggleBookmark = useCallback(
     async (entryId: number) => {
-      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      // ARCH-002: resolve the owner at action time (see useResolveOwner) —
+      // a bookmark toggled before the session resolves must not be a guest's.
+      await toggleBookmark(
+        getSafwaDb(),
+        entryId,
+        knownEntryIds,
+        Date.now(),
+        await resolveOwner(),
+      );
       refreshCollections();
     },
-    [knownEntryIds, refreshCollections],
+    [knownEntryIds, refreshCollections, resolveOwner],
   );
 
   if (!context || status === "error") {

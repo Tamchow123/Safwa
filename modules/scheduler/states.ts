@@ -23,15 +23,17 @@ import {
 
 export const MASTERY_DAYS_REQUIRED = 3;
 
-export type LearnerState =
-  "not_started" | "learning" | "mastered" | "needs_review";
-
-const LEARNER_STATE_VALUES: readonly LearnerState[] = [
+/**
+ * Canonical runtime list of learner states — import this array; never
+ * re-declare the literals (two copies would drift).
+ */
+export const LEARNER_STATE_VALUES = [
   "not_started",
   "learning",
   "mastered",
   "needs_review",
-];
+] as const;
+export type LearnerState = (typeof LEARNER_STATE_VALUES)[number];
 
 /** Runtime guard for stored learner-state strings (IndexedDB rows may lie). */
 function isStoredLearnerState(value: unknown): value is LearnerState {

@@ -6,12 +6,20 @@
  * start reconcile the mirror from Dexie, migrating any pre-Phase-5
  * localStorage-only value into Dexie so it is never dropped.
  */
-import type { SafwaDb, SettingRecord } from "@/modules/content/db";
+import type {
+  LocalOwnerId,
+  SafwaDb,
+  SettingRecord,
+} from "@/modules/content/db";
+import { sameOwner } from "@/modules/content/owner-scope";
 import {
   ensureDurableGuestState,
   type StorageManagerLike,
 } from "@/modules/profile/persistence";
 import type { DeviceProfileOptions } from "@/modules/profile/device";
+import { SETTING_KEYS } from "@/modules/profile/setting-keys";
+import { enqueueSettingMutation } from "@/modules/sync/client/mutation-queue";
+import { mapLocalSettingToWire } from "@/modules/sync/client/settings-sync";
 import {
   APP_THEME_STORAGE_KEY,
   isAppTheme,
@@ -25,26 +33,48 @@ import {
   type ArabicFontScale,
 } from "@/lib/preferences/arabic-font-scale";
 
-export const SETTING_KEYS = {
-  arabicFontScale: "arabic-font-scale",
-  registerPromptDismissed: "register-prompt-dismissed",
-  sessionDefaults: "session-defaults",
-  theme: "theme",
-  timezone: "timezone",
-} as const;
+export { SETTING_KEYS };
 
-export async function readSetting(db: SafwaDb, key: string): Promise<unknown> {
+/**
+ * Read a setting's value for `owner` (R2-F3). The `settings` store has a single
+ * natural key (`key`), so a row stamped with a different identity (a pre-login
+ * guest's, say) reads as ABSENT for this owner — a signed-in account never
+ * inherits a guest's setting for a shared key, and vice versa. `undefined` (the
+ * absent-setting signal every caller already sanitises to a default) is returned
+ * for both "no row" and "row owned by someone else".
+ */
+export async function readSetting(
+  db: SafwaDb,
+  key: string,
+  owner: LocalOwnerId,
+): Promise<unknown> {
   const record = await db.settings.get(key);
-  return record?.value;
+  if (!record || !sameOwner(record.userId, owner)) return undefined;
+  return record.value;
 }
 
+/**
+ * Write a setting's value stamped with `owner` (R2-F3).
+ *
+ * NATURAL-KEY CLAIM (ARCH-004 / SEC-002): the store keeps its pre-v6 PRIMARY
+ * KEY, so `userId` scopes reads but is not part of the row identity — this
+ * `put` REPLACES any row a different identity holds for the same key. That is
+ * deliberate and safe for Stage A, on the same reasoning stated at
+ * `setBookmarked`: the other identity's row was already invisible to every
+ * owner-scoped read, local-only state carries no durability guarantee across an
+ * identity switch, and sign-out wipes these stores wholesale anyway
+ * (`clearAccountLocalState`). Coexisting rows per identity would need a
+ * composite `[userId+key]` primary key — a data-moving migration deliberately
+ * left to the Phase-17 guest-merge work.
+ */
 export async function writeSetting(
   db: SafwaDb,
   key: string,
   value: unknown,
   now: () => number = Date.now,
+  owner: LocalOwnerId = null,
 ): Promise<void> {
-  const record: SettingRecord = { key, value, updatedAt: now() };
+  const record: SettingRecord = { key, value, updatedAt: now(), userId: owner };
   await db.settings.put(record);
 }
 
@@ -71,9 +101,40 @@ export async function writeGuestSetting(
   value: unknown,
   storage?: StorageManagerLike,
   options: DeviceProfileOptions = {},
+  owner: LocalOwnerId = null,
 ): Promise<void> {
+  const now = options.now ?? Date.now;
+  const at = now();
   await Promise.all([
-    writeSetting(db, key, value, options.now ?? Date.now),
+    // The setting write and its sync-outbox enqueue share ONE transaction, so
+    // the queued (coalesced, latest-state-wins) mutation can never disagree with
+    // the value actually stored — two rapid writes to the same key commit both
+    // halves in the same order (REL-002). Phase 16 (EXT-F2): mirror a SIGNED-IN
+    // account's syncable setting change to the outbox. A guest (owner null)
+    // never enqueues — settings sync on the Phase-17 merge, not on login. This
+    // runs on the explicit user-action path only; the silent startup
+    // reconciliation writes via `writeSetting` directly, so it never produces a
+    // phantom sync mutation. The key/value mapping IS the syncability gate — a
+    // non-account-safe key maps to nothing.
+    //
+    // R2-F1/R2-F3: the OWNER is the AUTH account threaded in by the caller, NOT
+    // the `sync_state` row — whose `userId` is only set after the first pull, so
+    // a just-signed-in user's setting change would otherwise be mis-scoped as a
+    // guest, stamped un-owned AND never enqueued. The local row is stamped with
+    // the same owner so the owner-scoped read returns it to the account.
+    db.transaction("rw", [db.settings, db.mutationQueue], async () => {
+      await writeSetting(db, key, value, () => at, owner);
+      if (!owner) return;
+      for (const wire of mapLocalSettingToWire(key, value, at)) {
+        await enqueueSettingMutation(db, {
+          userId: owner,
+          key: wire.key,
+          value: wire.value,
+          updatedAt: wire.updatedAt,
+          now: at,
+        });
+      }
+    }),
     ensureDurableGuestState(db, storage, options),
   ]);
 }
@@ -122,8 +183,9 @@ export async function syncArabicFontScale(
   db: SafwaDb,
   mirror: Pick<Storage, "getItem">,
   now: () => number = Date.now,
+  owner: LocalOwnerId = null,
 ): Promise<ArabicFontScaleSyncResult> {
-  const stored = await readSetting(db, SETTING_KEYS.arabicFontScale);
+  const stored = await readSetting(db, SETTING_KEYS.arabicFontScale, owner);
   let rawMirror: string | null = null;
   try {
     rawMirror = mirror.getItem(ARABIC_FONT_SCALE_STORAGE_KEY);
@@ -133,7 +195,13 @@ export async function syncArabicFontScale(
   if (isArabicFontScale(stored)) {
     if (isArabicFontScale(rawMirror)) {
       if (rawMirror !== stored) {
-        await writeSetting(db, SETTING_KEYS.arabicFontScale, rawMirror, now);
+        await writeSetting(
+          db,
+          SETTING_KEYS.arabicFontScale,
+          rawMirror,
+          now,
+          owner,
+        );
         return { effective: rawMirror, restoreMirror: false };
       }
       return { effective: stored, restoreMirror: false };
@@ -141,7 +209,7 @@ export async function syncArabicFontScale(
     return { effective: stored, restoreMirror: true };
   }
   if (isArabicFontScale(rawMirror)) {
-    await writeSetting(db, SETTING_KEYS.arabicFontScale, rawMirror, now);
+    await writeSetting(db, SETTING_KEYS.arabicFontScale, rawMirror, now, owner);
     return { effective: rawMirror, restoreMirror: false };
   }
   return { effective: DEFAULT_ARABIC_FONT_SCALE, restoreMirror: false };
@@ -172,8 +240,9 @@ export async function syncTheme(
   db: SafwaDb,
   mirror: Pick<Storage, "getItem">,
   now: () => number = Date.now,
+  owner: LocalOwnerId = null,
 ): Promise<ThemeSyncResult> {
-  const stored = await readSetting(db, SETTING_KEYS.theme);
+  const stored = await readSetting(db, SETTING_KEYS.theme, owner);
   let rawMirror: string | null = null;
   try {
     rawMirror = mirror.getItem(APP_THEME_STORAGE_KEY);
@@ -183,7 +252,7 @@ export async function syncTheme(
   if (isAppTheme(stored)) {
     if (isAppTheme(rawMirror)) {
       if (rawMirror !== stored) {
-        await writeSetting(db, SETTING_KEYS.theme, rawMirror, now);
+        await writeSetting(db, SETTING_KEYS.theme, rawMirror, now, owner);
         return { effective: rawMirror, restoreMirror: false };
       }
       return { effective: stored, restoreMirror: false };
@@ -191,7 +260,7 @@ export async function syncTheme(
     return { effective: stored, restoreMirror: true };
   }
   if (isAppTheme(rawMirror)) {
-    await writeSetting(db, SETTING_KEYS.theme, rawMirror, now);
+    await writeSetting(db, SETTING_KEYS.theme, rawMirror, now, owner);
     return { effective: rawMirror, restoreMirror: false };
   }
   return { effective: null, restoreMirror: false };
@@ -207,8 +276,16 @@ export async function persistTheme(
   theme: AppTheme,
   storage?: StorageManagerLike,
   options: DeviceProfileOptions = {},
+  owner: LocalOwnerId = null,
 ): Promise<void> {
-  await writeGuestSetting(db, SETTING_KEYS.theme, theme, storage, options);
+  await writeGuestSetting(
+    db,
+    SETTING_KEYS.theme,
+    theme,
+    storage,
+    options,
+    owner,
+  );
 }
 
 /**
@@ -221,6 +298,7 @@ export async function persistArabicFontScale(
   mirror: Pick<Storage, "setItem">,
   storage?: StorageManagerLike,
   options: DeviceProfileOptions = {},
+  owner: LocalOwnerId = null,
 ): Promise<void> {
   writeArabicFontScale(mirror, scale);
   await writeGuestSetting(
@@ -229,12 +307,19 @@ export async function persistArabicFontScale(
     scale,
     storage,
     options,
+    owner,
   );
 }
 
-/** True when the guest has dismissed the register prompt. */
-export async function isRegisterPromptDismissed(db: SafwaDb): Promise<boolean> {
-  return (await readSetting(db, SETTING_KEYS.registerPromptDismissed)) === true;
+/** True when THIS owner has dismissed the register prompt. */
+export async function isRegisterPromptDismissed(
+  db: SafwaDb,
+  owner: LocalOwnerId,
+): Promise<boolean> {
+  return (
+    (await readSetting(db, SETTING_KEYS.registerPromptDismissed, owner)) ===
+    true
+  );
 }
 
 /** Record a register-prompt dismissal (durable guest action). */
@@ -242,6 +327,7 @@ export async function dismissRegisterPrompt(
   db: SafwaDb,
   storage?: StorageManagerLike,
   options: DeviceProfileOptions = {},
+  owner: LocalOwnerId = null,
 ): Promise<void> {
   await writeGuestSetting(
     db,
@@ -249,5 +335,6 @@ export async function dismissRegisterPrompt(
     true,
     storage,
     options,
+    owner,
   );
 }

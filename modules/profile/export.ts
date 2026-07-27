@@ -9,6 +9,7 @@ import type {
   BookmarkRecord,
   CustomListRecord,
   DeviceProfileRecord,
+  LocalOwnerId,
   MutationQueueRecord,
   ReviewEventRecord,
   SafwaDb,
@@ -17,6 +18,7 @@ import type {
   StudyComponentRecord,
   StudySessionRecord,
 } from "@/modules/content/db";
+import { readOwnedRows } from "@/modules/content/owner-scope";
 
 export const EXPORT_SCHEMA_VERSION = 1;
 
@@ -39,12 +41,27 @@ export type SafwaDataExport = {
 };
 
 /**
- * Snapshot all learner-state stores in one read transaction so the export
- * is internally consistent (no store read mid-write of another).
+ * Snapshot the learner-state stores OWNED BY `owner` in one read transaction so
+ * the export is internally consistent (no store read mid-write of another).
+ *
+ * OWNER-SCOPED (R2-F3 / ARCH-001, SEC-001). Since schema v6 a guest's and a
+ * signed-in account's private rows can coexist in the same stores until the
+ * sign-out wipe, so "export my data" must hand back only the ACTIVE identity's
+ * rows — otherwise a shared device would let one identity download another's
+ * bookmarks, lists, FSRS cards and review history, the exact disclosure the
+ * sign-out wipe exists to prevent. `study_attempts` carries its owner inside the
+ * engine payload (`attempt.userId`), the five v6 stores in their `userId`
+ * column, and `mutation_queue` in its own `userId`.
+ *
+ * DEVICE-LEVEL, deliberately not scoped: `device_profile` (one anonymous device
+ * id, no learner content), `sessions` (an id + a start timestamp, no learner
+ * content, and no owner column to scope by) and `active_content` (the public
+ * content release this device has cached).
  */
 export async function buildExportPayload(
   db: SafwaDb,
   now: () => number = Date.now,
+  owner: LocalOwnerId = null,
 ): Promise<SafwaDataExport> {
   return db.transaction(
     "r",
@@ -75,14 +92,20 @@ export async function buildExportPayload(
         activeMetadata,
       ] = await Promise.all([
         db.profile.get("device"),
-        db.settings.toArray(),
-        db.bookmarks.toArray(),
-        db.lists.toArray(),
+        readOwnedRows(db.settings, owner),
+        readOwnedRows(db.bookmarks, owner),
+        readOwnedRows(db.lists, owner),
         db.sessions.toArray(),
-        db.studyComponents.toArray(),
-        db.studyAttempts.toArray(),
-        db.reviewEvents.toArray(),
-        db.mutationQueue.toArray(),
+        readOwnedRows(db.studyComponents, owner),
+        db.studyAttempts
+          .toArray()
+          .then((rows) =>
+            rows.filter((row) => (row.attempt?.userId ?? null) === owner),
+          ),
+        readOwnedRows(db.reviewEvents, owner),
+        db.mutationQueue
+          .toArray()
+          .then((rows) => rows.filter((row) => (row.userId ?? null) === owner)),
         db.contentMetadata.get("active"),
       ]);
       const activeRelease = activeMetadata

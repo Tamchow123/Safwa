@@ -14,7 +14,8 @@ import { LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { signOut, useSession } from "@/modules/auth/client";
+import { signOutAndClearLocalState } from "@/components/account/sign-out-action";
+import { useSession } from "@/modules/auth/client";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -46,7 +47,11 @@ export function AccountMenu() {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      await signOut();
+      // Global header sign-out — the app's primary sign-out affordance. Routes
+      // through the ONE shared helper so this path also wipes the previous
+      // account's local state on a shared device (SEC-002-T15d), exactly like
+      // the /account page button.
+      await signOutAndClearLocalState();
     } finally {
       setSigningOut(false);
     }

@@ -6,6 +6,7 @@
  */
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   check,
   index,
   integer,
@@ -30,9 +31,18 @@ export const bookmarks = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    // Account-wide pull cursor stamp (Phase 16).
+    lastSyncSeq: bigint("last_sync_seq", { mode: "number" })
+      .notNull()
+      .default(0),
   },
   (table) => [
     unique("bookmarks_user_entry_unique").on(table.userId, table.entryId),
+    check("bookmarks_last_sync_seq_check", sql`${table.lastSyncSeq} >= 0`),
+    // Partial pull-cursor index: only synced rows (last_sync_seq > 0).
+    index("bookmarks_user_seq_idx")
+      .on(table.userId, table.lastSyncSeq)
+      .where(sql`${table.lastSyncSeq} > 0`),
   ],
 );
 
@@ -54,12 +64,21 @@ export const customLists = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    // Account-wide pull cursor stamp (Phase 16).
+    lastSyncSeq: bigint("last_sync_seq", { mode: "number" })
+      .notNull()
+      .default(0),
   },
   (table) => [
     unique("custom_lists_user_normalised_name_unique").on(
       table.userId,
       table.normalisedName,
     ),
+    check("custom_lists_last_sync_seq_check", sql`${table.lastSyncSeq} >= 0`),
+    // Partial pull-cursor index: only synced rows (last_sync_seq > 0).
+    index("custom_lists_sync_idx")
+      .on(table.userId, table.lastSyncSeq)
+      .where(sql`${table.lastSyncSeq} > 0`),
     check(
       "custom_lists_name_length_check",
       // sql`` parameterises any interpolated non-column JS value ($1, bound

@@ -23,6 +23,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useLocalOwner } from "@/components/sync/use-local-owner";
 import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import type { BookmarkRecord, CustomListRecord } from "@/modules/content/db";
 import { getSafwaDb } from "@/modules/content/db";
@@ -80,6 +81,11 @@ export function useCollections(): {
   state: CollectionsState;
   refresh: () => void;
 } {
+  // The current local owner (signed-in account id, or null for a guest). Reads
+  // are scoped to it so a signed-in account never sees a pre-login guest's
+  // bookmarks/lists (R2-F3); a change of owner (login/logout/account switch)
+  // re-reads via the effect dependency below.
+  const owner = useLocalOwner();
   const [state, setState] = useState<CollectionsState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   // True while a load is running — visibility bursts coalesce to one load.
@@ -110,7 +116,7 @@ export function useCollections(): {
       try {
         const db = getSafwaDb();
         const raw = await withTimeout(
-          readCollections(db),
+          readCollections(db, owner),
           COLLECTIONS_SNAPSHOT_WATCHDOG_MS,
           WATCHDOG_ERROR,
         );
@@ -152,7 +158,7 @@ export function useCollections(): {
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [attempt, owner]);
 
   useEffect(() => {
     const onVisibilityChange = () => {

@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useLocalOwner } from "@/components/sync/use-local-owner";
 import { deriveAllComponentsCached } from "@/lib/derived-components-cache";
 import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import {
@@ -26,6 +27,7 @@ import {
   groupArabicLookup,
   verbTypeGroup,
 } from "@/modules/analytics/progress";
+import type { LocalOwnerId } from "@/modules/content/db";
 import { getSafwaDb } from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { readEffectiveClock } from "@/modules/profile/timezone";
@@ -70,6 +72,7 @@ const WATCHDOG_ERROR = "weakness-load-watchdog-timeout";
 async function loadView(
   derived: readonly DerivedComponent[],
   entries: readonly LearnerEntry[],
+  owner: LocalOwnerId,
 ): Promise<{
   view: WeaknessView;
   babArabic: ReadonlyMap<string, string>;
@@ -77,9 +80,13 @@ async function loadView(
   nowMs: number;
 }> {
   const db = getSafwaDb();
-  const clock = await readEffectiveClock(db);
+  // The account's timezone preference (R2-F3) decides the analytics date
+  // bucketing for a signed-in user. (The weakness view itself is device-scoped
+  // in Stage A — see OFFLINE_AND_SYNC as-built; the derived cache is wiped on
+  // logout.)
+  const clock = await readEffectiveClock(db, owner);
   const nowMs = clock.now();
-  const view = await loadWeaknessView(db, derived, entries, nowMs);
+  const view = await loadWeaknessView(db, derived, entries, nowMs, owner);
   const babArabic = groupArabicLookup(
     entries,
     babGroup,
@@ -98,6 +105,7 @@ export function useWeaknessSnapshot(): {
   retry: () => void;
 } {
   const { state: content, retry: retryContent } = useActiveContent();
+  const owner = useLocalOwner();
   const [snapshot, setSnapshot] = useState<WeaknessSnapshotState>({
     status: "loading",
   });
@@ -126,7 +134,7 @@ export function useWeaknessSnapshot(): {
     void (async () => {
       try {
         const { view, babArabic, verbTypeArabic, nowMs } = await withTimeout(
-          loadView(derived, entries),
+          loadView(derived, entries, owner),
           WEAKNESS_SNAPSHOT_WATCHDOG_MS,
           WATCHDOG_ERROR,
         );
@@ -156,7 +164,7 @@ export function useWeaknessSnapshot(): {
     return () => {
       cancelled = true;
     };
-  }, [content, entries, derived, attempt]);
+  }, [content, entries, derived, attempt, owner]);
 
   useEffect(() => {
     const onVisibilityChange = () => {

@@ -14,9 +14,11 @@ import { E2E_MAIN_BASE_URL, mainServerEnv } from "./e2e/helpers/e2e-server-env";
 // `pnpm test:e2e` runs all three configs one after another (never
 // overlapping), and this config explicitly ignores both files so they are
 // never accidentally picked up here too.
-const AUTH_SPECIAL_SERVER_SPECS = [
+const SPECIAL_SERVER_SPECS = [
   /e2e\/auth-disabled\.spec\.ts/,
   /e2e\/auth-rate-limit\.spec\.ts/,
+  // Runs against its own SYNC_ENABLED=false server (playwright.sync-disabled.config.ts).
+  /e2e\/sync-disabled\.spec\.ts/,
 ];
 
 export default defineConfig({
@@ -34,12 +36,12 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: AUTH_SPECIAL_SERVER_SPECS,
+      testIgnore: SPECIAL_SERVER_SPECS,
     },
     {
       name: "mobile-chromium",
       use: { ...devices["Pixel 7"] },
-      testIgnore: AUTH_SPECIAL_SERVER_SPECS,
+      testIgnore: SPECIAL_SERVER_SPECS,
     },
   ],
   webServer: {

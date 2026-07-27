@@ -11,6 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  useLocalOwner,
+  useResolveOwner,
+} from "@/components/sync/use-local-owner";
 import { getSafwaDb } from "@/modules/content/db";
 import { peekDeviceProfile } from "@/modules/profile/device";
 import { GUEST_STATE_CHANGED_EVENT } from "@/modules/profile/persistence";
@@ -33,6 +37,8 @@ import {
  * navigation or reload needed.
  */
 export function RegisterPrompt() {
+  const owner = useLocalOwner();
+  const resolveOwner = useResolveOwner();
   const [visible, setVisible] = useState(false);
   // A dismissal in this session must win over any concurrently running
   // re-check (the dismissal's own durable write fires the event before
@@ -48,7 +54,7 @@ export function RegisterPrompt() {
           const db = getSafwaDb();
           const [profile, dismissed] = await Promise.all([
             peekDeviceProfile(db),
-            isRegisterPromptDismissed(db),
+            isRegisterPromptDismissed(db, owner),
           ]);
           if (
             !cancelled &&
@@ -69,7 +75,7 @@ export function RegisterPrompt() {
       cancelled = true;
       window.removeEventListener(GUEST_STATE_CHANGED_EVENT, check);
     };
-  }, []);
+  }, [owner]);
 
   if (!visible) return null;
 
@@ -77,7 +83,13 @@ export function RegisterPrompt() {
     dismissedThisSession.current = true;
     setVisible(false);
     try {
-      await dismissRegisterPrompt(getSafwaDb());
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      await dismissRegisterPrompt(
+        getSafwaDb(),
+        undefined,
+        {},
+        await resolveOwner(),
+      );
     } catch {
       // Dismissal durability is best-effort; the prompt stays hidden for
       // this session either way.

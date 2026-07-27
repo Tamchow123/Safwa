@@ -11,6 +11,7 @@ import { BookmarksSection } from "@/components/collections/bookmarks-section";
 import { CustomListsSection } from "@/components/collections/custom-lists-section";
 import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,7 @@ import { setBookmarked } from "@/modules/collections/persistence";
 
 export function SavedVocabularyClient() {
   const { state: content, retry: retryContent } = useActiveContent();
+  const resolveOwner = useResolveOwner();
   const { state: collections, refresh: refreshCollections } = useCollections();
   // Resolved once per mount — this is display-only "last updated" text, not
   // a scheduling decision, so a single lazily-resolved instant is safe and
@@ -42,16 +44,19 @@ export function SavedVocabularyClient() {
 
   const handleRemoveBookmark = useCallback(
     async (entryId: number) => {
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const owner = await resolveOwner();
       await setBookmarked(
         getSafwaDb(),
         entryId,
         false,
         knownEntryIds,
         Date.now(),
+        owner,
       );
       refreshCollections();
     },
-    [knownEntryIds, refreshCollections],
+    [knownEntryIds, refreshCollections, resolveOwner],
   );
 
   if (content.status === "loading" || collections.status === "loading") {

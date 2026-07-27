@@ -23,6 +23,7 @@ import {
 import { getSafwaDb } from "@/modules/content/db";
 import type { CustomListRecord } from "@/modules/content/db";
 import { deleteList } from "@/modules/collections/persistence";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 
 export function DeleteListDialog({
   trigger,
@@ -33,6 +34,7 @@ export function DeleteListDialog({
   list: CustomListRecord;
   onDeleted: (listId: string) => void;
 }) {
+  const resolveOwner = useResolveOwner();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,9 @@ export function DeleteListDialog({
     setPending(true);
     setError(null);
     try {
-      await deleteList(getSafwaDb(), list.id);
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const owner = await resolveOwner();
+      await deleteList(getSafwaDb(), list.id, Date.now(), owner);
       setOpen(false);
       onDeleted(list.id);
     } catch (deleteError) {

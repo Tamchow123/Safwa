@@ -21,3 +21,21 @@ export function isAppTheme(value: unknown): value is AppTheme {
     (APP_THEMES as readonly string[]).includes(value)
   );
 }
+
+/**
+ * Force the next-themes mirror to a value (R2-F5). A pulled account setting is
+ * server-authoritative (§23 account-wins), so — unlike the startup reconcile,
+ * which treats a valid mirror as an interrupted local write and keeps it — the
+ * pulled value must OVERWRITE the mirror. next-themes' inline pre-paint script
+ * then applies it on the next load. Best-effort (quota/private mode).
+ */
+export function writeAppThemeMirror(
+  storage: Pick<Storage, "setItem">,
+  theme: AppTheme,
+): void {
+  try {
+    storage.setItem(APP_THEME_STORAGE_KEY, theme);
+  } catch {
+    // Storage unavailable; the durable Dexie value still applies on reconcile.
+  }
+}

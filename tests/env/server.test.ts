@@ -48,6 +48,7 @@ describe("getServerEnv", () => {
     expect(env.nodeEnv).toBe("development");
     expect(env.databaseUrl).toBe(BASE_ENV.DATABASE_URL);
     expect(env.authEnabled).toBe(true);
+    expect(env.syncEnabled).toBe(true);
     expect(env.emailTransport).toBe("console-file");
     expect(env.emailOutboxDir).toBe(".local/email-outbox");
     expect(env.contentServerDir).toBe("content-server");
@@ -125,6 +126,26 @@ describe("getServerEnv", () => {
   it("defaults AUTH_ENABLED to true when unset", () => {
     setEnv({ AUTH_ENABLED: undefined });
     expect(getServerEnv().authEnabled).toBe(true);
+  });
+
+  it("defaults SYNC_ENABLED to true when unset", () => {
+    setEnv({ SYNC_ENABLED: undefined });
+    expect(getServerEnv().syncEnabled).toBe(true);
+  });
+
+  it.each(["false", "FALSE", " False "])(
+    "coerces SYNC_ENABLED=%s to false",
+    (value) => {
+      setEnv({ SYNC_ENABLED: value });
+      expect(getServerEnv().syncEnabled).toBe(false);
+    },
+  );
+
+  it("allows SYNC_ENABLED=false with AUTH_ENABLED=false outside production", () => {
+    setEnv({ SYNC_ENABLED: "false", AUTH_ENABLED: "false" });
+    const env = getServerEnv();
+    expect(env.syncEnabled).toBe(false);
+    expect(env.authEnabled).toBe(false);
   });
 
   it("rejects a missing DATABASE_URL", () => {
@@ -244,6 +265,37 @@ describe("getServerEnv", () => {
       const env = getServerEnv();
       expect(env.nodeEnv).toBe("production");
       expect(env.emailTransport).toBe("resend");
+      expect(env.syncEnabled).toBe(true);
+    });
+
+    it("rejects SYNC_ENABLED=true with AUTH_ENABLED=false in production", () => {
+      setEnv({
+        NODE_ENV: "production",
+        BETTER_AUTH_SECRET: "a".repeat(32),
+        BETTER_AUTH_URL: "https://safwa.example.com",
+        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
+        EMAIL_TRANSPORT: "resend",
+        RESEND_API_KEY: "re_test",
+        EMAIL_FROM: "noreply@safwa.example.com",
+        AUTH_ENABLED: "false",
+        SYNC_ENABLED: "true",
+      });
+      expect(() => getServerEnv()).toThrow(/SYNC_ENABLED/);
+    });
+
+    it("accepts SYNC_ENABLED=false with AUTH_ENABLED=false in production", () => {
+      setEnv({
+        NODE_ENV: "production",
+        BETTER_AUTH_SECRET: "a".repeat(32),
+        BETTER_AUTH_URL: "https://safwa.example.com",
+        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
+        EMAIL_TRANSPORT: "resend",
+        RESEND_API_KEY: "re_test",
+        EMAIL_FROM: "noreply@safwa.example.com",
+        AUTH_ENABLED: "false",
+        SYNC_ENABLED: "false",
+      });
+      expect(getServerEnv().syncEnabled).toBe(false);
     });
   });
 });
