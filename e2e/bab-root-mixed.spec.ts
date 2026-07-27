@@ -491,12 +491,18 @@ test.describe("mixed revision — Start studying", () => {
           };
           await new Promise<void>((resolve, reject) => {
             const tx = database.transaction(
-              ["study_components", "study_attempts"],
+              ["study_components_owned", "study_attempts"],
               "readwrite",
             );
-            const components = tx.objectStore("study_components");
-            for (const row of componentRows) components.put(row);
-            tx.objectStore("study_attempts").put(attemptRow);
+            // Owner-keyed since schema v7: a seeded row belongs to the GUEST.
+            const components = tx.objectStore("study_components_owned");
+            for (const row of componentRows) {
+              components.put({ ownerKey: "guest", ...row });
+            }
+            tx.objectStore("study_attempts").put({
+              ownerKey: "guest",
+              ...attemptRow,
+            });
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
           });

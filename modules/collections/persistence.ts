@@ -5,11 +5,14 @@
  * mints list ids (`uuidv7`) and calls the durable guest-state boundary. Every
  * function here composes the pure builders/validators from
  * `modules/collections/{bookmarks,lists,validation}.ts` with a Dexie
- * transaction. The ONE sanctioned exception is the whole-store wipe in
- * `modules/sync/client/logout.ts` (`clearAccountLocalState`, via the schema
- * owner's `accountScopedTables`), which bulk-`.clear()`s these stores on
- * logout/account-switch — a full wipe has no per-row canonicalisation invariant
- * to preserve, so it does not route through this adapter.
+ * transaction. The ONE sanctioned exception is the sign-out / account-switch
+ * cleanup in `modules/sync/client/logout.ts` (`clearAccountLocalState`, via the
+ * schema owner's `ownerScopedTables`). Since Phase 17 §11 that is an
+ * OWNER-SCOPED delete, not a whole-store wipe: it removes the departing
+ * account's rows and leaves a coexisting guest's bookmarks and lists intact, so
+ * a deferred merge survives a sign-out. It deletes whole rows by owner and so
+ * has no per-row canonicalisation invariant to preserve, which is why it does
+ * not route through this adapter.
  *
  * DURABLE GUEST STATE (§9): every write below fires `ensureDurableGuestState`
  * BEFORE the Dexie transaction runs — deliberately at the user action,
