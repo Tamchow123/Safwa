@@ -17,6 +17,7 @@ import {
   createListWithEntry,
   toggleBookmark,
 } from "@/modules/collections/persistence";
+import { readOwnedRows } from "@/modules/content/owner-scope";
 
 const ensureDurableGuestStateSpy = vi.fn(async () => ({ deviceId: "dev-1" }));
 
@@ -87,9 +88,47 @@ class LearnerDbV2 extends Dexie {
   }
 }
 
+/**
+ * The EXACT shipped v5 schema (modules/content/db.ts immediately before the
+ * Phase-16 R2-F3 owner columns), declared independently here so the v5 -> v6
+ * upgrade path keeps being guarded even as the SafwaDb class evolves. This is
+ * the schema every already-deployed client is on, so it is the population the
+ * v6 upgrade actually runs against.
+ */
+class LearnerDbV5 extends Dexie {
+  constructor(name: string) {
+    super(name);
+    this.version(1).stores({
+      contentReleases: "releaseId",
+      contentEntries:
+        "[releaseId+entryId], releaseId, entryId, bab, verbType, bookPage",
+      contentMetadata: "key",
+    });
+    this.version(2).stores({
+      study_components: "componentKey, entryId",
+      study_attempts: "id, componentKey, sessionId, attemptedAt",
+      review_events: "eventId, componentKey, parentEventId, syncStatus",
+      sessions: "id, startedAt",
+      bookmarks: "entryId, createdAt",
+      lists: "id, name",
+      settings: "key",
+      mutation_queue: "++seq, &idempotencyKey",
+      profile: "key",
+    });
+    this.version(3).stores({ daily_activity: "localDate" });
+    this.version(4).stores({ sync_state: "key" });
+    this.version(5).stores({
+      mutation_queue:
+        "++seq, &idempotencyKey, type, userId, status, [userId+status], [type+userId+target]",
+    });
+  }
+}
+
 // Physical store names are a durable contract: the learner-state stores use
 // the documented snake_case names (DATA_MODEL.md §9); the v1 content stores
-// keep their shipped camelCase names; v3 adds only daily_activity.
+// keep their shipped camelCase names; v3 adds daily_activity and v4 (Phase 16)
+// adds the sync_state cursor store. This is the full store set at the current
+// SAFWA_DB_VERSION, which the additive upgrades all converge to.
 const V3_STORE_NAMES = [
   "bookmarks",
   "contentEntries",
@@ -104,6 +143,7 @@ const V3_STORE_NAMES = [
   "settings",
   "study_attempts",
   "study_components",
+  "sync_state",
 ];
 
 let dbName = "";
@@ -361,12 +401,13 @@ describe("Dexie schema v3 — collections stores (Phase 14 §29, no new migratio
 
     const first = track(new SafwaDb(dbName));
     await first.open();
-    await toggleBookmark(first, 7, KNOWN, 100);
+    await toggleBookmark(first, 7, KNOWN, 100, null);
     const list = await createListWithEntry(first, {
       name: "My list",
       entryId: 9,
       knownEntryIds: KNOWN,
       now: 101,
+      owner: null,
     });
     first.close();
 
@@ -378,6 +419,8 @@ describe("Dexie schema v3 — collections stores (Phase 14 §29, no new migratio
     expect(await reopened.bookmarks.get(7)).toEqual({
       entryId: 7,
       createdAt: 100,
+      // R2-F3: writes stamp the local owner (null = guest here).
+      userId: null,
     });
     expect(await reopened.lists.get(list.id)).toEqual({
       id: list.id,
@@ -385,6 +428,7 @@ describe("Dexie schema v3 — collections stores (Phase 14 §29, no new migratio
       entryIds: [9],
       createdAt: 101,
       updatedAt: 101,
+      userId: null,
     });
 
     // Content cache, study state and the derived daily_activity cache are
@@ -396,5 +440,148 @@ describe("Dexie schema v3 — collections stores (Phase 14 §29, no new migratio
     expect(await reopened.reviewEvents.count()).toBe(0);
     expect(await reopened.sessions.count()).toBe(0);
     expect(await reopened.dailyActivity.count()).toBe(0);
+  });
+});
+
+// Phase 16 R2-F3: v6 adds a local OWNER column + owner-scoped indexes to the
+// five private learner-state stores. The upgrade is additive (no primary-key
+// change, no upgrade function), but every already-deployed client runs it
+// against a POPULATED v5 database, so that exact path is guarded here rather
+// than inferred from the additive-schema argument (REL-001).
+describe("Dexie migration v5 -> v6 — local owner columns (Phase 16 R2-F3)", () => {
+  it("upgrades a populated v5 database, preserving rows and reading them as guest-owned", async () => {
+    dbName = "safwa-migration-test-v5-populated";
+
+    // 1. A real pre-R2 client: learner state written with NO `userId` field.
+    const v5 = track(new LearnerDbV5(dbName));
+    await v5.table("study_components").put({
+      componentKey: "entry:1:skill:bab_identification",
+      entryId: 1,
+      learnerState: "learning",
+      revision: 1,
+    });
+    await v5.table("review_events").put({
+      eventId: "event-1",
+      componentKey: "entry:1:skill:bab_identification",
+      parentEventId: null,
+      clientComponentRevision: 1,
+      syncStatus: "local",
+      createdAt: 100,
+      status: "scheduling",
+      localDateAtEvent: "2026-07-17",
+    });
+    await v5.table("bookmarks").put({ entryId: 7, createdAt: 95 });
+    await v5.table("lists").put({
+      id: "list-1",
+      name: "My list",
+      entryIds: [7, 9],
+      createdAt: 96,
+      updatedAt: 97,
+    });
+    await v5.table("settings").put({
+      key: "timezone",
+      value: { mode: "iana", timezone: "Asia/Tokyo" },
+      updatedAt: 100,
+    });
+    expect(v5.verno).toBe(5);
+    v5.close();
+
+    // 2. The v6 client opens the same database. The upgrade must succeed and
+    //    leave every pre-existing row readable by its unchanged primary key.
+    const v6 = track(new SafwaDb(dbName));
+    await v6.open();
+    expect(v6.verno).toBe(SAFWA_DB_VERSION);
+    expect(v6.tables.map((table) => table.name).sort()).toEqual(V3_STORE_NAMES);
+    expect(
+      await v6.studyComponents.get("entry:1:skill:bab_identification"),
+    ).toMatchObject({ entryId: 1, learnerState: "learning", revision: 1 });
+    expect(await v6.reviewEvents.get("event-1")).toMatchObject({
+      status: "scheduling",
+      syncStatus: "local",
+      localDateAtEvent: "2026-07-17",
+    });
+    expect(await v6.bookmarks.get(7)).toEqual({ entryId: 7, createdAt: 95 });
+    expect(await v6.lists.get("list-1")).toMatchObject({ name: "My list" });
+    expect(await v6.settings.get("timezone")).toMatchObject({
+      value: { mode: "iana", timezone: "Asia/Tokyo" },
+    });
+
+    // 3. An absent `userId` reads as GUEST-owned, never as any account's.
+    expect(
+      (await readOwnedRows(v6.studyComponents, null)).map(
+        (row) => row.componentKey,
+      ),
+    ).toEqual(["entry:1:skill:bab_identification"]);
+    expect(await readOwnedRows(v6.studyComponents, "acct-1")).toEqual([]);
+    expect(
+      (await readOwnedRows(v6.reviewEvents, null)).map((r) => r.eventId),
+    ).toEqual(["event-1"]);
+    expect(await readOwnedRows(v6.reviewEvents, "acct-1")).toEqual([]);
+    expect(
+      (await readOwnedRows(v6.bookmarks, null)).map((r) => r.entryId),
+    ).toEqual([7]);
+    expect(await readOwnedRows(v6.bookmarks, "acct-1")).toEqual([]);
+    expect((await readOwnedRows(v6.lists, null)).map((r) => r.id)).toEqual([
+      "list-1",
+    ]);
+    expect(await readOwnedRows(v6.lists, "acct-1")).toEqual([]);
+    expect((await readOwnedRows(v6.settings, null)).map((r) => r.key)).toEqual([
+      "timezone",
+    ]);
+    expect(await readOwnedRows(v6.settings, "acct-1")).toEqual([]);
+
+    // 4. The migrated guest backlog must NOT appear in an account's indexed
+    //    push-selection slice — the R2-F3 starvation/leak guarantee.
+    expect(
+      await v6.reviewEvents
+        .where("[userId+syncStatus]")
+        .equals(["acct-1", "local"])
+        .count(),
+    ).toBe(0);
+
+    // 5. The NEW compound indexes are usable after the upgrade: an account row
+    //    written post-migration is found by the owner-scoped index, and the
+    //    pre-existing guest row still does not leak into it.
+    await v6.reviewEvents.put({
+      eventId: "event-2",
+      componentKey: "entry:1:skill:bab_identification",
+      userId: "acct-1",
+      parentEventId: null,
+      clientComponentRevision: 1,
+      syncStatus: "local",
+      createdAt: 200,
+      status: "scheduling",
+      localDateAtEvent: "2026-07-18",
+    });
+    expect(
+      (
+        await v6.reviewEvents
+          .where("[userId+syncStatus]")
+          .equals(["acct-1", "local"])
+          .toArray()
+      ).map((row) => row.eventId),
+    ).toEqual(["event-2"]);
+    expect(
+      (
+        await v6.reviewEvents
+          .where("[userId+componentKey]")
+          .equals(["acct-1", "entry:1:skill:bab_identification"])
+          .toArray()
+      ).map((row) => row.eventId),
+    ).toEqual(["event-2"]);
+  });
+
+  it("upgrades an EMPTY v5 database", async () => {
+    dbName = "safwa-migration-test-v5-empty";
+    const v5 = track(new LearnerDbV5(dbName));
+    await v5.open();
+    expect(v5.verno).toBe(5);
+    v5.close();
+
+    const v6 = track(new SafwaDb(dbName));
+    await v6.open();
+    expect(v6.verno).toBe(SAFWA_DB_VERSION);
+    expect(v6.tables.map((table) => table.name).sort()).toEqual(V3_STORE_NAMES);
+    expect(await v6.reviewEvents.count()).toBe(0);
   });
 });

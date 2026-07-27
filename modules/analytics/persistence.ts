@@ -4,7 +4,10 @@
  * (Phase 12 §14–15). Mirrors modules/study-session/persistence.ts: the pure
  * modules never import Dexie; this is the ONE place analytics rows are read
  * and `writeDailyActivityCache` below is the ONE writer of the
- * `daily_activity` derived cache.
+ * `daily_activity` derived cache — the sole exception being the logout wipe
+ * (`clearAccountLocalState`, Phase 16) that bulk-`.clear()`s the cache along
+ * with every other account-scoped store on account switch (a rebuildable cache,
+ * safe to drop; it re-derives on next use).
  *
  * AUTHORITY MODEL (§14.2): `study_attempts` + `review_events` remain the
  * learner truth. `daily_activity` is a REBUILDABLE cache — every read path
@@ -34,11 +37,13 @@
  */
 import type {
   DailyActivityRecord,
+  LocalOwnerId,
   ReviewEventRecord,
   SafwaDb,
   StudyAttemptRecord,
   StudyComponentRecord,
 } from "@/modules/content/db";
+import { readOwnedRows } from "@/modules/content/owner-scope";
 
 import {
   deriveDailyActivity,
@@ -129,6 +134,23 @@ async function writeDailyActivityCache(
 }
 
 /**
+ * The `study_attempts` rows OWNED BY `owner` (R2-F3 / SEC-001). Unlike the five
+ * stores schema v6 gave an indexed `userId` column, an attempt's owner lives
+ * inside its engine payload (`attempt.userId`) — the same field the push
+ * selector and undo path already read — so the filter is in memory. An absent
+ * payload or owner means guest, matching `sameOwner`'s "absent and null both
+ * mean guest" rule.
+ */
+async function readOwnedAttempts(
+  db: SafwaDb,
+  owner: LocalOwnerId,
+): Promise<StudyAttemptRecord[]> {
+  return (await db.studyAttempts.toArray()).filter(
+    (row) => (row.attempt?.userId ?? null) === owner,
+  );
+}
+
+/**
  * Atomically rebuild the `daily_activity` cache from the raw stores and
  * return the derived rows (§14.3): read-only scan, pure derivation, then
  * the atomic cache rewrite. The raw attempt/event rows are never modified.
@@ -143,13 +165,14 @@ async function writeDailyActivityCache(
 export async function rebuildDailyActivity(
   db: SafwaDb,
   now: number,
+  owner: LocalOwnerId,
 ): Promise<DailyActivity[]> {
   const { attempts, events } = await db.transaction(
     "r",
     [db.studyAttempts, db.reviewEvents],
     async () => ({
-      attempts: (await db.studyAttempts.toArray()).map(attemptSlice),
-      events: (await db.reviewEvents.toArray()).map(eventSlice),
+      attempts: (await readOwnedAttempts(db, owner)).map(attemptSlice),
+      events: (await readOwnedRows(db.reviewEvents, owner)).map(eventSlice),
     }),
   );
   const derived = deriveDailyActivity(attempts, events);
@@ -171,14 +194,24 @@ export type AnalyticsRawRead = {
  * compose this with `deriveDailyActivity` + `writeDailyActivityCache`
  * themselves (see `readAnalyticsSnapshot` below).
  */
-async function readAnalyticsRaw(db: SafwaDb): Promise<AnalyticsRawRead> {
+async function readAnalyticsRaw(
+  db: SafwaDb,
+  owner: LocalOwnerId,
+): Promise<AnalyticsRawRead> {
   return db.transaction(
     "r",
     [db.studyComponents, db.studyAttempts, db.reviewEvents],
     async () => ({
-      components: (await db.studyComponents.toArray()).map(componentSlice),
-      attempts: (await db.studyAttempts.toArray()).map(attemptSlice),
-      events: (await db.reviewEvents.toArray()).map(eventSlice),
+      // OWNER-SCOPED (R2-F3 / SEC-001): the dashboard, progress and weakness
+      // views are private learner state, so they must show only the ACTIVE
+      // identity's cards/attempts/events. Without this a pre-login guest's (or,
+      // before the logout wipe, another account's) history would be folded into
+      // a signed-in account's streaks, mastery counts and weak-area analysis.
+      components: (await readOwnedRows(db.studyComponents, owner)).map(
+        componentSlice,
+      ),
+      attempts: (await readOwnedAttempts(db, owner)).map(attemptSlice),
+      events: (await readOwnedRows(db.reviewEvents, owner)).map(eventSlice),
     }),
   );
 }
@@ -194,8 +227,9 @@ async function readAnalyticsRaw(db: SafwaDb): Promise<AnalyticsRawRead> {
 export async function readAnalyticsSnapshot(
   db: SafwaDb,
   now: number,
+  owner: LocalOwnerId,
 ): Promise<AnalyticsPersistenceSnapshot> {
-  const { components, attempts, events } = await readAnalyticsRaw(db);
+  const { components, attempts, events } = await readAnalyticsRaw(db, owner);
   const dailyActivity = deriveDailyActivity(attempts, events);
   await writeDailyActivityCache(db, dailyActivity, now);
   return { components, attempts, events, dailyActivity };
@@ -211,6 +245,7 @@ export async function readAnalyticsSnapshot(
  */
 export async function readAnalyticsRawSnapshot(
   db: SafwaDb,
+  owner: LocalOwnerId,
 ): Promise<AnalyticsRawRead> {
-  return readAnalyticsRaw(db);
+  return readAnalyticsRaw(db, owner);
 }

@@ -14,6 +14,7 @@ coverage/
 playwright-report/
 playwright-report-auth-disabled/
 playwright-report-auth-rate-limit/
+playwright-report-sync-disabled/
 test-results/
 next-env.d.ts
 *.tsbuildinfo

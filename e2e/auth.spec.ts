@@ -349,8 +349,10 @@ test.describe("60.8 account settings", () => {
   });
 });
 
-test.describe("60.9 local guest data survives login/logout", () => {
-  test("no merge or upload occurs", async ({ page }) => {
+test.describe("60.9 login does not merge/upload guest data; logout wipes local account-scoped state", () => {
+  test("no merge or upload on login; local account-scoped data wiped on logout", async ({
+    page,
+  }) => {
     const beforeCount = await bookmarksRowCount();
 
     await page.goto("/library");
@@ -375,11 +377,22 @@ test.describe("60.9 local guest data survives login/logout", () => {
     const email = freshEmail("guest-persist");
     await registerAndVerify(page, email);
     await login(page, email);
+    // Guest data survives LOGIN unchanged: login neither merges nor uploads the
+    // guest's local history (Phase 16 §18 — "login alone does not merge guest
+    // history"; the account was created fresh, so the bootstrap pull brings
+    // nothing that would clobber it).
     await expect(await idbAll(page, "bookmarks")).toHaveLength(1);
 
     await logout(page);
-    await expect(await idbAll(page, "bookmarks")).toHaveLength(1);
+    // Phase 16 SEC-002-T15d (shared-device privacy): sign-out wipes every
+    // account-scoped local store so the next account on a shared device cannot
+    // read the previous user's data. The guest-origin bookmark is cleared along
+    // with everything else account-scoped — a deliberate, security-reviewed
+    // change from the Phase-15 "survives logout" behaviour.
+    await expect(await idbAll(page, "bookmarks")).toHaveLength(0);
 
+    // The wipe is purely LOCAL: no server-side upload ever occurred, so the
+    // account's server-side bookmark count is unchanged.
     const afterCount = await bookmarksRowCount();
     expect(afterCount).toBe(beforeCount);
   });

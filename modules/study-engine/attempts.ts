@@ -32,8 +32,16 @@ import {
  */
 export type AttemptMode = DeliveryMode;
 
-export type TimezoneSource =
-  "browser_detected" | "user_setting" | "server_fallback";
+/**
+ * Canonical runtime list of timezone-metadata sources — import this array;
+ * never re-declare the literals (two copies would drift).
+ */
+export const TIMEZONE_SOURCES = [
+  "browser_detected",
+  "user_setting",
+  "server_fallback",
+] as const;
+export type TimezoneSource = (typeof TIMEZONE_SOURCES)[number];
 
 /** Injected wall-clock + zone. `now` returns epoch milliseconds (UTC). */
 export type AttemptClock = {

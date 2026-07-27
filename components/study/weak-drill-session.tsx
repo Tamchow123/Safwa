@@ -42,6 +42,7 @@ import {
   QuizRunner,
   type QuizPlanEntry,
 } from "@/components/study/quiz-runner";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { Card, CardContent } from "@/components/ui/card";
 import { resolveWeaknessGroupLabel } from "@/components/weakness/weakness-group-label";
 import { deriveAllComponentsCached } from "@/lib/derived-components-cache";
@@ -101,6 +102,7 @@ export function WeakDrillSession({
   valueParam: string | null;
 }) {
   const { state: content, retry } = useActiveContent();
+  const resolveOwner = useResolveOwner();
   const { state: weakness, retry: retryWeakness } = useWeaknessSnapshot();
   const { defaults, loaded: defaultsLoaded } = useSessionDefaults();
   // Bumping this token remounts the runner, starting a fresh session (used by
@@ -173,8 +175,12 @@ export function WeakDrillSession({
       const db = getSafwaDb();
       const nowMs = clock.now();
       const derived = deriveAllComponentsCached(entries);
+      // ARCH-005 (same class): a session BUILD is a one-shot action, not a
+      // self-correcting live view, so resolve the owner at action time — a plan
+      // built from a guest's scheduling state during the auth-pending window
+      // would then be studied and recorded under the account.
       const { weaknessEvidence, componentWeakness } =
-        await loadWeaknessEvidence(db, derived, nowMs);
+        await loadWeaknessEvidence(db, derived, nowMs, await resolveOwner());
       return buildWeakDrillPlan(
         entries,
         weaknessEvidence,
@@ -184,7 +190,7 @@ export function WeakDrillSession({
         seed,
       );
     },
-    [request, defaults.questionCount],
+    [request, defaults.questionCount, resolveOwner],
   );
 
   if (

@@ -359,3 +359,38 @@ Every phase must add: (a) unit/component tests for its new logic, (b) its
 checkpoint list from `IMPLEMENTATION_PHASES.md`, (c) at least one E2E
 happy-path if it ships UI, and (d) keep every prior suite green. A phase
 without its checkpoint passing is not done — no exceptions.
+
+## 13. Online sync (Phase 16, Stage A)
+
+Sync is server-authoritative, so its correctness is proven mostly at the
+**integration** layer (deterministic, against real Postgres) with the client
+decision logic at the **unit** layer and the kill-switch/UX at **E2E**:
+
+- **Unit** — the pure client sync core: wire protocol/schemas, the status state
+  machine (`deriveSyncStatus`), local unsynced selection + pending count,
+  push-result apply, pull reconcile, the coalescing orchestrator (single-flight,
+  per-request timeout, logout/account-switch guard), the framework-light
+  `createSyncController` (guest gate, disabled/auth-lost/invalidated back-off,
+  honest status, `syncing` announcement), the `SyncProvider` React wiring
+  (triggers, teardown, account-switch, device-mint-failure retry), the
+  `SyncStatusIndicator` (all six §20 states, a11y live region, keyboard retry),
+  and the logout wipe (`clearAccountLocalState` from both sign-out paths).
+- **Integration** (`tests/integration/sync-*.test.ts`, `safwa_test` Postgres) —
+  the server-authoritative properties: objective grading + false-`is_correct`
+  correction, canonical time, causal lineage, deterministic replay, idempotency
+  - `payload_conflict`, account isolation (`ensureSession`), reinforcement-only
+    attempt ingestion (no FSRS/cursor), the bounded pending-parent reprocessor,
+    revocation, and cursor pagination.
+- **E2E** — `e2e/sync-disabled.spec.ts` (its own `SYNC_ENABLED=false` server,
+  `playwright.sync-disabled.config.ts`) proves the kill-switch is honoured
+  server-side (503 before auth) and that turning sync off never degrades local
+  study. Genuine guest-persistence regression runs on the main config in
+  `e2e/guest-persistence.spec.ts`.
+
+**Deferred E2E (tracked):** a full authenticated multi-context sync E2E
+(cross-context bootstrap, server-trust tamper, idempotency, revocation rebase,
+collections seen on a second device) is not yet in the suite — those
+server-authoritative properties are covered deterministically by the
+integration suites above, and the authenticated `disabled`→"Sync off" UI path
+by unit tests. Add the multi-context E2E alongside the Phase 19 multi-device
+work.

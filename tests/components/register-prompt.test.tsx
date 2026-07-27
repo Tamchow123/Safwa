@@ -68,7 +68,7 @@ describe("RegisterPrompt", () => {
     await user.click(await screen.findByRole("button", { name: /dismiss/i }));
     expect(screen.queryByTestId("register-prompt")).not.toBeInTheDocument();
     await waitFor(async () => {
-      expect(await isRegisterPromptDismissed(db)).toBe(true);
+      expect(await isRegisterPromptDismissed(db, null)).toBe(true);
     });
   });
 

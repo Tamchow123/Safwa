@@ -106,7 +106,7 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
     await seedAttempt({ responseTimeMs: 500 });
     await seedEvent({ parentEventId: null });
 
-    const derived = await rebuildDailyActivity(db, NOW);
+    const derived = await rebuildDailyActivity(db, NOW, null);
     expect(derived).toEqual([
       {
         localDate: "2026-07-17",
@@ -141,7 +141,7 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
       derivedAt: 1,
     });
 
-    await rebuildDailyActivity(db, NOW);
+    await rebuildDailyActivity(db, NOW, null);
     const rows = await db.dailyActivity.toArray();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
@@ -153,9 +153,9 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
 
   it("reconstructs an empty or deleted cache from the raw truth", async () => {
     await seedAttempt();
-    await rebuildDailyActivity(db, NOW);
+    await rebuildDailyActivity(db, NOW, null);
     await db.dailyActivity.clear(); // "delete the cache"
-    const derived = await rebuildDailyActivity(db, NOW + 1);
+    const derived = await rebuildDailyActivity(db, NOW + 1, null);
     expect(derived).toHaveLength(1);
     expect(await db.dailyActivity.count()).toBe(1);
   });
@@ -168,13 +168,13 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
       attemptId: undoneAttempt,
       parentEventId: "root",
     });
-    const before = await rebuildDailyActivity(db, NOW);
+    const before = await rebuildDailyActivity(db, NOW, null);
     expect(before[0]).toMatchObject({ attempts: 2, newItems: 1, reviews: 1 });
 
     // The undo path deletes the event and the attempt from the raw stores.
     await db.reviewEvents.delete(undoneEvent);
     await db.studyAttempts.delete(undoneAttempt);
-    const after = await rebuildDailyActivity(db, NOW + 1);
+    const after = await rebuildDailyActivity(db, NOW + 1, null);
     expect(after[0]).toMatchObject({ attempts: 1, newItems: 1, reviews: 0 });
   });
 
@@ -183,14 +183,14 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
     await seedEvent({ parentEventId: null });
     const attemptsBefore = await db.studyAttempts.toArray();
     const eventsBefore = await db.reviewEvents.toArray();
-    await rebuildDailyActivity(db, NOW);
+    await rebuildDailyActivity(db, NOW, null);
     expect(await db.studyAttempts.toArray()).toEqual(attemptsBefore);
     expect(await db.reviewEvents.toArray()).toEqual(eventsBefore);
   });
 
   it("a failed rebuild rolls back atomically to the previous cache", async () => {
     await seedAttempt();
-    await rebuildDailyActivity(db, NOW);
+    await rebuildDailyActivity(db, NOW, null);
     const before = await db.dailyActivity.toArray();
     expect(before).toHaveLength(1);
 
@@ -199,7 +199,7 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
     vi.spyOn(db.dailyActivity, "bulkPut").mockRejectedValueOnce(
       new Error("simulated write failure"),
     );
-    await expect(rebuildDailyActivity(db, NOW + 1)).rejects.toThrow(
+    await expect(rebuildDailyActivity(db, NOW + 1, null)).rejects.toThrow(
       "simulated write failure",
     );
     expect(await db.dailyActivity.toArray()).toEqual(before);
@@ -216,7 +216,7 @@ describe("readAnalyticsSnapshot (§15)", () => {
     const attemptId = await seedAttempt();
     await seedEvent({ attemptId, parentEventId: null });
 
-    const snapshot = await readAnalyticsSnapshot(db, NOW);
+    const snapshot = await readAnalyticsSnapshot(db, NOW, null);
     expect(snapshot.components).toEqual([
       { componentKey: KEY, fsrs: undefined, learnerState: "learning" },
     ]);
@@ -260,7 +260,7 @@ describe("readAnalyticsSnapshot (§15)", () => {
 
   it("a payload-less legacy attempt row maps to an invalid slice and no activity", async () => {
     await seedAttempt({ omitPayload: true });
-    const snapshot = await readAnalyticsSnapshot(db, NOW);
+    const snapshot = await readAnalyticsSnapshot(db, NOW, null);
     expect(snapshot.attempts[0].localDateAtEvent).toBeNull();
     expect(Number.isNaN(snapshot.attempts[0].responseTimeMs)).toBe(true);
     expect(snapshot.attempts[0].occurredAtUtc).toBeNull();
@@ -275,14 +275,14 @@ describe("readAnalyticsSnapshot (§15)", () => {
     // rebuildDailyActivity — a failure there must leave the previous cache
     // intact for the snapshot path too.
     await seedAttempt();
-    await rebuildDailyActivity(db, NOW);
+    await rebuildDailyActivity(db, NOW, null);
     const before = await db.dailyActivity.toArray();
 
     await seedAttempt();
     vi.spyOn(db.dailyActivity, "bulkPut").mockRejectedValueOnce(
       new Error("simulated snapshot write failure"),
     );
-    await expect(readAnalyticsSnapshot(db, NOW + 1)).rejects.toThrow(
+    await expect(readAnalyticsSnapshot(db, NOW + 1, null)).rejects.toThrow(
       "simulated snapshot write failure",
     );
     expect(await db.dailyActivity.toArray()).toEqual(before);
@@ -298,7 +298,7 @@ describe("readAnalyticsSnapshot (§15)", () => {
       studyMs: 42,
       derivedAt: 1,
     });
-    const snapshot = await readAnalyticsSnapshot(db, NOW);
+    const snapshot = await readAnalyticsSnapshot(db, NOW, null);
     expect(snapshot.dailyActivity[0]).toMatchObject({
       attempts: 1,
       studyMs: 1500,
@@ -319,8 +319,8 @@ describe("readAnalyticsRawSnapshot (Phase 13 §7, §30 — read-only, no cache w
     const attemptId = await seedAttempt();
     await seedEvent({ attemptId, parentEventId: null });
 
-    const raw = await readAnalyticsRawSnapshot(db);
-    const full = await readAnalyticsSnapshot(db, NOW);
+    const raw = await readAnalyticsRawSnapshot(db, null);
+    const full = await readAnalyticsSnapshot(db, NOW, null);
     expect(raw.components).toEqual(full.components);
     expect(raw.attempts).toEqual(full.attempts);
     expect(raw.events).toEqual(full.events);
@@ -330,14 +330,14 @@ describe("readAnalyticsRawSnapshot (Phase 13 §7, §30 — read-only, no cache w
 
   it("never writes the daily_activity cache", async () => {
     await seedAttempt();
-    await readAnalyticsRawSnapshot(db);
+    await readAnalyticsRawSnapshot(db, null);
     expect(await db.dailyActivity.count()).toBe(0);
   });
 
   it("opens exactly one read-only transaction over the three raw stores", async () => {
     await seedAttempt();
     const transactionSpy = vi.spyOn(db, "transaction");
-    await readAnalyticsRawSnapshot(db);
+    await readAnalyticsRawSnapshot(db, null);
     expect(transactionSpy).toHaveBeenCalledTimes(1);
     expect(transactionSpy.mock.calls[0][0]).toBe("r");
     expect(transactionSpy.mock.calls[0][1]).toEqual([
@@ -357,7 +357,7 @@ describe("transaction shape (§14.3)", () => {
     await seedAttempt();
     const transactionSpy = vi.spyOn(db, "transaction");
 
-    await rebuildDailyActivity(db, NOW);
+    await rebuildDailyActivity(db, NOW, null);
     expect(transactionSpy).toHaveBeenCalledTimes(2);
     expect(transactionSpy.mock.calls[0][0]).toBe("r");
     expect(transactionSpy.mock.calls[0][1]).toEqual([
@@ -368,7 +368,7 @@ describe("transaction shape (§14.3)", () => {
     expect(transactionSpy.mock.calls[1][1]).toEqual([db.dailyActivity]);
 
     transactionSpy.mockClear();
-    await readAnalyticsSnapshot(db, NOW + 1);
+    await readAnalyticsSnapshot(db, NOW + 1, null);
     expect(transactionSpy).toHaveBeenCalledTimes(2);
     expect(transactionSpy.mock.calls[0][0]).toBe("r");
     expect(transactionSpy.mock.calls[0][1]).toEqual([
@@ -378,5 +378,124 @@ describe("transaction shape (§14.3)", () => {
     ]);
     expect(transactionSpy.mock.calls[1][0]).toBe("rw");
     expect(transactionSpy.mock.calls[1][1]).toEqual([db.dailyActivity]);
+  });
+});
+
+/**
+ * Owner scoping (schema v6, R2-F3 / SEC-001). The dashboard, progress and
+ * weakness views are PRIVATE learner state: since a guest's and a signed-in
+ * account's rows can coexist in these stores until the sign-out wipe, every
+ * analytics read must show only the ACTIVE identity's cards/attempts/events.
+ * Without this a pre-login guest's history is folded into a signed-in
+ * account's streaks, mastery counts and weak-area analysis.
+ */
+describe("analytics owner scoping (R2-F3 / SEC-001)", () => {
+  const ACCOUNT = "acct-1";
+  const ACCOUNT_KEY = "entry:2:skill:bab_identification";
+
+  /** One component + attempt + event triple owned by `owner` (null = guest). */
+  async function seedOwned(
+    owner: string | null,
+    componentKey: string,
+    suffix: string,
+  ): Promise<void> {
+    await db.studyComponents.put({
+      componentKey,
+      entryId: componentKey.startsWith("entry:1") ? 1 : 2,
+      userId: owner,
+      learnerState: "learning",
+      revision: 1,
+    });
+    await db.studyAttempts.put({
+      id: `attempt-${suffix}`,
+      componentKey,
+      sessionId: `session-${suffix}`,
+      attemptedAt: NOW,
+      attempt: {
+        userId: owner,
+        localDateAtEvent: "2026-07-17",
+        responseTimeMs: 1500,
+        occurredAtUtc: "2026-07-17T12:00:00.000Z",
+        entryId: componentKey.startsWith("entry:1") ? 1 : 2,
+        skillTypeId: "bab_identification",
+        direction: null,
+        sourceField: null,
+        promptField: "madi",
+        isFirstAttempt: true,
+        isReinforcement: false,
+        isCorrect: true,
+      } as never,
+    });
+    await db.reviewEvents.put({
+      eventId: `event-${suffix}`,
+      componentKey,
+      userId: owner,
+      parentEventId: null,
+      clientComponentRevision: 1,
+      syncStatus: "local",
+      createdAt: NOW,
+      attemptId: `attempt-${suffix}`,
+      status: "scheduling" as never,
+      localDateAtEvent: "2026-07-17",
+    });
+  }
+
+  it("readAnalyticsSnapshot returns ONLY the account's rows, never a coexisting guest's", async () => {
+    await seedOwned(null, KEY, "guest");
+    await seedOwned(ACCOUNT, ACCOUNT_KEY, "acct");
+
+    const snapshot = await readAnalyticsSnapshot(db, NOW, ACCOUNT);
+    expect(snapshot.components.map((c) => c.componentKey)).toEqual([
+      ACCOUNT_KEY,
+    ]);
+    expect(snapshot.attempts).toHaveLength(1);
+    expect(snapshot.events).toHaveLength(1);
+    // One attempt on one day — the guest's identical-date attempt must not
+    // inflate the account's daily totals (streaks/today's activity).
+    expect(snapshot.dailyActivity).toHaveLength(1);
+    expect(snapshot.dailyActivity[0]?.attempts).toBe(1);
+  });
+
+  it("readAnalyticsSnapshot for a GUEST returns only un-owned rows, never the account's", async () => {
+    await seedOwned(null, KEY, "guest");
+    await seedOwned(ACCOUNT, ACCOUNT_KEY, "acct");
+
+    const snapshot = await readAnalyticsSnapshot(db, NOW, null);
+    expect(snapshot.components.map((c) => c.componentKey)).toEqual([KEY]);
+    expect(snapshot.attempts).toHaveLength(1);
+    expect(snapshot.events).toHaveLength(1);
+    expect(snapshot.dailyActivity[0]?.attempts).toBe(1);
+  });
+
+  it("readAnalyticsRawSnapshot applies the same scoping (weakness/session-start path)", async () => {
+    await seedOwned(null, KEY, "guest");
+    await seedOwned(ACCOUNT, ACCOUNT_KEY, "acct");
+
+    const raw = await readAnalyticsRawSnapshot(db, ACCOUNT);
+    expect(raw.components.map((c) => c.componentKey)).toEqual([ACCOUNT_KEY]);
+    expect(raw.attempts).toHaveLength(1);
+    expect(raw.events).toHaveLength(1);
+  });
+
+  it("rebuildDailyActivity derives the cache from the owner's rows only", async () => {
+    await seedOwned(null, KEY, "guest");
+    await seedOwned(ACCOUNT, ACCOUNT_KEY, "acct");
+
+    const derived = await rebuildDailyActivity(db, NOW, ACCOUNT);
+    expect(derived).toHaveLength(1);
+    expect(derived[0]?.attempts).toBe(1);
+    expect(await db.dailyActivity.get("2026-07-17")).toMatchObject({
+      attempts: 1,
+    });
+  });
+
+  it("a pre-v6 row (absent userId) reads as the GUEST's, not any account's", async () => {
+    // Exactly what an already-deployed client's rows look like after the
+    // additive v6 upgrade: no `userId` field at all.
+    await seedAttempt({ id: "legacy-attempt" });
+    await seedEvent({ attemptId: "legacy-attempt" });
+
+    expect((await readAnalyticsRawSnapshot(db, ACCOUNT)).attempts).toEqual([]);
+    expect((await readAnalyticsRawSnapshot(db, null)).attempts).toHaveLength(1);
   });
 });

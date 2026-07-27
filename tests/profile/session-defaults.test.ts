@@ -84,7 +84,9 @@ describe("sanitizeSessionDefaults", () => {
 
 describe("readSessionDefaults / persistSessionDefaults", () => {
   it("reads the documented defaults from an empty store", async () => {
-    expect(await readSessionDefaults(db)).toEqual(DEFAULT_SESSION_DEFAULTS);
+    expect(await readSessionDefaults(db, null)).toEqual(
+      DEFAULT_SESSION_DEFAULTS,
+    );
   });
 
   it("round-trips persisted values and sanitises before writing", async () => {
@@ -100,7 +102,7 @@ describe("readSessionDefaults / persistSessionDefaults", () => {
       newPerDay: 5,
       reviewsPerDay: 40,
     });
-    expect(await readSessionDefaults(db)).toEqual(stored);
+    expect(await readSessionDefaults(db, null)).toEqual(stored);
     // Written as a durable GUEST action: the device profile was minted.
     expect(await peekDeviceProfile(db)).not.toBeNull();
     expect(persist).toHaveBeenCalled();
@@ -113,7 +115,7 @@ describe("readSessionDefaults / persistSessionDefaults", () => {
       { questionCount: 0, optionCount: 100, newPerDay: 10, reviewsPerDay: 20 },
       { persist },
     );
-    expect(await readSetting(db, SETTING_KEYS.sessionDefaults)).toEqual(
+    expect(await readSetting(db, SETTING_KEYS.sessionDefaults, null)).toEqual(
       DEFAULT_SESSION_DEFAULTS,
     );
   });
@@ -125,7 +127,7 @@ describe("readSessionDefaults / persistSessionDefaults", () => {
       { questionCount: 50, optionCount: "four" },
       () => 1,
     );
-    expect(await readSessionDefaults(db)).toEqual({
+    expect(await readSessionDefaults(db, null)).toEqual({
       ...DEFAULT_SESSION_DEFAULTS,
       questionCount: 50,
     });

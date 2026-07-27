@@ -16,6 +16,7 @@ import { DeleteListDialog } from "@/components/collections/delete-list-dialog";
 import { RenameListDialog } from "@/components/collections/rename-list-dialog";
 import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,6 +55,7 @@ function NotFoundCard() {
 export function CustomListDetail({ listId }: { listId: string }) {
   const router = useRouter();
   const { state: content, retry: retryContent } = useActiveContent();
+  const resolveOwner = useResolveOwner();
   const { state: collections, refresh: refreshCollections } = useCollections();
 
   const knownEntryIds = useMemo(
@@ -80,10 +82,18 @@ export function CustomListDetail({ listId }: { listId: string }) {
 
   const handleRemoveEntry = useCallback(
     async (entryId: number) => {
-      await removeEntryFromList(getSafwaDb(), listId, entryId, Date.now());
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const owner = await resolveOwner();
+      await removeEntryFromList(
+        getSafwaDb(),
+        listId,
+        entryId,
+        Date.now(),
+        owner,
+      );
       refreshCollections();
     },
-    [listId, refreshCollections],
+    [listId, refreshCollections, resolveOwner],
   );
 
   const handleDeleted = useCallback(() => {

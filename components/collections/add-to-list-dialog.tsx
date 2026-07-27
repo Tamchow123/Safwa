@@ -30,6 +30,7 @@ import {
   removeEntryFromList,
 } from "@/modules/collections/persistence";
 import { LIST_NAME_MAX_LENGTH } from "@/modules/collections/validation";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 
 export function AddToListDialog({
   trigger,
@@ -46,6 +47,7 @@ export function AddToListDialog({
   knownEntryIds: ReadonlySet<number>;
   onChanged: () => void;
 }) {
+  const resolveOwner = useResolveOwner();
   const [open, setOpen] = useState(false);
   const [pendingListId, setPendingListId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,10 +61,19 @@ export function AddToListDialog({
       setPendingListId(list.id);
       try {
         const db = getSafwaDb();
+        // ARCH-002: resolve the owner at action time (see useResolveOwner).
+        const owner = await resolveOwner();
         if (list.entryIds.includes(entryId)) {
-          await removeEntryFromList(db, list.id, entryId, Date.now());
+          await removeEntryFromList(db, list.id, entryId, Date.now(), owner);
         } else {
-          await addEntryToList(db, list.id, entryId, knownEntryIds, Date.now());
+          await addEntryToList(
+            db,
+            list.id,
+            entryId,
+            knownEntryIds,
+            Date.now(),
+            owner,
+          );
         }
         onChanged();
       } catch (toggleError) {
@@ -71,7 +82,7 @@ export function AddToListDialog({
         setPendingListId(null);
       }
     },
-    [pendingListId, entryId, knownEntryIds, onChanged],
+    [pendingListId, entryId, knownEntryIds, onChanged, resolveOwner],
   );
 
   const handleCreateAndAdd = async (event: FormEvent<HTMLFormElement>) => {
@@ -80,11 +91,13 @@ export function AddToListDialog({
     setCreating(true);
     setError(null);
     try {
+      const owner = await resolveOwner();
       await createListWithEntry(getSafwaDb(), {
         name: newListName,
         entryId,
         knownEntryIds,
         now: Date.now(),
+        owner,
       });
       // Preserve entered text only on failure (§24) — clear it on success.
       setNewListName("");
