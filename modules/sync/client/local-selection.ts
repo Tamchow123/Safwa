@@ -27,8 +27,13 @@ export type SchedulingSelection = {
   attempts: WireAttempt[];
 };
 
-/** Map a stored review event to the wire shape, or null if it fails validation. */
-function toWireEvent(record: ReviewEventRecord): WireEvent | null {
+/**
+ * Map a stored review event to the wire shape, or null if it fails validation.
+ * Shared with the Phase-17 guest-snapshot selection (`guest-snapshot.ts`), which
+ * has to produce byte-identical wire events — the merge and ordinary sync reach
+ * the same server ingestion contract, so a second mapper could drift.
+ */
+export function toWireEvent(record: ReviewEventRecord): WireEvent | null {
   const parsed = wireEventSchema.safeParse({
     eventId: record.eventId,
     studyComponentId: record.componentKey,

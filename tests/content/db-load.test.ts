@@ -80,6 +80,8 @@ describe("Dexie schema", () => {
       "contentMetadata",
       "contentReleases",
       "daily_activity_owned",
+      // v9 (phases-17.md §12): the durable guest→account import identity.
+      "guest_imports",
       "lists",
       "mutation_queue",
       "profile",

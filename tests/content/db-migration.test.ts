@@ -181,6 +181,7 @@ const CURRENT_STORE_NAMES = [
   "contentMetadata",
   "contentReleases",
   "daily_activity_owned",
+  "guest_imports",
   "lists",
   "mutation_queue",
   "profile",
@@ -965,6 +966,36 @@ describe("Dexie migration v6 -> v7/v8 — owner-keyed identity (Phase 17 §10)",
     expect(
       await reopened.settings.get([ACCOUNT_KEY, "account-only"]),
     ).toMatchObject({ value: "kept" });
+  });
+
+  it("adds the v9 guest-import store additively, leaving the migrated rows alone", async () => {
+    // v9 (phases-17.md §12) declares one new store and no upgrade function, so
+    // the whole chain must still land the v7 data move intact and the new store
+    // must be immediately usable — the import key has to be persistable BEFORE
+    // the first network mutation, on a database that was created long before it.
+    dbName = "safwa-migration-test-v9-additive";
+    await seedV6(dbName);
+
+    const db = track(new SafwaDb(dbName));
+    await db.open();
+    expect(db.verno).toBe(SAFWA_DB_VERSION);
+    expect(await db.guestImports.count()).toBe(0);
+
+    await db.guestImports.put({
+      userId: ACCOUNT,
+      importKey: "import-key-1",
+      snapshotHash: "c".repeat(64),
+      status: "preparing",
+      createdAt: 1,
+      uploadedItems: 0,
+    });
+    expect((await db.guestImports.get(ACCOUNT))?.importKey).toBe(
+      "import-key-1",
+    );
+    // The pre-existing owner-keyed rows are untouched by the additive version.
+    expect(
+      await db.studyComponents.get([GUEST_OWNER_KEY, COMPONENT]),
+    ).toMatchObject({ revision: 2 });
   });
 
   it("exports the migrated state, owner-scoped, after the upgrade", async () => {

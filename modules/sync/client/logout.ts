@@ -52,7 +52,7 @@ export async function clearAccountLocalState(
   const tables = ownerScopedTables(db);
   await db.transaction(
     "rw",
-    [...tables, db.mutationQueue, db.syncState],
+    [...tables, db.mutationQueue, db.syncState, db.guestImports],
     async () => {
       if (departing === null) {
         // Unknown departing account: remove every row that is not the guest's.
@@ -71,13 +71,16 @@ export async function clearAccountLocalState(
             table.filter((row) => !isGuestOwnerKey(row.ownerKey)).delete(),
           ),
         );
-        // Every queued mutation belongs to an account (a guest never enqueues).
+        // Every queued mutation belongs to an account (a guest never enqueues),
+        // and every import row names the account it targets.
         await db.mutationQueue.clear();
+        await db.guestImports.clear();
       } else {
         await Promise.all(
           tables.map((table) => deleteOwnedRows(table, departing)),
         );
         await db.mutationQueue.where("userId").equals(departing).delete();
+        await db.guestImports.delete(departing);
       }
       // The cursor belongs to whichever account last synced on this device;
       // clearing it is equivalent to `invalidateSyncState` (`readSyncState`

@@ -162,6 +162,38 @@ describe("clearAccountLocalState — scoped cleanup (phases-17.md §11)", () => 
     expect(remaining.map((row) => row.userId)).toEqual([OTHER]);
   });
 
+  it("discards only the departing account's in-flight guest-import record", async () => {
+    // The record names the account it targets, so it is that account's local
+    // state and goes with it — while another account's stays. Abandoning an
+    // in-flight import costs nothing: the guest's rows survive, so the merge can
+    // simply be offered again, and re-sending what the abandoned key already
+    // delivered is a no-op under attempt/event idempotency.
+    await seedAccountState();
+    await db.guestImports.bulkPut([
+      {
+        userId: ACCOUNT,
+        importKey: "key-mine",
+        snapshotHash: "a".repeat(64),
+        status: "uploading",
+        createdAt: 1,
+        uploadedItems: 12,
+      },
+      {
+        userId: OTHER,
+        importKey: "key-theirs",
+        snapshotHash: "b".repeat(64),
+        status: "preparing",
+        createdAt: 1,
+        uploadedItems: 0,
+      },
+    ]);
+
+    await clearAccountLocalState(db, ACCOUNT);
+
+    expect(await db.guestImports.get(ACCOUNT)).toBeUndefined();
+    expect((await db.guestImports.get(OTHER))?.importKey).toBe("key-theirs");
+  });
+
   it("sweeps EVERY account owner when the departing account is unknown", async () => {
     // §11 "work when a prior write or session resolution is interrupted": if the
     // session is already gone we cannot name the departing account, so no
@@ -176,6 +208,14 @@ describe("clearAccountLocalState — scoped cleanup (phases-17.md §11)", () => 
       createdAt: 1,
       userId: ACCOUNT,
     });
+    await db.guestImports.put({
+      userId: ACCOUNT,
+      importKey: "key-mine",
+      snapshotHash: "a".repeat(64),
+      status: "uploading",
+      createdAt: 1,
+      uploadedItems: 3,
+    });
 
     await clearAccountLocalState(db);
 
@@ -185,6 +225,9 @@ describe("clearAccountLocalState — scoped cleanup (phases-17.md §11)", () => 
       expect(await readOwnedRows(table, null)).toHaveLength(1);
     }
     expect(await db.mutationQueue.count()).toBe(0);
+    // Every import row names SOME account, so an unresolvable sign-out clears
+    // them all — the same fail-closed rule the owner sweep follows.
+    expect(await db.guestImports.count()).toBe(0);
     expect(await hasGuestOwnedRows(db)).toBe(true);
   });
 
@@ -261,13 +304,15 @@ describe("clearAccountLocalState — scoped cleanup (phases-17.md §11)", () => 
     expect(new Set(account).size + new Set(preserved).size).toBe(all.length);
   });
 
-  it("owner-scoped tables are exactly the account-scoped ones minus queue/cursor", () => {
+  it("owner-scoped tables are exactly the account-scoped ones minus queue/cursor/imports", () => {
     // The two groupings must stay in lock-step: every private store is
     // owner-scoped, and the only account-owned stores that are NOT are the
-    // outbound queue and the sync cursor (which carry an account userId).
+    // outbound queue, the sync cursor and the guest-import record (which carry
+    // an account userId rather than an owner key).
     const owned = ownerScopedTables(db).map((t) => t.name);
     const account = accountScopedTables(db).map((t) => t.name);
     expect(account.filter((name) => !owned.includes(name)).sort()).toEqual([
+      "guest_imports",
       "mutation_queue",
       "sync_state",
     ]);
