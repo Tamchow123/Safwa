@@ -56,7 +56,12 @@ import type {
   LocalOwnerId,
   SafwaDb,
 } from "@/modules/content/db";
-import { readOwnedRows, sameOwner } from "@/modules/content/owner-scope";
+import { toOwnerKey } from "@/modules/content/owner-key";
+import {
+  ownedKey,
+  readOwnedRows,
+  sameOwnerKey,
+} from "@/modules/content/owner-scope";
 import { ensureDurableGuestState } from "@/modules/profile/persistence";
 import {
   enqueueBookmarkMutation,
@@ -147,8 +152,8 @@ function requireNoDuplicate(
 }
 
 /**
- * Load a list by id, requiring it EXISTS and is OWNED BY `owner` (R2-F3). A list
- * owned by a different identity is reported as not-found from this owner's view
+ * Load a list by id, requiring it EXISTS and is OWNED BY `owner`. A list owned
+ * by a different identity is reported as not-found from this owner's view
  * (defence in depth — the owner-scoped read hooks never surface a foreign list
  * id to mutate in the first place). Must run inside the caller's `rw` list
  * transaction so the ownership check and the write commit atomically.
@@ -159,7 +164,7 @@ async function requireOwnedList(
   owner: LocalOwnerId,
 ): Promise<CustomListRecord> {
   const current = await db.lists.get(listId);
-  if (!current || !sameOwner(current.userId, owner)) {
+  if (!current || !sameOwnerKey(current.ownerKey, toOwnerKey(owner))) {
     throw new ListNotFoundError(listId);
   }
   return current;
@@ -267,18 +272,17 @@ export async function readCollectionMembership(
 }
 
 /**
- * Whether `entryId` currently has a bookmark row OWNED BY `owner` (R2-F3). A
- * bookmark owned by a different identity (a pre-login guest row, say) reads as
- * NOT bookmarked for this owner — the store's single natural key (`entryId`)
- * can hold only one row, so ownership, not mere presence, decides.
+ * Whether `entryId` currently has a bookmark row OWNED BY `owner`. Since schema
+ * v7 the owner is half of the primary key, so this is a direct keyed lookup: a
+ * guest's and an account's bookmark for the same entry are different rows and
+ * neither can hide or replace the other.
  */
 export async function isBookmarked(
   db: SafwaDb,
   entryId: number,
   owner: LocalOwnerId,
 ): Promise<boolean> {
-  const existing = await db.bookmarks.get(entryId);
-  return existing !== undefined && sameOwner(existing.userId, owner);
+  return (await db.bookmarks.get(ownedKey(owner, entryId))) !== undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -302,23 +306,20 @@ export async function setBookmarked(
   if (bookmarked) requireKnownEntry(entryId, knownEntryIds);
   kickOffDurableGuestState(db);
   await db.transaction("rw", [db.bookmarks, db.mutationQueue], async () => {
-    // A row owned by a DIFFERENT identity is invisible to this owner (single
-    // natural key), so from `owner`'s view it does not exist (R2-F3).
-    const stored = await db.bookmarks.get(entryId);
-    const existing =
-      stored && sameOwner(stored.userId, owner) ? stored : undefined;
+    // Owner-keyed identity (schema v7): this reads and writes THIS identity's
+    // row for the entry; another identity's row for the same entry is a
+    // different row entirely and is never seen or replaced here.
+    const existing = await db.bookmarks.get(ownedKey(owner, entryId));
     let createdAt: number;
     if (bookmarked) {
       if (existing) return; // no-op: neither rewrite nor enqueue
-      // Claims the natural key for this owner (overwriting any other-owner row,
-      // which was already hidden from this owner and wipes on logout anyway).
-      const record = { ...buildBookmarkRecord(entryId, now), userId: owner };
+      const record = buildBookmarkRecord(entryId, now, toOwnerKey(owner));
       await db.bookmarks.put(record);
       createdAt = record.createdAt;
     } else {
       if (!existing) return; // no-op — nothing owned by `owner` to remove
       createdAt = existing.createdAt;
-      await db.bookmarks.delete(entryId);
+      await db.bookmarks.delete(ownedKey(owner, entryId));
     }
     await enqueueBookmarkChange(
       db,
@@ -342,11 +343,9 @@ export async function toggleBookmark(
   requireKnownEntry(entryId, knownEntryIds);
   kickOffDurableGuestState(db);
   return db.transaction("rw", [db.bookmarks, db.mutationQueue], async () => {
-    const stored = await db.bookmarks.get(entryId);
-    const existing =
-      stored && sameOwner(stored.userId, owner) ? stored : undefined;
+    const existing = await db.bookmarks.get(ownedKey(owner, entryId));
     if (existing) {
-      await db.bookmarks.delete(entryId);
+      await db.bookmarks.delete(ownedKey(owner, entryId));
       await enqueueBookmarkChange(
         db,
         owner,
@@ -357,7 +356,7 @@ export async function toggleBookmark(
       );
       return false;
     }
-    const record = { ...buildBookmarkRecord(entryId, now), userId: owner };
+    const record = buildBookmarkRecord(entryId, now, toOwnerKey(owner));
     await db.bookmarks.put(record);
     await enqueueBookmarkChange(
       db,
@@ -387,18 +386,21 @@ async function insertNewList(
   entryIds: readonly number[],
   now: number,
 ): Promise<CustomListRecord> {
-  // Uniqueness and the max-lists cap are scoped to THIS owner's lists (R2-F3),
-  // so a guest list named "Verbs" never blocks a signed-in account from
-  // creating its own "Verbs", and neither identity's cap counts the other's.
+  // Uniqueness and the max-lists cap are scoped to THIS owner's lists, so a
+  // guest list named "Verbs" never blocks a signed-in account from creating its
+  // own "Verbs", and neither identity's cap counts the other's.
   const existing = await readOwnedRows(db.lists, owner);
   requireNoDuplicate(existing, name);
   if (!canCreateAnotherList(existing.length)) {
     throw new MaxListsExceededError();
   }
-  const record = {
-    ...buildListRecord({ id: uuidv7(now), name, entryIds, now }),
-    userId: owner,
-  };
+  const record = buildListRecord({
+    id: uuidv7(now),
+    name,
+    entryIds,
+    now,
+    ownerKey: toOwnerKey(owner),
+  });
   await db.lists.add(record);
   await enqueueListChange(db, owner, record, false, now);
   return record;
@@ -530,8 +532,8 @@ export async function removeEntryFromList(
 
 /**
  * Upsert a server-authoritative bookmark (within the caller's transaction),
- * stamped with the account `owner` (R2-F3) so the pulled bookmark is scoped to
- * the account and never read as, or blocked by, a guest's row for the same entry.
+ * keyed to the account `owner` so the pulled bookmark is the account's own row —
+ * a guest's bookmark for the same entry is a different row and is untouched.
  */
 export async function applyAuthoritativeBookmark(
   db: SafwaDb,
@@ -539,23 +541,27 @@ export async function applyAuthoritativeBookmark(
   createdAt: number,
   owner: LocalOwnerId,
 ): Promise<void> {
-  await db.bookmarks.put({
-    ...buildBookmarkRecord(entryId, createdAt),
-    userId: owner,
-  });
-}
-
-/** Delete a bookmark row propagated by a tombstone (within the caller's tx). */
-export async function applyBookmarkTombstone(
-  db: SafwaDb,
-  entryId: number,
-): Promise<void> {
-  await db.bookmarks.delete(entryId);
+  await db.bookmarks.put(
+    buildBookmarkRecord(entryId, createdAt, toOwnerKey(owner)),
+  );
 }
 
 /**
- * Upsert a server-authoritative list with canonical name + membership, stamped
- * with the account `owner` (R2-F3) so the pulled list is scoped to the account.
+ * Delete the bookmark row a tombstone names, FOR THIS OWNER only (within the
+ * caller's tx). A tombstone pulled for an account can never delete a guest's
+ * bookmark for the same entry.
+ */
+export async function applyBookmarkTombstone(
+  db: SafwaDb,
+  entryId: number,
+  owner: LocalOwnerId,
+): Promise<void> {
+  await db.bookmarks.delete(ownedKey(owner, entryId));
+}
+
+/**
+ * Upsert a server-authoritative list with canonical name + membership, owned by
+ * the account `owner`.
  */
 export async function applyAuthoritativeList(
   db: SafwaDb,
@@ -569,19 +575,27 @@ export async function applyAuthoritativeList(
   owner: LocalOwnerId,
 ): Promise<void> {
   await db.lists.put({
+    ownerKey: toOwnerKey(owner),
     id: list.id,
     name: cleanListNameInput(list.name),
     entryIds: canonicaliseMembership(list.entryIds),
     createdAt: list.createdAt,
     updatedAt: list.updatedAt,
-    userId: owner,
   });
 }
 
-/** Delete a list row propagated by a tombstone (within the caller's tx). */
+/**
+ * Delete the list row a tombstone names, FOR THIS OWNER only (within the
+ * caller's tx). List ids are globally unique, so the owner check is defence in
+ * depth: a tombstone can only ever remove a row this account owns.
+ */
 export async function applyListTombstone(
   db: SafwaDb,
   listId: string,
+  owner: LocalOwnerId,
 ): Promise<void> {
-  await db.lists.delete(listId);
+  const existing = await db.lists.get(listId);
+  if (existing && sameOwnerKey(existing.ownerKey, toOwnerKey(owner))) {
+    await db.lists.delete(listId);
+  }
 }

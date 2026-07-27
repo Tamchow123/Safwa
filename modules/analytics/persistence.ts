@@ -43,7 +43,8 @@ import type {
   StudyAttemptRecord,
   StudyComponentRecord,
 } from "@/modules/content/db";
-import { readOwnedRows } from "@/modules/content/owner-scope";
+import { toOwnerKey } from "@/modules/content/owner-key";
+import { deleteOwnedRows, readOwnedRows } from "@/modules/content/owner-scope";
 
 import {
   deriveDailyActivity,
@@ -124,30 +125,22 @@ async function writeDailyActivityCache(
   db: SafwaDb,
   derived: readonly DailyActivity[],
   now: number,
+  owner: LocalOwnerId,
 ): Promise<void> {
+  // OWNER-SCOPED (schema v7): the cache is keyed [ownerKey+localDate], so the
+  // clear + rewrite replaces only THIS identity's rows. A guest's cached days
+  // survive an account's rebuild (and vice versa) instead of being wiped by it.
+  const ownerKey = toOwnerKey(owner);
   await db.transaction("rw", [db.dailyActivity], async () => {
-    await db.dailyActivity.clear();
+    await deleteOwnedRows(db.dailyActivity, owner);
     await db.dailyActivity.bulkPut(
-      derived.map((row): DailyActivityRecord => ({ ...row, derivedAt: now })),
+      derived.map((row): DailyActivityRecord => ({
+        ...row,
+        ownerKey,
+        derivedAt: now,
+      })),
     );
   });
-}
-
-/**
- * The `study_attempts` rows OWNED BY `owner` (R2-F3 / SEC-001). Unlike the five
- * stores schema v6 gave an indexed `userId` column, an attempt's owner lives
- * inside its engine payload (`attempt.userId`) — the same field the push
- * selector and undo path already read — so the filter is in memory. An absent
- * payload or owner means guest, matching `sameOwner`'s "absent and null both
- * mean guest" rule.
- */
-async function readOwnedAttempts(
-  db: SafwaDb,
-  owner: LocalOwnerId,
-): Promise<StudyAttemptRecord[]> {
-  return (await db.studyAttempts.toArray()).filter(
-    (row) => (row.attempt?.userId ?? null) === owner,
-  );
 }
 
 /**
@@ -171,12 +164,14 @@ export async function rebuildDailyActivity(
     "r",
     [db.studyAttempts, db.reviewEvents],
     async () => ({
-      attempts: (await readOwnedAttempts(db, owner)).map(attemptSlice),
+      attempts: (await readOwnedRows(db.studyAttempts, owner)).map(
+        attemptSlice,
+      ),
       events: (await readOwnedRows(db.reviewEvents, owner)).map(eventSlice),
     }),
   );
   const derived = deriveDailyActivity(attempts, events);
-  await writeDailyActivityCache(db, derived, now);
+  await writeDailyActivityCache(db, derived, now, owner);
   return derived;
 }
 
@@ -210,7 +205,9 @@ async function readAnalyticsRaw(
       components: (await readOwnedRows(db.studyComponents, owner)).map(
         componentSlice,
       ),
-      attempts: (await readOwnedAttempts(db, owner)).map(attemptSlice),
+      attempts: (await readOwnedRows(db.studyAttempts, owner)).map(
+        attemptSlice,
+      ),
       events: (await readOwnedRows(db.reviewEvents, owner)).map(eventSlice),
     }),
   );
@@ -231,7 +228,7 @@ export async function readAnalyticsSnapshot(
 ): Promise<AnalyticsPersistenceSnapshot> {
   const { components, attempts, events } = await readAnalyticsRaw(db, owner);
   const dailyActivity = deriveDailyActivity(attempts, events);
-  await writeDailyActivityCache(db, dailyActivity, now);
+  await writeDailyActivityCache(db, dailyActivity, now, owner);
   return { components, attempts, events, dailyActivity };
 }
 

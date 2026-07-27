@@ -52,6 +52,7 @@ vi.mock("next/navigation", () => ({
 
 import { CustomListDetail } from "@/components/collections/custom-list-detail";
 import { getSafwaDb } from "@/modules/content/db";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 const db = getSafwaDb();
 const [entryA, entryB] = entries;
@@ -85,6 +86,7 @@ describe("CustomListDetail — not found", () => {
 
   it("shows a safe not-found state for a deleted list id", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Temp",
       entryIds: [],
@@ -102,6 +104,7 @@ describe("CustomListDetail — not found", () => {
 describe("CustomListDetail — populated list", () => {
   beforeEach(async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Difficult Verbs",
       entryIds: [entryA.id, entryB.id],
@@ -184,6 +187,7 @@ describe("CustomListDetail — add entries", () => {
 
   beforeEach(async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Verbs",
       entryIds: [safeA.id],

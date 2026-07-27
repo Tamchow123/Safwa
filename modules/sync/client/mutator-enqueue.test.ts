@@ -20,6 +20,7 @@ import {
 } from "@/modules/study-session/persistence";
 
 import { countPendingMutations, selectQueuedMutations } from "./mutation-queue";
+import { accountOwnerKey } from "@/modules/content/owner-key";
 
 /**
  * End-to-end wiring: a signed-in account's local mutations land in the sync
@@ -221,7 +222,10 @@ describe("durable post-sync undo (EXT-F3)", () => {
     // The component's FSRS reverts optimistically (its only event is revoked, so
     // it becomes never-reviewed) — the undo shows immediately, before sync.
     expect(
-      await db.studyComponents.get(persisted.componentKey),
+      await db.studyComponents.get([
+        accountOwnerKey(USER),
+        persisted.componentKey,
+      ]),
     ).toBeUndefined();
     // A revocation targeting the event is durably queued for the account.
     const sel = await selectQueuedMutations(db, USER);

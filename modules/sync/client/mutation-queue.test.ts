@@ -22,6 +22,7 @@ import {
   enqueueSettingMutation,
   selectQueuedMutations,
 } from "./mutation-queue";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 let db: SafwaDb;
 let counter = 0;
@@ -394,7 +395,11 @@ describe("countPendingMutations", () => {
 describe("transaction nesting contract (REL-002)", () => {
   it("commits the enqueue atomically inside a caller's transaction whose scope includes mutation_queue", async () => {
     await db.transaction("rw", [db.bookmarks, db.mutationQueue], async () => {
-      await db.bookmarks.put({ entryId: 7, createdAt: 1 });
+      await db.bookmarks.put({
+        ownerKey: GUEST_OWNER_KEY,
+        entryId: 7,
+        createdAt: 1,
+      });
       await enqueueBookmarkMutation(db, {
         userId: USER,
         entryId: 7,
@@ -403,14 +408,18 @@ describe("transaction nesting contract (REL-002)", () => {
         now: 1,
       });
     });
-    expect(await db.bookmarks.get(7)).toBeDefined();
+    expect(await db.bookmarks.get([GUEST_OWNER_KEY, 7])).toBeDefined();
     expect((await selectQueuedMutations(db, USER)).bookmarks).toHaveLength(1);
   });
 
   it("throws when the caller's transaction scope omits mutation_queue (loud, not silent)", async () => {
     await expect(
       db.transaction("rw", [db.bookmarks], async () => {
-        await db.bookmarks.put({ entryId: 8, createdAt: 1 });
+        await db.bookmarks.put({
+          ownerKey: GUEST_OWNER_KEY,
+          entryId: 8,
+          createdAt: 1,
+        });
         await enqueueBookmarkMutation(db, {
           userId: USER,
           entryId: 8,
@@ -421,6 +430,6 @@ describe("transaction nesting contract (REL-002)", () => {
       }),
     ).rejects.toThrow();
     // The whole transaction rolled back — the bookmark write did not land either.
-    expect(await db.bookmarks.get(8)).toBeUndefined();
+    expect(await db.bookmarks.get([GUEST_OWNER_KEY, 8])).toBeUndefined();
   });
 });

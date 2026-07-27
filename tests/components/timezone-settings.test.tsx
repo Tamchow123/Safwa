@@ -11,6 +11,7 @@ import {
   detectBrowserTimezone,
   readTimezonePreference,
 } from "@/modules/profile/timezone";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 // The component reads through the real browser singleton, so tests seed and
 // clear that same database.
@@ -96,6 +97,7 @@ describe("TimezoneSettings", () => {
 
   it("shows a stored invalid zone as browser mode (sanitised on read)", async () => {
     await db.settings.put({
+      ownerKey: GUEST_OWNER_KEY,
       key: SETTING_KEYS.timezone,
       value: { mode: "iana", timezone: "Broken/Zone" },
       updatedAt: 1,

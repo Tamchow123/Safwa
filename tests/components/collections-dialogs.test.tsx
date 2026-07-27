@@ -13,6 +13,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AddToListDialog } from "@/components/collections/add-to-list-dialog";
 import { CreateListDialog } from "@/components/collections/create-list-dialog";
 import { getSafwaDb } from "@/modules/content/db";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 const db = getSafwaDb();
 const KNOWN = new Set([1, 2, 3]);
@@ -68,6 +69,7 @@ describe("CreateListDialog", () => {
 
   it("shows an error, keeps the dialog open and preserves the entered text on a duplicate name", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "existing",
       name: "Taken",
       entryIds: [],
@@ -125,6 +127,7 @@ describe("AddToListDialog", () => {
         entryLabel="to preserve"
         lists={[
           {
+            ownerKey: GUEST_OWNER_KEY,
             id: "list-a",
             name: "Verbs",
             entryIds: [1],
@@ -132,6 +135,7 @@ describe("AddToListDialog", () => {
             updatedAt: 1,
           },
           {
+            ownerKey: GUEST_OWNER_KEY,
             id: "list-b",
             name: "Other",
             entryIds: [2],
@@ -151,6 +155,7 @@ describe("AddToListDialog", () => {
 
   it("toggling a checkbox writes the membership change and calls onChanged", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-a",
       name: "Verbs",
       entryIds: [],
@@ -166,6 +171,7 @@ describe("AddToListDialog", () => {
         entryLabel="to preserve"
         lists={[
           {
+            ownerKey: GUEST_OWNER_KEY,
             id: "list-a",
             name: "Verbs",
             entryIds: [],

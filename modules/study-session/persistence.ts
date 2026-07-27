@@ -25,7 +25,8 @@ import type {
   StudyComponentRecord,
 } from "@/modules/content/db";
 import { uuidv7 } from "@/lib/uuid";
-import { readOwnedRows, sameOwner } from "@/modules/content/owner-scope";
+import { toOwnerKey, tryParseOwnerKey } from "@/modules/content/owner-key";
+import { ownedKey, readOwnedRows } from "@/modules/content/owner-scope";
 import { DEVICE_PROFILE_KEY } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 import { toWireAttempt } from "@/modules/sync/client/local-selection";
@@ -38,10 +39,11 @@ import type {
   StoredComponentState,
 } from "@/modules/study-session/mixed";
 import {
-  chainHead,
   createReviewEvent,
   deriveLineage,
-  projectComponent,
+  deriveNextLineage,
+  learnerStateFromReplay,
+  replayChain,
   shouldCreateEvent,
   type EventLineage,
   type ReviewEvent,
@@ -113,12 +115,11 @@ export type RecordAttemptContext = {
 };
 
 /**
- * Map a scheduler `ReviewEvent` to its durable Dexie record, stamping the local
- * owner (R2-F3) so scheduling selection and chain reads scope to the active
- * account (null = guest). IndexedDB cannot index null, so guest rows are found
- * by the `componentKey` index + an in-memory owner filter (see
- * `readComponentEvents`); the `[userId+syncStatus]` index only ever serves the
- * real-string account paths (selection/count), which is exactly where it runs.
+ * Map a scheduler `ReviewEvent` to its durable Dexie record, stamping the OWNER
+ * so scheduling selection and chain reads scope to the identity that produced
+ * it. The owner key is a real, indexable value for a guest as much as for an
+ * account (schema v7), so both are served by the same `[ownerKey+syncStatus]`
+ * and `[ownerKey+componentKey]` indexes — no in-memory owner filtering remains.
  */
 function toEventRecord(
   event: ReviewEvent,
@@ -128,7 +129,7 @@ function toEventRecord(
   return {
     eventId: event.eventId,
     componentKey: event.studyComponentId,
-    userId: owner,
+    ownerKey: toOwnerKey(owner),
     parentEventId: event.parentEventId,
     clientComponentRevision: event.clientComponentRevision,
     syncStatus: "local",
@@ -216,14 +217,11 @@ async function readComponentEvents(
   owner: LocalOwnerId,
 ): Promise<ReviewEvent[]> {
   const records = await db.reviewEvents
-    .where("componentKey")
-    .equals(componentKey)
+    .where("[ownerKey+componentKey]")
+    .equals(ownedKey(owner, componentKey))
     .toArray();
   return records
-    .filter(
-      (record) =>
-        record.status === "scheduling" && sameOwner(record.userId, owner),
-    )
+    .filter((record) => record.status === "scheduling")
     .map(eventFromRecord);
 }
 
@@ -241,10 +239,9 @@ async function anchorLineage(
   owner: LocalOwnerId,
   ids: { eventId: string; clientSequence: number },
 ): Promise<EventLineage | null> {
-  const component = await db.studyComponents.get(componentKey);
+  const component = await db.studyComponents.get(ownedKey(owner, componentKey));
   if (
     !component ||
-    !sameOwner(component.userId, owner) ||
     !component.syncedHeadEventId ||
     component.syncedHeadClientRevision == null
   ) {
@@ -260,22 +257,26 @@ async function anchorLineage(
   };
 }
 
-/** Settings key holding the device's last-issued client sequence (monotonic). */
-const CLIENT_SEQUENCE_KEY = "study:client-sequence";
-
 /**
- * The next monotonic per-device client sequence. The last-issued value is kept
- * in an additive `settings` row so allocation is O(1) per event rather than a
+ * The next monotonic per-device client sequence. The last-issued value lives on
+ * the DEVICE PROFILE (schema v7) so allocation is O(1) per event rather than a
  * full `review_events` scan. The counter only ever advances (never reused, even
  * across an undo), which is exactly the total-ordering guarantee the sync
- * pipeline expects. A one-time max scan seeds the counter for any pre-existing
- * events; a fresh Phase-8 database starts at 0. Must run inside a transaction
- * that includes `db.settings`.
+ * pipeline expects — and the device profile is the only home that can promise
+ * that across identities, since it survives a sign-out and a merge that removes
+ * the guest's rows, whereas an owner-keyed settings row would not.
+ *
+ * A one-time max scan over the existing events seeds the counter (covering a
+ * database whose profile predates the field); a fresh database starts at 0. Must
+ * run inside a transaction that includes `db.profile` and `db.reviewEvents`. If
+ * no profile row exists yet — the device has never made a durable write — the
+ * value cannot be persisted, so the scan repeats next time; the numbers issued
+ * are still monotonic.
  */
-async function nextClientSequence(db: SafwaDb, now: number): Promise<number> {
-  const record = await db.settings.get(CLIENT_SEQUENCE_KEY);
-  let last = typeof record?.value === "number" ? record.value : undefined;
-  if (last === undefined) {
+async function nextClientSequence(db: SafwaDb): Promise<number> {
+  const profile = await db.profile.get(DEVICE_PROFILE_KEY);
+  let last = profile?.lastClientSequence;
+  if (typeof last !== "number") {
     last = 0;
     await db.reviewEvents.each((event) => {
       if (typeof event.clientSequence === "number") {
@@ -284,33 +285,29 @@ async function nextClientSequence(db: SafwaDb, now: number): Promise<number> {
     });
   }
   const next = last + 1;
-  await db.settings.put({
-    key: CLIENT_SEQUENCE_KEY,
-    value: next,
-    updatedAt: now,
-  });
+  if (profile) {
+    await db.profile.update(DEVICE_PROFILE_KEY, { lastClientSequence: next });
+  }
   return next;
 }
 
 /**
- * Project and write a component's card + learner state from its full chain,
- * stamping the local owner (R2-F3). The `events` passed in are already
- * owner-filtered (from `readComponentEvents`), so an empty set means THIS owner
- * has no remaining scheduling events for the component — revert it to
- * never-reviewed. The single row is keyed by `componentKey` and holds the active
- * identity's projection; the account-authoritative pull likewise stamps its own
- * owner, so a signed-in account's card never mixes with a guest's.
- *
- * NATURAL-KEY CLAIM (ARCH-004 / SEC-002): the store keeps its pre-v6 PRIMARY
- * KEY, so `userId` scopes reads but is not part of the row identity — this
- * `put` REPLACES any row a different identity holds for the same key. That is
- * deliberate and safe for Stage A, on the same reasoning stated at
- * `setBookmarked`: the other identity's row was already invisible to every
- * owner-scoped read, local-only state carries no durability guarantee across an
- * identity switch, and sign-out wipes these stores wholesale anyway
- * (`clearAccountLocalState`). Coexisting rows per identity would need a
- * composite `[userId+key]` primary key — a data-moving migration deliberately
- * left to the Phase-17 guest-merge work.
+ * Replay options for every LOCAL chain read (Phase 17 §14). After a guest→account
+ * merge the account's local events for a component are a UNION of the two
+ * imported histories, so the local paths must accept that shape — deliberately,
+ * via the shared scheduler's explicit opt-in, rather than by weakening the
+ * default that keeps ordinary sync failing loudly on an unexpected second root.
+ */
+const LOCAL_REPLAY_OPTIONS = { allowMergeUnion: true } as const;
+
+/**
+ * Project and write a component's card + learner state from its full chain, for
+ * the OWNER whose events these are. The `events` passed in are already
+ * owner-scoped (from `readComponentEvents`), so an empty set means THIS owner has
+ * no remaining scheduling events for the component — revert it to never-reviewed.
+ * Since schema v7 the row's identity is `[ownerKey+componentKey]`, so writing an
+ * account's card can no longer replace a guest's card for the same component:
+ * both coexist until the guest's rows are merged or explicitly removed.
  */
 async function writeComponentProjection(
   db: SafwaDb,
@@ -323,52 +320,32 @@ async function writeComponentProjection(
   if (events.length === 0) {
     // No scheduling events remain (e.g. after undoing the only one): the
     // component reverts to never-reviewed — remove the stale card row.
-    await db.studyComponents.delete(componentKey);
+    await db.studyComponents.delete(ownedKey(owner, componentKey));
     return;
   }
-  const projection = projectComponent(events, now);
-  const head = chainHead(events);
+  const replay = replayChain(events, LOCAL_REPLAY_OPTIONS);
   const record: StudyComponentRecord = {
+    ownerKey: toOwnerKey(owner),
     componentKey,
     entryId,
-    userId: owner,
-    fsrs: projection.card ?? undefined,
-    learnerState: projection.state,
-    revision: head?.clientComponentRevision ?? 0,
+    fsrs: replay.card ?? undefined,
+    learnerState: learnerStateFromReplay(replay, now),
+    // The union's HIGHEST revision, which a new review must exceed — equal to
+    // the head's own revision for an ordinary single chain (§14).
+    revision: replay.headRevision,
   };
   await db.studyComponents.put(record);
 }
 
 /**
- * Whether `events` form a COMPLETE local causal chain from revision 1 — i.e.
- * genuine on-device study that the pure replay can project. A chain whose lowest
- * revision is >1 or whose earliest event has a non-null parent is a
- * bootstrapped / anchor-managed chain (R2-F2): it extends a server head this
- * device never held locally, so it cannot be replayed from a fresh card.
- */
-function isCompleteLocalChain(events: readonly ReviewEvent[]): boolean {
-  if (events.length === 0) return false;
-  let earliest = events[0]!;
-  for (const event of events) {
-    if (event.clientComponentRevision < earliest.clientComponentRevision) {
-      earliest = event;
-    }
-  }
-  return (
-    earliest.clientComponentRevision === 1 && earliest.parentEventId === null
-  );
-}
-
-/**
- * Re-project a component's local card from `chain`, but ONLY when `chain` is a
- * complete local chain from revision 1 (genuine on-device study). A bootstrapped
- * / anchor-managed component (R2-F2) is SERVER-authoritative: the pure replay
- * needs the whole chain from revision 1, which such a device lacks, so its
- * pulled card stands and the next pull delivers the advanced authoritative state
- * (immediate optimistic card advance is deferred to the sync round-trip for
- * bootstrapped components — Stage A). An empty chain reverts a genuine local
- * component to never-reviewed, but LEAVES a bootstrapped component's pulled card
- * intact (its authoritative state is not local work to erase).
+ * Re-project a component's local card from `chain`, but ONLY when the chain
+ * contains its own whole history (the shared scheduler's `complete`). A
+ * bootstrapped / anchor-managed component (R2-F2) is SERVER-authoritative: the
+ * replay would start from a fresh card partway through a real history, so its
+ * pulled card stands and the next pull delivers the advanced authoritative state.
+ * An empty chain reverts a genuine local component to never-reviewed, but LEAVES
+ * a bootstrapped component's pulled card intact (its authoritative state is not
+ * local work to erase).
  */
 async function reprojectLocalChain(
   db: SafwaDb,
@@ -379,13 +356,16 @@ async function reprojectLocalChain(
   owner: LocalOwnerId,
 ): Promise<void> {
   if (chain.length === 0) {
-    const component = await db.studyComponents.get(componentKey);
+    const component = await db.studyComponents.get(
+      ownedKey(owner, componentKey),
+    );
     if (!component?.syncedHeadEventId) {
-      await db.studyComponents.delete(componentKey);
+      await db.studyComponents.delete(ownedKey(owner, componentKey));
     }
     return;
   }
-  if (!isCompleteLocalChain(chain)) return; // anchor-managed: pulled card stands
+  // Anchor-managed / partial history: the pulled card stands.
+  if (!replayChain(chain, LOCAL_REPLAY_OPTIONS).complete) return;
   await writeComponentProjection(db, componentKey, entryId, chain, now, owner);
 }
 
@@ -412,7 +392,6 @@ export async function recordGradedAttempt(
       db.reviewEvents,
       db.studyComponents,
       db.sessions,
-      db.settings,
       db.profile,
       db.mutationQueue,
     ],
@@ -434,14 +413,20 @@ export async function recordGradedAttempt(
       const boundAttempt: AttemptRecord =
         deviceId === attempt.deviceId ? attempt : { ...attempt, deviceId };
 
+      // The attempt's own owner keys the session, the attempt row and — below —
+      // its scheduling event, so every row this write produces belongs to one
+      // identity and none of them can replace another identity's rows.
+      const ownerKey = toOwnerKey(boundAttempt.userId);
       if ((await db.sessions.get(boundAttempt.sessionId)) === undefined) {
         await db.sessions.add({
           id: boundAttempt.sessionId,
+          ownerKey,
           startedAt: context.sessionStartedAt ?? context.now,
         });
       }
       await db.studyAttempts.put({
         id: boundAttempt.id,
+        ownerKey,
         componentKey,
         sessionId: boundAttempt.sessionId,
         attemptedAt: context.now,
@@ -480,16 +465,19 @@ export async function recordGradedAttempt(
       const existing = await readComponentEvents(db, componentKey, owner);
       const ids = {
         eventId: context.eventId,
-        clientSequence: await nextClientSequence(db, context.now),
+        clientSequence: await nextClientSequence(db),
       };
-      const localHead = chainHead(existing);
-      // Extend the OWNED local chain if there is one; otherwise, on a fresh
-      // device / post-logout, extend the server chain via the pulled anchor
-      // (R2-F2); only with neither does the event root a new chain.
-      const lineage = localHead
-        ? deriveLineage(localHead, ids)
-        : ((await anchorLineage(db, componentKey, owner, ids)) ??
-          deriveLineage(null, ids));
+      // Extend the OWNED local chain if there is one — deriveNextLineage parents
+      // on its chronological head and takes the revision from the set's maximum,
+      // so a component whose history was MERGED continues correctly from both
+      // imported chains (§14). Otherwise, on a fresh device / post-logout, extend
+      // the server chain via the pulled anchor (R2-F2); only with neither does
+      // the event root a new chain.
+      const lineage =
+        existing.length > 0
+          ? deriveNextLineage(existing, ids, 0, LOCAL_REPLAY_OPTIONS)
+          : ((await anchorLineage(db, componentKey, owner, ids)) ??
+            deriveLineage(null, ids));
       const event = createReviewEvent(boundAttempt, lineage);
       await db.reviewEvents.put(toEventRecord(event, context.now, owner));
       // Re-project only a complete local chain; a bootstrapped/anchor-managed
@@ -549,11 +537,19 @@ export async function undoGradedAttempt(
     async () => {
       if (persisted.eventId !== null) {
         const componentKey = persisted.componentKey;
-        // Owner (R2-F3): scope the chain read + reprojection to the attempt's
-        // account so undo never reads/rewrites another identity's chain.
+        // Owner: scope the chain read + reprojection to the attempt ROW's owner
+        // so undo never reads or rewrites another identity's chain. The row's
+        // `ownerKey` — not the embedded payload's `userId` — is authoritative:
+        // a merge re-keys imported rows to the account while deliberately
+        // leaving the immutable engine payload (and its original guest owner)
+        // untouched as history.
+        // An absent row (already undone) or an unreadable owner key both fall
+        // back to the guest owner, exactly as before — the paths below then
+        // find no owned chain and no server-known event to revoke.
         const owner =
-          (await db.studyAttempts.get(persisted.attemptId))?.attempt?.userId ??
-          null;
+          tryParseOwnerKey(
+            (await db.studyAttempts.get(persisted.attemptId))?.ownerKey,
+          ) ?? null;
         const chain = await readComponentEvents(db, componentKey, owner);
         // A later event depending on this one means it is no longer the head;
         // reject before touching anything so the chain stays consistent.

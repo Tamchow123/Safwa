@@ -18,6 +18,7 @@ import {
   writeGuestSetting,
   writeSetting,
 } from "@/modules/profile/settings";
+import { accountOwnerKey, GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const map = new Map(Object.entries(initial));
@@ -53,33 +54,39 @@ describe("settings owner scoping (R2-F3)", () => {
     expect(await readSetting(db, "theme", ACCOUNT)).toBe("account-light");
   });
 
-  it("claiming a key REPLACES the other identity's row — the documented Stage-A trade-off (SEC-002)", async () => {
-    // Made explicit rather than left implicit: `settings` keeps its pre-v6
-    // PRIMARY KEY (`key`), so `userId` is a scoping column, not part of the
-    // row identity. A second identity writing the same key therefore replaces
-    // the first identity's row outright rather than coexisting with it.
-    //
-    // This is ACCEPTED for Stage A: local-only settings are device state with
-    // no durability guarantee across an identity switch, and sign-out already
-    // wipes every account-scoped store wholesale (the human-approved
-    // clearAccountLocalState policy, E2E §60.9). Giving these stores a
-    // composite `[userId+key]` primary key would be a data-moving Dexie
-    // migration, which is deliberately out of scope for this remediation and
-    // belongs with the Phase-17 guest-merge work.
+  it("two identities COEXIST under one key — neither write replaces the other (§10)", async () => {
+    // This inverts the Phase-16 behaviour deliberately. Then, `settings` kept
+    // its pre-v6 primary key (`key`) and `userId` was only a scoping column, so
+    // a second identity writing the same key REPLACED the first identity's row
+    // outright — an accepted Stage-A trade-off, documented as belonging to the
+    // Phase-17 guest-merge work. That work is this: the owner is now half of the
+    // primary key (`[ownerKey+key]`), so a guest's value and an account's value
+    // for the same setting are separate rows. Without this a deferred merge
+    // could not exist — signing in would silently destroy the guest's settings.
     await writeSetting(db, "theme", "guest-dark", () => 1, null);
     await writeSetting(db, "theme", "account-light", () => 2, ACCOUNT);
 
-    // The account's value stands; the guest's is GONE, not merely hidden.
     expect(await readSetting(db, "theme", ACCOUNT)).toBe("account-light");
-    expect(await readSetting(db, "theme", null)).toBeUndefined();
-    expect(await db.settings.where("key").equals("theme").count()).toBe(1);
+    expect(await readSetting(db, "theme", null)).toBe("guest-dark");
+    expect(await db.settings.where("key").equals("theme").count()).toBe(2);
+    // Each row keeps its own timestamp — neither write touched the other.
+    expect((await db.settings.get([GUEST_OWNER_KEY, "theme"]))?.updatedAt).toBe(
+      1,
+    );
+    expect(
+      (await db.settings.get([accountOwnerKey(ACCOUNT), "theme"]))?.updatedAt,
+    ).toBe(2);
   });
 
   it("writeGuestSetting enqueues under the AUTH owner even before the first pull (R2-F1)", async () => {
     // No sync_state row exists (the account has not pulled yet), yet the
     // account's setting change must still enqueue + stamp under its identity.
     await writeGuestSetting(db, "theme", "dark", undefined, {}, ACCOUNT);
-    expect((await db.settings.get("theme"))?.userId).toBe(ACCOUNT);
+    expect(
+      await db.settings.get([accountOwnerKey(ACCOUNT), "theme"]),
+    ).toBeDefined();
+    // The guest's own value for the same key is a DIFFERENT row (§10).
+    expect(await db.settings.get([GUEST_OWNER_KEY, "theme"])).toBeUndefined();
     const queued = await db.mutationQueue
       .where("userId")
       .equals(ACCOUNT)
@@ -93,12 +100,12 @@ describe("settings store", () => {
     expect(await readSetting(db, "missing", null)).toBeUndefined();
     await writeSetting(db, "some-key", { nested: true }, () => 42);
     expect(await readSetting(db, "some-key", null)).toEqual({ nested: true });
-    expect(await db.settings.get("some-key")).toEqual({
+    expect(await db.settings.get([GUEST_OWNER_KEY, "some-key"])).toEqual({
       key: "some-key",
       value: { nested: true },
       updatedAt: 42,
-      // R2-F3: writeSetting stamps the local owner (null = guest by default).
-      userId: null,
+      // Owner-keyed (schema v7): the guest key is half of the row's identity.
+      ownerKey: GUEST_OWNER_KEY,
     });
   });
 
@@ -162,11 +169,13 @@ describe("syncArabicFontScale", () => {
     const result = await syncArabicFontScale(db, mirror, () => 2);
     expect(result).toEqual({ effective: "large", restoreMirror: false });
     // …and the durable copy is healed to match the user's choice.
-    expect(await db.settings.get(SETTING_KEYS.arabicFontScale)).toEqual({
+    expect(
+      await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.arabicFontScale]),
+    ).toEqual({
       key: SETTING_KEYS.arabicFontScale,
       value: "large",
       updatedAt: 2,
-      userId: null,
+      ownerKey: GUEST_OWNER_KEY,
     });
     // The heal is a silent write: no profile mint on page load.
     expect(await peekDeviceProfile(db)).toBeNull();
@@ -186,7 +195,10 @@ describe("syncArabicFontScale", () => {
     const result = await syncArabicFontScale(db, mirror);
     expect(result).toEqual({ effective: "small", restoreMirror: true });
     // The invalid mirror value is never "healed" into the durable copy.
-    const record = await db.settings.get(SETTING_KEYS.arabicFontScale);
+    const record = await db.settings.get([
+      GUEST_OWNER_KEY,
+      SETTING_KEYS.arabicFontScale,
+    ]);
     expect(record?.value).toBe("small");
   });
 
@@ -196,7 +208,8 @@ describe("syncArabicFontScale", () => {
     const result = await syncArabicFontScale(db, mirror, () => 99);
     expect(result).toEqual({ effective: "large", restoreMirror: false });
     expect(
-      (await db.settings.get(SETTING_KEYS.arabicFontScale))?.updatedAt,
+      (await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.arabicFontScale]))
+        ?.updatedAt,
     ).toBe(7);
   });
 
@@ -204,11 +217,13 @@ describe("syncArabicFontScale", () => {
     const mirror = memoryStorage({ [ARABIC_FONT_SCALE_STORAGE_KEY]: "large" });
     const result = await syncArabicFontScale(db, mirror, () => 99);
     expect(result).toEqual({ effective: "large", restoreMirror: false });
-    expect(await db.settings.get(SETTING_KEYS.arabicFontScale)).toEqual({
+    expect(
+      await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.arabicFontScale]),
+    ).toEqual({
       key: SETTING_KEYS.arabicFontScale,
       value: "large",
       updatedAt: 99,
-      userId: null,
+      ownerKey: GUEST_OWNER_KEY,
     });
     // Migration is a silent write: no profile is minted on page load.
     expect(await peekDeviceProfile(db)).toBeNull();
@@ -222,11 +237,13 @@ describe("syncArabicFontScale", () => {
     });
     const result = await syncArabicFontScale(db, mirror, () => 11);
     expect(result).toEqual({ effective: "default", restoreMirror: false });
-    expect(await db.settings.get(SETTING_KEYS.arabicFontScale)).toEqual({
+    expect(
+      await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.arabicFontScale]),
+    ).toEqual({
       key: SETTING_KEYS.arabicFontScale,
       value: "default",
       updatedAt: 11,
-      userId: null,
+      ownerKey: GUEST_OWNER_KEY,
     });
   });
 
@@ -255,11 +272,13 @@ describe("syncTheme", () => {
     const mirror = memoryStorage({ [APP_THEME_STORAGE_KEY]: "dark" });
     const result = await syncTheme(db, mirror, () => 2);
     expect(result).toEqual({ effective: "dark", restoreMirror: false });
-    expect(await db.settings.get(SETTING_KEYS.theme)).toEqual({
+    expect(
+      await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.theme]),
+    ).toEqual({
       key: SETTING_KEYS.theme,
       value: "dark",
       updatedAt: 2,
-      userId: null,
+      ownerKey: GUEST_OWNER_KEY,
     });
     // Silent write: no profile mint on page load.
     expect(await peekDeviceProfile(db)).toBeNull();
@@ -270,7 +289,9 @@ describe("syncTheme", () => {
     const result = await syncTheme(db, memoryStorage(), () => 9);
     expect(result).toEqual({ effective: "dark", restoreMirror: true });
     // No redundant Dexie write.
-    expect((await db.settings.get(SETTING_KEYS.theme))?.updatedAt).toBe(7);
+    expect(
+      (await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.theme]))?.updatedAt,
+    ).toBe(7);
   });
 
   it("flags a restore when the mirror holds an invalid value", async () => {
@@ -279,7 +300,9 @@ describe("syncTheme", () => {
     const result = await syncTheme(db, mirror);
     expect(result).toEqual({ effective: "dark", restoreMirror: true });
     // The invalid mirror value is never healed into the durable copy.
-    expect((await db.settings.get(SETTING_KEYS.theme))?.value).toBe("dark");
+    expect(
+      (await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.theme]))?.value,
+    ).toBe("dark");
   });
 
   it("agreeing stores stay untouched (no redundant write)", async () => {
@@ -287,18 +310,22 @@ describe("syncTheme", () => {
     const mirror = memoryStorage({ [APP_THEME_STORAGE_KEY]: "system" });
     const result = await syncTheme(db, mirror, () => 42);
     expect(result).toEqual({ effective: "system", restoreMirror: false });
-    expect((await db.settings.get(SETTING_KEYS.theme))?.updatedAt).toBe(3);
+    expect(
+      (await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.theme]))?.updatedAt,
+    ).toBe(3);
   });
 
   it("migrates a mirror-only theme (including 'system') into Dexie", async () => {
     const mirror = memoryStorage({ [APP_THEME_STORAGE_KEY]: "system" });
     const result = await syncTheme(db, mirror, () => 21);
     expect(result).toEqual({ effective: "system", restoreMirror: false });
-    expect(await db.settings.get(SETTING_KEYS.theme)).toEqual({
+    expect(
+      await db.settings.get([GUEST_OWNER_KEY, SETTING_KEYS.theme]),
+    ).toEqual({
       key: SETTING_KEYS.theme,
       value: "system",
       updatedAt: 21,
-      userId: null,
+      ownerKey: GUEST_OWNER_KEY,
     });
     // Migration is a silent write: no profile is minted on page load.
     expect(await peekDeviceProfile(db)).toBeNull();

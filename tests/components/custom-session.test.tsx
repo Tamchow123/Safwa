@@ -172,6 +172,7 @@ vi.mock("@/modules/profile/timezone", async (importActual) => {
 });
 
 import { CustomSession } from "@/components/study/custom-session";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -322,7 +323,9 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
   it("selecting Bookmarks narrows the session to only the bookmarked entry (§19)", async () => {
     const targetEntryId = built.learner.entries[0].id;
     collectionsRaw = {
-      bookmarks: [{ entryId: targetEntryId, createdAt: 1 }],
+      bookmarks: [
+        { ownerKey: GUEST_OWNER_KEY, entryId: targetEntryId, createdAt: 1 },
+      ],
       lists: [],
     };
     const user = userEvent.setup();
@@ -347,6 +350,7 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
       bookmarks: [],
       lists: [
         {
+          ownerKey: GUEST_OWNER_KEY,
           id: "list-1",
           name: "My revision list",
           entryIds: [targetEntryId],
@@ -390,6 +394,7 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
       bookmarks: [],
       lists: [
         {
+          ownerKey: GUEST_OWNER_KEY,
           id: "list-1",
           name: "My revision list",
           entryIds: [],
@@ -455,7 +460,9 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
     const firstEntryId = built.learner.entries[0].id;
     const secondEntryId = built.learner.entries[1].id;
     collectionsRaw = {
-      bookmarks: [{ entryId: firstEntryId, createdAt: 1 }],
+      bookmarks: [
+        { ownerKey: GUEST_OWNER_KEY, entryId: firstEntryId, createdAt: 1 },
+      ],
       lists: [],
     };
     const user = userEvent.setup();
@@ -476,7 +483,9 @@ describe("CustomSession — setup screen (§4.4 filter matrix)", () => {
     // Study Again must plan against the NEW set, not the one captured at the
     // first Start.
     collectionsRaw = {
-      bookmarks: [{ entryId: secondEntryId, createdAt: 2 }],
+      bookmarks: [
+        { ownerKey: GUEST_OWNER_KEY, entryId: secondEntryId, createdAt: 2 },
+      ],
       lists: [],
     };
 

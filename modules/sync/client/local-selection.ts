@@ -11,6 +11,7 @@
  * scheduling attempts + events that drive FSRS.
  */
 import type { ReviewEventRecord, SafwaDb } from "@/modules/content/db";
+import { accountOwnerKey } from "@/modules/content/owner-key";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 import {
   wireAttemptSchema,
@@ -104,22 +105,20 @@ export function toWireAttempt(attempt: AttemptRecord): WireAttempt | null {
  */
 /**
  * Count THIS account's unsynced scheduling events — the `syncStatus === "local"`
- * review-events it owns (§20 pending badge). Since schema v6 (R2-F3) review
- * events carry their OWN `userId`, this is a single owner-scoped INDEXED count
- * over `[userId+syncStatus]` — no attempt-join, and no scan cap. A guest's (or
+ * review-events it owns (§20 pending badge). Review events carry their own
+ * `ownerKey`, so this is a single owner-scoped INDEXED count over
+ * `[ownerKey+syncStatus]` — no attempt-join, and no scan cap. A guest's (or
  * another account's) local backlog is simply not in this account's index slice,
- * so it can neither inflate the badge nor — as under the old bounded scan +
- * attempt-join — starve/undercount this account's true backlog behind a cap
- * (the EXT-F1 join is retired). Guest events have a null owner, which IndexedDB
- * does not index; guests never sync, so they never call this.
+ * so it can neither inflate the badge nor starve/undercount this account's true
+ * backlog behind a cap (the EXT-F1 join is retired).
  */
 export async function countPendingScheduling(
   db: SafwaDb,
   userId: string,
 ): Promise<number> {
   return db.reviewEvents
-    .where("[userId+syncStatus]")
-    .equals([userId, "local"])
+    .where("[ownerKey+syncStatus]")
+    .equals([accountOwnerKey(userId), "local"])
     .count();
 }
 
@@ -145,27 +144,29 @@ export async function countPendingChanges(
 /**
  * Select up to `limit` unsynced scheduling events OWNED by `userId`, with their
  * attempts, ready to push. ACCOUNT OWNERSHIP (§18, EXT-F1): an event is included
- * only if its linked attempt's `attempt.userId === userId`. Guest events
- * (attempt.userId === null) and any leftover events belonging to a different
- * account are NEVER uploaded — logging in must not merge a guest's local history
- * (the Phase-17 merge flow is the only path that promotes guest rows). An event
- * whose attempt is missing/invalid is also skipped (the server grades an
- * objective event by reconstructing its attempt). Attempts are de-duplicated.
+ * only if it is keyed to THIS account's owner. A guest's events are keyed to the
+ * guest owner and any leftover events belonging to a different account to
+ * theirs, so neither is ever uploaded — logging in must not merge a guest's
+ * local history (the Phase-17 merge flow is the only path that promotes guest
+ * rows). An event whose attempt is missing/invalid is also skipped (the server
+ * grades an objective event by reconstructing its attempt). Attempts are
+ * de-duplicated.
  */
 export async function selectUnsyncedScheduling(
   db: SafwaDb,
   limit: number,
   userId: string,
 ): Promise<SchedulingSelection> {
-  // Owner-scoped selection (R2-F3): the `[userId+syncStatus]` index yields ONLY
-  // this account's unsynced events, so the `limit` page can never be starved by
-  // a guest's (or another account's) local backlog sitting AHEAD of it in an
+  // Owner-scoped selection: the `[ownerKey+syncStatus]` index yields ONLY this
+  // account's unsynced events, so the `limit` page can never be starved by a
+  // guest's (or another account's) local backlog sitting AHEAD of it in an
   // unscoped `syncStatus`-only scan (the EXT-F1/-F3 starvation the old `.limit`
-  // before the ownership filter allowed). Guest events (null owner) are not in
-  // this index; guests never sync, so login never uploads guest history (§18).
+  // before the ownership filter allowed). A guest's events are keyed to the
+  // GUEST owner, so ordinary sync can never select them: they reach the server
+  // only through the explicit Phase-17 merge (§18, phases-17.md §9.1).
   const localEvents = await db.reviewEvents
-    .where("[userId+syncStatus]")
-    .equals([userId, "local"])
+    .where("[ownerKey+syncStatus]")
+    .equals([accountOwnerKey(userId), "local"])
     .limit(limit)
     .toArray();
 
