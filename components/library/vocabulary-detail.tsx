@@ -9,6 +9,7 @@ import { AddToListDialog } from "@/components/collections/add-to-list-dialog";
 import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
 import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
 import { EligibilityBadge } from "@/components/library/eligibility-badge";
 import { VocabularyField } from "@/components/library/vocabulary-field";
@@ -57,6 +58,7 @@ function NotFoundCard() {
 export function VocabularyDetail({ idParam }: { idParam: string }) {
   const { state, retry } = useActiveContent();
   // Hooks run unconditionally, before any early return below.
+  const resolveOwner = useResolveOwner();
   const { state: collections, refresh: refreshCollections } = useCollections();
   const knownEntryIds = useMemo(
     () =>
@@ -67,10 +69,18 @@ export function VocabularyDetail({ idParam }: { idParam: string }) {
   );
   const handleToggleBookmark = useCallback(
     async (entryId: number) => {
-      await toggleBookmark(getSafwaDb(), entryId, knownEntryIds, Date.now());
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const owner = await resolveOwner();
+      await toggleBookmark(
+        getSafwaDb(),
+        entryId,
+        knownEntryIds,
+        Date.now(),
+        owner,
+      );
       refreshCollections();
     },
-    [knownEntryIds, refreshCollections],
+    [knownEntryIds, refreshCollections, resolveOwner],
   );
 
   // The route id must be a positive integer (stable learner entry id).

@@ -66,7 +66,7 @@ describe("TimezoneSettings", () => {
     const select = screen.getByLabelText<HTMLSelectElement>("Timezone");
     await user.selectOptions(select, "UTC");
     await waitFor(async () => {
-      expect(await readTimezonePreference(db)).toEqual({
+      expect(await readTimezonePreference(db, null)).toEqual({
         mode: "iana",
         timezone: "UTC",
       });
@@ -81,14 +81,16 @@ describe("TimezoneSettings", () => {
     const select = screen.getByLabelText<HTMLSelectElement>("Timezone");
     await user.selectOptions(select, "UTC");
     await waitFor(async () => {
-      expect(await readTimezonePreference(db)).toEqual({
+      expect(await readTimezonePreference(db, null)).toEqual({
         mode: "iana",
         timezone: "UTC",
       });
     });
     await user.selectOptions(select, "__browser__");
     await waitFor(async () => {
-      expect(await readTimezonePreference(db)).toEqual({ mode: "browser" });
+      expect(await readTimezonePreference(db, null)).toEqual({
+        mode: "browser",
+      });
     });
   });
 
@@ -104,7 +106,7 @@ describe("TimezoneSettings", () => {
       "__browser__",
     );
     // The corrupt stored row itself is untouched by a passive read.
-    expect(await readSetting(db, SETTING_KEYS.timezone)).toEqual({
+    expect(await readSetting(db, SETTING_KEYS.timezone, null)).toEqual({
       mode: "iana",
       timezone: "Broken/Zone",
     });

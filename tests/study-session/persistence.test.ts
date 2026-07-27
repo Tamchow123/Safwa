@@ -6,6 +6,7 @@ import { SafwaDb } from "@/modules/content/db";
 import { newDeviceProfile } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine";
 import {
+  readSchedulingSnapshot,
   recordGradedAttempt,
   SupersededUndoError,
   undoGradedAttempt,
@@ -102,6 +103,74 @@ describe("recordGradedAttempt", () => {
     // An Again with no clean success has not started learning.
     const component = await db.studyComponents.get(COMPONENT);
     expect(component?.learnerState).toBe("not_started");
+  });
+
+  it("extends the pulled lineage anchor when there are no local events (R2-F2)", async () => {
+    // A fresh device / post-logout: the pull left an authoritative component
+    // with an anchor but no local review_events.
+    await db.studyComponents.put({
+      componentKey: COMPONENT,
+      entryId: 1,
+      userId: "user-1",
+      revision: 5,
+      learnerState: "needs_review",
+      syncedHeadEventId: "head-ev",
+      syncedHeadClientRevision: 3,
+    });
+
+    await recordGradedAttempt(
+      db,
+      flashcardAttempt({ id: "a1", userId: "user-1", isCorrect: true }),
+      { eventId: "e-new", now: 1000 },
+    );
+
+    const event = await db.reviewEvents.get("e-new");
+    // Parents on the accepted server head rather than rooting a stale branch.
+    expect(event?.parentEventId).toBe("head-ev");
+    expect(event?.clientComponentRevision).toBe(4); // headClientRevision + 1
+    expect(event?.baseServerRevision).toBe(5); // the component's server revision
+    expect(event?.userId).toBe("user-1");
+
+    // The bootstrapped component's pulled card is server-authoritative: it is
+    // NOT locally re-projected (the pure replay needs the whole chain from
+    // revision 1, which this device lacks). It stands until the event syncs and
+    // the next pull returns the advanced authoritative card (R2-F2, Stage A).
+    const component = await db.studyComponents.get(COMPONENT);
+    expect(component?.revision).toBe(5);
+    expect(component?.learnerState).toBe("needs_review");
+  });
+
+  it("roots a new chain when there is neither a local head nor an anchor (R2-F2)", async () => {
+    await recordGradedAttempt(
+      db,
+      flashcardAttempt({ id: "a1", userId: "user-1", isCorrect: true }),
+      { eventId: "e1", now: 1000 },
+    );
+    const event = await db.reviewEvents.get("e1");
+    expect(event?.parentEventId).toBeNull();
+    expect(event?.clientComponentRevision).toBe(1);
+  });
+
+  it("ignores ANOTHER owner's anchor and roots its own chain (R2-F3 scoping)", async () => {
+    // A guest-owned component anchor must not be extended by the account.
+    await db.studyComponents.put({
+      componentKey: COMPONENT,
+      entryId: 1,
+      userId: null, // guest
+      revision: 5,
+      syncedHeadEventId: "guest-head",
+      syncedHeadClientRevision: 3,
+    });
+
+    await recordGradedAttempt(
+      db,
+      flashcardAttempt({ id: "a1", userId: "user-1", isCorrect: true }),
+      { eventId: "e-new", now: 1000 },
+    );
+
+    const event = await db.reviewEvents.get("e-new");
+    expect(event?.parentEventId).toBeNull(); // ignored the guest anchor
+    expect(event?.clientComponentRevision).toBe(1);
   });
 
   it("writes an attempt but NO event for a reinforcement recovery", async () => {
@@ -335,5 +404,62 @@ describe("recordGradedAttempt device-profile binding", () => {
     expect(await db.profile.get("device")).toBeUndefined();
     expect(await db.studyAttempts.get("a1")).toBeUndefined();
     expect(await db.reviewEvents.get("e1")).toBeUndefined();
+  });
+});
+
+describe("readSchedulingSnapshot owner scoping (R2-F3)", () => {
+  const ACCOUNT = "user-1";
+
+  it("returns only the owner's own components + events", async () => {
+    // A guest component/event (owner null) and an account one (owner ACCOUNT)
+    // coexist in the store before a logout wipe.
+    await db.studyComponents.add({
+      componentKey: "entry:1:guest",
+      entryId: 1,
+      userId: null,
+      learnerState: "learning",
+    });
+    await db.studyComponents.add({
+      componentKey: "entry:2:account",
+      entryId: 2,
+      userId: ACCOUNT,
+      learnerState: "needs_review",
+    });
+    await db.reviewEvents.add({
+      eventId: "ev-guest",
+      componentKey: "entry:1:guest",
+      parentEventId: null,
+      clientComponentRevision: 1,
+      syncStatus: "local",
+      createdAt: 1,
+      status: "scheduling",
+      userId: null,
+    });
+    await db.reviewEvents.add({
+      eventId: "ev-account",
+      componentKey: "entry:2:account",
+      parentEventId: null,
+      clientComponentRevision: 1,
+      syncStatus: "local",
+      createdAt: 2,
+      status: "scheduling",
+      userId: ACCOUNT,
+    });
+
+    const asAccount = await readSchedulingSnapshot(db, ACCOUNT);
+    expect(asAccount.components.map((c) => c.componentKey)).toEqual([
+      "entry:2:account",
+    ]);
+    expect(asAccount.events.map((e) => e.componentKey)).toEqual([
+      "entry:2:account",
+    ]);
+
+    const asGuest = await readSchedulingSnapshot(db, null);
+    expect(asGuest.components.map((c) => c.componentKey)).toEqual([
+      "entry:1:guest",
+    ]);
+    expect(asGuest.events.map((e) => e.componentKey)).toEqual([
+      "entry:1:guest",
+    ]);
   });
 });

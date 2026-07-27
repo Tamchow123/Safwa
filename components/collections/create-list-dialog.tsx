@@ -21,6 +21,7 @@ import { getSafwaDb } from "@/modules/content/db";
 import type { CustomListRecord } from "@/modules/content/db";
 import { createList } from "@/modules/collections/persistence";
 import { LIST_NAME_MAX_LENGTH } from "@/modules/collections/validation";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 
 export function CreateListDialog({
   trigger,
@@ -29,6 +30,7 @@ export function CreateListDialog({
   trigger: ReactNode;
   onCreated: (list: CustomListRecord) => void;
 }) {
+  const resolveOwner = useResolveOwner();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
@@ -40,7 +42,13 @@ export function CreateListDialog({
     setPending(true);
     setError(null);
     try {
-      const list = await createList(getSafwaDb(), { name, now: Date.now() });
+      // ARCH-002: resolve the owner at action time (see useResolveOwner).
+      const owner = await resolveOwner();
+      const list = await createList(getSafwaDb(), {
+        name,
+        now: Date.now(),
+        owner,
+      });
       onCreated(list);
       setOpen(false);
       setName("");

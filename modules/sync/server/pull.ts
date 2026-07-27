@@ -248,10 +248,26 @@ export async function pullChanges(
   const components: WireComponentState[] = componentRows.map((row) => {
     const key = componentKeyOf(row);
     keyByComponentId.set(row.id, key);
+    const schedulingRows = schedulingByComponent.get(row.id) ?? [];
     const projection = projectComponentForPull(
-      (schedulingByComponent.get(row.id) ?? []).map(toReplayEvent),
+      schedulingRows.map(toReplayEvent),
       options.nowMs,
     );
+    // Lineage anchor (R2-F2): the accepted chain HEAD is the highest-revision
+    // scheduling row (the chain is serial, so client_component_revision strictly
+    // increases along it). A fresh device parents its next review onto this,
+    // rather than rooting a rejected stale branch. Null when there is no head.
+    let headEventId: string | null = null;
+    let headClientRevision: number | null = null;
+    for (const e of schedulingRows) {
+      if (
+        headClientRevision === null ||
+        e.clientComponentRevision > headClientRevision
+      ) {
+        headClientRevision = e.clientComponentRevision;
+        headEventId = e.eventId;
+      }
+    }
     return {
       componentKey: key,
       entryId: row.entryId,
@@ -263,6 +279,8 @@ export async function pullChanges(
       learnerState: projection.state,
       card: projection.card,
       masteryDates: projection.masteryDates,
+      headEventId,
+      headClientRevision,
     };
   });
 

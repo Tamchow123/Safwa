@@ -30,6 +30,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveContent } from "@/components/content/use-active-content";
+import { useLocalOwner } from "@/components/sync/use-local-owner";
 import { deriveAllComponentsCached } from "@/lib/derived-components-cache";
 import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import {
@@ -50,7 +51,11 @@ import {
   type StreakSummary,
 } from "@/modules/analytics";
 import { readAnalyticsSnapshot } from "@/modules/analytics/persistence";
-import { getSafwaDb, type SafwaDb } from "@/modules/content/db";
+import {
+  getSafwaDb,
+  type LocalOwnerId,
+  type SafwaDb,
+} from "@/modules/content/db";
 import type { LearnerEntry } from "@/modules/content/schema";
 import { readEffectiveClock } from "@/modules/profile/timezone";
 import { computeEventTimeFields } from "@/modules/study-engine/attempts";
@@ -130,11 +135,16 @@ async function loadAnalyticsView(
   db: SafwaDb,
   derived: readonly DerivedComponent[],
   entries: readonly LearnerEntry[],
+  owner: LocalOwnerId,
 ): Promise<AnalyticsView> {
   // The dashboard is NOT a study session: each load re-resolves the
   // effective clock so "today" always reflects the current preference
-  // (session freezing per §10.6 applies to study runners only).
-  const clock = await readEffectiveClock(db);
+  // (session freezing per §10.6 applies to study runners only). BOTH the
+  // timezone preference and the component/attempt/event data behind it are read
+  // OWNER-SCOPED (R2-F3 / SEC-001): the dashboard is private learner state, so
+  // a pre-login guest's (or, before the logout wipe, another account's) history
+  // must never be folded into this account's streaks and mastery counts.
+  const clock = await readEffectiveClock(db, owner);
   const nowMs = clock.now();
   let todayLocalDate = computeEventTimeFields(nowMs, clock).localDateAtEvent;
   // Fail INSIDE the guarded load, not later in a consumer's render (§18):
@@ -142,7 +152,7 @@ async function loadAnalyticsView(
   if (!isIsoDate(todayLocalDate)) {
     throw new Error("effective clock produced an invalid local date");
   }
-  const persisted = await readAnalyticsSnapshot(db, nowMs);
+  const persisted = await readAnalyticsSnapshot(db, nowMs, owner);
 
   // §10.6 reconciliation: a study session freezes its zone at session start,
   // so a mid-session preference change to a zone a calendar day BEHIND can
@@ -202,6 +212,7 @@ export function useAnalyticsSnapshot(): {
   retry: () => void;
 } {
   const { state: content, retry: retryContent } = useActiveContent();
+  const owner = useLocalOwner();
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshotState>({
     status: "loading",
   });
@@ -226,7 +237,7 @@ export function useAnalyticsSnapshot(): {
     void (async () => {
       try {
         const view = await withTimeout(
-          loadAnalyticsView(getSafwaDb(), derived, entries),
+          loadAnalyticsView(getSafwaDb(), derived, entries, owner),
           SNAPSHOT_WATCHDOG_MS,
           WATCHDOG_ERROR,
         );
@@ -248,7 +259,7 @@ export function useAnalyticsSnapshot(): {
     return () => {
       cancelled = true;
     };
-  }, [content, derived, attempt]);
+  }, [content, derived, attempt, owner]);
 
   // §14.4: regaining visibility after study elsewhere refreshes the numbers.
   // The previous ready view stays mounted while the fresh one loads; a

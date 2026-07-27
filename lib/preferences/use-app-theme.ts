@@ -3,11 +3,13 @@
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
 
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
   APP_THEME_STORAGE_KEY,
   isAppTheme,
   type AppTheme,
 } from "@/lib/preferences/app-theme";
+import type { LocalOwnerId } from "@/modules/content/db";
 import { getSafwaDb } from "@/modules/content/db";
 import {
   persistTheme,
@@ -38,10 +40,17 @@ let themeWriteCount = 0;
  * next-themes has already updated the UI; a Dexie failure only weakens
  * durability, never the current session.
  */
-async function persistThemeDurably(next: AppTheme): Promise<void> {
+async function persistThemeDurably(
+  next: AppTheme,
+  owner: LocalOwnerId,
+): Promise<void> {
   if (typeof indexedDB === "undefined") return;
   try {
-    await persistTheme(getSafwaDb(), next, navigator.storage);
+    // R2-F1/R2-F3: stamp + enqueue under the AUTH owner so a signed-in
+    // account's theme change syncs (and is stored as the account's). The
+    // device-global localStorage MIRROR (already written synchronously by
+    // next-themes) remains the pre-hydration display source across identities.
+    await persistTheme(getSafwaDb(), next, navigator.storage, {}, owner);
   } catch {
     // Best-effort durable write; the mirror still applies.
   }
@@ -59,9 +68,16 @@ export async function reconcileThemeFromDb(
   if (typeof indexedDB === "undefined") return;
   const observedWrites = themeWriteCount;
   try {
+    // Device-global (owner null): this startup reconcile runs at the app root
+    // before the Auth session resolves, and the theme mirror is intentionally
+    // device-level (applies before hydration). A signed-in account's pulled
+    // theme is carried by the mirror force-write on pull (R2-F5), not by this
+    // pre-auth Dexie read.
     const { effective, restoreMirror } = await syncTheme(
       getSafwaDb(),
       window.localStorage,
+      Date.now,
+      null,
     );
     if (themeWriteCount !== observedWrites) {
       // The user picked a theme while the read was in flight; their write
@@ -116,7 +132,9 @@ async function restoreThemeAfterMirrorRemoval(
   if (typeof indexedDB === "undefined") return;
   const observedWrites = themeWriteCount;
   try {
-    const stored = await readSetting(getSafwaDb(), SETTING_KEYS.theme);
+    // Device-global (owner null) — the mirror-removal restore is a device-level
+    // fallback; a signed-in account re-adopts its theme on the next pull (R2-F5).
+    const stored = await readSetting(getSafwaDb(), SETTING_KEYS.theme, null);
     if (themeWriteCount !== observedWrites) {
       // The user picked a theme in THIS tab while the Dexie read was in
       // flight; their choice is newer than the stored value.
@@ -144,15 +162,18 @@ async function restoreThemeAfterMirrorRemoval(
  */
 export function useAppTheme() {
   const { theme, setTheme } = useTheme();
+  const resolveOwner = useResolveOwner();
   const setAppTheme = useCallback(
     (next: string) => {
       themeWriteCount += 1;
       setTheme(next);
       if (isAppTheme(next)) {
-        void persistThemeDurably(next);
+        // ARCH-002: resolve the owner at action time (see useResolveOwner) so a
+        // theme picked before the session resolves is not stamped as a guest's.
+        void resolveOwner().then((owner) => persistThemeDurably(next, owner));
       }
     },
-    [setTheme],
+    [setTheme, resolveOwner],
   );
   return { theme, setTheme: setAppTheme };
 }

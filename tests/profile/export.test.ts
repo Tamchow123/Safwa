@@ -179,26 +179,32 @@ describe("buildExportPayload", () => {
   // actually persist, without an export-schema bump (still version 1).
   describe("bookmarks/lists round-trip (§22)", () => {
     it("keeps the export schema version at 1 (no bump for the collections stores)", async () => {
-      await toggleBookmark(db, 7, KNOWN, 1);
+      await toggleBookmark(db, 7, KNOWN, 1, null);
       const payload = await buildExportPayload(db, () => 2);
       expect(payload.export_schema_version).toBe(EXPORT_SCHEMA_VERSION);
       expect(EXPORT_SCHEMA_VERSION).toBe(1);
     });
 
     it("a created bookmark appears in the export", async () => {
-      await toggleBookmark(db, 7, KNOWN, 10);
+      await toggleBookmark(db, 7, KNOWN, 10, null);
       const payload = await buildExportPayload(db, () => 20);
-      expect(payload.bookmarks).toEqual([{ entryId: 7, createdAt: 10 }]);
+      expect(payload.bookmarks).toEqual([
+        { entryId: 7, createdAt: 10, userId: null },
+      ]);
     });
 
     it("a created list appears in the export with canonical (deduped, sorted) membership", async () => {
-      const list = await createList(db, { name: "My verbs", now: 1 });
+      const list = await createList(db, {
+        name: "My verbs",
+        now: 1,
+        owner: null,
+      });
       // Added out of order and with a duplicate id — the write path
       // canonicalises, so the export reflects the canonical form, never the
       // raw call order.
-      await addEntryToList(db, list.id, 9, KNOWN, 2);
-      await addEntryToList(db, list.id, 2, KNOWN, 3);
-      await addEntryToList(db, list.id, 9, KNOWN, 4); // idempotent duplicate
+      await addEntryToList(db, list.id, 9, KNOWN, 2, null);
+      await addEntryToList(db, list.id, 2, KNOWN, 3, null);
+      await addEntryToList(db, list.id, 9, KNOWN, 4, null); // idempotent duplicate
 
       const payload = await buildExportPayload(db, () => 5);
       expect(payload.lists).toHaveLength(1);
@@ -207,8 +213,12 @@ describe("buildExportPayload", () => {
     });
 
     it("a list rename appears in the export", async () => {
-      const list = await createList(db, { name: "Original name", now: 1 });
-      await renameList(db, list.id, "Renamed list", 2);
+      const list = await createList(db, {
+        name: "Original name",
+        now: 1,
+        owner: null,
+      });
+      await renameList(db, list.id, "Renamed list", 2, null);
 
       const payload = await buildExportPayload(db, () => 3);
       expect(payload.lists).toHaveLength(1);
@@ -221,18 +231,23 @@ describe("buildExportPayload", () => {
         entryId: 7,
         knownEntryIds: KNOWN,
         now: 1,
+        owner: null,
       });
-      await addEntryToList(db, list.id, 9, KNOWN, 2);
-      await removeEntryFromList(db, list.id, 7, 3);
+      await addEntryToList(db, list.id, 9, KNOWN, 2, null);
+      await removeEntryFromList(db, list.id, 7, 3, null);
 
       const payload = await buildExportPayload(db, () => 4);
       expect(payload.lists[0].entryIds).toEqual([9]);
     });
 
     it("a deleted list disappears from the export", async () => {
-      const kept = await createList(db, { name: "Kept", now: 1 });
-      const removed = await createList(db, { name: "Removed", now: 2 });
-      await deleteList(db, removed.id);
+      const kept = await createList(db, { name: "Kept", now: 1, owner: null });
+      const removed = await createList(db, {
+        name: "Removed",
+        now: 2,
+        owner: null,
+      });
+      await deleteList(db, removed.id, 0, null);
 
       const payload = await buildExportPayload(db, () => 3);
       expect(payload.lists).toHaveLength(1);
@@ -240,33 +255,41 @@ describe("buildExportPayload", () => {
     });
 
     it("bookmarks survive list deletion", async () => {
-      await toggleBookmark(db, 7, KNOWN, 1);
+      await toggleBookmark(db, 7, KNOWN, 1, null);
       const list = await createListWithEntry(db, {
         name: "Temporary list",
         entryId: 7,
         knownEntryIds: KNOWN,
         now: 2,
+        owner: null,
       });
-      await deleteList(db, list.id);
+      await deleteList(db, list.id, 0, null);
 
       const payload = await buildExportPayload(db, () => 3);
       expect(payload.lists).toEqual([]);
-      expect(payload.bookmarks).toEqual([{ entryId: 7, createdAt: 1 }]);
+      expect(payload.bookmarks).toEqual([
+        { entryId: 7, createdAt: 1, userId: null },
+      ]);
     });
 
     it("stays internally consistent: bookmarks and lists exactly match the current Dexie rows after a mixed sequence of writes", async () => {
-      await toggleBookmark(db, 7, KNOWN, 1);
-      await toggleBookmark(db, 9, KNOWN, 2);
-      await toggleBookmark(db, 7, KNOWN, 3); // un-bookmark 7
+      await toggleBookmark(db, 7, KNOWN, 1, null);
+      await toggleBookmark(db, 9, KNOWN, 2, null);
+      await toggleBookmark(db, 7, KNOWN, 3, null); // un-bookmark 7
       const listA = await createListWithEntry(db, {
         name: "List A",
         entryId: 2,
         knownEntryIds: KNOWN,
         now: 4,
+        owner: null,
       });
-      const listB = await createList(db, { name: "List B", now: 5 });
-      await deleteList(db, listB.id);
-      await addEntryToList(db, listA.id, 262, KNOWN, 6);
+      const listB = await createList(db, {
+        name: "List B",
+        now: 5,
+        owner: null,
+      });
+      await deleteList(db, listB.id, 0, null);
+      await addEntryToList(db, listA.id, 262, KNOWN, 6, null);
 
       const payload = await buildExportPayload(db, () => 7);
       const [expectedBookmarks, expectedLists] = await Promise.all([
@@ -279,6 +302,116 @@ describe("buildExportPayload", () => {
       expect(payload.lists).toHaveLength(1);
       expect(payload.lists[0].entryIds).toEqual([2, 262]);
     });
+  });
+});
+
+/**
+ * Owner scoping (schema v6, R2-F3 / ARCH-001, SEC-001). Since a guest's and a
+ * signed-in account's private rows can coexist in these stores until the
+ * sign-out wipe, "export my data" must hand back only the ACTIVE identity's
+ * rows — otherwise a shared device lets one identity download another's
+ * bookmarks, lists, FSRS cards and review history.
+ */
+describe("buildExportPayload owner scoping (R2-F3 / ARCH-001)", () => {
+  const ACCOUNT = "acct-1";
+
+  /** Seed one bookmark + list + component + attempt + event owned by `owner`. */
+  async function seedOwned(
+    owner: string | null,
+    entryId: number,
+    suffix: string,
+  ): Promise<void> {
+    await db.bookmarks.put({ entryId, createdAt: 1, userId: owner });
+    await db.lists.put({
+      id: `list-${suffix}`,
+      name: `List ${suffix}`,
+      entryIds: [entryId],
+      createdAt: 1,
+      updatedAt: 1,
+      userId: owner,
+    });
+    await db.settings.put({
+      key: `setting-${suffix}`,
+      value: suffix,
+      updatedAt: 1,
+      userId: owner,
+    });
+    await db.studyComponents.put({
+      componentKey: `entry:${entryId}:skill:bab_identification`,
+      entryId,
+      userId: owner,
+      learnerState: "learning",
+    });
+    await db.studyAttempts.put({
+      id: `attempt-${suffix}`,
+      componentKey: `entry:${entryId}:skill:bab_identification`,
+      sessionId: `session-${suffix}`,
+      attemptedAt: 1,
+      attempt: { userId: owner, entryId } as never,
+    });
+    await db.reviewEvents.put({
+      eventId: `event-${suffix}`,
+      componentKey: `entry:${entryId}:skill:bab_identification`,
+      userId: owner,
+      parentEventId: null,
+      clientComponentRevision: 1,
+      syncStatus: "local",
+      createdAt: 1,
+    });
+    await db.mutationQueue.add({
+      idempotencyKey: `mutation-${suffix}`,
+      type: "bookmark",
+      payload: null,
+      createdAt: 1,
+      userId: owner ?? undefined,
+    } as never);
+  }
+
+  it("an account's export contains NONE of a coexisting guest's private rows", async () => {
+    await seedOwned(null, 1, "guest");
+    await seedOwned(ACCOUNT, 2, "acct");
+
+    const payload = await buildExportPayload(db, () => 0, ACCOUNT);
+    expect(payload.bookmarks.map((b) => b.entryId)).toEqual([2]);
+    expect(payload.lists.map((l) => l.id)).toEqual(["list-acct"]);
+    expect(payload.settings.map((s) => s.key)).toEqual(["setting-acct"]);
+    expect(payload.study_components.map((c) => c.componentKey)).toEqual([
+      "entry:2:skill:bab_identification",
+    ]);
+    expect(payload.study_attempts.map((a) => a.id)).toEqual(["attempt-acct"]);
+    expect(payload.review_events.map((e) => e.eventId)).toEqual(["event-acct"]);
+    expect(payload.mutation_queue.map((m) => m.idempotencyKey)).toEqual([
+      "mutation-acct",
+    ]);
+  });
+
+  it("a guest's export contains NONE of a coexisting account's private rows", async () => {
+    await seedOwned(null, 1, "guest");
+    await seedOwned(ACCOUNT, 2, "acct");
+
+    const payload = await buildExportPayload(db, () => 0, null);
+    expect(payload.bookmarks.map((b) => b.entryId)).toEqual([1]);
+    expect(payload.lists.map((l) => l.id)).toEqual(["list-guest"]);
+    expect(payload.settings.map((s) => s.key)).toEqual(["setting-guest"]);
+    expect(payload.study_components.map((c) => c.componentKey)).toEqual([
+      "entry:1:skill:bab_identification",
+    ]);
+    expect(payload.study_attempts.map((a) => a.id)).toEqual(["attempt-guest"]);
+    expect(payload.review_events.map((e) => e.eventId)).toEqual([
+      "event-guest",
+    ]);
+    expect(payload.mutation_queue.map((m) => m.idempotencyKey)).toEqual([
+      "mutation-guest",
+    ]);
+  });
+
+  it("device-level rows (profile, sessions, active content) are NOT owner-filtered", async () => {
+    await db.sessions.put({ id: "session-x", startedAt: 5 });
+    await getOrCreateDeviceProfile(db, { now: () => 1 });
+
+    const payload = await buildExportPayload(db, () => 0, ACCOUNT);
+    expect(payload.sessions.map((s) => s.id)).toEqual(["session-x"]);
+    expect(payload.device_profile).not.toBeNull();
   });
 });
 

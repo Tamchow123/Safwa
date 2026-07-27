@@ -36,6 +36,7 @@
  * is returned for the status layer to surface (offline/pending/attention).
  * Browser-only (drives Dexie via the reconcile primitives).
  */
+import { adoptPulledPreferenceMirrors } from "@/lib/preferences/adopt-pulled-mirrors";
 import type { SafwaDb } from "@/modules/content/db";
 import {
   SYNC_BOUNDS,
@@ -191,7 +192,16 @@ async function runSyncOnce(deps: RunSyncDeps): Promise<SyncRunResult> {
     if (!pulled.ok) return { outcome: outcomeForFailure(pulled.reason) };
     // Logout guard: don't apply another account's pulled data.
     if (!deps.isCurrentAccount(userId)) return { outcome: "invalidated" };
-    await applyPullResponse(db, userId, pulled.data, deps.now());
+    const mirrors = await applyPullResponse(
+      db,
+      userId,
+      pulled.data,
+      deps.now(),
+    );
+    // R2-F5: force the pulled theme / font-scale into their localStorage
+    // mirrors so the account-authoritative value wins over a stale mirror and
+    // is displayed in this (second) context, not shadowed on the next reconcile.
+    adoptPulledPreferenceMirrors(mirrors);
     if (!pulled.data.hasMore) return { outcome: "synced" };
     // The server guarantees a strictly-advancing cursor when more pages remain;
     // a non-advancing cursor is a protocol violation — stop rather than spin.

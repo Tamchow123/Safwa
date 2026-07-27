@@ -105,6 +105,7 @@ describe("loadWeaknessView", () => {
       deriveAllComponents([babEntry()]),
       [babEntry()],
       NOW,
+      null,
     );
 
     expect(view.weaknessEvidence.has(KEY)).toBe(true);
@@ -125,6 +126,7 @@ describe("loadWeaknessView", () => {
       deriveAllComponents([babEntry()]),
       [babEntry()],
       NOW,
+      null,
     );
     expect(view.componentWeakness.size).toBe(0);
     for (const dimension of Object.keys(view.groups)) {
@@ -141,6 +143,7 @@ describe("loadWeaknessView", () => {
       deriveAllComponents([babEntry()]),
       [babEntry()],
       NOW,
+      null,
     );
     // readAnalyticsRawSnapshot opens exactly one "r" (raw stores)
     // transaction and never writes — weakness analytics never reads
@@ -163,6 +166,7 @@ describe("loadWeaknessView", () => {
       deriveAllComponents([babEntry()]),
       [babEntry()],
       NOW,
+      null,
     );
     expect(Object.keys(view.groups).sort()).toEqual(
       ["bab", "direction", "skill", "source_form", "state", "verb_type"].sort(),
@@ -174,7 +178,7 @@ describe("loadWeakScores (mixed/custom session-start hot path)", () => {
   it("opens exactly one read-only transaction and never writes the daily_activity cache", async () => {
     await seedIncorrectBabAttempt();
     const transactionSpy = vi.spyOn(db, "transaction");
-    await loadWeakScores(db, deriveAllComponents([babEntry()]), NOW);
+    await loadWeakScores(db, deriveAllComponents([babEntry()]), NOW, null);
     expect(transactionSpy).toHaveBeenCalledTimes(1);
     expect(transactionSpy.mock.calls[0][0]).toBe("r");
     expect(await db.dailyActivity.count()).toBe(0);
@@ -183,8 +187,8 @@ describe("loadWeakScores (mixed/custom session-start hot path)", () => {
   it("returns scores equal to qualifyingWeaknessScore(cw) for every component loadWeaknessView scored", async () => {
     await seedIncorrectBabAttempt();
     const derived = deriveAllComponents([babEntry()]);
-    const view = await loadWeaknessView(db, derived, [babEntry()], NOW);
-    const scores = await loadWeakScores(db, derived, NOW);
+    const view = await loadWeaknessView(db, derived, [babEntry()], NOW, null);
+    const scores = await loadWeakScores(db, derived, NOW, null);
 
     expect(scores.size).toBe(view.componentWeakness.size);
     for (const [key, cw] of view.componentWeakness) {
@@ -198,6 +202,7 @@ describe("loadWeakScores (mixed/custom session-start hot path)", () => {
       db,
       deriveAllComponents([babEntry()]),
       NOW,
+      null,
     );
     expect(scores.size).toBe(0);
   });

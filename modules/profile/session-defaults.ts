@@ -9,7 +9,7 @@
  * falls back to its documented default, so a corrupt row can never produce an
  * out-of-range session (e.g. an option count the generator would reject).
  */
-import type { SafwaDb } from "@/modules/content/db";
+import type { LocalOwnerId, SafwaDb } from "@/modules/content/db";
 import type { DeviceProfileOptions } from "@/modules/profile/device";
 import type { StorageManagerLike } from "@/modules/profile/persistence";
 import {
@@ -36,9 +36,10 @@ export {
 /** Read the effective session defaults (sanitised; absent row = documented). */
 export async function readSessionDefaults(
   db: SafwaDb,
+  owner: LocalOwnerId,
 ): Promise<SessionDefaults> {
   return sanitizeSessionDefaults(
-    await readSetting(db, SETTING_KEYS.sessionDefaults),
+    await readSetting(db, SETTING_KEYS.sessionDefaults, owner),
   );
 }
 
@@ -52,6 +53,7 @@ export async function persistSessionDefaults(
   value: SessionDefaults,
   storage?: StorageManagerLike,
   options: DeviceProfileOptions = {},
+  owner: LocalOwnerId = null,
 ): Promise<SessionDefaults> {
   const sanitized = sanitizeSessionDefaults(value);
   await writeGuestSetting(
@@ -60,6 +62,7 @@ export async function persistSessionDefaults(
     sanitized,
     storage,
     options,
+    owner,
   );
   return sanitized;
 }

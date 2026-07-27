@@ -981,6 +981,64 @@ describe("ingestSchedulingBatch", () => {
       });
     });
 
+    it("does NOT persist an attempt for a quota-rejected pending event (R2-F4)", async () => {
+      // The attempt table is not bounded by the pending cap, so a rejected
+      // pending event must leave no committed attempt — else a client could
+      // grow study_attempts without limit via unique valid attempts paired
+      // with quota-rejected events.
+      const userId = await createTestUser();
+      const opts = { nowMs: NOW, maxPendingPerComponent: 1 };
+      const a1 = attempt();
+      const e1 = event(a1, {
+        clientComponentRevision: 2,
+        parentEventId: randomUUID(),
+      });
+      const a2 = attempt();
+      const e2 = event(a2, {
+        clientComponentRevision: 3,
+        parentEventId: randomUUID(),
+      });
+      const { results } = await ingestSchedulingBatch(
+        userId,
+        [e1, e2],
+        [a1, a2],
+        opts,
+      );
+      const byId = (id: string) => results.find((r) => r.itemId === id);
+      expect(byId(e1.eventId)?.status).toBe("pending"); // fills the cap (1)
+      expect(byId(e2.eventId)?.reasonCode).toBe("pending_quota_exceeded");
+      const db = getDb();
+      const attempts = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId));
+      // Only e1's held attempt persisted; the quota-rejected e2 left none.
+      expect(attempts.map((r) => r.id)).toEqual([a1.id]);
+    });
+
+    it("does NOT persist an attempt for a cross-user-parent-rejected event (R2-F4)", async () => {
+      const userA = await createTestUser();
+      const userB = await createTestUser();
+      const aA = attempt();
+      const eA = event(aA);
+      await ingestSchedulingBatch(userA, [eA], [aA], { nowMs: NOW });
+      const aB = attempt();
+      const child = event(aB, {
+        clientComponentRevision: 2,
+        parentEventId: eA.eventId,
+      });
+      const { results } = await ingestSchedulingBatch(userB, [child], [aB], {
+        nowMs: NOW,
+      });
+      expect(results[0]?.reasonCode).toBe("cross_user_parent");
+      const db = getDb();
+      const attemptsB = await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userB));
+      expect(attemptsB).toHaveLength(0); // the rejected event left no attempt
+    });
+
     it("expired holds do not consume the pending cap (REL-001)", async () => {
       const userId = await createTestUser();
       const opts = { nowMs: NOW, maxPendingPerComponent: 2 };

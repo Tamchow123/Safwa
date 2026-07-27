@@ -39,6 +39,13 @@ vi.mock("@/modules/sync/client/local-selection", () => ({
   countPendingChanges: vi.fn(async () => 0),
 }));
 
+vi.mock("@/modules/sync/client/mutation-queue", () => ({
+  // The provider wires the controller's countDeadLetter to
+  // countDeadLetterMutations (R2-F6); stub it so the real Dexie module isn't
+  // pulled in — these tests exercise the provider's wiring, not the count.
+  countDeadLetterMutations: vi.fn(async () => 0),
+}));
+
 let capturedListener: ((status: unknown) => void) | null = null;
 let capturedDeps: RunSyncDeps | null = null;
 const controllerSync = vi.fn(async () => null);

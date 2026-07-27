@@ -86,11 +86,11 @@ function reinforcementAttempt(userId: string | null): AttemptRecord {
 describe("bookmark enqueue", () => {
   it("enqueues an upsert then coalesces to the latest state (delete) when signed in", async () => {
     await signIn();
-    await setBookmarked(db, 1, true, new Set([1]), 100);
+    await setBookmarked(db, 1, true, new Set([1]), 100, USER);
     expect((await selectQueuedMutations(db, USER)).bookmarks).toEqual([
       { entryId: 1, createdAt: 100, deleted: false },
     ]);
-    await setBookmarked(db, 1, false, new Set([1]), 200);
+    await setBookmarked(db, 1, false, new Set([1]), 200, USER);
     const sel = await selectQueuedMutations(db, USER);
     expect(sel.bookmarks).toEqual([
       { entryId: 1, createdAt: 100, deleted: true },
@@ -100,25 +100,25 @@ describe("bookmark enqueue", () => {
 
   it("enqueues a toggle in both directions", async () => {
     await signIn();
-    expect(await toggleBookmark(db, 2, new Set([2]), 10)).toBe(true);
+    expect(await toggleBookmark(db, 2, new Set([2]), 10, USER)).toBe(true);
     expect((await selectQueuedMutations(db, USER)).bookmarks[0]?.deleted).toBe(
       false,
     );
-    expect(await toggleBookmark(db, 2, new Set([2]), 20)).toBe(false);
+    expect(await toggleBookmark(db, 2, new Set([2]), 20, USER)).toBe(false);
     expect((await selectQueuedMutations(db, USER)).bookmarks[0]?.deleted).toBe(
       true,
     );
   });
 
   it("does NOT enqueue for a guest (signed out)", async () => {
-    await setBookmarked(db, 1, true, new Set([1]), 100);
+    await setBookmarked(db, 1, true, new Set([1]), 100, null);
     expect(await db.mutationQueue.count()).toBe(0);
   });
 
   it("does NOT enqueue an idempotent no-op (already in the target state)", async () => {
     await signIn();
-    await setBookmarked(db, 1, true, new Set([1]), 100);
-    await setBookmarked(db, 1, true, new Set([1]), 150); // no-op re-set
+    await setBookmarked(db, 1, true, new Set([1]), 100, USER);
+    await setBookmarked(db, 1, true, new Set([1]), 150, USER); // no-op re-set
     expect(await db.mutationQueue.count()).toBe(1);
   });
 });
@@ -126,7 +126,7 @@ describe("bookmark enqueue", () => {
 describe("list enqueue", () => {
   it("enqueues a snapshot on create and a delete carrying the snapshot on remove", async () => {
     await signIn();
-    const list = await createList(db, { name: "Fav", now: 10 });
+    const list = await createList(db, { name: "Fav", now: 10, owner: USER });
     let sel = await selectQueuedMutations(db, USER);
     expect(sel.lists).toHaveLength(1);
     expect(sel.lists[0]).toMatchObject({
@@ -134,14 +134,14 @@ describe("list enqueue", () => {
       name: "Fav",
       deleted: false,
     });
-    await deleteList(db, list.id, 20);
+    await deleteList(db, list.id, 20, USER);
     sel = await selectQueuedMutations(db, USER);
     expect(sel.lists).toHaveLength(1);
     expect(sel.lists[0]).toMatchObject({ id: list.id, deleted: true });
   });
 
   it("does NOT enqueue for a guest", async () => {
-    await createList(db, { name: "Fav", now: 10 });
+    await createList(db, { name: "Fav", now: 10, owner: null });
     expect(await db.mutationQueue.count()).toBe(0);
   });
 });
@@ -149,7 +149,14 @@ describe("list enqueue", () => {
 describe("setting enqueue", () => {
   it("enqueues a mapped syncable setting when signed in", async () => {
     await signIn();
-    await writeGuestSetting(db, "theme", "dark", undefined, { now: () => 5 });
+    await writeGuestSetting(
+      db,
+      "theme",
+      "dark",
+      undefined,
+      { now: () => 5 },
+      USER,
+    );
     expect((await selectQueuedMutations(db, USER)).settings).toEqual([
       { key: "theme", value: "dark", updatedAt: 5 },
     ]);
@@ -157,9 +164,14 @@ describe("setting enqueue", () => {
 
   it("does not enqueue a non-syncable setting key", async () => {
     await signIn();
-    await writeGuestSetting(db, "register-prompt-dismissed", true, undefined, {
-      now: () => 5,
-    });
+    await writeGuestSetting(
+      db,
+      "register-prompt-dismissed",
+      true,
+      undefined,
+      { now: () => 5 },
+      USER,
+    );
     expect((await selectQueuedMutations(db, USER)).settings).toHaveLength(0);
   });
 

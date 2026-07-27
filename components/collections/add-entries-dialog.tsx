@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { getSafwaDb } from "@/modules/content/db";
 import { addEntryToList } from "@/modules/collections/persistence";
+import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
   DEFAULT_LIBRARY_QUERY,
   queryLibraryEntries,
@@ -47,6 +48,7 @@ export function AddEntriesDialog({
   knownEntryIds: ReadonlySet<number>;
   onChanged: () => void;
 }) {
+  const resolveOwner = useResolveOwner();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [pendingEntryId, setPendingEntryId] = useState<number | null>(null);
@@ -69,12 +71,15 @@ export function AddEntriesDialog({
       setError(null);
       setPendingEntryId(entryId);
       try {
+        // ARCH-002: resolve the owner at action time (see useResolveOwner).
+        const owner = await resolveOwner();
         await addEntryToList(
           getSafwaDb(),
           listId,
           entryId,
           knownEntryIds,
           Date.now(),
+          owner,
         );
         onChanged();
       } catch (addError) {
@@ -83,7 +88,7 @@ export function AddEntriesDialog({
         setPendingEntryId(null);
       }
     },
-    [pendingEntryId, listId, knownEntryIds, onChanged],
+    [pendingEntryId, listId, knownEntryIds, onChanged, resolveOwner],
   );
 
   return (

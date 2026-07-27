@@ -13,7 +13,7 @@
  * write path, sanitised on read AND before write like every other setting —
  * a corrupt/invalid stored value falls back safely to browser detection.
  */
-import type { SafwaDb } from "@/modules/content/db";
+import type { LocalOwnerId, SafwaDb } from "@/modules/content/db";
 import type { DeviceProfileOptions } from "@/modules/profile/device";
 import type { StorageManagerLike } from "@/modules/profile/persistence";
 import {
@@ -43,9 +43,10 @@ export {
 /** Read the effective preference (sanitised; absent row = browser mode). */
 export async function readTimezonePreference(
   db: SafwaDb,
+  owner: LocalOwnerId,
 ): Promise<TimezonePreference> {
   return sanitizeTimezonePreference(
-    await readSetting(db, SETTING_KEYS.timezone),
+    await readSetting(db, SETTING_KEYS.timezone, owner),
   );
 }
 
@@ -59,6 +60,7 @@ export async function persistTimezonePreference(
   value: TimezonePreference,
   storage?: StorageManagerLike,
   options: DeviceProfileOptions = {},
+  owner: LocalOwnerId = null,
 ): Promise<TimezonePreference> {
   const sanitized = sanitizeTimezonePreference(value);
   await writeGuestSetting(
@@ -67,6 +69,7 @@ export async function persistTimezonePreference(
     sanitized,
     storage,
     options,
+    owner,
   );
   return sanitized;
 }
@@ -105,9 +108,12 @@ export function resolveEffectiveClock(
  * studying: any read failure falls back to browser detection (the
  * pre-preference behaviour).
  */
-export async function readEffectiveClock(db: SafwaDb): Promise<AttemptClock> {
+export async function readEffectiveClock(
+  db: SafwaDb,
+  owner: LocalOwnerId,
+): Promise<AttemptClock> {
   try {
-    return resolveEffectiveClock(await readTimezonePreference(db));
+    return resolveEffectiveClock(await readTimezonePreference(db, owner));
   } catch {
     return resolveEffectiveClock(DEFAULT_TIMEZONE_PREFERENCE);
   }
