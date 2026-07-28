@@ -67,6 +67,7 @@ function pull(overrides: Partial<PullResponse> = {}): PullResponse {
     settings: [],
     tombstones: [],
     notices: [],
+    withheldComponents: [],
     ...overrides,
   };
 }

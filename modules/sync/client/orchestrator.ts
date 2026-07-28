@@ -192,6 +192,17 @@ async function runSyncOnce(deps: RunSyncDeps): Promise<SyncRunResult> {
     if (!pulled.ok) return { outcome: outcomeForFailure(pulled.reason) };
     // Logout guard: don't apply another account's pulled data.
     if (!deps.isCurrentAccount(userId)) return { outcome: "invalidated" };
+    // REL-006: the server names components it could not project rather than
+    // omitting them silently. Nothing local can repair a server-side structural
+    // condition, so the run continues with the rest of the page — but the
+    // condition is recorded here instead of being indistinguishable from "that
+    // component simply had no changes".
+    if (pulled.data.withheldComponents.length > 0) {
+      console.warn(
+        "[sync] pull: server withheld components",
+        pulled.data.withheldComponents,
+      );
+    }
     const mirrors = await applyPullResponse(
       db,
       userId,

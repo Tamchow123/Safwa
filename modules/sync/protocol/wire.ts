@@ -395,6 +395,22 @@ export const wireNoticeSchema = z.strictObject({
   message: z.string().min(1).max(280),
 });
 
+/**
+ * A component the server declined to project into this page (REL-006). The
+ * rows exist and are unchanged; the server could not derive authoritative
+ * state from them, so it names the component rather than silently omitting it.
+ *
+ * Silent omission would be indistinguishable from "this component has no
+ * changes", and because pull advances its cursor past the component either
+ * way, the client would never ask for it again — silent data loss. Naming it
+ * costs one wire field and makes the condition observable on the device.
+ */
+export const wireWithheldComponentSchema = z.strictObject({
+  componentKey: componentKeySchema,
+  reasonCode: z.enum(SYNC_REASON_CODES),
+});
+export type WireWithheldComponent = z.infer<typeof wireWithheldComponentSchema>;
+
 export const pullResponseSchema = z.strictObject({
   protocolVersion: z.literal(SYNC_PROTOCOL_VERSION),
   serverCursor: z.number().int().min(0),
@@ -407,5 +423,14 @@ export const pullResponseSchema = z.strictObject({
   settings: z.array(wirePullSettingSchema),
   tombstones: z.array(wireTombstoneSchema),
   notices: z.array(wireNoticeSchema).default([]),
+  /**
+   * Components withheld from THIS page (REL-006). Bounded by the page ceiling —
+   * a page can never carry more withheld components than it examined.
+   * `.default([])` keeps a server that predates the field parseable.
+   */
+  withheldComponents: z
+    .array(wireWithheldComponentSchema)
+    .max(SYNC_BOUNDS.maxItemsPerBatch)
+    .default([]),
 });
 export type PullResponse = z.infer<typeof pullResponseSchema>;

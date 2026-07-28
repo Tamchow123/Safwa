@@ -64,6 +64,7 @@ function pullPage(
       settings: [],
       tombstones: [],
       notices: [],
+      withheldComponents: [],
     },
   };
 }
