@@ -4,12 +4,23 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { errorAlert } from "./helpers/auth-ui";
-import { bookmarksRowCount, userRowExists } from "./helpers/db-probe";
+import {
+  bookmarksRowCount,
+  userIdByEmail,
+  userRowExists,
+} from "./helpers/db-probe";
 import {
   extractUrlFromMessage,
   waitForOutboxMessage,
 } from "./helpers/email-outbox";
-import { idbAll, idbSeed, seedBookmark, seedWeakAttempt } from "./helpers/idb";
+import {
+  e2eAccountOwnerKey,
+  E2E_GUEST_OWNER_KEY,
+  idbAll,
+  idbSeed,
+  seedBookmark,
+  seedWeakAttempt,
+} from "./helpers/idb";
 
 /**
  * Phase 15 auth E2E suite (phases-15.md §60), scenarios 60.1, 60.3-60.6,
@@ -408,7 +419,7 @@ test.describe("60.10 delete account", () => {
   // 401 (the account no longer exists).
   test.use({ allowExpectedNetworkErrors: true });
 
-  test("session invalid, login fails, local Dexie untouched, server rows gone", async ({
+  test("session invalid, login fails, the ACCOUNT's local rows go and the guest's stay, server rows gone", async ({
     page,
   }) => {
     const email = freshEmail("delete");
@@ -420,7 +431,38 @@ test.describe("60.10 delete account", () => {
       /entries/,
       { timeout: 15_000 },
     );
-    await idbSeed(page, "bookmarks", [seedBookmark(2, Date.now())]);
+    // Three rows across three owners. Deleting the account must take ITS row
+    // and leave both the guest's and the OTHER account's — §11's policy, the
+    // same split sign-out makes, and the reason someone studying as a guest (or
+    // a second learner) on a shared device does not lose their progress when
+    // somebody else deletes their account (phases-17.md §11 final paragraph).
+    // The deleted account's row is seeded under its REAL owner key, because the
+    // clear is scoped to one account: an invented id would let the row survive
+    // for the wrong reason.
+    const userId = await userIdByEmail(email);
+    expect(userId).not.toBeNull();
+    await idbSeed(page, "bookmarks", [
+      seedBookmark(2, Date.now()),
+      { ...seedBookmark(3, Date.now()), ownerKey: e2eAccountOwnerKey(userId!) },
+      {
+        ...seedBookmark(4, Date.now()),
+        ownerKey: e2eAccountOwnerKey("someone-else"),
+      },
+    ]);
+
+    // A crafted link is not authority to delete anything. The callback's value
+    // is a one-time nonce this device minted and kept for itself; a URL
+    // carrying a constant marker or a guess must do nothing — otherwise anyone
+    // could destroy a learner's local (including not-yet-synced) data by
+    // sending them a link.
+    await page.goto("/?account-deleted=1");
+    await page.goto("/?account-deleted=guessed-nonce");
+    const afterCraftedLink = (await idbAll(page, "bookmarks")) as {
+      entryId: number;
+    }[];
+    expect(afterCraftedLink.map((row) => row.entryId).sort()).toEqual([
+      2, 3, 4,
+    ]);
 
     // "Create account settings" step.
     await page.goto("/account/settings");
@@ -437,6 +479,15 @@ test.describe("60.10 delete account", () => {
       .click();
     await expect(page.getByText(/Check your email/)).toBeVisible();
 
+    // Now a deletion IS pending, which is the harder case: the device holds a
+    // record, so only the matching nonce may act on it. A guess must still do
+    // nothing, and must not cancel the request the learner is about to confirm.
+    await page.goto("/?account-deleted=guessed-nonce");
+    const whilePending = (await idbAll(page, "bookmarks")) as {
+      entryId: number;
+    }[];
+    expect(whilePending.map((row) => row.entryId).sort()).toEqual([2, 3, 4]);
+
     const message = await waitForOutboxMessage(email, "delete-account");
     await page.goto(extractUrlFromMessage(message));
 
@@ -451,8 +502,22 @@ test.describe("60.10 delete account", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(errorAlert(page)).toHaveText("Incorrect email or password.");
 
-    // Local Dexie data untouched.
-    await expect(await idbAll(page, "bookmarks")).toHaveLength(1);
+    // The deleted account's local rows are gone; the guest's and the other
+    // account's remain. Deletion is confirmed by an emailed endpoint, so
+    // nothing runs at the moment the account goes — the callback lands on a
+    // marked URL and the cleanup runs there, doing on arrival what sign-out
+    // does on departure, for the one account that was actually deleted.
+    const remaining = (await idbAll(page, "bookmarks")) as {
+      ownerKey: string;
+      entryId: number;
+    }[];
+    expect(remaining.map((row) => row.entryId).sort()).toEqual([2, 4]);
+    expect(remaining.find((row) => row.entryId === 2)?.ownerKey).toBe(
+      E2E_GUEST_OWNER_KEY,
+    );
+    expect(remaining.find((row) => row.entryId === 4)?.ownerKey).toBe(
+      e2eAccountOwnerKey("someone-else"),
+    );
 
     // Server personal rows gone.
     expect(await userRowExists(email)).toBe(false);

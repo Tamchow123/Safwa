@@ -20,6 +20,8 @@ vi.mock("sonner", () => ({
 }));
 
 import { AccountSettingsForm } from "@/components/account/account-settings-form";
+import { ACCOUNT_DELETED_PARAM } from "@/components/account/deleted-account-cleanup";
+import { readPendingAccountDeletion } from "@/components/account/pending-account-deletion";
 import { ChangePasswordDialog } from "@/components/account/change-password-dialog";
 import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
 import { SignOutButton } from "@/components/account/sign-out-button";
@@ -41,6 +43,7 @@ beforeEach(() => {
   signOutMock.mockReset();
   deleteUserMock.mockReset();
   toastMock.mockReset();
+  localStorage.clear();
 });
 
 describe("ChangePasswordDialog", () => {
@@ -366,14 +369,54 @@ describe("DeleteAccountDialog", () => {
       screen.getAllByRole("button", { name: "Delete account" }).at(-1)!,
     );
 
-    await waitFor(() =>
-      expect(deleteUserMock).toHaveBeenCalledWith({
-        password: "correct-password",
-        callbackURL: "/",
-      }),
-    );
+    await waitFor(() => expect(deleteUserMock).toHaveBeenCalledTimes(1));
+    // The NONCE-bearing landing, not the bare root and not a constant marker
+    // (phases-17.md §11): deletion is confirmed by an emailed endpoint, so this
+    // callback is the only place anything of ours runs afterwards, and the
+    // nonce inside it is what proves the deletion really happened.
+    const call = deleteUserMock.mock.calls[0]?.[0] as {
+      password: string;
+      callbackURL: string;
+    };
+    expect(call.password).toBe("correct-password");
+    const nonce = new URLSearchParams(
+      call.callbackURL.slice(call.callbackURL.indexOf("?")),
+    ).get(ACCOUNT_DELETED_PARAM);
+    expect(nonce).toBeTruthy();
+
     expect(screen.getByText("Check your email")).toBeInTheDocument();
     expect(screen.getByText(/has not been deleted yet/)).toBeInTheDocument();
+    // The nonce's other half is kept locally, on success, while the session
+    // that names the account still exists — it is the returning nonce matching
+    // THIS record that later authorises clearing this device's rows.
+    expect(readPendingAccountDeletion(nonce!, Date.now())).toBe("user-1");
+  });
+
+  it("mints a fresh nonce for every request", async () => {
+    // Reusing one would let a link from an abandoned request authorise a later
+    // cleanup, and would survive being spent.
+    deleteUserMock.mockResolvedValue({ error: null, data: {} });
+    const user = userEvent.setup();
+
+    async function requestDeletion() {
+      const view = render(<DeleteAccountDialog email="learner@example.com" />);
+      await user.click(screen.getByRole("button", { name: "Delete account" }));
+      await user.type(screen.getByLabelText("Password"), "correct-password");
+      await user.click(
+        screen.getAllByRole("button", { name: "Delete account" }).at(-1)!,
+      );
+      await waitFor(() => expect(screen.getByText("Check your email")));
+      view.unmount();
+    }
+
+    await requestDeletion();
+    await requestDeletion();
+
+    const urls = deleteUserMock.mock.calls.map(
+      (call) => (call[0] as { callbackURL: string }).callbackURL,
+    );
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).not.toBe(urls[1]);
   });
 
   it("shows a learner-safe error when the password is wrong, without claiming deletion", async () => {
@@ -396,13 +439,31 @@ describe("DeleteAccountDialog", () => {
       ),
     );
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
+    // Nothing was accepted, so nothing may be recorded — a nonce written on a
+    // rejected request would be a live account's half of a proof it never
+    // earned, and the URL carrying the other half was already handed out.
+    const attempted = deleteUserMock.mock.calls[0]?.[0] as {
+      callbackURL: string;
+    };
+    const nonce = new URLSearchParams(
+      attempted.callbackURL.slice(attempted.callbackURL.indexOf("?")),
+    ).get(ACCOUNT_DELETED_PARAM)!;
+    expect(readPendingAccountDeletion(nonce, Date.now())).toBeNull();
   });
 
-  it("never claims local progress is deleted", async () => {
+  it("warns that following the link clears this device's copy too", async () => {
+    // Destructive-action disclosure: as of §11 the emailed link does clear this
+    // device's rows, unsynced work included, so the copy shown BEFORE the
+    // learner commits has to say so rather than promise the opposite.
     const user = userEvent.setup();
     render(<DeleteAccountDialog email="learner@example.com" />);
     await user.click(screen.getByRole("button", { name: "Delete account" }));
 
-    expect(screen.getByText(/local study progress/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/study progress is cleared too/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/not yet synced/)).toBeInTheDocument();
+    // And that a guest's own progress is not collateral damage.
+    expect(screen.getByText(/studying as a guest is kept/)).toBeInTheDocument();
   });
 });
