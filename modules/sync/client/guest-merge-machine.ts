@@ -212,6 +212,25 @@ export function canStartGuestMerge(state: GuestMergeState): boolean {
 }
 
 /**
+ * Does a retry from `state` need only the post-merge PULL, rather than the whole
+ * merge again?
+ *
+ * Exported so the caller that has to choose which effect to run asks the same
+ * question the reducer answers, instead of re-deriving it (ARCH-001). The two
+ * conditions were briefly written twice and already differed — the copy omitted
+ * the `summary` check — which is a UI that runs a bare pull while the state it
+ * renders says a full upload is under way.
+ */
+export function needsRebaseOnlyRetry(state: GuestMergeState): boolean {
+  const { flow } = state;
+  return (
+    flow.name === "retryable-error" &&
+    flow.reason.kind === "rebase-failed" &&
+    flow.summary !== undefined
+  );
+}
+
+/**
  * Terminal states — the merge is over, for better or worse, and only a fresh
  * guest-data check (a later, separate merge) moves out of them.
  */
@@ -435,7 +454,7 @@ export function guestMergeReducer(
       // rows, so re-collecting a snapshot would produce a near-empty one and
       // spend a full begin/finalize round trip to get back to the pull that was
       // the only thing outstanding.
-      if (flow.reason.kind === "rebase-failed" && flow.summary) {
+      if (needsRebaseOnlyRetry(state) && flow.summary) {
         return to({
           name: "rebasing",
           attempt: 0,
