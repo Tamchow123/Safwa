@@ -42,17 +42,62 @@ import {
 } from "@/modules/sync/protocol";
 
 import { writeSyncAudit } from "./audit";
+import { countChainRoots, selectHead, type HeadCandidate } from "./chain-head";
 import {
   computeCanonicalEventTime,
   type CanonicalTimeResult,
 } from "./canonical-time";
+import { componentFaultReason } from "./component-fault";
 import { currentAccountCursor, nextAccountCursor, type SyncTx } from "./cursor";
 import { gradeObjectiveAttempt, gradeFlashcardAttempt } from "./grade";
 import { payloadHash } from "./idempotency";
-import { classifyLineage } from "./lineage";
+import {
+  classifyLineage,
+  classifyMergeLineage,
+  type LineageClassification,
+  mergeUnionContext,
+} from "./lineage";
 import { resolveReleaseForIngestion, type ReleaseLoadOptions } from "./release";
-import { type ComponentReplayEvent, replayComponent } from "./replay";
+import {
+  type ComponentMergeMark,
+  type ComponentReplayEvent,
+  replayComponent,
+} from "./replay";
 import { validateComponent } from "./validate-component";
+
+/**
+ * The SERVER-INTERNAL merge ingestion mode (Phase 17 §13). Its presence on
+ * {@link IngestOptions} is what turns an ingest call into a guest→account
+ * import; its absence is ordinary Phase 16 push, unchanged.
+ *
+ * §13 requires that "any merge-specific ingestion mode must be server-internal
+ * and reachable only through the authenticated merge coordinator", so this is
+ * deliberately NOT a wire field and NOT derivable from a request. `pushRequest
+ * Schema` has no member that could produce one, and `app/api/sync/push/route.ts`
+ * constructs its options literally (`{ nowMs, correlationId }`) rather than
+ * spreading the decoded body, so there is no path by which a client can set it.
+ * The only caller that may is the merge coordinator, which obtains `importId`
+ * from the `guest_imports` row it holds — a row the server created against a
+ * session-derived account.
+ *
+ * What it buys is EVENT-SCOPED provenance: every review event written under it
+ * is stamped `imported_from_guest_import_id`, and that stamp — not the
+ * component's `merged_at` — is what makes `classifyForEvent` judge the event by
+ * the union rule. See the note on {@link classifyForEvent} for why the scope has
+ * to be the event.
+ *
+ * ATTEMPTS ARE NOT STAMPED, deliberately. `study_attempts` has no provenance
+ * column and this slice does not add one: the marker exists to select a LINEAGE
+ * rule, and attempts have no lineage — they are flat history hanging off a
+ * component, with no parent, no revision and nothing to classify. An import's
+ * attempts are already recoverable through the events that reference them and
+ * through `guest_imports` itself, so a column here would carry a fact nothing
+ * reads, on the largest table the merge writes.
+ */
+export type GuestImportIngestion = {
+  /** `guest_imports.id` — the import this history is arriving under. */
+  importId: string;
+};
 
 export type IngestOptions = ReleaseLoadOptions & {
   /** Injected server-receipt clock (epoch ms) — never Date.now(). */
@@ -60,11 +105,23 @@ export type IngestOptions = ReleaseLoadOptions & {
   /** Correlation id for the request, recorded in audit rows. */
   correlationId?: string;
   /**
+   * Present ONLY when the authenticated guest-merge coordinator is driving this
+   * call (§13). See {@link GuestImportIngestion}: server-internal, never wire.
+   */
+  guestImport?: GuestImportIngestion;
+  /**
    * Override the per-component pending-parent cap (EXT-F4). Defaults to
    * SYNC_BOUNDS.maxPendingPerComponent; injectable so operators can tune it and
    * tests can exercise the boundary without seeding hundreds of rows.
    */
   maxPendingPerComponent?: number;
+  /**
+   * Override the per-request pending-parent promotion budget. Defaults to
+   * MAX_PENDING_REPROCESS; injectable for the same reason as the cap above — the
+   * boundary is worth a test, and seeding a thousand held rows to reach it would
+   * make that test slow enough that nobody would keep it.
+   */
+  maxPendingReprocess?: number;
 };
 
 export type IngestResult = {
@@ -119,14 +176,112 @@ type ChainState = {
   accepted: ComponentReplayEvent[];
 };
 
+/**
+ * Recompute the in-memory head after an acceptance, from the accepted set as it
+ * now stands (Phase 17 §14).
+ *
+ * Phase 16 could assign `head = the event just accepted`, because an event was
+ * only ever accepted for extending the head and carrying the next revision, so
+ * it always WAS the new head. A merged component breaks that: an imported guest
+ * event can be accepted while the account's later event remains the
+ * chronological head, and taking the new arrival as head would then hand the
+ * next client the wrong parent and reject the review it derives from it.
+ *
+ * So the head is re-derived through the shared shape-aware rule rather than
+ * inferred from the acceptance. For a single-rooted component `selectHead` IS
+ * the highest-revision event — the one just accepted — so this is Phase 16's
+ * answer, arrived at without assuming it. Cost is linear in the component's
+ * accepted events per acceptance, and both the batch and the component are
+ * already bounded (SYNC_BOUNDS, MAX_PENDING_REPROCESS).
+ */
+/**
+ * The accepted set reduced to what shape analysis needs. One mapping, used by
+ * both head selection and root counting, so the two can never disagree about
+ * which events they are looking at.
+ */
+function headCandidatesOf(
+  accepted: readonly ComponentReplayEvent[],
+): HeadCandidate[] {
+  return accepted.map((event) => ({
+    eventId: event.eventId,
+    clientComponentRevision: event.clientComponentRevision,
+    canonicalMs: event.occurredAtCanonical.getTime(),
+    parentEventId: event.parentEventId,
+  }));
+}
+
+function refreshChainHead(chain: ChainState): void {
+  const head = selectHead(headCandidatesOf(chain.accepted));
+  chain.headEventId = head?.eventId ?? null;
+  chain.headCanonicalMs = head?.canonicalMs ?? null;
+  // The HEAD'S OWN revision, not the union's maximum. Contiguity is enforced by
+  // replay PER CHAIN — `partitionScheduling` requires a complete chain's
+  // revisions to be exactly contiguous — so an event extending the head must be
+  // one past the head, not one past the longest other history. Pairing it with
+  // the union maximum makes the server accept an event that the very next replay
+  // then throws on, because it leaves a gap in the head's own chain.
+  chain.headRevision = head?.clientComponentRevision ?? 0;
+}
+
+/**
+ * Which lineage rule THIS EVENT is judged by (Phase 17 §14).
+ *
+ * Scoped to the event, not to the component. `study_components.merged_at` grants
+ * the right to REPLAY a union that already exists; it deliberately does not
+ * decide how new arrivals are classified. Were it to, a component would become
+ * permanently easier to write to the moment it was merged once: any device could
+ * keep adding fresh roots to it through ordinary push, forever, with none of
+ * Phase 16's stale-branch or fork rejection — and §14 says the merge behaviour
+ * must not be available to ordinary sync requests. "Ordinary sync requests, on a
+ * component that was merged once, for the rest of time" is not an exception to
+ * that sentence.
+ *
+ * So `isImported` comes from the EVENT's own
+ * `review_events.imported_from_guest_import_id`, written only by the merge
+ * coordinator. An ordinary push carries no such marker and is judged by Phase
+ * 16's rule whatever the component's history — while an imported event held
+ * behind a non-head guest parent is still promotable, which is the case that
+ * needed the union rule in the first place.
+ *
+ * The union context is rebuilt per call from `chain.accepted`, which is server
+ * state — rows loaded under the transaction's lock plus events this transaction
+ * has itself accepted. Nothing decoded from the request reaches it.
+ */
+function classifyForEvent(
+  chain: ChainState,
+  isImported: boolean,
+  candidate: {
+    eventId: string;
+    parentEventId: string | null;
+    clientComponentRevision: number;
+  },
+): LineageClassification {
+  const acceptedChain = {
+    headEventId: chain.headEventId,
+    headRevision: chain.headRevision,
+    acceptedEventIds: chain.acceptedEventIds,
+  };
+  const knownEvents = {
+    parentByEventId: chain.parentByEventId,
+    pendingEventIds: chain.pendingEventIds,
+  };
+  if (!isImported) {
+    return classifyLineage(candidate, acceptedChain, knownEvents);
+  }
+  return classifyMergeLineage(
+    candidate,
+    acceptedChain,
+    knownEvents,
+    mergeUnionContext(chain.accepted),
+  );
+}
+
 function buildChainState(rows: EventRow[]): ChainState {
   const acceptedEventIds = new Set<string>();
   const pendingEventIds = new Set<string>();
   const parentByEventId = new Map<string, string | null>();
   const accepted: ComponentReplayEvent[] = [];
-  let headEventId: string | null = null;
-  let headRevision = 0;
-  let headCanonicalMs: number | null = null;
+  const headCandidates: HeadCandidate[] = [];
 
   for (const row of rows) {
     parentByEventId.set(row.eventId, row.parentEventId);
@@ -141,19 +296,31 @@ function buildChainState(rows: EventRow[]): ChainState {
         occurredAtCanonical: row.occurredAtCanonical,
         localDateAtEvent: row.localDateAtEvent,
       });
-      if (row.clientComponentRevision > headRevision) {
-        headRevision = row.clientComponentRevision;
-        headEventId = row.eventId;
-        headCanonicalMs = row.occurredAtCanonical.getTime();
-      }
+      headCandidates.push({
+        eventId: row.eventId,
+        clientComponentRevision: row.clientComponentRevision,
+        canonicalMs: row.occurredAtCanonical.getTime(),
+        parentEventId: row.parentEventId,
+      });
     } else if (row.status === "pending_parent") {
       pendingEventIds.add(row.eventId);
     }
   }
+
+  // Head selection is shape-aware (./chain-head.ts): an ordinary single-rooted
+  // chain keeps Phase 16's structural highest-revision tip, and only a MERGED
+  // (multi-rooted) component uses the chronological rule the client's
+  // `chainHead` applies to a union.
+  const head = selectHead(headCandidates);
+
   return {
-    headEventId,
-    headRevision,
-    headCanonicalMs,
+    headEventId: head?.eventId ?? null,
+    // What a new event extending the head must be one past: the HEAD'S OWN
+    // revision. Not the union maximum — replay checks contiguity per chain, so
+    // an event one past the longest OTHER history leaves a gap in the chain it
+    // actually joins, and the next replay throws on it. See refreshChainHead.
+    headRevision: head?.clientComponentRevision ?? 0,
+    headCanonicalMs: head?.canonicalMs ?? null,
     acceptedEventIds,
     parentByEventId,
     pendingEventIds,
@@ -175,9 +342,16 @@ async function findOrCreateComponent(
     sourceField: string | null;
     direction: string | null;
   },
-): Promise<{ id: string; revision: number }> {
+): Promise<{ id: string; revision: number; mergedAt: Date | null }> {
   const [existing] = await tx
-    .select({ id: studyComponents.id, revision: studyComponents.revision })
+    .select({
+      id: studyComponents.id,
+      revision: studyComponents.revision,
+      // Phase 17 §14: whether this component is permitted to hold a union. Read
+      // under the same FOR UPDATE lock as the revision, so replay's tolerance
+      // and the row it is about cannot be decided from different snapshots.
+      mergedAt: studyComponents.mergedAt,
+    })
     .from(studyComponents)
     .where(
       and(
@@ -205,7 +379,11 @@ async function findOrCreateComponent(
       sourceField: identity.sourceField,
       direction: identity.direction,
     })
-    .returning({ id: studyComponents.id, revision: studyComponents.revision });
+    .returning({
+      id: studyComponents.id,
+      revision: studyComponents.revision,
+      mergedAt: studyComponents.mergedAt,
+    });
   if (!created)
     throw new Error("ingest: study_components insert returned no row");
   return created;
@@ -390,7 +568,15 @@ async function persistAttempt(
     .onConflictDoNothing({ target: studyAttempts.id });
 }
 
-/** Persist a review event with server-canonical rating/time and the given status. */
+/**
+ * Persist a review event with server-canonical rating/time and the given status.
+ *
+ * `importedFromGuestImportId` is the event's own merge provenance (§14): the id
+ * of the import that wrote it, or null for every ordinary push. It is a REQUIRED
+ * parameter rather than an optional one on purpose — a default would let a new
+ * call site write an unprovenanced event by saying nothing, and this column is
+ * what decides which lineage rule the event is later judged by.
+ */
 async function persistEvent(
   tx: SyncTx,
   userId: string,
@@ -399,6 +585,7 @@ async function persistEvent(
   rating: string,
   status: "scheduling" | "pending_parent",
   canonicalTime: CanonicalTimeResult,
+  importedFromGuestImportId: string | null,
   // EXT-F4: when held as pending_parent, the instant this hold expires (never
   // promoted after, purgeable). Null for an accepted scheduling event.
   pendingExpiresAt: Date | null = null,
@@ -428,7 +615,46 @@ async function persistEvent(
     timezoneCorrected: canonicalTime.timezoneCorrected,
     clockSuspect: canonicalTime.clockSuspect,
     idempotencyPayloadHash: payloadHash(eventPayload(ev)),
+    importedFromGuestImportId,
   });
+}
+
+/**
+ * A release resolved for this batch: either the question context built from it,
+ * or the reason it could not be used. The two are one value deliberately.
+ *
+ * Caching only the context and re-deriving the reason at each rejection site is
+ * what let a revoked release be reported as `revoked_release` in one place and
+ * `invalid_release` in another (T20): two independent recoveries of the same
+ * fact drifted apart. Keeping the reason alongside the context makes the pair
+ * impossible to disagree, and makes "resolved but unusable" unrepresentable.
+ */
+type ResolvedRelease =
+  | { context: QuestionContext; reasonCode: null }
+  | { context: null; reasonCode: SyncReasonCode };
+
+/**
+ * Resolve a release for this batch ONCE, keeping both halves of the outcome.
+ * Shared by the event path and the reinforcement-attempt path so a batch never
+ * re-reads or re-hashes the same release's artifacts (§30), and so every
+ * rejection that follows names the same reason.
+ */
+async function resolveReleaseCached(
+  cache: Map<string, ResolvedRelease>,
+  releaseId: string,
+  options: IngestOptions,
+): Promise<ResolvedRelease> {
+  const cached = cache.get(releaseId);
+  if (cached) return cached;
+  const resolved = await resolveReleaseForIngestion(releaseId, options);
+  const entry: ResolvedRelease = resolved.ok
+    ? {
+        context: createQuestionContextFromRelease(resolved.release.learner),
+        reasonCode: null,
+      }
+    : { context: null, reasonCode: resolved.reasonCode };
+  cache.set(releaseId, entry);
+  return entry;
 }
 
 /**
@@ -443,24 +669,27 @@ async function processComponentGroup(
   events: WireEvent[],
   attemptsById: Map<string, WireAttempt>,
   options: IngestOptions,
-  contextCache: Map<string, QuestionContext | null>,
+  contextCache: Map<string, ResolvedRelease>,
 ): Promise<SyncItemResult[]> {
   const sorted = [...events].sort(
     (a, b) => a.clientComponentRevision - b.clientComponentRevision,
   );
 
-  async function resolveContext(
+  // Whether the merge coordinator is driving this call (§13). Read ONCE, here,
+  // from the server-internal option, and used for all three of: which lineage
+  // rule each event is judged by, the provenance stamped on each written row,
+  // and whether a union this transaction creates may be authorised. Deriving it
+  // once means those three cannot disagree — an event judged by the union rule
+  // is by construction an event written with an import id.
+  const guestImportId = options.guestImport?.importId ?? null;
+  const isImported = guestImportId !== null;
+
+  function resolveRelease(
     tx: SyncTx,
     releaseId: string,
-  ): Promise<QuestionContext | null> {
+  ): Promise<ResolvedRelease> {
     void tx;
-    if (contextCache.has(releaseId)) return contextCache.get(releaseId) ?? null;
-    const resolved = await resolveReleaseForIngestion(releaseId, options);
-    const ctx = resolved.ok
-      ? createQuestionContextFromRelease(resolved.release.learner)
-      : null;
-    contextCache.set(releaseId, ctx);
-    return ctx;
+    return resolveReleaseCached(contextCache, releaseId, options);
   }
 
   return db.transaction(async (tx) => {
@@ -476,15 +705,9 @@ async function processComponentGroup(
         reject({ itemId: ev.eventId, itemKind: "event" }, "malformed_item"),
       );
     }
-    const context = await resolveContext(tx, firstAttempt.releaseId);
-    if (!context) {
-      const resolved = await resolveReleaseForIngestion(
-        firstAttempt.releaseId,
-        options,
-      );
-      const code: SyncReasonCode = resolved.ok
-        ? "invalid_release"
-        : resolved.reasonCode;
+    const groupRelease = await resolveRelease(tx, firstAttempt.releaseId);
+    if (!groupRelease.context) {
+      const code = groupRelease.reasonCode;
       return Promise.all(
         sorted.map(async (ev) => {
           await writeSyncAudit(tx, {
@@ -501,6 +724,7 @@ async function processComponentGroup(
         }),
       );
     }
+    const context = groupRelease.context;
     const validation = validateComponent(context, {
       componentKey,
       entryId: firstAttempt.entryId,
@@ -608,23 +832,30 @@ async function processComponentGroup(
       }
 
       // 2. Grade (objective) or validate the flashcard rating.
-      const ctx = await resolveContext(tx, att.releaseId);
-      if (!ctx) {
+      //
+      // This item's OWN release, which need not be the one the group's context
+      // came from. It carries its own reason code, so an item that happens not
+      // to be first in its component group is not told "this release is
+      // unknown" when the truth is "this release was withdrawn" — only one of
+      // those tells an operator that a release they revoked is still arriving,
+      // and only one is recoverable by shipping the artifacts again.
+      const itemRelease = await resolveRelease(tx, att.releaseId);
+      if (!itemRelease.context) {
+        const code = itemRelease.reasonCode;
         await writeSyncAudit(tx, {
           userId,
           itemKind: "event",
           itemId: ev.eventId,
-          reasonCode: "invalid_release",
+          reasonCode: code,
           severity: "warning",
           releaseId: ev.releaseId,
           componentKey,
           correlationId: options.correlationId,
         });
-        results.push(
-          reject({ itemId: ev.eventId, itemKind: "event" }, "invalid_release"),
-        );
+        results.push(reject({ itemId: ev.eventId, itemKind: "event" }, code));
         continue;
       }
+      const ctx = itemRelease.context;
 
       // EXT-F5: validate THIS event/attempt pair independently. The group's
       // component identity was derived from the FIRST attempt only; every later
@@ -764,23 +995,16 @@ async function processComponentGroup(
         previousAcceptedCanonicalMs: chain.headCanonicalMs,
       });
 
-      // 4. Lineage classification (§14).
-      const lineage = classifyLineage(
-        {
-          eventId: ev.eventId,
-          parentEventId: ev.parentEventId,
-          clientComponentRevision: ev.clientComponentRevision,
-        },
-        {
-          headEventId: chain.headEventId,
-          headRevision: chain.headRevision,
-          acceptedEventIds: chain.acceptedEventIds,
-        },
-        {
-          parentByEventId: chain.parentByEventId,
-          pendingEventIds: chain.pendingEventIds,
-        },
-      );
+      // 4. Lineage classification (§14). Judged by the union rule only when the
+      // SERVER-INTERNAL merge mode is driving this call — which is exactly when
+      // this event is about to be written with that import's provenance below.
+      // An ordinary push has no `guestImport`, so it keeps Phase 16's rule on
+      // every component, merged or not.
+      const lineage = classifyForEvent(chain, isImported, {
+        eventId: ev.eventId,
+        parentEventId: ev.parentEventId,
+        clientComponentRevision: ev.clientComponentRevision,
+      });
 
       if (lineage.decision === "reject") {
         await writeSyncAudit(tx, {
@@ -926,6 +1150,7 @@ async function processComponentGroup(
           canonicalRating,
           "pending_parent",
           canonicalTime,
+          guestImportId,
           // EXT-F4: stamp the expiry so a never-arriving parent's hold can be
           // purged and is never promoted after it lapses.
           new Date(options.nowMs + SYNC_BOUNDS.pendingTtlMs),
@@ -956,6 +1181,7 @@ async function processComponentGroup(
         canonicalRating,
         "scheduling",
         canonicalTime,
+        guestImportId,
       );
       chain.acceptedEventIds.add(ev.eventId);
       chain.parentByEventId.set(ev.eventId, ev.parentEventId);
@@ -968,9 +1194,7 @@ async function processComponentGroup(
         occurredAtCanonical: new Date(canonicalTime.occurredAtCanonicalMs),
         localDateAtEvent: canonicalTime.localDateAtEvent,
       });
-      chain.headEventId = ev.eventId;
-      chain.headRevision = ev.clientComponentRevision;
-      chain.headCanonicalMs = canonicalTime.occurredAtCanonicalMs;
+      refreshChainHead(chain);
       acceptedThisBatch.push(ev.eventId);
       changed = true;
 
@@ -1031,31 +1255,60 @@ async function processComponentGroup(
     }
     if (heldByParentRev.size > 0) {
       const promotedIds: string[] = [];
-      let budget = MAX_PENDING_REPROCESS;
-      while (budget > 0 && chain.headEventId !== null) {
-        const child = heldByParentRev
-          .get(chain.headEventId)
-          ?.get(chain.headRevision + 1);
-        if (!child) break;
-        // Structural safety net (cycle/contiguity) via the same classifier the
-        // main loop uses — belt-and-suspenders on top of the parent+revision key.
-        const lineage = classifyLineage(
+      let budget = options.maxPendingReprocess ?? MAX_PENDING_REPROCESS;
+      // Walk forward from every event this transaction accepted, not from the
+      // head (Phase 17 §14). Phase 16 could key on (head, headRevision + 1)
+      // because the head was the only parent a held child could legally extend.
+      // Under a union that is no longer true: a held guest child's revision is
+      // one past ITS OWN parent's, which for the guest's chain is unrelated to
+      // the account's — possibly much higher — maximum. Keyed on the head, such
+      // a child is never looked up, is never promoted, and sits as
+      // `pending_parent` until the TTL purges it: a guest review lost with no
+      // rejection ever reported to anyone.
+      //
+      // Still O(1) per lookup and still bounded by `budget`, so the
+      // unbounded-reprocessing property SEC-T9c-001 asked for is unchanged; what
+      // widens is only WHICH parents are asked about.
+      const revisionOf = new Map(
+        chain.accepted.map((e) => [e.eventId, e.clientComponentRevision]),
+      );
+      // Seeded with every ACCEPTED event that some held child claims as its
+      // parent — not with the events accepted in this batch. A child can be
+      // waiting behind a parent accepted in an earlier request (Phase 16 reached
+      // those because that parent was the head), and it can be waiting behind a
+      // parent that is not the head at all (only a union produces those). Taking
+      // the parents the held rows actually name covers both without asking about
+      // parents nobody is waiting on.
+      // Pop order does not affect WHICH children end up promoted: a child is
+      // promoted only when its own parent is accepted and its revision is
+      // exactly one past that parent's, and neither fact depends on the order
+      // its parent was visited in. Order affects only which promotions a
+      // budget-exhausted request gets to first, and the remainder is promoted by
+      // the next request that touches the component.
+      const frontier = [...heldByParentRev.keys()].filter((parentId) =>
+        chain.acceptedEventIds.has(parentId),
+      );
+      while (budget > 0 && frontier.length > 0) {
+        const parentId = frontier.pop() as string;
+        const parentRevision = revisionOf.get(parentId);
+        if (parentRevision === undefined) continue;
+        const child = heldByParentRev.get(parentId)?.get(parentRevision + 1);
+        if (!child) continue;
+        // Structural safety net (cycle/contiguity/fork) via the same classifier
+        // the main loop uses — belt-and-suspenders on top of the parent+revision
+        // key. A merged component is judged by the merge rule, or an imported
+        // child extending a non-head guest event would be read as a stale branch
+        // and stay held forever; an unmerged one keeps Phase 16's rule exactly.
+        const lineage = classifyForEvent(
+          chain,
+          child.importedFromGuestImportId !== null,
           {
             eventId: child.eventId,
             parentEventId: child.parentEventId,
             clientComponentRevision: child.clientComponentRevision,
           },
-          {
-            headEventId: chain.headEventId,
-            headRevision: chain.headRevision,
-            acceptedEventIds: chain.acceptedEventIds,
-          },
-          {
-            parentByEventId: chain.parentByEventId,
-            pendingEventIds: chain.pendingEventIds,
-          },
         );
-        if (lineage.decision !== "accept") break;
+        if (lineage.decision !== "accept") continue;
 
         chain.acceptedEventIds.add(child.eventId);
         chain.pendingEventIds.delete(child.eventId);
@@ -1068,9 +1321,11 @@ async function processComponentGroup(
           occurredAtCanonical: child.occurredAtCanonical,
           localDateAtEvent: child.localDateAtEvent,
         });
-        chain.headEventId = child.eventId;
-        chain.headRevision = child.clientComponentRevision;
-        chain.headCanonicalMs = child.occurredAtCanonical.getTime();
+        chain.parentByEventId.set(child.eventId, child.parentEventId);
+        refreshChainHead(chain);
+        revisionOf.set(child.eventId, child.clientComponentRevision);
+        // A promoted child may itself have a held child waiting behind it.
+        frontier.push(child.eventId);
         acceptedThisBatch.push(child.eventId);
         promotedIds.push(child.eventId);
         budget -= 1;
@@ -1093,6 +1348,43 @@ async function processComponentGroup(
 
     if (!changed) return results;
 
+    // --- REL-005: a union and its authorisation are the SAME write ------------
+    //
+    // The stamp is derived from the accepted set this transaction is holding —
+    // `countChainRoots` over the very events about to be replayed — and never
+    // from anything the caller said about them. So "is this a union?" is
+    // answered by the data, and "is it allowed to be one?" by whether the
+    // server-internal merge mode is driving the call.
+    //
+    // Both answers then feed ONE update, below, alongside the replayed state.
+    // There is deliberately no path that writes the union first and the stamp
+    // afterwards: the events, the scheduling state derived from them and the
+    // permission to hold them commit together or not at all. A partial commit
+    // is the state REL-006 punishes — an unmarked multi-rooted component throws
+    // at every read path, so it would take out this account's pull as well.
+    //
+    // Note the two cases that produce NO stamp, both correct:
+    //  - a merge import that lands on a component with no account history: one
+    //    root, no union, nothing to authorise;
+    //  - an ORDINARY push that somehow produced a multi-rooted set: no
+    //    `guestImport`, so no stamp, so `replayComponent` refuses it below and
+    //    the whole component transaction rolls back. That is the canary
+    //    `merged_at` exists to keep alive (see db/schema/learning.ts), and it
+    //    must stay loud rather than be quietly repaired here.
+    const becameUnion = countChainRoots(headCandidatesOf(chain.accepted)) > 1;
+    const authorisesUnion = becameUnion && isImported;
+    // Stamp only the null → union transition. A component that was already
+    // merged keeps its ORIGINAL `merged_at` and provenance: that pair records
+    // when this component first became a union and which import made it one,
+    // which is the question an incident investigation asks. Re-stamping on
+    // every later import would overwrite the answer with the most recent one.
+    const mergeMark: ComponentMergeMark = {
+      mergedAt:
+        component.mergedAt ??
+        (authorisesUnion ? new Date(options.nowMs) : null),
+    };
+    const stampsMergeNow = component.mergedAt === null && authorisesUnion;
+
     // Deterministic replay → authoritative state. A ChainError means the
     // accepted chain is non-contiguous — an integrity violation that lineage
     // (T8) should already prevent. It is FATAL for this component: log it and
@@ -1102,7 +1394,16 @@ async function processComponentGroup(
     // request or silently drops the component's events without a trace.
     let replayed;
     try {
-      replayed = replayComponent(chain.accepted, options.nowMs);
+      // The mark is the one derived just above: the component's existing stamp
+      // if it had one, or the stamp THIS transaction is about to write. Passing
+      // the pre-transaction `component.mergedAt` instead would make the very
+      // transaction that creates a union fail to replay it — the union would be
+      // authorised and unreplayable in the same breath.
+      //
+      // An unmarked component that has somehow become multi-rooted still throws
+      // here, which is the point: that shape is corruption unless a merge
+      // coordinator recorded that it is not.
+      replayed = replayComponent(chain.accepted, options.nowMs, mergeMark);
     } catch (error) {
       if (error instanceof ChainError) {
         console.error(
@@ -1131,6 +1432,17 @@ async function processComponentGroup(
         learnerState: replayed.learnerState,
         revision: newRevision,
         lastSyncSeq: serverCursor,
+        // REL-005: the union's authorisation rides in the SAME statement as the
+        // state derived from it. Both columns or neither — the
+        // `study_components_merge_provenance_check` constraint enforces it,
+        // so a future edit that writes one of them alone fails at the database
+        // rather than producing a half-written merge record.
+        ...(stampsMergeNow
+          ? {
+              mergedAt: mergeMark.mergedAt,
+              mergedFromGuestImportId: guestImportId,
+            }
+          : {}),
       })
       .where(eq(studyComponents.id, component.id));
 
@@ -1166,7 +1478,7 @@ async function processReinforcementAttempts(
   componentKey: string,
   attempts: WireAttempt[],
   options: IngestOptions,
-  contextCache: Map<string, QuestionContext | null>,
+  contextCache: Map<string, ResolvedRelease>,
 ): Promise<SyncItemResult[]> {
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -1174,20 +1486,14 @@ async function processReinforcementAttempts(
     );
 
     const first = attempts[0]!;
-    const resolved = await resolveReleaseForIngestion(first.releaseId, options);
-    if (contextCache.has(first.releaseId) === false) {
-      contextCache.set(
-        first.releaseId,
-        resolved.ok
-          ? createQuestionContextFromRelease(resolved.release.learner)
-          : null,
-      );
-    }
-    const context = contextCache.get(first.releaseId) ?? null;
+    const resolved = await resolveReleaseCached(
+      contextCache,
+      first.releaseId,
+      options,
+    );
+    const context = resolved.context;
     if (!context) {
-      const code: SyncReasonCode = resolved.ok
-        ? "invalid_release"
-        : resolved.reasonCode;
+      const code = resolved.reasonCode;
       return Promise.all(
         attempts.map(async (att) => {
           await writeSyncAudit(tx, {
@@ -1488,7 +1794,7 @@ export async function ingestSchedulingBatch(
 ): Promise<IngestResult> {
   const db = getDb();
   const attemptsById = new Map(attempts.map((a) => [a.id, a]));
-  const contextCache = new Map<string, QuestionContext | null>();
+  const contextCache = new Map<string, ResolvedRelease>();
 
   const byComponent = new Map<string, WireEvent[]>();
   for (const ev of events) {
@@ -1515,15 +1821,19 @@ export async function ingestSchedulingBatch(
       // unexpected DB error) must NOT crash the whole request or discard the
       // other components. Isolate it: log, write an out-of-band audit (the
       // component transaction rolled back, so the audit must use `db`, not the
-      // dead tx), and return a recoverable internal_error for each of its events.
+      // dead tx), and reject each of its events. REL-006: a ChainError here is
+      // a PERMANENT structural condition, not the transient fault
+      // `internal_error` implies, so it gets its own non-recoverable code —
+      // otherwise the client retries stored corruption forever.
       console.error(`[sync] ingest: component ${componentKey} aborted`, error);
+      const reasonCode = componentFaultReason(error);
       for (const ev of group) {
         try {
           await writeSyncAudit(db, {
             userId,
             itemKind: "event",
             itemId: ev.eventId,
-            reasonCode: "internal_error",
+            reasonCode,
             severity: "critical",
             componentKey,
             correlationId: options.correlationId,
@@ -1532,7 +1842,7 @@ export async function ingestSchedulingBatch(
           // Never let audit failure mask the original error handling.
         }
         results.push(
-          reject({ itemId: ev.eventId, itemKind: "event" }, "internal_error"),
+          reject({ itemId: ev.eventId, itemKind: "event" }, reasonCode),
         );
       }
     }
@@ -1566,13 +1876,14 @@ export async function ingestSchedulingBatch(
         `[sync] ingest: reinforcement component ${componentKey} aborted`,
         error,
       );
+      const reasonCode = componentFaultReason(error);
       for (const att of group) {
         try {
           await writeSyncAudit(db, {
             userId,
             itemKind: "attempt",
             itemId: att.id,
-            reasonCode: "internal_error",
+            reasonCode,
             severity: "critical",
             componentKey,
             correlationId: options.correlationId,
@@ -1581,7 +1892,7 @@ export async function ingestSchedulingBatch(
           // Never let audit failure mask the original error handling.
         }
         results.push(
-          reject({ itemId: att.id, itemKind: "attempt" }, "internal_error"),
+          reject({ itemId: att.id, itemKind: "attempt" }, reasonCode),
         );
       }
     }

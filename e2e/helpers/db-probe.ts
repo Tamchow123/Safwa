@@ -29,6 +29,26 @@ function withDb<T>(
   return run(db).finally(() => pool.end());
 }
 
+/**
+ * The id of the `users` row with this email, or `null` if there is none.
+ *
+ * Needed by the deletion-cleanup spec: since the local clear is scoped to ONE
+ * account (phases-17.md §11), a spec that seeds an account-owned row has to
+ * seed it under the real account's owner key. Inventing an id would make the
+ * assertion pass for the wrong reason — the row would survive because it
+ * belonged to nobody, not because the scoping worked.
+ */
+export function userIdByEmail(email: string): Promise<string | null> {
+  return withDb(async (db) => {
+    const rows = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.email, email))
+      .limit(1);
+    return rows[0]?.id ?? null;
+  });
+}
+
 /** True if a `users` row with this email still exists. */
 export function userRowExists(email: string): Promise<boolean> {
   return withDb(async (db) => {

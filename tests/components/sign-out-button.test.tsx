@@ -10,13 +10,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * it (the wiring the security review flagged as the remaining gap).
  */
 const signOutMock = vi.fn(async () => {});
-vi.mock("@/modules/auth/client", () => ({ signOut: () => signOutMock() }));
+const SIGNED_IN_USER_ID = "user-1";
+vi.mock("@/modules/auth/client", () => ({
+  signOut: () => signOutMock(),
+  // The button renders on a signed-in page, so it holds the departing id and
+  // passes it into the cleanup rather than making it re-read the session
+  // (phases-17.md §11).
+  useSession: () => ({ data: { user: { id: SIGNED_IN_USER_ID } } }),
+}));
 
-const clearAccountLocalStateMock = vi.fn(async (db: unknown) => {
-  void db;
-});
+const clearAccountLocalStateMock = vi.fn(
+  async (db: unknown, departing: unknown) => {
+    void db;
+    void departing;
+  },
+);
 vi.mock("@/modules/sync/client/logout", () => ({
-  clearAccountLocalState: (db: unknown) => clearAccountLocalStateMock(db),
+  clearAccountLocalState: (db: unknown, departing: unknown) =>
+    clearAccountLocalStateMock(db, departing),
 }));
 
 const fakeDb = { name: "fake" };
@@ -43,7 +54,12 @@ describe("SignOutButton", () => {
 
     await waitFor(() => expect(clearAccountLocalStateMock).toHaveBeenCalled());
     expect(signOutMock).toHaveBeenCalledOnce();
-    expect(clearAccountLocalStateMock).toHaveBeenCalledWith(fakeDb);
+    // Scoped to the DEPARTING account (§11): the cleanup removes that
+    // account's rows and leaves a coexisting guest's rows intact.
+    expect(clearAccountLocalStateMock).toHaveBeenCalledWith(
+      fakeDb,
+      SIGNED_IN_USER_ID,
+    );
     // Server session is ended BEFORE the local wipe.
     expect(signOutMock.mock.invocationCallOrder[0]).toBeLessThan(
       clearAccountLocalStateMock.mock.invocationCallOrder[0]!,

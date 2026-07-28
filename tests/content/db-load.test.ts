@@ -67,24 +67,29 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe("Dexie schema v3", () => {
-  it("creates the content, learner-state and derived-cache stores at version 3", async () => {
+describe("Dexie schema", () => {
+  it("creates the content, learner-state and derived-cache stores at the current version", async () => {
     await db.open();
     expect(db.verno).toBe(SAFWA_DB_VERSION);
+    // The four owner-keyed stores carry the `_owned` suffix: schema v7 had to
+    // RECREATE them to change their primary key (IndexedDB cannot alter a key
+    // path in place), and v8 dropped the v6 originals — phases-17.md §10.
     expect(db.tables.map((table) => table.name).sort()).toEqual([
-      "bookmarks",
+      "bookmarks_owned",
       "contentEntries",
       "contentMetadata",
       "contentReleases",
-      "daily_activity",
+      "daily_activity_owned",
+      // v9 (phases-17.md §12): the durable guest→account import identity.
+      "guest_imports",
       "lists",
       "mutation_queue",
       "profile",
       "review_events",
       "sessions",
-      "settings",
+      "settings_owned",
       "study_attempts",
-      "study_components",
+      "study_components_owned",
       "sync_state",
     ]);
   });

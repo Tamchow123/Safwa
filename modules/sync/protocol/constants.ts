@@ -100,6 +100,15 @@ export const SYNC_REASON_CODES = [
   // pending-parent events; the client retries once the real parent arrives (so
   // the child accepts directly) or the backlog is purged.
   "pending_quota_exceeded",
+  // structural integrity (REL-006): the component's ALREADY-ACCEPTED event set
+  // cannot be replayed — a `ChainError` raised at a component-isolation
+  // boundary (ingest, revoke, pull). Distinct from `internal_error` because it
+  // is PERMANENT: nothing the client resends or waits for changes the stored
+  // chain, so retrying is futile and this code is deliberately NOT recoverable.
+  // Phase 17 made multi-rooted components an expected production shape (a merge
+  // union), so an UNMARKED multi-rooted component is exactly the condition this
+  // names — and it needs an operator, not a retry loop.
+  "component_integrity_error",
 ] as const;
 export type SyncReasonCode = (typeof SYNC_REASON_CODES)[number];
 
@@ -178,6 +187,9 @@ export const RECOVERABLE_REASON_CODES: ReadonlySet<SyncReasonCode> = new Set([
   // EXT-F4: a full pending backlog is transient — the client retries once the
   // parent arrives directly or the backlog is purged.
   "pending_quota_exceeded",
+  // NOTE (REL-006): `component_integrity_error` is deliberately absent. It
+  // reports a structural condition in state the client cannot influence;
+  // marking it recoverable would make every client retry it forever.
 ]);
 
 /** True when a rejection is safe for the client to retry after repair/pull. */

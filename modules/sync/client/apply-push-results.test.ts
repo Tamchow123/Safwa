@@ -6,6 +6,7 @@ import { SafwaDb } from "@/modules/content/db";
 import type { SyncItemResult } from "@/modules/sync/protocol";
 
 import { applyPushResults } from "./apply-push-results";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 let db: SafwaDb;
 let counter = 0;
@@ -20,6 +21,7 @@ afterEach(() => db.close());
 async function addEvent(eventId: string): Promise<void> {
   await db.reviewEvents.add({
     eventId,
+    ownerKey: GUEST_OWNER_KEY,
     componentKey: "c",
     parentEventId: null,
     clientComponentRevision: 1,

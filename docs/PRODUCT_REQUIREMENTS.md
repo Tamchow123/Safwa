@@ -190,17 +190,24 @@ snapshot.
   `navigator.storage.persist()` request and a gentle register prompt).
 - Registration is optional; email/password with verification and reset.
 - Signed-in users get server-backed state, cross-device sync, durable
-  bookmarks/settings. **Phase 15 status:** registration/login/verification/
-  reset/account-deletion are implemented; study-progress sync and the
-  guest→account merge below are Phase 16+ — a signed-in user's study
-  progress is local-only until then (see `OFFLINE_AND_SYNC.md` §3). Account
-  settings (theme, Arabic text size, timezone, study defaults) are already
-  server-backed today, as a surface deliberately separate from device-local
-  Dexie settings.
-- On sign-in/registration from a device with guest data, the app offers a
-  merge; merge ingests guest attempts/events through the normal causal sync
-  pipeline (deterministic, idempotent), unions bookmarks/lists, and prefers
-  account settings while filling gaps from guest settings.
+  bookmarks/settings. **Implemented** as of Phase 17: registration, login,
+  verification, reset and account deletion (15); server-authoritative
+  learning-state sync (16); and the guest→account merge (17). Account settings
+  (theme, Arabic text size, timezone, study defaults) are server-backed as a
+  surface deliberately separate from device-local Dexie settings.
+- On sign-in/registration from a device with guest data, the app **offers** a
+  merge and waits for an answer. Consent is the thing that uploads: signing in
+  is not agreement, and the prompt says what will move before it asks. Merge
+  ingests guest attempts/events through the normal causal sync pipeline
+  (deterministic, idempotent), unions bookmarks/lists, and prefers account
+  settings while filling gaps from guest settings.
+- **Declining costs nothing.** "Not now" uploads nothing and deletes nothing;
+  the guest's progress survives it, and survives a sign-out. The offer stays
+  reachable from Settings for the rest of the visit and returns on the next
+  sign-in, for as long as guest data exists on the device. A merge that fails
+  part-way leaves every guest row where it was and can be retried — the local
+  copy is the only copy until the account's copy is durable, and it is dropped
+  only after that.
 
 ### 4.8 Reset controls
 

@@ -70,6 +70,21 @@ export type SyncContextValue = {
    * per-trigger retry).
    */
   notifySessionEnd: () => void;
+  /**
+   * Run one sync and AWAIT its outcome, resolving true only when the account is
+   * fully in step with the server. Unlike the fire-and-forget triggers above,
+   * this is for a caller that cannot continue until the pull has landed — the
+   * post-merge rebase (phases-17.md §20.1), which runs after local finalisation
+   * has dropped the merged components' local cards.
+   *
+   * It goes through the CONTROLLER rather than calling `runSync` directly
+   * (ARCH-002), so it inherits the disabled and auth-lost back-offs: a caller
+   * cannot keep hammering a server this provider has already established should
+   * not be contacted. Resolves false for a guest, a backed-off account, an
+   * offline device, or a run that did not finish — all of which the caller must
+   * treat as "not yet", never as success.
+   */
+  syncNow: () => Promise<boolean>;
 };
 
 const SyncContext = createContext<SyncContextValue | null>(null);
@@ -278,6 +293,16 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     void controllerRef.current?.sync("session-end");
   }, []);
 
+  const syncNow = useCallback(async (): Promise<boolean> => {
+    const controller = controllerRef.current;
+    // No controller means a guest, or an account whose controller has not been
+    // built yet. Either way this device is not in step with a server, and
+    // saying otherwise is the false claim the caller depends on us not making.
+    if (!controller) return false;
+    const result = await controller.sync("manual");
+    return result?.outcome === "synced";
+  }, []);
+
   // Guest status is derived at render; a signed-in account shows ITS controller
   // status once subscribed (matched by userId so a stale status from a previous
   // account is never shown), or the `syncing` placeholder until the first notify.
@@ -289,7 +314,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         : initialSignedInStatus();
 
   return (
-    <SyncContext.Provider value={{ status, retry, notifySessionEnd }}>
+    <SyncContext.Provider value={{ status, retry, notifySessionEnd, syncNow }}>
       {children}
     </SyncContext.Provider>
   );

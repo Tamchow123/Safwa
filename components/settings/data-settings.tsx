@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useGuestMerge } from "@/components/sync/guest-merge-provider";
 import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,33 @@ export function DataSettings() {
   // permanently produce a file missing the account's own data — and the success
   // toast would give no hint anything was wrong.
   const resolveOwner = useResolveOwner();
+  // The DEFERRED merge entry point (§19 "expose the deferred action later").
+  // It appears only while there is still guest data to offer, so a learner who
+  // pressed "Not now" can change their mind without signing out and back in.
+  // Outside a provider it is simply absent, which is why the hook is the
+  // non-throwing one.
+  //
+  // It calls `reconsider`, NOT `consent` (SEC-002): this button re-opens the
+  // prompt with its counts, and the learner confirms there. A settings button
+  // that started an upload directly would be a confirmation whose only
+  // information was its own label.
+  //
+  // It covers BOTH states a learner can be left in with work outstanding
+  // (REL-006): a deferred offer, and a merge that stopped with a retryable
+  // failure. An earlier version narrowed this to `deferred` alone while fixing
+  // the consent problem above, which silently removed the only place a
+  // DISMISSED retryable error could be retried from — §19 asks the UI to
+  // surface retryable failures and to expose the deferred action later, and a
+  // learner who closes the failure notice needs both promises kept at once.
+  const merge = useGuestMerge();
+  const flowName = merge?.state.flow.name;
+  const canReconsider = flowName === "deferred";
+  // A retry is NOT a fresh consent: the learner already agreed, and part of the
+  // merge may already be durable. It gets its own label and its own handler.
+  const canRetry = flowName === "retryable-error";
+  // A signed-in learner is not a guest, and the card's guest-only warning
+  // beneath a merge offer reads as the app not knowing who they are (REL-005).
+  const signedIn = merge?.state.session.status === "signed-in";
 
   async function exportData() {
     setExporting(true);
@@ -66,12 +94,12 @@ export function DataSettings() {
           <h2 className="text-base font-semibold">Your data</h2>
         </CardTitle>
         <CardDescription>
-          As a guest, your settings and study progress are stored only in this
-          browser. Clearing site data erases them, and browsers may evict local
-          data under storage pressure. Download a copy anytime.
+          {signedIn
+            ? "Your study progress syncs to your account. You can also download a copy of what this browser holds at any time."
+            : "As a guest, your settings and study progress are stored only in this browser. Clearing site data erases them, and browsers may evict local data under storage pressure. Download a copy anytime."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-wrap gap-2">
         <Button
           type="button"
           variant="outline"
@@ -82,6 +110,28 @@ export function DataSettings() {
         >
           {exporting ? "Preparing export…" : "Export my data"}
         </Button>
+        {canReconsider && (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={merge?.reconsider}
+            data-testid="merge-guest-data"
+          >
+            Add my earlier progress to this account…
+          </Button>
+        )}
+        {canRetry && (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={merge?.retry}
+            data-testid="retry-guest-merge"
+          >
+            Finish adding my earlier progress
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

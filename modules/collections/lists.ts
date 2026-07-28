@@ -5,21 +5,28 @@
  * fixed set of inputs always produces the exact same record.
  */
 import type { CustomListRecord } from "@/modules/content/db";
+import type { OwnerKey } from "@/modules/content/owner-key";
 
 import {
   canonicaliseMembership,
   cleanListNameInput,
 } from "@/modules/collections/validation";
 
-/** Build a new, canonical custom-list record. */
+/**
+ * Build a new, canonical custom-list record. The OWNER is a required input
+ * (schema v7): a list row is scoped to one identity, and a list built without an
+ * owner could not be read back by the owner-scoped queries.
+ */
 export function buildListRecord(params: {
   id: string;
   name: string;
   entryIds?: readonly number[];
   now: number;
+  ownerKey: OwnerKey;
 }): CustomListRecord {
-  const { id, name, entryIds = [], now } = params;
+  const { id, name, entryIds = [], now, ownerKey } = params;
   return {
+    ownerKey,
     id,
     name: cleanListNameInput(name),
     entryIds: canonicaliseMembership(entryIds),

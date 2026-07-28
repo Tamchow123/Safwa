@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { type ReviewEventRecord, SafwaDb } from "@/modules/content/db";
+import { toOwnerKey } from "@/modules/content/owner-key";
 import type { AttemptRecord } from "@/modules/study-engine/attempts";
 
 import {
@@ -72,8 +73,8 @@ function makeEvent(
     eventId: randomUUID(),
     componentKey: attempt.studyComponentId,
     // Stamp the owner from the attempt, exactly as production `toEventRecord`
-    // does (R2-F3) — the owner-scoped `[userId+syncStatus]` index reads it.
-    userId: attempt.userId,
+    // does — the owner-scoped `[ownerKey+syncStatus]` index reads it.
+    ownerKey: toOwnerKey(attempt.userId),
     parentEventId: null,
     clientComponentRevision: 1,
     syncStatus: "local",
@@ -99,6 +100,7 @@ function makeEvent(
 async function insert(attempt: AttemptRecord, event: ReviewEventRecord) {
   await db.studyAttempts.add({
     id: attempt.id,
+    ownerKey: toOwnerKey(attempt.userId),
     componentKey: attempt.studyComponentId,
     sessionId: attempt.sessionId,
     attemptedAt: Date.now(),

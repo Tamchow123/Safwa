@@ -201,13 +201,15 @@ function idbComponents(
       request.onerror = () => reject(request.error);
     });
     try {
-      if (!database.objectStoreNames.contains("study_components")) return [];
+      if (!database.objectStoreNames.contains("study_components_owned")) {
+        return [];
+      }
       return await new Promise<
         { key: string; state?: string; hasCard: boolean }[]
       >((resolve, reject) => {
         const request = database
-          .transaction("study_components", "readonly")
-          .objectStore("study_components")
+          .transaction("study_components_owned", "readonly")
+          .objectStore("study_components_owned")
           .getAll();
         request.onsuccess = () =>
           resolve(

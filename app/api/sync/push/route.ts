@@ -35,6 +35,10 @@ import {
   type SyncItemResult,
 } from "@/modules/sync/protocol";
 import { guardSyncRequest } from "@/modules/sync/server/auth-guard";
+import {
+  BODY_TOO_LARGE,
+  readBoundedBody,
+} from "@/modules/sync/server/request-body";
 import { syncCollectionsBatch } from "@/modules/sync/server/collections";
 import { ingestSchedulingBatch } from "@/modules/sync/server/ingest";
 import { revokeEventsBatch } from "@/modules/sync/server/revoke";
@@ -44,47 +48,6 @@ export const runtime = "nodejs";
 
 function error(status: number, message: string): NextResponse {
   return NextResponse.json({ error: message }, { status });
-}
-
-/** Sentinel returned when the body exceeds the hard byte cap. */
-const BODY_TOO_LARGE = Symbol("body-too-large");
-
-/**
- * Read the request body as text with a HARD byte cap enforced against the
- * actual bytes received — not the client `Content-Length` header (which may be
- * absent, chunked, or understated). Aborts as soon as the running total exceeds
- * `maxBytes`, so an oversized body is never fully buffered. Returns the decoded
- * text, or `BODY_TOO_LARGE` when the cap is exceeded.
- */
-async function readBoundedBody(
-  request: Request,
-  maxBytes: number,
-): Promise<string | typeof BODY_TOO_LARGE> {
-  const stream = request.body;
-  if (!stream) {
-    // No stream (e.g. an empty body); text() is safe and equally bounded here.
-    const text = await request.text();
-    return Buffer.byteLength(text, "utf8") > maxBytes ? BODY_TOO_LARGE : text;
-  }
-  const reader = stream.getReader();
-  const chunks: Buffer[] = [];
-  let total = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        return BODY_TOO_LARGE;
-      }
-      chunks.push(Buffer.from(value));
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  return Buffer.concat(chunks).toString("utf8");
 }
 
 export async function POST(request: Request): Promise<NextResponse> {

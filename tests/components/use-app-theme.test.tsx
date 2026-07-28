@@ -7,6 +7,7 @@ import { APP_THEME_STORAGE_KEY } from "@/lib/preferences/app-theme";
 import { watchThemeMirrorRemoval } from "@/lib/preferences/use-app-theme";
 import { getSafwaDb } from "@/modules/content/db";
 import { SETTING_KEYS, writeSetting } from "@/modules/profile/settings";
+import type { OwnerKey } from "@/modules/content/owner-key";
 
 // The watcher reads through the real browser singleton; tests seed and
 // clear that same database.
@@ -76,7 +77,8 @@ describe("watchThemeMirrorRemoval", () => {
     const getSpy = vi.spyOn(db.settings, "get").mockImplementation(
       (key) =>
         new Promise((resolve) => {
-          releaseRead = () => resolve(realGet(key as unknown as string));
+          releaseRead = () =>
+            resolve(realGet(key as unknown as [OwnerKey, string]));
         }) as unknown as ReturnType<typeof db.settings.get>,
     );
     const unwatch = watchThemeMirrorRemoval(setTheme);

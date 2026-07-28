@@ -187,6 +187,35 @@ describe("POST /api/sync/push", () => {
     }
   });
 
+  it("never reaches the server-internal merge ingestion mode (§13, §30)", async () => {
+    // Phase 17 §13: "do not expose a client-controlled ingestionMode: guestMerge
+    // flag on the ordinary sync endpoint". The mode is an OPTION on
+    // ingestSchedulingBatch, so the guarantee is a property of this call site:
+    // the options object is built literally, never spread from the decoded body.
+    //
+    // Asserted against a body that ATTEMPTS the bypass, so this fails if either
+    // defence is removed — if the schema stopped rejecting the unknown field, or
+    // if the route started forwarding decoded fields into its options.
+    ingestMock.mockResolvedValue({ results: [], serverCursor: 0 });
+
+    const response = await POST(
+      pushRequest({
+        ...VALID_BODY,
+        guestImport: { importId: "11111111-2222-3333-4444-555555555555" },
+      }),
+    );
+    // A strict schema refuses the unknown field outright.
+    expect(response.status).toBe(400);
+    expect(ingestMock).not.toHaveBeenCalled();
+
+    // And on a legitimate body, the options the route does pass carry no merge
+    // mode at all — not even undefined-by-omission from a spread.
+    await POST(pushRequest(VALID_BODY));
+    const options = ingestMock.mock.calls[0]?.[3] as Record<string, unknown>;
+    expect(options).toBeDefined();
+    expect(Object.keys(options).sort()).toEqual(["correlationId", "nowMs"]);
+  });
+
   it("returns a generic 500 (no internals) if a pipeline throws", async () => {
     ingestMock.mockRejectedValue(new Error("db exploded with secret detail"));
     const response = await POST(pushRequest(VALID_BODY));

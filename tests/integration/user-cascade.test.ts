@@ -148,7 +148,11 @@ describe("user cascade deletion", () => {
       userId,
       deviceId: "device-1",
       importKey: randomUUID(),
+      snapshotHash: "a".repeat(64),
+      status: "completed",
+      completedAt: new Date(),
       result: "applied",
+      reasonCode: "already_completed",
     });
 
     await db.delete(users).where(eq(users.id, userId));

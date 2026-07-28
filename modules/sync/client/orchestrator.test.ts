@@ -21,6 +21,7 @@ import {
   enqueueRevocationMutation,
 } from "./mutation-queue";
 import { isSyncRunning, runSync, type RunSyncDeps } from "./orchestrator";
+import { toOwnerKey } from "@/modules/content/owner-key";
 
 let db: SafwaDb;
 let counter = 0;
@@ -63,6 +64,7 @@ function pullPage(
       settings: [],
       tombstones: [],
       notices: [],
+      withheldComponents: [],
     },
   };
 }
@@ -126,6 +128,7 @@ async function insertLocalEvent(ownerId = "u"): Promise<string> {
   const att = makeAttempt(ownerId);
   await db.studyAttempts.add({
     id: att.id,
+    ownerKey: toOwnerKey(att.userId),
     componentKey: att.studyComponentId,
     sessionId: att.sessionId,
     attemptedAt: 1,
@@ -135,9 +138,9 @@ async function insertLocalEvent(ownerId = "u"): Promise<string> {
   await db.reviewEvents.add({
     eventId,
     componentKey: att.studyComponentId,
-    // The event carries its owner (R2-F3) so the owner-scoped `[userId+syncStatus]`
+    // The event carries its owner so the owner-scoped `[ownerKey+syncStatus]`
     // selector finds it — matching production `toEventRecord`.
-    userId: att.userId,
+    ownerKey: toOwnerKey(att.userId),
     parentEventId: null,
     clientComponentRevision: 1,
     syncStatus: "local",

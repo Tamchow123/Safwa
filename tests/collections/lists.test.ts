@@ -11,6 +11,7 @@ import {
   withMembership,
   withRenamedList,
 } from "@/modules/collections/lists";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 describe("buildListRecord", () => {
   it("uses the injected id and clock, not an ambient source", () => {
@@ -18,8 +19,10 @@ describe("buildListRecord", () => {
       id: "list-1",
       name: "Difficult Verbs",
       now: 1_000,
+      ownerKey: GUEST_OWNER_KEY,
     });
     expect(record).toEqual({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Difficult Verbs",
       entryIds: [],
@@ -34,6 +37,7 @@ describe("buildListRecord", () => {
       name: "Verbs",
       entryIds: [30, 2, 30, 9],
       now: 1_000,
+      ownerKey: GUEST_OWNER_KEY,
     });
     expect(record.entryIds).toEqual([2, 9, 30]);
   });
@@ -44,12 +48,18 @@ describe("buildListRecord", () => {
       name: "  Difficult   Verbs  ",
       entryIds: [9, 2],
       now: 1_000,
+      ownerKey: GUEST_OWNER_KEY,
     };
     expect(buildListRecord(params)).toEqual(buildListRecord(params));
   });
 
   it("has updatedAt >= createdAt on creation (equal)", () => {
-    const record = buildListRecord({ id: "list-1", name: "Verbs", now: 42 });
+    const record = buildListRecord({
+      id: "list-1",
+      name: "Verbs",
+      now: 42,
+      ownerKey: GUEST_OWNER_KEY,
+    });
     expect(record.updatedAt).toBeGreaterThanOrEqual(record.createdAt);
   });
 
@@ -58,13 +68,19 @@ describe("buildListRecord", () => {
       id: "list-1",
       name: "  difficult   verbs  ",
       now: 1_000,
+      ownerKey: GUEST_OWNER_KEY,
     });
     expect(record.name).toBe("difficult verbs");
   });
 });
 
 describe("withRenamedList", () => {
-  const base = buildListRecord({ id: "list-1", name: "Old name", now: 1 });
+  const base = buildListRecord({
+    id: "list-1",
+    name: "Old name",
+    now: 1,
+    ownerKey: GUEST_OWNER_KEY,
+  });
 
   it("updates the name and bumps updatedAt, preserving createdAt", () => {
     const renamed = withRenamedList(base, "New name", 2);
@@ -85,6 +101,7 @@ describe("withMembership / withEntryAdded / withEntryRemoved", () => {
     name: "Verbs",
     entryIds: [7],
     now: 1,
+    ownerKey: GUEST_OWNER_KEY,
   });
 
   it("withMembership replaces and canonicalises membership", () => {

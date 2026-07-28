@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useCollections } from "@/components/collections/use-collections";
 import type { CollectionsRaw } from "@/modules/collections/persistence";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 vi.mock("@/modules/content/db", async (importOriginal) => {
   const original =
@@ -38,9 +39,10 @@ afterEach(() => {
 describe("useCollections", () => {
   it("loads and reaches the ready state with a derived snapshot", async () => {
     readCollections.mockResolvedValueOnce({
-      bookmarks: [{ entryId: 7, createdAt: 1 }],
+      bookmarks: [{ ownerKey: GUEST_OWNER_KEY, entryId: 7, createdAt: 1 }],
       lists: [
         {
+          ownerKey: GUEST_OWNER_KEY,
           id: "list-1",
           name: "Verbs",
           entryIds: [7],

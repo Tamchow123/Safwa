@@ -70,6 +70,9 @@ export async function GET(request: Request): Promise<NextResponse> {
     settings: changes.settings,
     tombstones: changes.tombstones,
     notices: [],
+    // REL-006: components the page examined but could not project. Named, not
+    // silently omitted — the cursor advances past them either way.
+    withheldComponents: changes.withheldComponents,
   };
   return NextResponse.json(response);
 }

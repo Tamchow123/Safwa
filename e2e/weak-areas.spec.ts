@@ -11,6 +11,7 @@ import { expect, test } from "./fixtures";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { idbAll, idbSeed, seedCard, seedWeakAttempt } from "./helpers/idb";
 import { loadLearnerRelease } from "./helpers/learner-release";
+import { answerCorrectly, answerIncorrectly } from "./helpers/quiz";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const release = loadLearnerRelease();
@@ -28,26 +29,6 @@ function formKey(
   direction: string,
 ): string {
   return `entry:${entryId}:skill:${skillTypeId}:field:${sourceField}:direction:${direction}`;
-}
-
-async function correctOptionRef(page: Page): Promise<string> {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  return `entry:${entryId}:field:${answerField}`;
-}
-async function answerCorrectly(page: Page) {
-  const ref = await correctOptionRef(page);
-  await page
-    .locator(`[data-testid="mc-option"][data-answer-ref="${ref}"]`)
-    .click();
-}
-async function answerIncorrectly(page: Page) {
-  const ref = await correctOptionRef(page);
-  await page
-    .locator(`[data-testid="mc-option"]:not([data-answer-ref="${ref}"])`)
-    .first()
-    .click();
 }
 
 async function horizontalOverflow(page: Page): Promise<boolean> {

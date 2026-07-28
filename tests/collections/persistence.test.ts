@@ -25,6 +25,7 @@ import {
   UnknownEntryIdError,
 } from "@/modules/collections/persistence";
 import { peekDeviceProfile } from "@/modules/profile/device";
+import { accountOwnerKey, GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 const ensureDurableGuestStateSpy = vi.fn(async () => ({ deviceId: "dev-1" }));
 
@@ -64,8 +65,13 @@ describe("readCollections / isBookmarked", () => {
   });
 
   it("reads a consistent snapshot of both stores", async () => {
-    await db.bookmarks.add({ entryId: 7, createdAt: 1 });
+    await db.bookmarks.add({
+      ownerKey: GUEST_OWNER_KEY,
+      entryId: 7,
+      createdAt: 1,
+    });
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Verbs",
       entryIds: [7],
@@ -73,7 +79,9 @@ describe("readCollections / isBookmarked", () => {
       updatedAt: 1,
     });
     const snapshot = await readCollections(db, null);
-    expect(snapshot.bookmarks).toEqual([{ entryId: 7, createdAt: 1 }]);
+    expect(snapshot.bookmarks).toEqual([
+      { ownerKey: GUEST_OWNER_KEY, entryId: 7, createdAt: 1 },
+    ]);
     expect(snapshot.lists).toHaveLength(1);
   });
 
@@ -113,7 +121,10 @@ describe("owner scoping (R2-F3)", () => {
     // Same name, different owner — must not collide (owner-scoped uniqueness).
     await expect(
       createList(db, { name: "Verbs", now: 2, owner: ACCOUNT }),
-    ).resolves.toMatchObject({ name: "Verbs", userId: ACCOUNT });
+    ).resolves.toMatchObject({
+      name: "Verbs",
+      ownerKey: accountOwnerKey(ACCOUNT),
+    });
   });
 
   it("the max-lists cap counts only the owner's own lists", async () => {
@@ -123,7 +134,7 @@ describe("owner scoping (R2-F3)", () => {
     // The guest is at the cap, but the account's own count is 0.
     await expect(
       createList(db, { name: "Account first", now: 100, owner: ACCOUNT }),
-    ).resolves.toMatchObject({ userId: ACCOUNT });
+    ).resolves.toMatchObject({ ownerKey: accountOwnerKey(ACCOUNT) });
   });
 
   it("an account cannot rename or delete a guest-owned list (not-found from its view)", async () => {
@@ -142,9 +153,30 @@ describe("owner scoping (R2-F3)", () => {
     expect((await db.lists.get(guestList.id))?.name).toBe("Guest only");
   });
 
-  it("a signed-in bookmark write stamps the account owner (so it syncs as theirs)", async () => {
+  it("a signed-in bookmark write is keyed to the account (so it syncs as theirs)", async () => {
     await setBookmarked(db, 7, true, KNOWN, 1, ACCOUNT);
-    expect((await db.bookmarks.get(7))?.userId).toBe(ACCOUNT);
+    expect(
+      (await db.bookmarks.get([accountOwnerKey(ACCOUNT), 7]))?.ownerKey,
+    ).toBe(accountOwnerKey(ACCOUNT));
+  });
+
+  it("a guest bookmark and an account bookmark for the SAME entry coexist (§10)", async () => {
+    // The Phase 16 limitation this phase removes: an account write could
+    // physically replace the guest's row for the same natural key.
+    await setBookmarked(db, 7, true, KNOWN, 1, null);
+    await setBookmarked(db, 7, true, KNOWN, 2, ACCOUNT);
+    expect(await isBookmarked(db, 7, null)).toBe(true);
+    expect(await isBookmarked(db, 7, ACCOUNT)).toBe(true);
+    expect(await db.bookmarks.count()).toBe(2);
+    // Each keeps its OWN createdAt — neither overwrote the other.
+    expect((await db.bookmarks.get([GUEST_OWNER_KEY, 7]))?.createdAt).toBe(1);
+    expect(
+      (await db.bookmarks.get([accountOwnerKey(ACCOUNT), 7]))?.createdAt,
+    ).toBe(2);
+    // Removing the account's leaves the guest's intact.
+    await setBookmarked(db, 7, false, KNOWN, 3, ACCOUNT);
+    expect(await isBookmarked(db, 7, null)).toBe(true);
+    expect(await isBookmarked(db, 7, ACCOUNT)).toBe(false);
   });
 });
 
@@ -160,7 +192,9 @@ describe("setBookmarked / toggleBookmark", () => {
     await setBookmarked(db, 7, true, KNOWN, 100, null);
     await setBookmarked(db, 7, true, KNOWN, 200, null);
     const rows = await db.bookmarks.toArray();
-    expect(rows).toEqual([{ entryId: 7, createdAt: 100, userId: null }]);
+    expect(rows).toEqual([
+      { ownerKey: GUEST_OWNER_KEY, entryId: 7, createdAt: 100 },
+    ]);
   });
 
   it("toggle flips state and returns the new state", async () => {

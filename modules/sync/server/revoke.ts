@@ -45,6 +45,7 @@ import {
 } from "@/modules/sync/protocol";
 
 import { writeSyncAudit } from "./audit";
+import { componentFaultReason } from "./component-fault";
 import { currentAccountCursor, nextAccountCursor } from "./cursor";
 import { type ComponentReplayEvent, replayComponent } from "./replay";
 
@@ -314,6 +315,10 @@ async function processComponentRevocations(
       const replayed = replayComponent(
         remaining.map(toReplayEvent),
         options.nowMs,
+        // Phase 17 §14: a merged component is still undoable. Without its mark
+        // the union would throw here and an undo would fail for the one reason
+        // a learner cannot act on.
+        { mergedAt: component.mergedAt },
       );
       const newRevision = component.revision + accepted.length;
       await tx
@@ -390,16 +395,19 @@ export async function revokeEventsBatch(
     } catch (error) {
       // One component's transaction aborting must not crash the request or
       // discard the other components. Isolate it: log, write an out-of-band
-      // audit (the tx rolled back, so use `db`), and return a recoverable
-      // internal_error for each of its revocations.
+      // audit (the tx rolled back, so use `db`), and reject each of its
+      // revocations. REL-006: a ChainError is classified as the PERMANENT
+      // `component_integrity_error` rather than the retryable `internal_error`
+      // — no resubmission can repair an already-stored impossible chain.
       console.error(`[sync] revoke: component ${componentKey} aborted`, error);
+      const reasonCode = componentFaultReason(error);
       for (const rev of group) {
         try {
           await writeSyncAudit(db, {
             userId,
             itemKind: "revocation",
             itemId: rev.revocationId,
-            reasonCode: "internal_error",
+            reasonCode,
             severity: "critical",
             componentKey,
             correlationId: options.correlationId,
@@ -408,7 +416,7 @@ export async function revokeEventsBatch(
         } catch {
           // Never let audit failure mask the original error handling.
         }
-        results.push(reject(rev, "internal_error", { componentKey }));
+        results.push(reject(rev, reasonCode, { componentKey }));
       }
     }
   }

@@ -13,6 +13,7 @@ import {
 } from "@/modules/study-session/persistence";
 
 import { makeAttempt } from "../scheduler/fixtures";
+import { GUEST_OWNER_KEY, toOwnerKey } from "@/modules/content/owner-key";
 
 const COMPONENT =
   "entry:1:skill:meaning_recognition:field:madi:direction:arabic_to_english";
@@ -75,7 +76,10 @@ describe("recordGradedAttempt", () => {
     expect(event?.clientComponentRevision).toBe(1);
     expect(event?.attemptId).toBe("a1");
 
-    const component = await db.studyComponents.get(COMPONENT);
+    const component = await db.studyComponents.get([
+      GUEST_OWNER_KEY,
+      COMPONENT,
+    ]);
     expect(component?.entryId).toBe(1);
     expect(component?.revision).toBe(1);
     expect(component?.fsrs).toBeDefined();
@@ -101,7 +105,10 @@ describe("recordGradedAttempt", () => {
     const event = await db.reviewEvents.get("e1");
     expect(event?.rating).toBe("again");
     // An Again with no clean success has not started learning.
-    const component = await db.studyComponents.get(COMPONENT);
+    const component = await db.studyComponents.get([
+      GUEST_OWNER_KEY,
+      COMPONENT,
+    ]);
     expect(component?.learnerState).toBe("not_started");
   });
 
@@ -109,9 +116,10 @@ describe("recordGradedAttempt", () => {
     // A fresh device / post-logout: the pull left an authoritative component
     // with an anchor but no local review_events.
     await db.studyComponents.put({
+      ownerKey: toOwnerKey("user-1"),
       componentKey: COMPONENT,
       entryId: 1,
-      userId: "user-1",
+
       revision: 5,
       learnerState: "needs_review",
       syncedHeadEventId: "head-ev",
@@ -129,13 +137,16 @@ describe("recordGradedAttempt", () => {
     expect(event?.parentEventId).toBe("head-ev");
     expect(event?.clientComponentRevision).toBe(4); // headClientRevision + 1
     expect(event?.baseServerRevision).toBe(5); // the component's server revision
-    expect(event?.userId).toBe("user-1");
+    expect(event?.ownerKey).toBe(toOwnerKey("user-1"));
 
     // The bootstrapped component's pulled card is server-authoritative: it is
     // NOT locally re-projected (the pure replay needs the whole chain from
     // revision 1, which this device lacks). It stands until the event syncs and
     // the next pull returns the advanced authoritative card (R2-F2, Stage A).
-    const component = await db.studyComponents.get(COMPONENT);
+    const component = await db.studyComponents.get([
+      toOwnerKey("user-1"),
+      COMPONENT,
+    ]);
     expect(component?.revision).toBe(5);
     expect(component?.learnerState).toBe("needs_review");
   });
@@ -154,9 +165,9 @@ describe("recordGradedAttempt", () => {
   it("ignores ANOTHER owner's anchor and roots its own chain (R2-F3 scoping)", async () => {
     // A guest-owned component anchor must not be extended by the account.
     await db.studyComponents.put({
+      ownerKey: toOwnerKey(null), // guest
       componentKey: COMPONENT,
       entryId: 1,
-      userId: null, // guest
       revision: 5,
       syncedHeadEventId: "guest-head",
       syncedHeadClientRevision: 3,
@@ -224,7 +235,10 @@ describe("recordGradedAttempt", () => {
     expect(second?.clientComponentRevision).toBe(2);
     expect(second?.clientSequence).toBe(2);
 
-    const component = await db.studyComponents.get(COMPONENT);
+    const component = await db.studyComponents.get([
+      GUEST_OWNER_KEY,
+      COMPONENT,
+    ]);
     expect(component?.revision).toBe(2);
   });
 });
@@ -242,7 +256,9 @@ describe("undoGradedAttempt", () => {
     expect(await db.studyAttempts.get("a1")).toBeUndefined();
     expect(await db.reviewEvents.get("e1")).toBeUndefined();
     // No scheduling events remain, so the card row is cleared.
-    expect(await db.studyComponents.get(COMPONENT)).toBeUndefined();
+    expect(
+      await db.studyComponents.get([GUEST_OWNER_KEY, COMPONENT]),
+    ).toBeUndefined();
   });
 
   it("restores the prior card when undoing the latest of a chain", async () => {
@@ -268,7 +284,10 @@ describe("undoGradedAttempt", () => {
     expect(await db.reviewEvents.get("e2")).toBeUndefined();
     // The first event survives; the component reverts to revision 1.
     expect(await db.reviewEvents.get("e1")).toBeDefined();
-    const component = await db.studyComponents.get(COMPONENT);
+    const component = await db.studyComponents.get([
+      GUEST_OWNER_KEY,
+      COMPONENT,
+    ]);
     expect(component?.revision).toBe(1);
   });
 
@@ -300,7 +319,10 @@ describe("undoGradedAttempt", () => {
     expect(await db.studyAttempts.get("a1")).toBeDefined();
     expect(await db.reviewEvents.get("e1")).toBeDefined();
     expect(await db.reviewEvents.get("e2")).toBeDefined();
-    const component = await db.studyComponents.get(COMPONENT);
+    const component = await db.studyComponents.get([
+      GUEST_OWNER_KEY,
+      COMPONENT,
+    ]);
     expect(component?.revision).toBe(2);
   });
 
@@ -326,7 +348,10 @@ describe("undoGradedAttempt", () => {
     expect(await db.studyAttempts.get("a2")).toBeUndefined();
     // The first attempt's event is untouched.
     expect(await db.reviewEvents.get("e1")).toBeDefined();
-    const component = await db.studyComponents.get(COMPONENT);
+    const component = await db.studyComponents.get([
+      GUEST_OWNER_KEY,
+      COMPONENT,
+    ]);
     expect(component?.revision).toBe(1);
   });
 });
@@ -379,6 +404,7 @@ describe("recordGradedAttempt device-profile binding", () => {
     // A malformed scheduling event for this component makes the chain read throw
     // mid-transaction, forcing a rollback of the whole write.
     await db.reviewEvents.add({
+      ownerKey: GUEST_OWNER_KEY,
       eventId: "bad",
       componentKey: COMPONENT,
       parentEventId: null,
@@ -414,18 +440,21 @@ describe("readSchedulingSnapshot owner scoping (R2-F3)", () => {
     // A guest component/event (owner null) and an account one (owner ACCOUNT)
     // coexist in the store before a logout wipe.
     await db.studyComponents.add({
+      ownerKey: toOwnerKey(null),
       componentKey: "entry:1:guest",
       entryId: 1,
-      userId: null,
+
       learnerState: "learning",
     });
     await db.studyComponents.add({
+      ownerKey: toOwnerKey(ACCOUNT),
       componentKey: "entry:2:account",
       entryId: 2,
-      userId: ACCOUNT,
+
       learnerState: "needs_review",
     });
     await db.reviewEvents.add({
+      ownerKey: toOwnerKey(null),
       eventId: "ev-guest",
       componentKey: "entry:1:guest",
       parentEventId: null,
@@ -433,9 +462,9 @@ describe("readSchedulingSnapshot owner scoping (R2-F3)", () => {
       syncStatus: "local",
       createdAt: 1,
       status: "scheduling",
-      userId: null,
     });
     await db.reviewEvents.add({
+      ownerKey: toOwnerKey(ACCOUNT),
       eventId: "ev-account",
       componentKey: "entry:2:account",
       parentEventId: null,
@@ -443,7 +472,6 @@ describe("readSchedulingSnapshot owner scoping (R2-F3)", () => {
       syncStatus: "local",
       createdAt: 2,
       status: "scheduling",
-      userId: ACCOUNT,
     });
 
     const asAccount = await readSchedulingSnapshot(db, ACCOUNT);

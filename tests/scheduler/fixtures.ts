@@ -3,6 +3,8 @@
  * Phase-7 review events with sensible defaults, so tests can focus on the
  * scheduling behaviour under test.
  */
+import { Rating } from "ts-fsrs";
+
 import type { AttemptRecord } from "@/modules/study-engine";
 import {
   createReviewEvent,
@@ -16,6 +18,26 @@ import {
   type SchedulerCard,
   type SchedulerRating,
 } from "@/modules/scheduler/fsrs";
+
+/**
+ * Mappings between this repository's rating/state vocabularies and RAW ts-fsrs',
+ * used ONLY by the independent-oracle helpers in the chain tests (which drive
+ * ts-fsrs directly, bypassing `modules/scheduler`, to prove the replay against a
+ * second implementation). Shared here so the two oracles cannot drift apart.
+ */
+export const RAW_FSRS_GRADE = {
+  again: Rating.Again,
+  hard: Rating.Hard,
+  good: Rating.Good,
+  easy: Rating.Easy,
+} as const;
+
+export const RAW_FSRS_STATE: Record<number, SchedulerCard["state"]> = {
+  0: "new",
+  1: "learning",
+  2: "review",
+  3: "relearning",
+};
 
 let attemptCounter = 0;
 
