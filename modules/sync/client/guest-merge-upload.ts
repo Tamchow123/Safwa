@@ -40,6 +40,7 @@ import {
   SYNC_PROTOCOL_VERSION,
   type GuestListMapping,
   type GuestMergeReasonCode,
+  type GuestMergeRequest,
   type GuestMergeResult,
   type GuestMergeSummary,
 } from "@/modules/sync/protocol";
@@ -55,6 +56,7 @@ import {
   isRetryableMergeFailure,
   postGuestMerge,
   type GuestMergeApiFailure,
+  type GuestMergeApiResult,
 } from "./guest-merge-api";
 import { declaredCountsOf, planGuestMergeChunks } from "./guest-merge-chunking";
 
@@ -114,10 +116,47 @@ export type GuestMergeUploadDeps = {
   /** Injected for tests; defaults to the real endpoint client. */
   post?: typeof postGuestMerge;
   onProgress?: (progress: GuestMergeProgress) => void;
-  signal?: AbortSignal;
   /** Passed through to the durable import-key store (CSPRNG + clock). */
   importOptions?: GuestImportOptions;
+  /** Per-request timeout (ms); defaults to `DEFAULT_MERGE_REQUEST_TIMEOUT_MS`. */
+  requestTimeoutMs?: number;
 };
+
+/**
+ * Per-request ceiling, matching ordinary sync's (REL-003-T15). PER REQUEST, not
+ * per merge: a large history legitimately takes many chunks and minutes, but no
+ * single stage should ever hang.
+ *
+ * Without this the merge could stall forever on a request a proxy holds open —
+ * and because the merge dialog is deliberately not dismissible while running,
+ * that stall was not a stuck progress bar but a modal blocking the whole
+ * signed-in app with no way out but a reload.
+ */
+const DEFAULT_MERGE_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Race one stage against the clock, aborting the fetch. A timeout is reported
+ * as `network`, which `isRetryableMergeFailure` already treats as retryable —
+ * the honest reading, since the request may well have been received.
+ */
+async function withTimeout(
+  timeoutMs: number,
+  call: (init: { signal: AbortSignal }) => Promise<GuestMergeApiResult>,
+): Promise<GuestMergeApiResult> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<GuestMergeApiResult>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ ok: false, reason: "network" });
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([call({ signal: controller.signal }), timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 function interrupted(
   importKey: string,
@@ -146,8 +185,13 @@ export async function uploadGuestMerge(
   snapshot: GuestSnapshot,
   deps: GuestMergeUploadDeps = {},
 ): Promise<GuestMergeUploadOutcome> {
-  const post = deps.post ?? postGuestMerge;
-  const init = deps.signal ? { signal: deps.signal } : undefined;
+  const rawPost = deps.post ?? postGuestMerge;
+  const timeoutMs = deps.requestTimeoutMs ?? DEFAULT_MERGE_REQUEST_TIMEOUT_MS;
+  // Every stage goes through the timeout, so the driver always SETTLES. A hung
+  // request cannot leave the merge dialog — which is deliberately not
+  // dismissible while running — blocking the app forever (REL-003-T15).
+  const post = (request: GuestMergeRequest): Promise<GuestMergeApiResult> =>
+    withTimeout(timeoutMs, (init) => rawPost(request, init));
 
   // Plan BEFORE claiming a key: a snapshot that cannot be chunked must not
   // leave a claimed import behind for a merge that can never be sent.
@@ -169,17 +213,14 @@ export async function uploadGuestMerge(
     });
 
   // --- 1. begin -------------------------------------------------------------
-  const begun = await post(
-    {
-      protocolVersion: SYNC_PROTOCOL_VERSION,
-      stage: "begin",
-      importKey,
-      snapshotHash,
-      deviceId: snapshot.deviceId ?? UNMINTED_DEVICE_ID,
-      declared: declaredCountsOf(snapshot),
-    },
-    init,
-  );
+  const begun = await post({
+    protocolVersion: SYNC_PROTOCOL_VERSION,
+    stage: "begin",
+    importKey,
+    snapshotHash,
+    deviceId: snapshot.deviceId ?? UNMINTED_DEVICE_ID,
+    declared: declaredCountsOf(snapshot),
+  });
   if (!begun.ok) {
     await markGuestImportFailed(db, userId, importKey);
     return interrupted(importKey, begun.reason, begun.reasonCode);
@@ -217,17 +258,14 @@ export async function uploadGuestMerge(
 
   for (let index = startChunk; index < chunks.length; index++) {
     const body = chunks[index]!;
-    const sent = await post(
-      {
-        protocolVersion: SYNC_PROTOCOL_VERSION,
-        stage: "chunk",
-        importKey,
-        snapshotHash,
-        chunkIndex: index,
-        ...body,
-      },
-      init,
-    );
+    const sent = await post({
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+      stage: "chunk",
+      importKey,
+      snapshotHash,
+      chunkIndex: index,
+      ...body,
+    });
     if (!sent.ok) {
       await markGuestImportFailed(db, userId, importKey);
       return interrupted(importKey, sent.reason, sent.reasonCode);
@@ -252,15 +290,12 @@ export async function uploadGuestMerge(
   }
 
   // --- 3. finalize ----------------------------------------------------------
-  const finalized = await post(
-    {
-      protocolVersion: SYNC_PROTOCOL_VERSION,
-      stage: "finalize",
-      importKey,
-      snapshotHash,
-    },
-    init,
-  );
+  const finalized = await post({
+    protocolVersion: SYNC_PROTOCOL_VERSION,
+    stage: "finalize",
+    importKey,
+    snapshotHash,
+  });
   if (!finalized.ok) {
     await markGuestImportFailed(db, userId, importKey);
     return interrupted(importKey, finalized.reason, finalized.reasonCode);

@@ -31,6 +31,7 @@ import {
   useEffect,
   useReducer,
   useRef,
+  useState,
 } from "react";
 
 import { useSession } from "@/modules/auth/client";
@@ -55,6 +56,12 @@ import {
   isMeaningfulGuestData,
   summarizeGuestData,
 } from "@/modules/sync/client/guest-snapshot";
+import {
+  forgetOnIdentityChange,
+  initialSurfaceMemory,
+  isSurfaceVisible,
+  rememberDismissal,
+} from "@/modules/sync/client/guest-merge-surface";
 import { useSyncStatus } from "@/components/sync/sync-provider";
 
 export type GuestMergeContextValue = {
@@ -69,6 +76,22 @@ export type GuestMergeContextValue = {
   defer: () => void;
   /** Try again after a retryable failure. */
   retry: () => void;
+  /**
+   * Close a finished merge's surface.
+   *
+   * PRESENTATION ONLY — it changes nothing about the merge, which really is
+   * over. It exists because the terminal states are terminal: the machine has
+   * no "and now stop showing it" transition, and inventing one would make a
+   * screen's dismissal look like part of the merge's own lifecycle.
+   */
+  dismiss: () => void;
+  /**
+   * Show a deferred offer again. Dispatches `reconsider`, so the learner sees
+   * the counts before anything is sent — it is not a second consent button.
+   */
+  reconsider: () => void;
+  /** False once a finished merge has been dismissed, until a new one starts. */
+  visible: boolean;
 };
 
 const GuestMergeContext = createContext<GuestMergeContextValue | null>(null);
@@ -95,6 +118,12 @@ export function GuestMergeProvider({
     initialGuestMergeState,
   );
 
+  // Presentation only: whether a finished merge's surface has been closed.
+  // The rules live in `guest-merge-surface.ts`, pure and tested through the
+  // sequences that broke them twice — an account-qualified key was not enough
+  // on its own, and a boolean was not enough before that.
+  const [surface, setSurface] = useState(initialSurfaceMemory);
+
   // Read inside callbacks that must not re-create themselves on every state
   // change — the merge runner's account guard in particular, which is handed to
   // a run that may outlive several renders and must see the CURRENT session
@@ -113,6 +142,13 @@ export function GuestMergeProvider({
   // the effect below simply does not fire until it clears.
   const pending = session.isPending;
   const userId = session.data?.user?.id ?? null;
+
+  // Adjusted during render rather than in an effect: React's documented shape
+  // for resetting state when an input changes, and the effect form is what
+  // `react-hooks/set-state-in-effect` rejects. `forgetOnIdentityChange` returns
+  // the SAME object when nothing changed, so this cannot loop.
+  const nextSurface = forgetOnIdentityChange(surface, userId);
+  if (nextSurface !== surface) setSurface(nextSurface);
 
   // The awaitable sync trigger, from the provider mounted above this one. It
   // goes through that provider's CONTROLLER, so the post-merge rebase inherits
@@ -277,6 +313,20 @@ export function GuestMergeProvider({
     dispatch({ type: "deferred" });
   }, []);
 
+  const dismiss = useCallback((): void => {
+    setSurface(rememberDismissal(stateRef.current, userId));
+  }, [userId]);
+
+  /**
+   * Show a deferred offer again (SEC-002). It dispatches `reconsider`, NOT
+   * `consented`: taking up a deferred offer must show the counts before
+   * anything is sent, rather than starting the upload from a button whose
+   * label is the only thing the learner read.
+   */
+  const reconsider = useCallback((): void => {
+    dispatch({ type: "reconsider" });
+  }, []);
+
   return (
     <GuestMergeContext.Provider
       value={{
@@ -286,6 +336,9 @@ export function GuestMergeProvider({
         consent,
         defer,
         retry,
+        dismiss,
+        reconsider,
+        visible: isSurfaceVisible(nextSurface, state),
       }}
     >
       {children}
