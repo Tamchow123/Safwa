@@ -16,6 +16,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -323,5 +324,54 @@ export const guestImports = pgTable(
     uniqueIndex("guest_imports_user_snapshot_completed_idx")
       .on(table.userId, table.snapshotHash)
       .where(sql`${table.status} = 'completed'`),
+  ],
+);
+
+/**
+ * The guest-list-id → account-list-id mapping one import produced (§17).
+ *
+ * A guest list whose normalised name already existed on the account is folded
+ * into the ACCOUNT's list, which keeps its own id — and a guest list whose uuid
+ * was already taken is created under a server-minted one. Either way the id the
+ * client still holds locally no longer names anything, and without the mapping
+ * it cannot re-key its rows: the next sync would duplicate the list or lose the
+ * membership the merge just took in.
+ *
+ * DURABLE, AND THAT IS THE WHOLE POINT. The mappings are produced by `chunk`
+ * requests and consumed by the `finalize` request — different HTTP requests,
+ * which on this deployment (Vercel serverless, see docs/DEPLOYMENT.md) are
+ * routinely served by different instances. An in-process accumulator therefore
+ * loses them for a merge that genuinely succeeded, and there is no way to
+ * recompute them afterwards: once the import is `completed` the coordinator
+ * refuses to re-apply its chunks, which is exactly what idempotency requires.
+ *
+ * Bounded by `GUEST_MERGE_BOUNDS.maxLists` per import, which the coordinator
+ * enforces cumulatively before any list is accepted.
+ *
+ * Rows carry no learner content — two uuids and nothing else — so this stores
+ * no payload, no answer and no Arabic string (§30).
+ */
+export const guestImportListMappings = pgTable(
+  "guest_import_list_mappings",
+  {
+    importId: uuid("import_id")
+      .notNull()
+      .references(() => guestImports.id, { onDelete: "cascade" }),
+    /** The id the guest's local row still carries. */
+    guestListId: uuid("guest_list_id").notNull(),
+    /** The list that id now resolves to on the account. */
+    accountListId: uuid("account_list_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    /**
+     * One destination per guest list per import. This is what makes recording
+     * them idempotent: a re-sent chunk inserts the same pair and conflicts,
+     * rather than accumulating duplicates that would then overflow the
+     * response's own `maxLists` bound.
+     */
+    primaryKey({ columns: [table.importId, table.guestListId] }),
   ],
 );

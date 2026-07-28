@@ -43,6 +43,13 @@
       "when": 1785216003849,
       "tag": "0005_brown_wild_child",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785218710572,
+      "tag": "0006_simple_inhumans",
+      "breakpoints": true
     }
   ]
 }
