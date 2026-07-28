@@ -23,7 +23,6 @@ import {
 } from "@/db/schema";
 import { loadVerifiedReleaseCached } from "@/modules/content/server-release-registry";
 import {
-  buildComponentKey,
   resolveComponentIdentity,
   type ResolvedComponentIdentity,
 } from "@/modules/study-engine";
@@ -41,6 +40,11 @@ import {
   type GuestMergeResponse,
 } from "@/modules/sync/protocol";
 import { runGuestMerge } from "@/modules/sync/server/guest-merge";
+import {
+  makeGuestAttempt,
+  makeGuestEvent,
+  type GuestMergeFixture,
+} from "@/tests/integration/helpers/guest-merge-fixtures";
 import { createTestUser } from "@/tests/integration/helpers/users";
 
 const NOW = Date.parse("2026-07-20T12:00:00.000Z");
@@ -170,45 +174,21 @@ function guestList(name: string, entryIds: number[]) {
   };
 }
 
-/** A well-formed guest attempt for the resolved component. */
-function guestAttempt(id: string, sessionId: string) {
+/** The suite's chosen question, for the shared builders. */
+function fixture(): GuestMergeFixture {
   return {
-    id,
-    sessionId,
-    deviceId: "device-1",
-    studyComponentId: buildComponentKey(identity),
-    entryId: identity.entryId,
-    skillTypeId: identity.skillType,
-    sourceField: identity.sourceField,
-    direction: identity.direction,
-    promptField: instance.promptField,
-    promptRef: instance.promptRef,
-    selectedAnswerRef: instance.correctAnswerRef,
-    correctAnswerRef: instance.correctAnswerRef,
-    isCorrect: true,
-    isFirstAttempt: true,
-    isReinforcement: false,
-    hintUsed: false,
-    hintType: null,
-    responseTimeMs: 3000,
-    questionPosition: 0,
-    mode: "mc" as const,
-    optionCount: instance.optionCount,
-    perQuestionLimitMs: null,
-    questionInstanceId: instance.questionInstanceId,
-    questionSeed: SEED,
-    questionGeneratorVersion: "1",
+    identity,
+    instance,
     releaseId,
     contentVersion: context.contentVersion,
-    occurredAtUtc: "2026-07-20T11:00:00.000Z",
-    timezoneAtEvent: "UTC",
-    utcOffsetMinutesAtEvent: 0,
-    localDateAtEvent: "2026-07-20",
-    timezoneSource: "browser_detected" as const,
+    seed: SEED,
   };
 }
 
-/** A guest scheduling event referencing that attempt. */
+function guestAttempt(id: string, sessionId: string) {
+  return makeGuestAttempt(fixture(), id, sessionId);
+}
+
 function guestEvent(
   eventId: string,
   attemptId: string,
@@ -217,26 +197,15 @@ function guestEvent(
   revision: number,
   occurredAtClient: string,
 ) {
-  return {
+  return makeGuestEvent(
+    fixture(),
     eventId,
-    studyComponentId: buildComponentKey(identity),
     attemptId,
-    rating: "good" as const,
-    status: "scheduling" as const,
-    baseServerRevision: 0,
-    parentEventId,
-    clientComponentRevision: revision,
-    clientSequence: revision,
-    occurredAtClient,
-    deviceId: "device-1",
     sessionId,
-    releaseId,
-    contentVersion: context.contentVersion,
-    timezoneAtEvent: "UTC",
-    utcOffsetMinutesAtEvent: 0,
-    localDateAtEvent: "2026-07-20",
-    timezoneSource: "browser_detected" as const,
-  };
+    parentEventId,
+    revision,
+    occurredAtClient,
+  );
 }
 
 async function importRow(importKey: string) {
