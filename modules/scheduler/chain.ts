@@ -187,6 +187,44 @@ export function linksToParent(
   return parentEventId !== null && present.has(parentEventId);
 }
 
+/** The only two fields the structural chain-shape predicates read. */
+export type ParentLink = {
+  eventId: string;
+  parentEventId: string | null;
+};
+
+/**
+ * Index of parent event id → every event in `events` claiming it as its parent,
+ * in iteration order. A parent with MORE THAN ONE claimant is a FORK: one
+ * history contradicting itself, which is the concurrent branch Phase 19 resolves
+ * and which neither the client's replay nor the server's ingestion may accept.
+ *
+ * Exported alongside {@link isChainRoot} and {@link compareChainOrder}, and for
+ * the same reason: the server has to answer "would this event fork the chain?"
+ * about a component's stored rows (`modules/sync/server/lineage.ts`), and a
+ * second definition of what a fork IS could drift from this one. If it did, the
+ * server would admit an event that `partitionScheduling` then throws on, leaving
+ * a component no device can ever replay again.
+ *
+ * Links to a parent OUTSIDE `present` are skipped, exactly as
+ * {@link isChainRoot} says: such an event is a chain root whose history is
+ * elsewhere, and two of them sharing an absent parent are two roots, not a fork.
+ */
+export function childrenByParent(
+  events: Iterable<ParentLink>,
+  present: { has(eventId: string): boolean },
+): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  for (const event of events) {
+    const parentId = event.parentEventId;
+    if (!linksToParent(parentId, present)) continue;
+    const claimants = index.get(parentId);
+    if (claimants) claimants.push(event.eventId);
+    else index.set(parentId, [event.eventId]);
+  }
+  return index;
+}
+
 /**
  * Partition a component's `scheduling` events into their causal chains, or throw
  * {@link ChainError} when the set is structurally impossible — or is a merge
@@ -221,8 +259,27 @@ export function partitionScheduling(
     byId.set(event.eventId, event);
   }
 
-  // Child index + fork detection. A parent outside the set does not link (its
-  // child becomes a chain root whose history is elsewhere).
+  // Fork detection, via the same index the SERVER asks its own fork question of
+  // (see `childrenByParent`) so the two cannot disagree about what a fork is.
+  //
+  // This is a PRE-PASS, so for a set carrying more than one kind of structural
+  // defect the fork is the one reported: previously the checks were interleaved
+  // and whichever violation came first in the array threw. The set is rejected
+  // either way — only the message differs — but which message an operator reads
+  // while diagnosing a corrupt component is worth stating rather than leaving to
+  // be rediscovered. A fork is the more informative report of the two: it names
+  // two events and the parent they contend for, where a self-parent names one
+  // event whose own id is already in the message.
+  for (const [parentId, claimants] of childrenByParent(scheduling, byId)) {
+    if (claimants.length > 1) {
+      throw new ChainError(
+        `events ${claimants[0]} and ${claimants[1]} share parent ${parentId} (concurrent branches are Phase 19)`,
+      );
+    }
+  }
+
+  // Child index + roots. A parent outside the set does not link (its child
+  // becomes a chain root whose history is elsewhere).
   const childByParent = new Map<string, ReviewEvent>();
   const roots: ReviewEvent[] = [];
   for (const event of scheduling) {
@@ -233,12 +290,6 @@ export function partitionScheduling(
     }
     if (parentId === event.eventId) {
       throw new ChainError(`event ${event.eventId} is its own parent`);
-    }
-    const existing = childByParent.get(parentId);
-    if (existing) {
-      throw new ChainError(
-        `events ${existing.eventId} and ${event.eventId} share parent ${parentId} (concurrent branches are Phase 19)`,
-      );
     }
     childByParent.set(parentId, event);
   }
