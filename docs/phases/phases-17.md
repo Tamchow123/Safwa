@@ -1333,10 +1333,20 @@ Model: `docs/OFFLINE_AND_SYNC.md` §7 and its as-built section.
 - A **full page load** re-asks the merge question: the deferral is remembered
   for the visit, not persisted. Declining again is free, and the Settings entry
   point carries the offer within a visit.
-- Two guest-import trust-boundary cases named in §24 are covered in the shared
-  release-resolution layer rather than in a merge-specific test, because that
-  layer is where the check actually lives; duplicating them would have tested
-  the test.
+- The §24 content-boundary cases — an unsupported generator version, an unknown
+  release and a **revoked** one — are now proven **on the merge path** in
+  `tests/integration/guest-merge-end-to-end.test.ts`, not only in the unit tests
+  for the shared layers that decide them (`modules/sync/server/grade.test.ts`,
+  `modules/sync/server/release.test.ts`). The earlier claim that merge-side
+  tests would be redundant was wrong: the checks are shared, but the summary the
+  coordinator stores, the reason code the client is told and the rows the import
+  leaves behind are not. Proving it required forwarding the merge's existing
+  test-only `registryDir` override into `ingestSchedulingBatch` — it already
+  reached the bookmark and list merges — and it surfaced a real defect in the
+  shared pipeline: a revoked release was reported as `revoked_release` only for
+  the item its component group's context was resolved from, and as
+  `invalid_release` for every later item. Fixed in
+  `modules/sync/server/ingest.ts`.
 
 ## Deliberately not done here
 

@@ -620,6 +620,44 @@ async function persistEvent(
 }
 
 /**
+ * A release resolved for this batch: either the question context built from it,
+ * or the reason it could not be used. The two are one value deliberately.
+ *
+ * Caching only the context and re-deriving the reason at each rejection site is
+ * what let a revoked release be reported as `revoked_release` in one place and
+ * `invalid_release` in another (T20): two independent recoveries of the same
+ * fact drifted apart. Keeping the reason alongside the context makes the pair
+ * impossible to disagree, and makes "resolved but unusable" unrepresentable.
+ */
+type ResolvedRelease =
+  | { context: QuestionContext; reasonCode: null }
+  | { context: null; reasonCode: SyncReasonCode };
+
+/**
+ * Resolve a release for this batch ONCE, keeping both halves of the outcome.
+ * Shared by the event path and the reinforcement-attempt path so a batch never
+ * re-reads or re-hashes the same release's artifacts (§30), and so every
+ * rejection that follows names the same reason.
+ */
+async function resolveReleaseCached(
+  cache: Map<string, ResolvedRelease>,
+  releaseId: string,
+  options: IngestOptions,
+): Promise<ResolvedRelease> {
+  const cached = cache.get(releaseId);
+  if (cached) return cached;
+  const resolved = await resolveReleaseForIngestion(releaseId, options);
+  const entry: ResolvedRelease = resolved.ok
+    ? {
+        context: createQuestionContextFromRelease(resolved.release.learner),
+        reasonCode: null,
+      }
+    : { context: null, reasonCode: resolved.reasonCode };
+  cache.set(releaseId, entry);
+  return entry;
+}
+
+/**
  * Process one component's scheduling events (sorted by revision) inside a single
  * advisory-locked transaction. Returns the per-item results; the account cursor
  * is bumped LAST if anything was accepted.
@@ -631,7 +669,7 @@ async function processComponentGroup(
   events: WireEvent[],
   attemptsById: Map<string, WireAttempt>,
   options: IngestOptions,
-  contextCache: Map<string, QuestionContext | null>,
+  contextCache: Map<string, ResolvedRelease>,
 ): Promise<SyncItemResult[]> {
   const sorted = [...events].sort(
     (a, b) => a.clientComponentRevision - b.clientComponentRevision,
@@ -646,18 +684,12 @@ async function processComponentGroup(
   const guestImportId = options.guestImport?.importId ?? null;
   const isImported = guestImportId !== null;
 
-  async function resolveContext(
+  function resolveRelease(
     tx: SyncTx,
     releaseId: string,
-  ): Promise<QuestionContext | null> {
+  ): Promise<ResolvedRelease> {
     void tx;
-    if (contextCache.has(releaseId)) return contextCache.get(releaseId) ?? null;
-    const resolved = await resolveReleaseForIngestion(releaseId, options);
-    const ctx = resolved.ok
-      ? createQuestionContextFromRelease(resolved.release.learner)
-      : null;
-    contextCache.set(releaseId, ctx);
-    return ctx;
+    return resolveReleaseCached(contextCache, releaseId, options);
   }
 
   return db.transaction(async (tx) => {
@@ -673,15 +705,9 @@ async function processComponentGroup(
         reject({ itemId: ev.eventId, itemKind: "event" }, "malformed_item"),
       );
     }
-    const context = await resolveContext(tx, firstAttempt.releaseId);
-    if (!context) {
-      const resolved = await resolveReleaseForIngestion(
-        firstAttempt.releaseId,
-        options,
-      );
-      const code: SyncReasonCode = resolved.ok
-        ? "invalid_release"
-        : resolved.reasonCode;
+    const groupRelease = await resolveRelease(tx, firstAttempt.releaseId);
+    if (!groupRelease.context) {
+      const code = groupRelease.reasonCode;
       return Promise.all(
         sorted.map(async (ev) => {
           await writeSyncAudit(tx, {
@@ -698,6 +724,7 @@ async function processComponentGroup(
         }),
       );
     }
+    const context = groupRelease.context;
     const validation = validateComponent(context, {
       componentKey,
       entryId: firstAttempt.entryId,
@@ -805,23 +832,30 @@ async function processComponentGroup(
       }
 
       // 2. Grade (objective) or validate the flashcard rating.
-      const ctx = await resolveContext(tx, att.releaseId);
-      if (!ctx) {
+      //
+      // This item's OWN release, which need not be the one the group's context
+      // came from. It carries its own reason code, so an item that happens not
+      // to be first in its component group is not told "this release is
+      // unknown" when the truth is "this release was withdrawn" — only one of
+      // those tells an operator that a release they revoked is still arriving,
+      // and only one is recoverable by shipping the artifacts again.
+      const itemRelease = await resolveRelease(tx, att.releaseId);
+      if (!itemRelease.context) {
+        const code = itemRelease.reasonCode;
         await writeSyncAudit(tx, {
           userId,
           itemKind: "event",
           itemId: ev.eventId,
-          reasonCode: "invalid_release",
+          reasonCode: code,
           severity: "warning",
           releaseId: ev.releaseId,
           componentKey,
           correlationId: options.correlationId,
         });
-        results.push(
-          reject({ itemId: ev.eventId, itemKind: "event" }, "invalid_release"),
-        );
+        results.push(reject({ itemId: ev.eventId, itemKind: "event" }, code));
         continue;
       }
+      const ctx = itemRelease.context;
 
       // EXT-F5: validate THIS event/attempt pair independently. The group's
       // component identity was derived from the FIRST attempt only; every later
@@ -1444,7 +1478,7 @@ async function processReinforcementAttempts(
   componentKey: string,
   attempts: WireAttempt[],
   options: IngestOptions,
-  contextCache: Map<string, QuestionContext | null>,
+  contextCache: Map<string, ResolvedRelease>,
 ): Promise<SyncItemResult[]> {
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -1452,20 +1486,14 @@ async function processReinforcementAttempts(
     );
 
     const first = attempts[0]!;
-    const resolved = await resolveReleaseForIngestion(first.releaseId, options);
-    if (contextCache.has(first.releaseId) === false) {
-      contextCache.set(
-        first.releaseId,
-        resolved.ok
-          ? createQuestionContextFromRelease(resolved.release.learner)
-          : null,
-      );
-    }
-    const context = contextCache.get(first.releaseId) ?? null;
+    const resolved = await resolveReleaseCached(
+      contextCache,
+      first.releaseId,
+      options,
+    );
+    const context = resolved.context;
     if (!context) {
-      const code: SyncReasonCode = resolved.ok
-        ? "invalid_release"
-        : resolved.reasonCode;
+      const code = resolved.reasonCode;
       return Promise.all(
         attempts.map(async (att) => {
           await writeSyncAudit(tx, {
@@ -1766,7 +1794,7 @@ export async function ingestSchedulingBatch(
 ): Promise<IngestResult> {
   const db = getDb();
   const attemptsById = new Map(attempts.map((a) => [a.id, a]));
-  const contextCache = new Map<string, QuestionContext | null>();
+  const contextCache = new Map<string, ResolvedRelease>();
 
   const byComponent = new Map<string, WireEvent[]>();
   for (const ev of events) {

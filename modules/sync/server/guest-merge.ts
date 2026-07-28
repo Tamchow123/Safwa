@@ -471,6 +471,12 @@ async function chunk(
       {
         nowMs: options.nowMs,
         correlationId: options.correlationId,
+        // Forwarded for the same reason the collection merges forward it: the
+        // release registry is what decides `invalid_release`/`revoked_release`
+        // here too, and an override that reached three of the four merge paths
+        // would leave the fourth untestable. It is `undefined` in production
+        // and rejected outright outside NODE_ENV=test.
+        registryDir: options.registryDir,
         // The server-internal merge ingestion mode (§13). This is the only
         // place in the codebase that sets it, and the id comes from the row
         // this coordinator holds — never from the request.

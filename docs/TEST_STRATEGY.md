@@ -231,8 +231,12 @@ any migration.
     (guest-only, account-only, both-with-history, interleaved); the conditional
     multi-root rule (accepted with matching merge provenance, still refused
     without it); bookmarks/lists union and account-wins settings; the ceilings
-    and the declared-totals check; and a snapshot **larger than one network
-    batch**.
+    and the declared-totals check; the §24 content boundary **through the merge
+    coordinator** (unsupported generator version, unknown release, revoked
+    release — each asserted on the reason code the client is told, the stored
+    summary, and the rows the account is left with, because the shared unit
+    tests for those checks say nothing about any of the three); and a snapshot
+    **larger than one network batch**.
   - **Unit** (`modules/sync/client/guest-merge-*.test.ts`): the twelve-state
     machine driven through sequences (sign-out mid-merge, account switch,
     retry budget); the chunk planner's indivisible attempt+event unit; local
