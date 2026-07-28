@@ -112,7 +112,13 @@ describe("pullSync", () => {
   it("gets /api/sync/pull with clamped since/limit and validates the response", async () => {
     mockFetch(200, PULL_RESPONSE);
     const result = await pullSync({ since: -5, limit: 9999 });
-    expect(result).toEqual({ ok: true, data: PULL_RESPONSE });
+    // The fixture deliberately omits `withheldComponents` (REL-006), so this
+    // also pins that a server predating the field still parses, with the field
+    // defaulted rather than left undefined for the orchestrator to trip over.
+    expect(result).toEqual({
+      ok: true,
+      data: { ...PULL_RESPONSE, withheldComponents: [] },
+    });
     // since clamped to >= 0, limit clamped to maxPullPageSize (200).
     expect(fetch).toHaveBeenCalledWith(
       "/api/sync/pull?since=0&limit=200",

@@ -13,12 +13,12 @@
  */
 import { randomUUID } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
 import { registerContent } from "@/db/register-content";
-import { reviewEvents, studyComponents } from "@/db/schema";
+import { reviewEvents, studyComponents, syncAuditLog } from "@/db/schema";
 import { loadVerifiedReleaseCached } from "@/modules/content/server-release-registry";
 import {
   buildComponentKey,
@@ -91,18 +91,19 @@ type SeedEvent = {
 async function seedComponent(
   userId: string,
   events: readonly SeedEvent[],
-  options: { merged: boolean },
+  options: { merged: boolean; identity?: ResolvedComponentIdentity },
 ): Promise<string> {
   const db = getDb();
+  const target = options.identity ?? identity;
   const [component] = await db
     .insert(studyComponents)
     .values({
       userId,
-      entryId: identity.entryId,
-      skillTypeId: identity.skillType,
-      componentShape: identity.componentShape,
-      sourceField: identity.sourceField,
-      direction: identity.direction,
+      entryId: target.entryId,
+      skillTypeId: target.skillType,
+      componentShape: target.componentShape,
+      sourceField: target.sourceField,
+      direction: target.direction,
       revision: events.length,
       // Stamped so the component falls inside an ordinary pull page — without
       // this the pull tests below would pass vacuously by never loading it.
@@ -305,9 +306,23 @@ describe("a union WITHOUT the merge marker is treated as corruption", () => {
     const userId = await createTestUser();
     await seedComponent(userId, union().events, { merged: false });
 
-    await expect(
-      pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW }),
-    ).rejects.toThrow();
+    // REL-006: the refusal is now per-component rather than per-request, so
+    // pull returns instead of throwing — but it still refuses to project, and
+    // it NAMES what it withheld rather than omitting it silently.
+    const page = await pullChanges(
+      userId,
+      { since: 0, limit: 100 },
+      {
+        nowMs: NOW,
+      },
+    );
+    expect(page.components).toEqual([]);
+    expect(page.withheldComponents).toEqual([
+      {
+        componentKey: seededComponentKey(),
+        reasonCode: "component_integrity_error",
+      },
+    ]);
   });
 
   it("revoke refuses too, so no read path quietly accepts the shape", async () => {
@@ -317,15 +332,19 @@ describe("a union WITHOUT the merge marker is treated as corruption", () => {
 
     // Revocation does not throw to the caller: like ingestion, it isolates a
     // failing component so one bad component cannot take down a batch. The
-    // refusal therefore surfaces as a recoverable per-item rejection — but it IS
-    // a refusal, and the undo is not applied.
+    // refusal therefore surfaces as a per-item rejection — but it IS a refusal,
+    // and the undo is not applied.
+    //
+    // REL-006: and it is NOT recoverable. No resubmission can repair an
+    // already-stored impossible chain, so reporting it as the retryable
+    // `internal_error` had the client retrying a permanent condition forever.
     const result = await revokeEventsBatch(userId, [revocation(accountTail)], {
       nowMs: NOW,
     });
     expect(result.results[0]).toMatchObject({
       status: "rejected",
-      reasonCode: "internal_error",
-      recoverable: true,
+      reasonCode: "component_integrity_error",
+      recoverable: false,
     });
 
     const db = getDb();
@@ -334,6 +353,132 @@ describe("a union WITHOUT the merge marker is treated as corruption", () => {
       .from(reviewEvents)
       .where(eq(reviewEvents.eventId, accountTail));
     expect(untouched?.status).toBe("scheduling");
+  });
+});
+
+describe("one unprojectable component does not deny the account the rest (REL-006)", () => {
+  it("pull serves every healthy component and names only the withheld one", async () => {
+    // Before this, `pullChanges` mapped over the page's components with no
+    // isolation, so ONE component whose stored chain cannot be replayed made the
+    // whole request 500 — every other component, list and setting the account
+    // owns became unreachable on that device. Phase 17 §17 requires imported
+    // rows to be visible through ordinary Phase 16 pull, and that requirement
+    // does not survive a request-scoped failure mode.
+    const userId = await createTestUser();
+
+    // The corrupt one: multi-rooted with no coordinator's mark.
+    await seedComponent(userId, union().events, { merged: false });
+
+    // A second, ordinary component for the SAME account. A different entry id
+    // gives it a distinct identity (the unique index is per user + identity);
+    // pull does no release validation, so the entry need not exist in the
+    // release — this test is about isolation, not content.
+    const healthy: ResolvedComponentIdentity = {
+      ...identity,
+      entryId: identity.entryId + 1000,
+    };
+    const healthyRoot = randomUUID();
+    await seedComponent(
+      userId,
+      [
+        {
+          eventId: healthyRoot,
+          parentEventId: null,
+          revision: 1,
+          offsetMinutes: 0,
+        },
+      ],
+      { merged: false, identity: healthy },
+    );
+
+    const page = await pullChanges(
+      userId,
+      { since: 0, limit: 100 },
+      { nowMs: NOW },
+    );
+
+    // The healthy component is served in full — that is the whole point.
+    expect(page.components.map((c) => c.componentKey)).toEqual([
+      buildComponentKey(healthy),
+    ]);
+    expect(page.components[0]?.headEventId).toBe(healthyRoot);
+    expect(page.components[0]?.card?.reps).toBe(1);
+
+    // And the corrupt one is named rather than silently missing: the cursor
+    // advances past it either way, so an unnamed omission would make it
+    // permanently invisible to this device.
+    expect(page.withheldComponents).toEqual([
+      {
+        componentKey: seededComponentKey(),
+        reasonCode: "component_integrity_error",
+      },
+    ]);
+  });
+
+  it("records the withholding in the audit log as a monitoring signal", async () => {
+    const userId = await createTestUser();
+    await seedComponent(userId, union().events, { merged: false });
+
+    await pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW });
+
+    const db = getDb();
+    const audits = await db
+      .select()
+      .from(syncAuditLog)
+      .where(eq(syncAuditLog.userId, userId));
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({
+      reasonCode: "component_integrity_error",
+      severity: "critical",
+      componentKey: seededComponentKey(),
+    });
+  });
+
+  it("does not re-audit the same component when a device's cursor never advances (REL-101)", async () => {
+    // The client persists its pull cursor in the SAME Dexie transaction as the
+    // rest of the page, so any unrelated apply failure leaves `since` where it
+    // was and every later poll re-pulls this component. Auditing per poll would
+    // drown the very signal the audit exists to raise.
+    const userId = await createTestUser();
+    await seedComponent(userId, union().events, { merged: false });
+
+    await pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW });
+    await pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW });
+    await pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW });
+
+    const db = getDb();
+    const audits = await db
+      .select()
+      .from(syncAuditLog)
+      .where(eq(syncAuditLog.userId, userId));
+    expect(audits).toHaveLength(1);
+  });
+
+  it("raises the signal again once the suppression window has passed", async () => {
+    // Suppression must not become silence: a condition still present a day
+    // later is still worth an operator's attention, and one that was fixed and
+    // came back is worth it twice over.
+    //
+    // The window is measured against the DATABASE clock (the column is written
+    // by `defaultNow()`), so ageing the row is how this is exercised — the
+    // injected `nowMs` deliberately does NOT move it.
+    const userId = await createTestUser();
+    await seedComponent(userId, union().events, { merged: false });
+    const db = getDb();
+
+    await pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW });
+    await db
+      .update(syncAuditLog)
+      .set({ createdAt: sql`now() - interval '25 hours'` })
+      .where(eq(syncAuditLog.userId, userId));
+
+    await pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW });
+
+    const audits = await db
+      .select()
+      .from(syncAuditLog)
+      .where(eq(syncAuditLog.userId, userId));
+    expect(audits).toHaveLength(2);
   });
 });
 
@@ -431,9 +576,28 @@ describe("the marker is a per-component permission, not a global switch", () => 
       });
     }
 
-    await expect(
-      pullChanges(userId, { since: 0, limit: 100 }, { nowMs: NOW }),
-    ).rejects.toThrow();
+    // REL-006 made the refusal per-component, so the two outcomes are now
+    // visible SIDE BY SIDE in one response — which is a sharper statement of
+    // "per-component permission" than the old whole-request throw could make:
+    // the marked component is projected and the unmarked one is withheld, in
+    // the same page, for the same account.
+    const page = await pullChanges(
+      userId,
+      { since: 0, limit: 100 },
+      { nowMs: NOW },
+    );
+    expect(page.components.map((c) => c.componentKey)).toEqual([
+      seededComponentKey(),
+    ]);
+    expect(page.withheldComponents).toEqual([
+      {
+        componentKey: buildComponentKey({
+          ...identity,
+          entryId: identity.entryId + 1000,
+        }),
+        reasonCode: "component_integrity_error",
+      },
+    ]);
   });
 });
 

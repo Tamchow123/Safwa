@@ -47,6 +47,7 @@ import {
   computeCanonicalEventTime,
   type CanonicalTimeResult,
 } from "./canonical-time";
+import { componentFaultReason } from "./component-fault";
 import { currentAccountCursor, nextAccountCursor, type SyncTx } from "./cursor";
 import { gradeObjectiveAttempt, gradeFlashcardAttempt } from "./grade";
 import { payloadHash } from "./idempotency";
@@ -1792,15 +1793,19 @@ export async function ingestSchedulingBatch(
       // unexpected DB error) must NOT crash the whole request or discard the
       // other components. Isolate it: log, write an out-of-band audit (the
       // component transaction rolled back, so the audit must use `db`, not the
-      // dead tx), and return a recoverable internal_error for each of its events.
+      // dead tx), and reject each of its events. REL-006: a ChainError here is
+      // a PERMANENT structural condition, not the transient fault
+      // `internal_error` implies, so it gets its own non-recoverable code —
+      // otherwise the client retries stored corruption forever.
       console.error(`[sync] ingest: component ${componentKey} aborted`, error);
+      const reasonCode = componentFaultReason(error);
       for (const ev of group) {
         try {
           await writeSyncAudit(db, {
             userId,
             itemKind: "event",
             itemId: ev.eventId,
-            reasonCode: "internal_error",
+            reasonCode,
             severity: "critical",
             componentKey,
             correlationId: options.correlationId,
@@ -1809,7 +1814,7 @@ export async function ingestSchedulingBatch(
           // Never let audit failure mask the original error handling.
         }
         results.push(
-          reject({ itemId: ev.eventId, itemKind: "event" }, "internal_error"),
+          reject({ itemId: ev.eventId, itemKind: "event" }, reasonCode),
         );
       }
     }
@@ -1843,13 +1848,14 @@ export async function ingestSchedulingBatch(
         `[sync] ingest: reinforcement component ${componentKey} aborted`,
         error,
       );
+      const reasonCode = componentFaultReason(error);
       for (const att of group) {
         try {
           await writeSyncAudit(db, {
             userId,
             itemKind: "attempt",
             itemId: att.id,
-            reasonCode: "internal_error",
+            reasonCode,
             severity: "critical",
             componentKey,
             correlationId: options.correlationId,
@@ -1858,7 +1864,7 @@ export async function ingestSchedulingBatch(
           // Never let audit failure mask the original error handling.
         }
         results.push(
-          reject({ itemId: att.id, itemKind: "attempt" }, "internal_error"),
+          reject({ itemId: att.id, itemKind: "attempt" }, reasonCode),
         );
       }
     }

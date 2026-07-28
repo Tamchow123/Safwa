@@ -7,6 +7,7 @@ import {
 } from "./constants";
 import {
   pullQuerySchema,
+  pullResponseSchema,
   pushRequestSchema,
   syncItemResultSchema,
   totalPushItemCount,
@@ -279,6 +280,55 @@ describe("pullQuerySchema", () => {
     expect(
       pullQuerySchema.safeParse({ limit: SYNC_BOUNDS.maxPullPageSize + 1 })
         .success,
+    ).toBe(false);
+  });
+});
+
+describe("pullResponseSchema — withheldComponents (REL-006)", () => {
+  const basePage = {
+    protocolVersion: 1,
+    serverCursor: 7,
+    activeReleaseId: "rel-1",
+    hasMore: false,
+    components: [],
+    events: [],
+    bookmarks: [],
+    lists: [],
+    settings: [],
+    tombstones: [],
+  };
+
+  it("defaults to empty so a server predating the field still parses", () => {
+    const parsed = pullResponseSchema.parse(basePage);
+    expect(parsed.withheldComponents).toEqual([]);
+  });
+
+  it("carries a named component and its reason code", () => {
+    const parsed = pullResponseSchema.parse({
+      ...basePage,
+      withheldComponents: [
+        {
+          componentKey: "1:meaning_recognition",
+          reasonCode: "component_integrity_error",
+        },
+      ],
+    });
+    expect(parsed.withheldComponents[0]?.reasonCode).toBe(
+      "component_integrity_error",
+    );
+  });
+
+  it("rejects a reason code outside the enumerated vocabulary", () => {
+    // The field is a machine-readable signal, not free text — an unenumerated
+    // string reaching the client is exactly what the reason-code discipline
+    // (§9.2) exists to prevent.
+    expect(
+      pullResponseSchema.safeParse({
+        ...basePage,
+        withheldComponents: [
+          { componentKey: "1:meaning_recognition", reasonCode: "made_up" },
+        ],
+      }).success,
     ).toBe(false);
   });
 });

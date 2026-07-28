@@ -27,7 +27,7 @@
  */
 import "server-only";
 
-import { and, asc, type Column, eq, gt, inArray, lte } from "drizzle-orm";
+import { and, asc, type Column, eq, gt, inArray, lte, sql } from "drizzle-orm";
 
 import { getDb, type Database } from "@/db/client";
 import {
@@ -36,6 +36,7 @@ import {
   customLists,
   reviewEvents,
   studyComponents,
+  syncAuditLog,
   syncTombstones,
   userSettings,
 } from "@/db/schema";
@@ -50,12 +51,28 @@ import type {
   WireComponentState,
   WireEventStatus,
   WireTombstone,
+  WireWithheldComponent,
 } from "@/modules/sync/protocol";
 
+import { writeSyncAudit } from "./audit";
 import { selectHead } from "./chain-head";
+import { componentFaultReason } from "./component-fault";
 import { currentAccountCursor } from "./cursor";
 import { type ComponentReplayEvent, projectComponentForPull } from "./replay";
 import { extractSyncableSettings } from "./settings";
+
+/**
+ * How long one withheld component stays audited-recently-enough to skip a
+ * repeat entry (REL-101). Long enough that a device stuck on one cursor cannot
+ * flood the log, short enough that a condition an operator fixed and which then
+ * returns is raised again rather than silently suppressed.
+ *
+ * Measured against the DATABASE clock, not the injected `nowMs`: the column it
+ * is compared with is written by `defaultNow()`, so using the request's clock
+ * would compare two different clocks — and `nowMs` is a test seam that
+ * legitimately sits years away from real time.
+ */
+const WITHHELD_AUDIT_WINDOW = sql`interval '24 hours'`;
 
 export type PullQueryInput = { since: number; limit: number };
 export type PullOptions = {
@@ -67,6 +84,13 @@ export type PullChanges = {
   serverCursor: number;
   hasMore: boolean;
   components: WireComponentState[];
+  /**
+   * Components this page examined but could not project (REL-006). Never
+   * silently dropped: pull advances its cursor past them regardless, so an
+   * unnamed omission would make the component permanently invisible to this
+   * device.
+   */
+  withheldComponents: WireWithheldComponent[];
   events: WireEventStatus[];
   bookmarks: { entryId: number; createdAt: number }[];
   lists: {
@@ -103,6 +127,62 @@ function toReplayEvent(row: EventRow): ComponentReplayEvent {
     parentEventId: row.parentEventId,
     occurredAtCanonical: row.occurredAtCanonical,
     localDateAtEvent: row.localDateAtEvent,
+  };
+}
+
+/**
+ * Derive one component's authoritative wire state from its accepted scheduling
+ * events. Throws (`ChainError` from replay, or anything else the projection
+ * raises) when the stored chain cannot be replayed — the caller isolates that
+ * per component rather than failing the whole page.
+ */
+function projectComponent(
+  row: ComponentRow,
+  key: string,
+  schedulingRows: EventRow[],
+  nowMs: number,
+): WireComponentState {
+  const projection = projectComponentForPull(
+    schedulingRows.map(toReplayEvent),
+    nowMs,
+    { mergedAt: row.mergedAt },
+  );
+  // Lineage anchor (R2-F2). A fresh device parents its next review onto this,
+  // rather than rooting a rejected stale branch — so the server has to name
+  // the SAME head the ingestion side will demand, or the very next review it
+  // sends back is rejected as a stale branch and that device silently stops
+  // recording reviews for this component.
+  //
+  // Which is why this is `selectHead` and not the highest-revision scan it
+  // used to be (Phase 17 §14): for a merged component the two disagree, since
+  // the guest's and the account's chains each number from 1 and "highest
+  // revision" names the longer history rather than the later event. For every
+  // single-rooted component — which is all of them until a merge happens —
+  // `selectHead` IS the highest-revision scan, so nothing changes.
+  const head = selectHead(
+    schedulingRows.map((e) => ({
+      eventId: e.eventId,
+      clientComponentRevision: e.clientComponentRevision,
+      canonicalMs: e.occurredAtCanonical.getTime(),
+      parentEventId: e.parentEventId,
+    })),
+  );
+  return {
+    componentKey: key,
+    entryId: row.entryId,
+    skillType: row.skillTypeId as SkillType,
+    componentShape: row.componentShape as ComponentShape,
+    sourceField: row.sourceField as SourceQuizFormField | null,
+    direction: row.direction as Direction | null,
+    revision: row.revision,
+    learnerState: projection.state,
+    card: projection.card,
+    masteryDates: projection.masteryDates,
+    headEventId: head?.eventId ?? null,
+    // Paired with the HEAD'S OWN revision, not the union maximum: replay
+    // enforces contiguity per CHAIN, so the client's next event must be one past
+    // the head it parents on, not one past the longest other history.
+    headClientRevision: head?.clientComponentRevision ?? null,
   };
 }
 
@@ -202,6 +282,7 @@ export async function pullChanges(
       serverCursor,
       hasMore: false,
       components: [],
+      withheldComponents: [],
       events: [],
       bookmarks: [],
       lists: [],
@@ -246,55 +327,80 @@ export async function pullChanges(
   }
 
   const keyByComponentId = new Map<string, string>();
-  const components: WireComponentState[] = componentRows.map((row) => {
+  const withheldComponents: WireWithheldComponent[] = [];
+  // Per-component fault isolation (REL-006), matching ingest.ts and revoke.ts.
+  // Before this, one component whose accepted chain cannot be replayed made the
+  // WHOLE account's pull throw, denying every other component too — which broke
+  // Phase 17 §17 ("imported list rows must be visible through ordinary Phase 16
+  // pull on another device") for data that was perfectly fine.
+  //
+  // The failing component is withheld, NAMED on the response, and the page
+  // ceiling still advances past it. Clamping the ceiling instead would stall
+  // the device at that cursor forever — the same outage in a different shape.
+  const components: WireComponentState[] = componentRows.flatMap((row) => {
     const key = componentKeyOf(row);
     keyByComponentId.set(row.id, key);
     const schedulingRows = schedulingByComponent.get(row.id) ?? [];
-    const projection = projectComponentForPull(
-      schedulingRows.map(toReplayEvent),
-      options.nowMs,
-      { mergedAt: row.mergedAt },
-    );
-    // Lineage anchor (R2-F2). A fresh device parents its next review onto this,
-    // rather than rooting a rejected stale branch — so the server has to name
-    // the SAME head the ingestion side will demand, or the very next review it
-    // sends back is rejected as a stale branch and that device silently stops
-    // recording reviews for this component.
-    //
-    // Which is why this is `selectHead` and not the highest-revision scan it
-    // used to be (Phase 17 §14): for a merged component the two disagree, since
-    // the guest's and the account's chains each number from 1 and "highest
-    // revision" names the longer history rather than the later event. For every
-    // single-rooted component — which is all of them until a merge happens —
-    // `selectHead` IS the highest-revision scan, so nothing changes.
-    const head = selectHead(
-      schedulingRows.map((e) => ({
-        eventId: e.eventId,
-        clientComponentRevision: e.clientComponentRevision,
-        canonicalMs: e.occurredAtCanonical.getTime(),
-        parentEventId: e.parentEventId,
-      })),
-    );
-    const headEventId = head?.eventId ?? null;
-    // Paired with the HEAD'S OWN revision, not the union maximum: replay
-    // enforces contiguity per CHAIN, so the client's next event must be one past
-    // the head it parents on, not one past the longest other history.
-    const headClientRevision = head?.clientComponentRevision ?? null;
-    return {
-      componentKey: key,
-      entryId: row.entryId,
-      skillType: row.skillTypeId as SkillType,
-      componentShape: row.componentShape as ComponentShape,
-      sourceField: row.sourceField as SourceQuizFormField | null,
-      direction: row.direction as Direction | null,
-      revision: row.revision,
-      learnerState: projection.state,
-      card: projection.card,
-      masteryDates: projection.masteryDates,
-      headEventId,
-      headClientRevision,
-    };
+    try {
+      return [projectComponent(row, key, schedulingRows, options.nowMs)];
+    } catch (error) {
+      console.error(`[sync] pull: component ${key} withheld`, error);
+      withheldComponents.push({
+        componentKey: key,
+        // Same classifier the ingest/revoke boundaries use, so one condition
+        // never has two names. The projection does no I/O — its rows are
+        // already loaded — so in practice this is always the ChainError case.
+        reasonCode: componentFaultReason(error),
+      });
+      return [];
+    }
   });
+
+  // Audit the withheld components out of band (REL-006): a permanent structural
+  // condition has to be a monitoring signal, not just a server log line.
+  //
+  // REL-101: the write is rate-limited per (account, component, reason) rather
+  // than relying on the client's cursor to move past the component. It usually
+  // does — but the client persists that cursor in the SAME Dexie transaction as
+  // the rest of the page, so ANY unrelated apply failure (quota, a bug in
+  // another row on the page, a tab closed mid-commit) leaves `since` where it
+  // was, and every later poll re-pulls the same component. Without this the
+  // permanent condition would write one row per poll for the life of a stuck
+  // device, drowning the very signal it exists to raise.
+  for (const withheld of withheldComponents) {
+    try {
+      const [recent] = await db
+        .select({ id: syncAuditLog.id })
+        .from(syncAuditLog)
+        .where(
+          and(
+            eq(syncAuditLog.userId, userId),
+            eq(syncAuditLog.componentKey, withheld.componentKey),
+            eq(syncAuditLog.reasonCode, withheld.reasonCode),
+            sql`${syncAuditLog.createdAt} > now() - ${WITHHELD_AUDIT_WINDOW}`,
+          ),
+        )
+        .limit(1);
+      // Check-then-act, deliberately: two concurrent pulls can both miss and
+      // write two rows. Bounded by concurrency rather than by poll count, which
+      // is the property that matters here — an advisory lock or a unique index
+      // would be real machinery to shave one duplicate row off a rare branch.
+      if (recent) continue;
+      await writeSyncAudit(db, {
+        userId,
+        // The audit item vocabulary is the PUSH item vocabulary and has no
+        // "component" kind; the failure is in the component's event set, so the
+        // entry is event-kinded and `componentKey` carries the identity.
+        itemKind: "event",
+        itemId: withheld.componentKey,
+        reasonCode: withheld.reasonCode,
+        severity: "critical",
+        componentKey: withheld.componentKey,
+      });
+    } catch {
+      // An audit write must never turn a partially-successful pull into a 500.
+    }
+  }
 
   // --- event status updates (accepted → revoked / pending resolved) ---
   const changedEvents = await db
@@ -422,6 +528,7 @@ export async function pullChanges(
     serverCursor: ceiling,
     hasMore,
     components,
+    withheldComponents,
     events,
     bookmarks: bookmarkOut,
     lists: listOut,
