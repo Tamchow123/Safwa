@@ -301,6 +301,31 @@ describe("nothing is sent without consent (§9.1)", () => {
     expect(state.flow).toEqual({ name: "deferred", counts: more });
   });
 
+  it("lets a deferred offer be taken up again, showing the counts first", () => {
+    // SEC-002. `reconsider` returns to the CONSENT prompt rather than starting
+    // the merge, so the settings entry point cannot be a confirmation whose
+    // only information was its own label.
+    const deferred = run(signedIn, hasData, { type: "deferred" });
+    const reopened = guestMergeReducer(deferred, { type: "reconsider" });
+    expect(reopened.flow).toEqual({
+      name: "ready-for-consent",
+      counts: COUNTS,
+    });
+  });
+
+  it("ignores reconsider from anywhere but a deferred offer", () => {
+    const elsewhere: GuestMergeFlow[] = [
+      { name: "checking" },
+      { name: "ready-for-consent", counts: COUNTS },
+      { name: "preparing" },
+      { name: "completed", summary: SUMMARY },
+    ];
+    for (const flow of elsewhere) {
+      const state = at(flow);
+      expect(guestMergeReducer(state, { type: "reconsider" })).toEqual(state);
+    }
+  });
+
   it("ignores Not now once an upload has begun — there is nothing to defer", () => {
     const uploading = run(signedIn, hasData, { type: "consented" }, { type: "snapshot-collected" }); // prettier-ignore
     expect(guestMergeReducer(uploading, { type: "deferred" }).flow.name).toBe(

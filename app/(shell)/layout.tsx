@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { GuestMergeDialog } from "@/components/sync/guest-merge-dialog";
 import { GuestMergeProvider } from "@/components/sync/guest-merge-provider";
 import { SyncProvider } from "@/components/sync/sync-provider";
 
@@ -19,6 +20,12 @@ export default function ShellLayout({
       */}
       <GuestMergeProvider>
         <AppShell>{children}</AppShell>
+        {/*
+          Shell-wide, so the offer reaches a learner wherever they landed after
+          signing in. It renders nothing at all unless the flow has something to
+          say, so it costs a mounted component and no markup the rest of the time.
+        */}
+        <GuestMergeDialog />
       </GuestMergeProvider>
     </SyncProvider>
   );

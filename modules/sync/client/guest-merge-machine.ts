@@ -157,6 +157,14 @@ export type GuestMergeEvent =
     }
   | { type: "consented" }
   | { type: "deferred" }
+  /**
+   * The learner asked to see the offer again, from the deferred entry point.
+   * A separate event from `consented` on purpose (SEC-002): taking up a
+   * deferred offer must show the counts again before anything is sent, not
+   * start the upload from a button whose label is the only thing the learner
+   * read.
+   */
+  | { type: "reconsider" }
   | { type: "snapshot-collected" }
   | { type: "snapshot-too-large" }
   | { type: "upload-progress"; progress: GuestMergeProgress }
@@ -363,6 +371,13 @@ export function guestMergeReducer(
       // sent. Once an upload has begun there is nothing to defer.
       return flow.name === "ready-for-consent"
         ? to({ name: "deferred", counts: flow.counts })
+        : state;
+
+    case "reconsider":
+      // Only from `deferred`: everywhere else there is either nothing to
+      // reconsider or a merge already under way.
+      return flow.name === "deferred"
+        ? to({ name: "ready-for-consent", counts: flow.counts })
         : state;
 
     case "snapshot-collected":

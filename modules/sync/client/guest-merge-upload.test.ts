@@ -246,6 +246,26 @@ describe("uploadGuestMerge", () => {
     expect(record?.uploadedItems).toBe(1000);
   });
 
+  it("settles a hung request instead of waiting forever (REL-003-T15)", async () => {
+    // The merge dialog is deliberately not dismissible while running, so a
+    // request a proxy holds open would block the whole signed-in app with no
+    // way out but a reload. Every stage is raced against the clock.
+    //
+    // Real timers with a tiny ceiling rather than fake ones: Dexie opens its
+    // database on its own schedule, and faking the clock for this file stalls
+    // every other test's setup.
+    const never = new Promise<never>(() => {});
+    const outcome = await uploadGuestMerge(db, USER, snapshot(1), {
+      post: (() => never) as never,
+      requestTimeoutMs: 5,
+    });
+    expect(outcome).toMatchObject({
+      status: "interrupted",
+      retryable: true,
+      failure: "network",
+    });
+  });
+
   it("does not offer a retry for a lost session", async () => {
     const { post } = scripted([{ ok: false, reason: "unauthorized" }]);
     expect(
