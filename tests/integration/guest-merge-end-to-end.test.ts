@@ -15,6 +15,9 @@
  * about idempotency.
  */
 import { randomUUID } from "node:crypto";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -42,6 +45,8 @@ import {
 } from "@/modules/study-engine/generator";
 import {
   SYNC_PROTOCOL_VERSION,
+  type GuestMergeChunkResponse,
+  type GuestMergeFinalizeResponse,
   type GuestMergeRequest,
   type GuestMergeResponse,
 } from "@/modules/sync/protocol";
@@ -58,10 +63,24 @@ const NOW = Date.parse("2026-07-20T12:00:00.000Z");
 const SEED = "merge-e2e-seed";
 const SNAPSHOT = "b".repeat(64);
 
+/**
+ * A release id no registry the app ships has ever listed. Used for the
+ * `invalid_release` case, and — through the fixture registry below — as the
+ * revoked one.
+ */
+const REVOKED_RELEASE_ID = "safwa-merge-fixture-revoked";
+const UNKNOWN_RELEASE_ID = "safwa-merge-fixture-unknown";
+const SUPPORT = {
+  minimum_supported_client_version: "0.1.0",
+  minimum_supported_event_schema: 1,
+} as const;
+
 let releaseId: string;
 let context: QuestionContext;
 let identity: ResolvedComponentIdentity;
 let instance: QuestionInstance;
+/** A throwaway registry whose only difference from the real one is a revoked entry. */
+let revokedRegistryDir: string;
 
 beforeAll(async () => {
   const { registered } = await registerContent(getDb());
@@ -89,10 +108,28 @@ beforeAll(async () => {
     }
   }
   if (!identity) throw new Error("no generatable component in the release");
+
+  // The REAL release stays active here, so `finalize` can still resolve and
+  // verify it from its own committed artifacts; the only thing this registry
+  // adds is a second, revoked entry for an item to reference.
+  revokedRegistryDir = await mkdtemp(
+    path.join(tmpdir(), "safwa-merge-registry-"),
+  );
+  await writeFile(
+    path.join(revokedRegistryDir, "release-registry.json"),
+    JSON.stringify({
+      active_release_id: releaseId,
+      releases: {
+        [releaseId]: { status: "active", ...SUPPORT },
+        [REVOKED_RELEASE_ID]: { status: "revoked", ...SUPPORT },
+      },
+    }),
+    "utf8",
+  );
 });
 
-function run(userId: string, request: GuestMergeRequest) {
-  return runGuestMerge(userId, request, { nowMs: NOW, registryDir: undefined });
+function run(userId: string, request: GuestMergeRequest, registryDir?: string) {
+  return runGuestMerge(userId, request, { nowMs: NOW, registryDir });
 }
 
 /** The suite's chosen question, for the shared builders. */
@@ -152,45 +189,83 @@ function history(sessionId: string) {
   };
 }
 
+/**
+ * Run a whole import and return BOTH stage responses.
+ *
+ * The chunk response is the only place a per-item reason code is visible: the
+ * finalisation summary carries counts, and a count cannot say WHY an item was
+ * refused. A test that only checks `eventsRejected === 1` passes equally when
+ * the server refused for the wrong reason.
+ */
+async function runImport(
+  userId: string,
+  importKey: string,
+  body: { attempts: unknown[]; events: unknown[] },
+  options: { snapshotHash?: string; registryDir?: string } = {},
+): Promise<{
+  chunk: GuestMergeChunkResponse;
+  finalize: GuestMergeFinalizeResponse;
+}> {
+  const snapshotHash = options.snapshotHash ?? SNAPSHOT;
+  const { registryDir } = options;
+  await run(
+    userId,
+    {
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+      stage: "begin",
+      importKey,
+      snapshotHash,
+      deviceId: "device-1",
+      declared: {
+        attempts: body.attempts.length,
+        events: body.events.length,
+        bookmarks: 0,
+        lists: 0,
+        settings: 0,
+      },
+    } as GuestMergeRequest,
+    registryDir,
+  );
+  const chunk = await run(
+    userId,
+    {
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+      stage: "chunk",
+      importKey,
+      snapshotHash,
+      chunkIndex: 0,
+      attempts: body.attempts,
+      events: body.events,
+      bookmarks: [],
+      lists: [],
+      settings: [],
+    } as GuestMergeRequest,
+    registryDir,
+  );
+  const finalize = await run(
+    userId,
+    {
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+      stage: "finalize",
+      importKey,
+      snapshotHash,
+    },
+    registryDir,
+  );
+  if (chunk.stage !== "chunk") throw new Error("expected a chunk response");
+  if (finalize.stage !== "finalize")
+    throw new Error("expected a finalize response");
+  return { chunk, finalize };
+}
+
 /** Run a whole import to finalisation and return the final response. */
 async function importOnce(
   userId: string,
   importKey: string,
   body: { attempts: unknown[]; events: unknown[] },
-  snapshotHash = SNAPSHOT,
+  options: { snapshotHash?: string; registryDir?: string } = {},
 ): Promise<GuestMergeResponse> {
-  await run(userId, {
-    protocolVersion: SYNC_PROTOCOL_VERSION,
-    stage: "begin",
-    importKey,
-    snapshotHash,
-    deviceId: "device-1",
-    declared: {
-      attempts: body.attempts.length,
-      events: body.events.length,
-      bookmarks: 0,
-      lists: 0,
-      settings: 0,
-    },
-  } as GuestMergeRequest);
-  await run(userId, {
-    protocolVersion: SYNC_PROTOCOL_VERSION,
-    stage: "chunk",
-    importKey,
-    snapshotHash,
-    chunkIndex: 0,
-    attempts: body.attempts,
-    events: body.events,
-    bookmarks: [],
-    lists: [],
-    settings: [],
-  } as GuestMergeRequest);
-  return run(userId, {
-    protocolVersion: SYNC_PROTOCOL_VERSION,
-    stage: "finalize",
-    importKey,
-    snapshotHash,
-  });
+  return (await runImport(userId, importKey, body, options)).finalize;
 }
 
 /**
@@ -358,20 +433,6 @@ describe("§24 history union — what was imported stays queryable", () => {
   });
 });
 
-/**
- * §24 lists two further trust-boundary cases that are DELIBERATELY not here:
- * an unknown generator version, and a revoked release. Both are decided in the
- * release-resolution layer beneath `ingestSchedulingBatch`, which the merge and
- * the ordinary push share — `runGuestMerge` reaches it through the same call,
- * only in the server-internal merge ingestion mode. `sync-ingest.test.ts`
- * covers them there. A copy here would exercise a different entry point into
- * identical code and prove nothing the original does not.
- *
- * The two cases below are different in kind: rating correction and cross-account
- * parenting both pass through merge-specific code (the import's provenance
- * stamping and the union-tolerant lineage classification), so a merge-path
- * regression is genuinely possible and would not be caught anywhere else.
- */
 describe("§24 trust boundary — the server derives, the guest asserts", () => {
   it("corrects a guest attempt that claims a wrong answer was right", async () => {
     // CLAUDE.md §7 and §9.3: correctness is derived from the assessment
@@ -540,6 +601,221 @@ describe("§24 trust boundary — the server derives, the guest asserts", () => 
       .where(eq(studyAttempts.userId, other));
     expect(ownerAttempts).toHaveLength(2);
     expect(otherAttempts).toHaveLength(0);
+  });
+
+  /**
+   * The three content-boundary cases §24 names. They are decided in code the
+   * merge SHARES with the ordinary push — `gradeObjectiveAttempt` for the
+   * generator version, `resolveReleaseForIngestion` for the release — and an
+   * earlier version of this file said that made merge-side tests redundant and
+   * pointed at `sync-ingest.test.ts` for them. That claim was checked and was
+   * wrong twice over: those tests are not in `sync-ingest.test.ts` (the release
+   * cases are unit-level, in `modules/sync/server/release.test.ts`, and the
+   * generator one in `grade.test.ts`), and neither entry point proves what
+   * matters here anyway.
+   *
+   * What matters here is not that the check exists — it is that the MERGE
+   * reaches it. The merge runs the shared pipeline in the server-internal
+   * import mode, under a coordinator that stamps provenance, counts a summary
+   * and can mark a whole import completed. A refusal that the ordinary push
+   * makes correctly could still, on this path, be miscounted, mis-summarised,
+   * or applied anyway. Each test below therefore asserts the reason code the
+   * client is told, the summary the coordinator stores, and the rows the
+   * account is left holding.
+   */
+  it("refuses an attempt generated by an UNSUPPORTED generator version", async () => {
+    // §24: content the server cannot reconstruct is refused rather than taken
+    // on the guest's word. A generator this server does not run means the
+    // question behind the attempt cannot be rebuilt, so its correctness cannot
+    // be derived — and an underivable answer is exactly what CLAUDE.md §7
+    // forbids trusting.
+    const userId = await createTestUser();
+    const attemptId = randomUUID();
+    const sessionId = randomUUID();
+    const eventId = randomUUID();
+
+    const { chunk, finalize } = await runImport(userId, randomUUID(), {
+      attempts: [
+        guestAttempt(attemptId, sessionId, {
+          questionGeneratorVersion: "999999",
+        }),
+      ],
+      events: [
+        guestEvent(
+          eventId,
+          attemptId,
+          sessionId,
+          null,
+          1,
+          "2026-07-20T11:00:00.000Z",
+        ),
+      ],
+    });
+
+    expect(chunk.results).toContainEqual(
+      expect.objectContaining({
+        itemId: eventId,
+        status: "rejected",
+        reasonCode: "unsupported_generator_version",
+      }),
+    );
+    expect(finalize.summary.eventsApplied).toBe(0);
+    expect(finalize.summary.eventsRejected).toBe(1);
+
+    // And the account holds nothing: a refusal that still wrote the attempt
+    // would leave history the server had just said it could not verify.
+    const { attempts, events } = await accountState(userId);
+    expect(attempts).toHaveLength(0);
+    expect(events).toHaveLength(0);
+  });
+
+  it("refuses an item referencing a release this server does not know", async () => {
+    // The neighbouring case to the revoked one below, and the reason that one
+    // is worth a separate test: an unknown release and a revoked release are
+    // different facts and must not collapse into one reason code, because only
+    // one of them tells an operator that a release they pulled is still in use.
+    const userId = await createTestUser();
+    const attemptId = randomUUID();
+    const sessionId = randomUUID();
+    const eventId = randomUUID();
+
+    const { chunk, finalize } = await runImport(userId, randomUUID(), {
+      attempts: [
+        guestAttempt(attemptId, sessionId, { releaseId: UNKNOWN_RELEASE_ID }),
+      ],
+      events: [
+        guestEvent(
+          eventId,
+          attemptId,
+          sessionId,
+          null,
+          1,
+          "2026-07-20T11:00:00.000Z",
+          { releaseId: UNKNOWN_RELEASE_ID },
+        ),
+      ],
+    });
+
+    expect(chunk.results).toContainEqual(
+      expect.objectContaining({
+        itemId: eventId,
+        status: "rejected",
+        reasonCode: "invalid_release",
+      }),
+    );
+    expect(finalize.summary.eventsApplied).toBe(0);
+    expect(finalize.summary.eventsRejected).toBe(1);
+    const { attempts, events } = await accountState(userId);
+    expect(attempts).toHaveLength(0);
+    expect(events).toHaveLength(0);
+  });
+
+  it("refuses an item referencing a REVOKED release, recoverably", async () => {
+    // §24 and OFFLINE_AND_SYNC §8.3: a revoked release is content withdrawn
+    // after the fact — usually because it taught something wrong. The guest's
+    // device may have been offline through the withdrawal and holds a history
+    // built on it in good faith, so the refusal must be per-item and
+    // recoverable, never a rejection of the whole import.
+    const userId = await createTestUser();
+    const attemptId = randomUUID();
+    const sessionId = randomUUID();
+    const eventId = randomUUID();
+
+    const { chunk, finalize } = await runImport(
+      userId,
+      randomUUID(),
+      {
+        attempts: [
+          guestAttempt(attemptId, sessionId, { releaseId: REVOKED_RELEASE_ID }),
+        ],
+        events: [
+          guestEvent(
+            eventId,
+            attemptId,
+            sessionId,
+            null,
+            1,
+            "2026-07-20T11:00:00.000Z",
+            { releaseId: REVOKED_RELEASE_ID },
+          ),
+        ],
+      },
+      { registryDir: revokedRegistryDir },
+    );
+
+    // The specific code, not merely "rejected": `invalid_release` here would
+    // mean the server had forgotten the release rather than withdrawn it.
+    expect(chunk.results).toContainEqual(
+      expect.objectContaining({
+        itemId: eventId,
+        status: "rejected",
+        reasonCode: "revoked_release",
+      }),
+    );
+    // The import itself still completes — the refusal is the item's, not the
+    // import's, so the learner keeps whatever else the same history carried.
+    expect(finalize.result).not.toBe("rejected");
+    expect(finalize.summary.eventsApplied).toBe(0);
+    expect(finalize.summary.eventsRejected).toBe(1);
+    const { attempts, events } = await accountState(userId);
+    expect(attempts).toHaveLength(0);
+    expect(events).toHaveLength(0);
+  });
+
+  it("keeps the rest of a history when ONE item names a revoked release", async () => {
+    // The recoverability claim above, measured: a guest whose history spans a
+    // revocation must not lose the reviews that came after it.
+    const userId = await createTestUser();
+    const sessionId = randomUUID();
+    const good = history(sessionId);
+    const badAttemptId = randomUUID();
+    const badEventId = randomUUID();
+
+    const { chunk, finalize } = await runImport(
+      userId,
+      randomUUID(),
+      {
+        attempts: [
+          ...good.attempts,
+          guestAttempt(badAttemptId, sessionId, {
+            releaseId: REVOKED_RELEASE_ID,
+          }),
+        ],
+        events: [
+          ...good.events,
+          guestEvent(
+            badEventId,
+            badAttemptId,
+            sessionId,
+            null,
+            1,
+            "2026-07-20T11:30:00.000Z",
+            { releaseId: REVOKED_RELEASE_ID },
+          ),
+        ],
+      },
+      { registryDir: revokedRegistryDir },
+    );
+
+    // Still `revoked_release`, even though this item is not the one its
+    // component group's release was resolved from — the group takes its context
+    // from the FIRST attempt, and the per-item path has to re-resolve rather
+    // than report every later mismatch as an unknown release.
+    expect(chunk.results).toContainEqual(
+      expect.objectContaining({
+        itemId: badEventId,
+        status: "rejected",
+        reasonCode: "revoked_release",
+      }),
+    );
+    // Exactly one refused and exactly two applied: a `> 0` assertion would also
+    // pass if the revoked item had taken the good history with it, which is the
+    // failure this test exists to catch.
+    expect(finalize.summary.eventsRejected).toBe(1);
+    expect(finalize.summary.eventsApplied).toBe(2);
+    const { attempts, events } = await accountState(userId);
+    expect(attempts).toHaveLength(2);
+    expect(events).toHaveLength(2);
   });
 });
 

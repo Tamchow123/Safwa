@@ -457,9 +457,13 @@ describe("chunk â€” guest scheduling history through the merge ingestion mode (Â
       .where(eq(reviewEvents.userId, userId));
     expect(events).toHaveLength(2);
     const row = await importRow(importKey);
+    // Load-bearing: without it, an import row that was never written would make
+    // `row?.id` undefined, and the comparison below would be asserting that the
+    // events are stamped with nothing in particular.
+    expect(row).toBeDefined();
     for (const event of events) {
       expect(event.status).toBe("scheduling");
-      expect(event.importedFrom).toBe(row?.id);
+      expect(event.importedFrom).toBe(row!.id);
     }
 
     // The summary counts the server's decisions, not the client's claims.
