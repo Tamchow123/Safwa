@@ -6,6 +6,7 @@ import {
   ChainError,
   isChainRoot,
   orderCausally,
+  partitionScheduling,
   replayChain,
   undoLastEvent,
 } from "@/modules/scheduler/chain";
@@ -129,6 +130,34 @@ describe("causal chain — validation", () => {
     ];
     // The revoked event is ignored; only the root remains (a valid 1-event chain).
     expect(replayChain(withRevoked).scheduledEventCount).toBe(1);
+  });
+
+  it("reports the FORK when a set is corrupt in more than one way (ARCH-003)", () => {
+    // Fork detection is a pre-pass, so it wins over the self-parent check even
+    // though the self-parenting event comes FIRST in the array. Pinned rather
+    // than left implicit: the set is rejected either way, but which message an
+    // operator reads while diagnosing a corrupt component should not drift
+    // silently, and a fork names two events and the parent they contend for.
+    //
+    // Goes straight to `partitionScheduling`: `orderCausally` runs its own
+    // strict-chain checks first and would report one of those instead, which
+    // would test the wrong thing.
+    const [e1, e2, e3] = buildChain([
+      { isCorrect: true },
+      { isCorrect: true },
+      { isCorrect: true },
+    ]);
+    const doublyCorrupt = [
+      { ...e3, parentEventId: e3.eventId }, // self-parenting, listed first
+      e1,
+      e2,
+      // Second claimant of e1's position. Its own revision is distinct so the
+      // duplicate-revision check does not fire before the structural one.
+      { ...e2, eventId: "fork-sibling", clientComponentRevision: 5 },
+    ];
+    expect(() => partitionScheduling(doublyCorrupt)).toThrow(
+      /share parent .* \(concurrent branches are Phase 19\)/,
+    );
   });
 });
 
