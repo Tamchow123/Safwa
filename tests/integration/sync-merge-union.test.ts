@@ -1,12 +1,15 @@
 /**
  * Phase 17 §14 — the server's write and read paths carrying a UNION.
  *
- * No merge coordinator exists yet (T10), so every union here is seeded directly
- * into `review_events`: two accepted roots on one component, which is exactly
- * the shape a guest→account merge produces and exactly the shape corruption
- * produces. The point of these tests is that the server treats those two cases
- * DIFFERENTLY, and that the only thing separating them is
- * `study_components.merged_at`.
+ * Most unions here are seeded directly into `review_events`: two accepted roots
+ * on one component, which is exactly the shape a guest→account merge produces
+ * and exactly the shape corruption produces. The point of those tests is that
+ * the server treats the two cases DIFFERENTLY, and that the only thing
+ * separating them is `study_components.merged_at`.
+ *
+ * The final block (T10e) is the other half: it creates its unions the way
+ * production does, through the server-internal merge ingestion mode, and shows
+ * that the mode is the ONLY thing that can obtain the stamp.
  */
 import { randomUUID } from "node:crypto";
 
@@ -1027,5 +1030,337 @@ describe("an ordinary single-rooted component is unaffected (TEST-005)", () => {
     expect(component?.headEventId).toBe(e3);
     expect(component?.headClientRevision).toBe(3);
     expect(component?.card?.reps).toBe(3);
+  });
+});
+
+// --- T10e: the server-internal merge INGESTION MODE --------------------------
+//
+// Everything above seeds its unions straight into `review_events`, because when
+// it was written nothing could create one. This block creates them the way
+// production will: through `ingestSchedulingBatch` with the server-internal
+// `guestImport` option, which is reachable only from the merge coordinator.
+
+/** One scheduling event, shaped for `ingestSchedulingBatch`. */
+function wireEvent(
+  eventId: string,
+  attemptId: string,
+  sessionId: string,
+  parentEventId: string | null,
+  revision: number,
+  occurredAtClient: string,
+) {
+  return {
+    eventId,
+    studyComponentId: seededComponentKey(),
+    attemptId,
+    rating: "good" as const,
+    status: "scheduling" as const,
+    baseServerRevision: 0,
+    parentEventId,
+    clientComponentRevision: revision,
+    clientSequence: revision,
+    occurredAtClient,
+    deviceId: "device-1",
+    sessionId,
+    releaseId,
+    contentVersion: context.contentVersion,
+    timezoneAtEvent: "UTC",
+    utcOffsetMinutesAtEvent: 0,
+    localDateAtEvent: "2026-07-20",
+    timezoneSource: "browser_detected" as const,
+  };
+}
+
+/**
+ * Ingest one event, optionally under the merge ingestion mode.
+ *
+ * `importId` is a bare uuid rather than a real `guest_imports` row: neither
+ * `imported_from_guest_import_id` nor `merged_from_guest_import_id` is a foreign
+ * key (deliberately — see db/schema/learning.ts), so a row here would add setup
+ * without adding evidence. What is under test is that the id the coordinator
+ * passes reaches both columns unchanged.
+ */
+async function ingestOne(
+  userId: string,
+  event: {
+    eventId: string;
+    parentEventId: string | null;
+    revision: number;
+    occurredAtClient: string;
+  },
+  importId?: string,
+) {
+  const attemptId = randomUUID();
+  const sessionId = randomUUID();
+  return ingestSchedulingBatch(
+    userId,
+    [
+      wireEvent(
+        event.eventId,
+        attemptId,
+        sessionId,
+        event.parentEventId,
+        event.revision,
+        event.occurredAtClient,
+      ),
+    ],
+    [pushAttempt(attemptId, sessionId)],
+    importId === undefined
+      ? { nowMs: NOW }
+      : { nowMs: NOW, guestImport: { importId } },
+  );
+}
+
+/** The seeded component row for an account, or undefined if none exists. */
+async function componentRow(userId: string) {
+  const [row] = await getDb()
+    .select({
+      id: studyComponents.id,
+      revision: studyComponents.revision,
+      reps: studyComponents.reps,
+      mergedAt: studyComponents.mergedAt,
+      mergedFromGuestImportId: studyComponents.mergedFromGuestImportId,
+    })
+    .from(studyComponents)
+    .where(eq(studyComponents.userId, userId));
+  return row;
+}
+
+/**
+ * REL-005 as a checkable invariant over COMMITTED state: no component anywhere
+ * in the database holds a multi-rooted accepted set without the stamp that
+ * authorises it.
+ *
+ * A test cannot observe a half-finished transaction — that is what a
+ * transaction is — so this is deliberately not phrased as "the stamp is written
+ * at the same instant". It is phrased as the thing an operator would actually
+ * alert on, and it is what a partial commit would break: an unmarked union is
+ * precisely the state that throws at ingest, pull AND revoke, so if the union
+ * and its authorisation could ever land separately, this assertion is what would
+ * catch the window.
+ *
+ * Scoped to ONE account, not the whole database: the blocks above deliberately
+ * seed unmarked unions as corruption fixtures, and a global scan would report
+ * those and never fail for the reason it exists to fail for.
+ */
+async function expectNoUnauthorisedUnions(userId: string): Promise<void> {
+  const rows = await getDb()
+    .select({
+      componentId: reviewEvents.studyComponentId,
+      eventId: reviewEvents.eventId,
+      parentEventId: reviewEvents.parentEventId,
+      status: reviewEvents.status,
+      mergedAt: studyComponents.mergedAt,
+    })
+    .from(reviewEvents)
+    .innerJoin(
+      studyComponents,
+      eq(studyComponents.id, reviewEvents.studyComponentId),
+    )
+    .where(eq(reviewEvents.userId, userId));
+
+  const byComponent = new Map<
+    string,
+    {
+      accepted: { eventId: string; parentEventId: string | null }[];
+      mergedAt: Date | null;
+    }
+  >();
+  for (const row of rows) {
+    if (row.status !== "scheduling") continue;
+    const entry = byComponent.get(row.componentId) ?? {
+      accepted: [],
+      mergedAt: row.mergedAt,
+    };
+    entry.accepted.push({
+      eventId: row.eventId,
+      parentEventId: row.parentEventId,
+    });
+    byComponent.set(row.componentId, entry);
+  }
+
+  const unauthorised: string[] = [];
+  for (const [componentId, entry] of byComponent) {
+    const acceptedIds = new Set(entry.accepted.map((e) => e.eventId));
+    const roots = entry.accepted.filter(
+      (e) => e.parentEventId === null || !acceptedIds.has(e.parentEventId),
+    ).length;
+    if (roots > 1 && entry.mergedAt === null) unauthorised.push(componentId);
+  }
+  expect(unauthorised).toEqual([]);
+}
+
+describe("the merge ingestion mode is the only way to create a union", () => {
+  it("stamps the component with the import that authorised it, and replays the union", async () => {
+    const userId = await createTestUser();
+    const importId = randomUUID();
+    const a1 = randomUUID();
+    const a2 = randomUUID();
+    const g1 = randomUUID();
+
+    // The account's own history, through ORDINARY push. No merge mode, no
+    // stamp — this is a plain single-rooted Phase 16 chain.
+    await ingestOne(userId, {
+      eventId: a1,
+      parentEventId: null,
+      revision: 1,
+      occurredAtClient: "2026-07-20T10:00:00.000Z",
+    });
+    await ingestOne(userId, {
+      eventId: a2,
+      parentEventId: a1,
+      revision: 2,
+      occurredAtClient: "2026-07-20T10:30:00.000Z",
+    });
+    const beforeMerge = await componentRow(userId);
+    expect(beforeMerge?.mergedAt).toBeNull();
+    expect(beforeMerge?.mergedFromGuestImportId).toBeNull();
+
+    // Now the guest's history arrives under the coordinator's import: a SECOND
+    // root on the same component, which ordinary sync would call a stale branch.
+    const { results } = await ingestOne(
+      userId,
+      {
+        eventId: g1,
+        parentEventId: null,
+        revision: 1,
+        occurredAtClient: "2026-07-20T09:00:00.000Z",
+      },
+      importId,
+    );
+    expect(results[0]).toMatchObject({ itemId: g1, status: "accepted" });
+
+    const merged = await componentRow(userId);
+    // The stamp, and the provenance that explains it — the id the coordinator
+    // passed, not a value invented on the way through.
+    expect(merged?.mergedAt).not.toBeNull();
+    expect(merged?.mergedFromGuestImportId).toBe(importId);
+    // And the union genuinely replayed in that same transaction: three accepted
+    // events across two chains. Had the mark been read from the pre-transaction
+    // component row, this replay would have thrown ChainError instead.
+    expect(merged?.reps).toBe(3);
+    expect(merged?.revision).toBe(3);
+
+    // The imported event carries its own provenance; the account's do not.
+    const events = await getDb()
+      .select({
+        eventId: reviewEvents.eventId,
+        importedFrom: reviewEvents.importedFromGuestImportId,
+      })
+      .from(reviewEvents)
+      .where(eq(reviewEvents.userId, userId));
+    const importedBy = new Map(events.map((e) => [e.eventId, e.importedFrom]));
+    expect(importedBy.get(g1)).toBe(importId);
+    expect(importedBy.get(a1)).toBeNull();
+    expect(importedBy.get(a2)).toBeNull();
+
+    await expectNoUnauthorisedUnions(userId);
+  });
+
+  it("refuses the same second root through ordinary push, and stamps nothing", async () => {
+    // The counterpart of the test above, differing in ONE argument: no
+    // `guestImport`. If the union rule were reachable without it — or if the
+    // stamp could be obtained by any other route — this would pass too.
+    const userId = await createTestUser();
+    const a1 = randomUUID();
+    const g1 = randomUUID();
+
+    await ingestOne(userId, {
+      eventId: a1,
+      parentEventId: null,
+      revision: 1,
+      occurredAtClient: "2026-07-20T10:00:00.000Z",
+    });
+
+    const { results } = await ingestOne(userId, {
+      eventId: g1,
+      parentEventId: null,
+      revision: 1,
+      occurredAtClient: "2026-07-20T09:00:00.000Z",
+    });
+    expect(results[0]).toMatchObject({
+      itemId: g1,
+      status: "rejected",
+      reasonCode: "stale_branch_conflict",
+    });
+
+    const component = await componentRow(userId);
+    expect(component?.mergedAt).toBeNull();
+    expect(component?.mergedFromGuestImportId).toBeNull();
+    // The refused root left nothing behind: no second chain, no half-grant.
+    expect(component?.reps).toBe(1);
+    await expectNoUnauthorisedUnions(userId);
+  });
+
+  it("keeps the ORIGINAL stamp when a second import lands on an already-merged component", async () => {
+    // `merged_at` answers "when did this component first become a union, and
+    // which import made it one" — the question an incident investigation asks.
+    // Re-stamping per import would overwrite that answer with the latest one.
+    const userId = await createTestUser();
+    const firstImport = randomUUID();
+    const secondImport = randomUUID();
+
+    await ingestOne(userId, {
+      eventId: randomUUID(),
+      parentEventId: null,
+      revision: 1,
+      occurredAtClient: "2026-07-20T10:00:00.000Z",
+    });
+    await ingestOne(
+      userId,
+      {
+        eventId: randomUUID(),
+        parentEventId: null,
+        revision: 1,
+        occurredAtClient: "2026-07-20T09:00:00.000Z",
+      },
+      firstImport,
+    );
+    const afterFirst = await componentRow(userId);
+
+    await ingestOne(
+      userId,
+      {
+        eventId: randomUUID(),
+        parentEventId: null,
+        revision: 1,
+        occurredAtClient: "2026-07-20T08:00:00.000Z",
+      },
+      secondImport,
+    );
+    const afterSecond = await componentRow(userId);
+
+    expect(afterSecond?.mergedFromGuestImportId).toBe(firstImport);
+    expect(afterSecond?.mergedAt).toEqual(afterFirst?.mergedAt);
+    // The third root still replayed — keeping the original stamp is a
+    // provenance decision, not a refusal to merge again.
+    expect(afterSecond?.reps).toBe(3);
+    await expectNoUnauthorisedUnions(userId);
+  });
+
+  it("does not stamp an import that lands on a component with no account history", async () => {
+    // A guest history merged into an account that never studied this component
+    // is single-rooted. There is no union, so there is nothing to authorise, and
+    // granting union tolerance anyway would retire the corruption canary for a
+    // component that never needed it.
+    const userId = await createTestUser();
+    const importId = randomUUID();
+
+    const { results } = await ingestOne(
+      userId,
+      {
+        eventId: randomUUID(),
+        parentEventId: null,
+        revision: 1,
+        occurredAtClient: "2026-07-20T09:00:00.000Z",
+      },
+      importId,
+    );
+    expect(results[0]).toMatchObject({ status: "accepted" });
+
+    const component = await componentRow(userId);
+    expect(component?.mergedAt).toBeNull();
+    expect(component?.mergedFromGuestImportId).toBeNull();
+    expect(component?.reps).toBe(1);
   });
 });

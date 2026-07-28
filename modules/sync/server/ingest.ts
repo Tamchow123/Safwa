@@ -42,7 +42,7 @@ import {
 } from "@/modules/sync/protocol";
 
 import { writeSyncAudit } from "./audit";
-import { selectHead, type HeadCandidate } from "./chain-head";
+import { countChainRoots, selectHead, type HeadCandidate } from "./chain-head";
 import {
   computeCanonicalEventTime,
   type CanonicalTimeResult,
@@ -57,14 +57,57 @@ import {
   mergeUnionContext,
 } from "./lineage";
 import { resolveReleaseForIngestion, type ReleaseLoadOptions } from "./release";
-import { type ComponentReplayEvent, replayComponent } from "./replay";
+import {
+  type ComponentMergeMark,
+  type ComponentReplayEvent,
+  replayComponent,
+} from "./replay";
 import { validateComponent } from "./validate-component";
+
+/**
+ * The SERVER-INTERNAL merge ingestion mode (Phase 17 §13). Its presence on
+ * {@link IngestOptions} is what turns an ingest call into a guest→account
+ * import; its absence is ordinary Phase 16 push, unchanged.
+ *
+ * §13 requires that "any merge-specific ingestion mode must be server-internal
+ * and reachable only through the authenticated merge coordinator", so this is
+ * deliberately NOT a wire field and NOT derivable from a request. `pushRequest
+ * Schema` has no member that could produce one, and `app/api/sync/push/route.ts`
+ * constructs its options literally (`{ nowMs, correlationId }`) rather than
+ * spreading the decoded body, so there is no path by which a client can set it.
+ * The only caller that may is the merge coordinator, which obtains `importId`
+ * from the `guest_imports` row it holds — a row the server created against a
+ * session-derived account.
+ *
+ * What it buys is EVENT-SCOPED provenance: every review event written under it
+ * is stamped `imported_from_guest_import_id`, and that stamp — not the
+ * component's `merged_at` — is what makes `classifyForEvent` judge the event by
+ * the union rule. See the note on {@link classifyForEvent} for why the scope has
+ * to be the event.
+ *
+ * ATTEMPTS ARE NOT STAMPED, deliberately. `study_attempts` has no provenance
+ * column and this slice does not add one: the marker exists to select a LINEAGE
+ * rule, and attempts have no lineage — they are flat history hanging off a
+ * component, with no parent, no revision and nothing to classify. An import's
+ * attempts are already recoverable through the events that reference them and
+ * through `guest_imports` itself, so a column here would carry a fact nothing
+ * reads, on the largest table the merge writes.
+ */
+export type GuestImportIngestion = {
+  /** `guest_imports.id` — the import this history is arriving under. */
+  importId: string;
+};
 
 export type IngestOptions = ReleaseLoadOptions & {
   /** Injected server-receipt clock (epoch ms) — never Date.now(). */
   nowMs: number;
   /** Correlation id for the request, recorded in audit rows. */
   correlationId?: string;
+  /**
+   * Present ONLY when the authenticated guest-merge coordinator is driving this
+   * call (§13). See {@link GuestImportIngestion}: server-internal, never wire.
+   */
+  guestImport?: GuestImportIngestion;
   /**
    * Override the per-component pending-parent cap (EXT-F4). Defaults to
    * SYNC_BOUNDS.maxPendingPerComponent; injectable so operators can tune it and
@@ -150,15 +193,24 @@ type ChainState = {
  * accepted events per acceptance, and both the batch and the component are
  * already bounded (SYNC_BOUNDS, MAX_PENDING_REPROCESS).
  */
+/**
+ * The accepted set reduced to what shape analysis needs. One mapping, used by
+ * both head selection and root counting, so the two can never disagree about
+ * which events they are looking at.
+ */
+function headCandidatesOf(
+  accepted: readonly ComponentReplayEvent[],
+): HeadCandidate[] {
+  return accepted.map((event) => ({
+    eventId: event.eventId,
+    clientComponentRevision: event.clientComponentRevision,
+    canonicalMs: event.occurredAtCanonical.getTime(),
+    parentEventId: event.parentEventId,
+  }));
+}
+
 function refreshChainHead(chain: ChainState): void {
-  const head = selectHead(
-    chain.accepted.map((event) => ({
-      eventId: event.eventId,
-      clientComponentRevision: event.clientComponentRevision,
-      canonicalMs: event.occurredAtCanonical.getTime(),
-      parentEventId: event.parentEventId,
-    })),
-  );
+  const head = selectHead(headCandidatesOf(chain.accepted));
   chain.headEventId = head?.eventId ?? null;
   chain.headCanonicalMs = head?.canonicalMs ?? null;
   // The HEAD'S OWN revision, not the union's maximum. Contiguity is enforced by
@@ -515,7 +567,15 @@ async function persistAttempt(
     .onConflictDoNothing({ target: studyAttempts.id });
 }
 
-/** Persist a review event with server-canonical rating/time and the given status. */
+/**
+ * Persist a review event with server-canonical rating/time and the given status.
+ *
+ * `importedFromGuestImportId` is the event's own merge provenance (§14): the id
+ * of the import that wrote it, or null for every ordinary push. It is a REQUIRED
+ * parameter rather than an optional one on purpose — a default would let a new
+ * call site write an unprovenanced event by saying nothing, and this column is
+ * what decides which lineage rule the event is later judged by.
+ */
 async function persistEvent(
   tx: SyncTx,
   userId: string,
@@ -524,6 +584,7 @@ async function persistEvent(
   rating: string,
   status: "scheduling" | "pending_parent",
   canonicalTime: CanonicalTimeResult,
+  importedFromGuestImportId: string | null,
   // EXT-F4: when held as pending_parent, the instant this hold expires (never
   // promoted after, purgeable). Null for an accepted scheduling event.
   pendingExpiresAt: Date | null = null,
@@ -553,6 +614,7 @@ async function persistEvent(
     timezoneCorrected: canonicalTime.timezoneCorrected,
     clockSuspect: canonicalTime.clockSuspect,
     idempotencyPayloadHash: payloadHash(eventPayload(ev)),
+    importedFromGuestImportId,
   });
 }
 
@@ -573,6 +635,15 @@ async function processComponentGroup(
   const sorted = [...events].sort(
     (a, b) => a.clientComponentRevision - b.clientComponentRevision,
   );
+
+  // Whether the merge coordinator is driving this call (§13). Read ONCE, here,
+  // from the server-internal option, and used for all three of: which lineage
+  // rule each event is judged by, the provenance stamped on each written row,
+  // and whether a union this transaction creates may be authorised. Deriving it
+  // once means those three cannot disagree — an event judged by the union rule
+  // is by construction an event written with an import id.
+  const guestImportId = options.guestImport?.importId ?? null;
+  const isImported = guestImportId !== null;
 
   async function resolveContext(
     tx: SyncTx,
@@ -889,11 +960,12 @@ async function processComponentGroup(
         previousAcceptedCanonicalMs: chain.headCanonicalMs,
       });
 
-      // 4. Lineage classification (§14). A wire event arriving through ordinary
-      // push is never imported — the merge coordinator does not submit its
-      // history this way — so this is Phase 16's rule, on every component,
-      // merged or not.
-      const lineage = classifyForEvent(chain, false, {
+      // 4. Lineage classification (§14). Judged by the union rule only when the
+      // SERVER-INTERNAL merge mode is driving this call — which is exactly when
+      // this event is about to be written with that import's provenance below.
+      // An ordinary push has no `guestImport`, so it keeps Phase 16's rule on
+      // every component, merged or not.
+      const lineage = classifyForEvent(chain, isImported, {
         eventId: ev.eventId,
         parentEventId: ev.parentEventId,
         clientComponentRevision: ev.clientComponentRevision,
@@ -1043,6 +1115,7 @@ async function processComponentGroup(
           canonicalRating,
           "pending_parent",
           canonicalTime,
+          guestImportId,
           // EXT-F4: stamp the expiry so a never-arriving parent's hold can be
           // purged and is never promoted after it lapses.
           new Date(options.nowMs + SYNC_BOUNDS.pendingTtlMs),
@@ -1073,6 +1146,7 @@ async function processComponentGroup(
         canonicalRating,
         "scheduling",
         canonicalTime,
+        guestImportId,
       );
       chain.acceptedEventIds.add(ev.eventId);
       chain.parentByEventId.set(ev.eventId, ev.parentEventId);
@@ -1239,6 +1313,43 @@ async function processComponentGroup(
 
     if (!changed) return results;
 
+    // --- REL-005: a union and its authorisation are the SAME write ------------
+    //
+    // The stamp is derived from the accepted set this transaction is holding —
+    // `countChainRoots` over the very events about to be replayed — and never
+    // from anything the caller said about them. So "is this a union?" is
+    // answered by the data, and "is it allowed to be one?" by whether the
+    // server-internal merge mode is driving the call.
+    //
+    // Both answers then feed ONE update, below, alongside the replayed state.
+    // There is deliberately no path that writes the union first and the stamp
+    // afterwards: the events, the scheduling state derived from them and the
+    // permission to hold them commit together or not at all. A partial commit
+    // is the state REL-006 punishes — an unmarked multi-rooted component throws
+    // at every read path, so it would take out this account's pull as well.
+    //
+    // Note the two cases that produce NO stamp, both correct:
+    //  - a merge import that lands on a component with no account history: one
+    //    root, no union, nothing to authorise;
+    //  - an ORDINARY push that somehow produced a multi-rooted set: no
+    //    `guestImport`, so no stamp, so `replayComponent` refuses it below and
+    //    the whole component transaction rolls back. That is the canary
+    //    `merged_at` exists to keep alive (see db/schema/learning.ts), and it
+    //    must stay loud rather than be quietly repaired here.
+    const becameUnion = countChainRoots(headCandidatesOf(chain.accepted)) > 1;
+    const authorisesUnion = becameUnion && isImported;
+    // Stamp only the null → union transition. A component that was already
+    // merged keeps its ORIGINAL `merged_at` and provenance: that pair records
+    // when this component first became a union and which import made it one,
+    // which is the question an incident investigation asks. Re-stamping on
+    // every later import would overwrite the answer with the most recent one.
+    const mergeMark: ComponentMergeMark = {
+      mergedAt:
+        component.mergedAt ??
+        (authorisesUnion ? new Date(options.nowMs) : null),
+    };
+    const stampsMergeNow = component.mergedAt === null && authorisesUnion;
+
     // Deterministic replay → authoritative state. A ChainError means the
     // accepted chain is non-contiguous — an integrity violation that lineage
     // (T8) should already prevent. It is FATAL for this component: log it and
@@ -1248,13 +1359,16 @@ async function processComponentGroup(
     // request or silently drops the component's events without a trace.
     let replayed;
     try {
-      // The merge mark is read from the component row this transaction already
-      // locked — never assumed. An unmarked component that has somehow become
-      // multi-rooted still throws here, which is the point: that shape is
-      // corruption unless a merge coordinator recorded that it is not.
-      replayed = replayComponent(chain.accepted, options.nowMs, {
-        mergedAt: component.mergedAt,
-      });
+      // The mark is the one derived just above: the component's existing stamp
+      // if it had one, or the stamp THIS transaction is about to write. Passing
+      // the pre-transaction `component.mergedAt` instead would make the very
+      // transaction that creates a union fail to replay it — the union would be
+      // authorised and unreplayable in the same breath.
+      //
+      // An unmarked component that has somehow become multi-rooted still throws
+      // here, which is the point: that shape is corruption unless a merge
+      // coordinator recorded that it is not.
+      replayed = replayComponent(chain.accepted, options.nowMs, mergeMark);
     } catch (error) {
       if (error instanceof ChainError) {
         console.error(
@@ -1283,6 +1397,17 @@ async function processComponentGroup(
         learnerState: replayed.learnerState,
         revision: newRevision,
         lastSyncSeq: serverCursor,
+        // REL-005: the union's authorisation rides in the SAME statement as the
+        // state derived from it. Both columns or neither — the
+        // `study_components_merge_provenance_check` constraint enforces it,
+        // so a future edit that writes one of them alone fails at the database
+        // rather than producing a half-written merge record.
+        ...(stampsMergeNow
+          ? {
+              mergedAt: mergeMark.mergedAt,
+              mergedFromGuestImportId: guestImportId,
+            }
+          : {}),
       })
       .where(eq(studyComponents.id, component.id));
 
