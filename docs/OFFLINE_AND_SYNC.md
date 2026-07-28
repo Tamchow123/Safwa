@@ -149,6 +149,28 @@ the same submission is a no-op). No "take the strongest state" shortcut —
 merged FSRS state is whatever replay of the accepted union produces.
 Bookmarks/lists union; account settings win, guest fills gaps.
 
+**Merge-specific union replay.** Uniting two histories for one component
+produces a DAG with two roots — the account's chain and the guest's, neither
+descended from the other — which is exactly what a corrupted chain looks like.
+Two stages keep those apart, and they are not the same check twice:
+
+- **Admission** decides. An arriving event reaches the union-permitting
+  classifier (`classifyMergeLineage`, a separate entry point from ordinary
+  sync's, requiring a brand-sealed context) only if it carries its own
+  `imported_from_guest_import_id`, which only the merge coordinator stamps.
+  Everywhere else a second root is still a stale branch and still refused.
+- **Replay** tolerates the resulting shape on `study_components.merged_at`
+  alone — a durable record that admission already happened for this component.
+  It does not re-verify per-event provenance, so it is **not** a second line of
+  defence; the defence is at admission (`docs/DATA_MODEL.md` §4.1, ADR-009).
+
+**This is not §5's conflict resolution.** The merge unites **two identities'**
+histories on one device, once, with consent. Phase 19 reconciles **one
+identity's** history diverging across devices, continuously and without asking.
+The multi-root exemption above belongs to the merge and must not be reused by a
+conflict resolver: two devices disagreeing about one learner's history is a
+disagreement to settle, not two learners' work to combine.
+
 ## 8. Content-version changes and long-offline recovery
 
 - Validation + assessment manifests are retained **indefinitely**; release
@@ -284,3 +306,55 @@ RISK_REGISTER #21), the guest→account merge (Phase 17), and a full authenticat
 multi-context sync E2E — all Phase 17/18/19 (Stage A completion + Stage B+). The
 indicator deliberately does not claim offline durability or multi-device
 conflict resolution.
+
+## As built — the guest→account merge (Phase 17) 🏁 Core MVP
+
+Implemented, and with it the **Core MVP is complete**. §7 states the model;
+this records what exists and what still does not.
+
+- **Server** (`modules/sync/server/guest-merge.ts`, `app/api/sync/guest-merge`):
+  one authenticated, email-verified, `SYNC_ENABLED`-gated endpoint, behind the
+  same 503-before-auth guard as push/pull. Competing imports for an account are
+  serialised by an advisory lock. The snapshot goes through the **same**
+  ingestion pipeline as push — the same grading, canonical time, lineage
+  classification and replay — never a parallel merge-only version. The
+  coordinator holds no state between chunks that it does not read back from the
+  database, so an interrupted import resumes from what is durable rather than
+  from what a process remembered.
+- **Idempotency**: the import is recorded against a client-minted key. The same
+  snapshot resubmitted under that key is a no-op; a _different_ snapshot under
+  the same key is refused with a reason, rather than half-applied. Cross-account
+  reuse of a key is refused outright.
+- **Provenance and replay**: components that gained an imported history are
+  stamped `merged_at` + `merged_from_guest_import_id`, admitted events with
+  `imported_from_guest_import_id`, and replay's multi-root rule is conditional
+  on both (§7, DATA_MODEL §4.1, ADR-009).
+- **Boundedness**: per-kind and total wire caps as push has; a snapshot larger
+  than one request is chunked, with an attempt and every event grading against
+  it kept in the same chunk because ingest resolves that relationship within a
+  request. A declared-totals check refuses a snapshot that claims one size and
+  sends another. No transaction is held open across a network request.
+- **Client** (`modules/sync/client/guest-merge-*.ts`,
+  `components/sync/guest-merge-*`): a twelve-state machine, a coalescing
+  single-flight runner, one dialog for consent → progress → summary, and a
+  Settings entry point for a deferred offer and for a retry (distinct actions:
+  a retry is not a fresh consent). Every learner-facing string comes from a
+  pure, tested copy module, which is what makes "no raw internal identifiers"
+  checkable.
+- **Local finalisation**: the guest's source rows are dropped and the device's
+  remaining state re-keyed to the account in **one** Dexie transaction, and only
+  after the account's copy is durable. Schema v7 made that safe by putting the
+  owner in the primary key (DATA_MODEL §9.2).
+- **Consent**: nothing is uploaded before it. Signing in is not agreement, the
+  prompt states what will move before asking, and "Not now" uploads nothing,
+  deletes nothing and leaves the offer available.
+- **Proved end to end**, including the authenticated multi-context second-device
+  journey that Stage A deferred (`e2e/guest-merge.spec.ts` §26.1) — that
+  deferral is now discharged.
+
+**Still deferred, as designed:** durable offline retry and the PWA (Phase 18);
+full concurrent multi-device conflict resolution and pessimistic-winner
+demotion (Phase 19); the background purge of expired pending-parent rows
+(RISK_REGISTER #21). A learner who requests deletion on one device and confirms
+it on another leaves the first device's rows until that device next signs out —
+recorded rather than papered over (DATA_MODEL §9.2).

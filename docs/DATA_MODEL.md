@@ -114,6 +114,10 @@ CREATE TABLE study_components (
   last_review_at timestamptz,
   revision bigint NOT NULL DEFAULT 0,       -- authoritative server revision
   learner_state text NOT NULL DEFAULT 'not_started',
+  -- Merge provenance (Phase 17). Set together, by the merge and nothing else,
+  -- in the same transaction that admits the imported events. See §4.1.
+  merged_at timestamptz NULL,
+  merged_from_guest_import_id uuid NULL REFERENCES guest_imports(id),
   CONSTRAINT study_components_skill_shape_fk
     FOREIGN KEY (skill_type_id, component_shape)
     REFERENCES skill_types (id, component_shape),
@@ -146,6 +150,46 @@ indexes are predicated on `component_shape` (clearer than nullability and
 robust to NULL-distinctness semantics). The DB validates **structure**; the
 validation manifest validates **content eligibility** (whether this field is
 eligible for this entry).
+
+### 4.1 The merge-provenance columns are not the same fact
+
+Three columns carry a guest import's fingerprint and they answer different
+questions. Confusing them is how a chain check ends up either too strict or too
+generous, so they are set out explicitly (Phase 17, ADR-009).
+
+| Column                                         | On            | Answers                                                                                                                                   |
+| ---------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `study_components.merged_at`                   | the component | "has a merge ever united two histories **for this component**?" — the gate that makes a second replay root legitimate rather than corrupt |
+| `study_components.merged_from_guest_import_id` | the component | "which import did that" — the provenance behind the gate                                                                                  |
+| `review_events.imported_from_guest_import_id`  | an **event**  | "did this individual event arrive by that import?" — how an admitted extra root is told apart from an ordinary one                        |
+
+They are checked at **different moments**, and only one of them is a gate.
+
+`imported_from_guest_import_id` is a property of one **event**, and it decides
+**admission**. An arriving event is routed to `classifyMergeLineage` — a
+separate entry point from ordinary sync's `classifyLineage`, requiring a
+brand-sealed `MergeUnionContext` — only when it carries this id, which only the
+authenticated merge coordinator stamps. That routing is where a second root is
+permitted or refused, and picking the wrong entry point fails **closed**.
+
+`merged_at` is a property of the component's **shape**, and it governs
+**replay**. `allowMergeUnion = merged_at != null` is the whole of replay's
+condition: it is a durable record that admission already happened correctly for
+this component, and replay trusts it rather than re-deriving it from per-event
+provenance it does not load. Every Phase 16 caller passes no mark, so a
+never-merged component keeps `partitionScheduling`'s `ChainError` as the loud
+detector it has always been.
+
+`merged_from_guest_import_id` is **not a gate at all**. It records which import
+did this, for audit and for the rollback ordering in `docs/DEPLOYMENT.md`.
+Nothing reads it to make a decision.
+
+The consequence worth stating plainly: **replay is not a second check on
+admission**. A bug that let an unstamped root through would not be caught later
+by replay, because replay never asks about the event. The defence lives in the
+routing, and in the fact that only the merge coordinator can stamp an event —
+which is why changes to that path deserve more scrutiny than changes to replay
+(RISK_REGISTER #25).
 
 ## 5. `study_attempts` (every submitted answer)
 
@@ -319,18 +363,55 @@ Rules:
   read split IndexedDB forces (it cannot index `null`, so guest reads scan the
   natural-key index and filter in memory).
 - **Login never merges guest rows.** A guest's rows are not uploaded and are not
-  visible to the account; the merge is Phase 17 (§10).
-- **Primary keys are unchanged** — v6 is additive (new columns + indexes, no
-  data-moving upgrade). `userId` therefore scopes reads but is _not_ part of a
-  row's identity: a second identity writing the same natural key **replaces**
-  the first identity's row rather than coexisting with it. Accepted for
-  Stage A — local-only state carries no durability guarantee across an identity
-  switch, and sign-out wipes these stores wholesale
-  (`clearAccountLocalState`). Per-identity coexistence would need composite
-  `[userId+key]` primary keys, a data-moving migration left to Phase 17.
+  visible to the account; the merge is Phase 17 (§10) and requires consent.
+- **In v6 primary keys were unchanged** — that release was additive (new
+  columns + indexes, no data-moving upgrade), so `userId` scoped reads but was
+  _not_ part of a row's identity: a second identity writing the same natural key
+  **replaced** the first identity's row. Accepted for Stage A only, and
+  superseded by v7 below.
 - **Writes resolve the owner at action time** (`useResolveOwner`), never from a
   still-pending session read — a pending read is indistinguishable from
   signed-out and would stamp a signed-in user's row as a guest's.
+
+### 9.2 The owner is part of the key (schema v7, Phase 17 — ADR-009)
+
+v6's read scoping was not enough: the natural key was still the whole identity,
+so an account's write physically replaced a guest's row with the same key, and
+sign-out had to clear the stores wholesale — destroying a coexisting guest's
+rows. That is incompatible with §9.1's promise that declining the merge costs
+nothing.
+
+v7 therefore promotes the owner into the **primary key**. Four stores
+(`study_components`, `bookmarks`, `settings`, `daily_activity`) are re-keyed to
+a compound `[ownerKey+naturalKey]`. `ownerKey` is a total, non-null,
+IndexedDB-valid string built by `modules/content/owner-key.ts` — `guest`, or
+`account:<user-id>` — because IndexedDB cannot index `null` and a compound key
+containing `null` is not a valid key at all, so the nullable `userId` could not
+be promoted directly. The value is opaque and branded: a raw user id passed
+where an owner key is required is a compile error, not a mis-scoped row.
+
+IndexedDB cannot re-key a store in place, so those four got **new physical
+stores** (`study_components_owned`, `bookmarks_owned`, `settings_owned`,
+`daily_activity_owned`) with their rows copied forward and the v6 originals
+dropped. Specs use the logical names; `e2e/helpers/idb.ts` owns the one map
+that knows the difference.
+
+Consequences:
+
+- A guest and one or more accounts **coexist** with no cross-reads and no
+  silent overwrites. "Not now" is free, and a deferred merge stays possible.
+- Sign-out, account switch and account **deletion** clear rows scoped to one
+  owner (`clearAccountLocalState`), never whole stores. Where the departing
+  account cannot be resolved the sweep removes every non-guest owner's rows —
+  confidentiality does not depend on that lookup succeeding, and the guest's
+  rows still survive.
+- Deletion is confirmed by an emailed endpoint, so nothing of ours runs when the
+  account actually goes. The callback lands on a URL carrying a one-time nonce
+  minted when deletion was requested and kept locally; only a matching nonce
+  authorises the local clear, so a link with a marker appended cannot wipe a
+  live account's unsynced work.
+- Current version: **v9** (`SAFWA_DB_VERSION`), which adds the merge's own
+  `guest_imports` bookkeeping on top of v7's re-keying.
 
 `study_components` additionally stores a **lineage anchor** written only by a
 server pull: `syncedHeadEventId` + `syncedHeadClientRevision`, the authoritative
@@ -343,19 +424,54 @@ The published app configuration ships authoritative skill metadata
 (`skill_type_id, component_shape, allowed_source_fields, allowed_directions`);
 the shared key builder enforces identical component identity on both sides.
 
-## 10. Guest→account merge (data flow)
+## 10. Guest→account merge (data flow, implemented Phase 17)
 
-1. User consents to merge after sign-in/registration.
-2. Client submits guest attempts + events (original ids, timestamps,
+1. The learner **consents**, after signing in on a device that still holds
+   guest data. Nothing is uploaded before that — signing in is not agreement,
+   and the prompt states what will move before it asks.
+2. The client submits guest attempts + events (original ids, timestamps,
    event-time timezone metadata, lineage) through the **normal ingestion
-   pipeline** — dedupe by `event_id`, plausibility checks, canonical
-   clamping, DAG construction, conflict policy, replay.
-3. Bookmarks/lists: set union (dedupe on entry id / list name). Settings:
-   account values win; guest fills gaps.
-4. `guest_imports` records the import; resubmitting the same events is a
-   no-op (idempotent).
-5. Local stores are re-keyed to the account; local optimistic state is rebased
+   pipeline** — dedupe by `event_id`, plausibility checks, canonical clamping,
+   DAG construction, conflict policy, replay. A snapshot larger than one
+   request is **chunked**, and a chunk's unit is indivisible: an attempt
+   travels with every event grading against it, because ingest resolves an
+   event's attempt within the request that carries it.
+3. Bookmarks/lists: set union (dedupe on entry id / list name). Settings: the
+   account's values win and the guest's only fill gaps — a merge must never
+   silently replace a preference the learner set while signed in.
+4. `guest_imports` records the import under a client-minted import key.
+   Resubmitting the same snapshot is a **no-op**, and a _different_ snapshot
+   under the same key is refused rather than half-applied.
+5. Components that gained an imported history are stamped with `merged_at` +
+   `merged_from_guest_import_id`, and the admitted events with
+   `imported_from_guest_import_id` (§4.1). Replay for those components accepts
+   the resulting **multi-rooted** DAG; everywhere else a second root remains a
+   chain error (ADR-009).
+6. **Only then**, once the account-owned result is durable, are the guest's
+   local source rows dropped and the device's remaining local state re-keyed to
+   the account, in one Dexie transaction. Local optimistic state is rebased
    onto the server's replayed result.
+
+**What this is not.** This unites the histories of **two identities** on one
+device, once, with consent. Phase 19's device-conflict resolution reconciles
+**one identity's** history diverging across devices, continuously and without
+asking. They look similar and must not share machinery: the merge's
+multi-rooted exemption (§4.1) is scoped to a recorded import and is not
+available to a conflict resolver.
+
+### 10.1 Failure, refusal and deferral
+
+- **Refused before anything moves** — an unverified account, a disabled sync
+  kill-switch, a snapshot over the ceiling, a mismatched snapshot under a used
+  import key, an import key belonging to another account. Each is refused with
+  a reason the UI can state, and **no guest row is touched**.
+- **Failed mid-flight** — the guest's data is intact by construction, because
+  step 6 has not run. The merge is retryable, and the retry is a distinct
+  action from a fresh consent: the learner already agreed, and part of the
+  import may already be durable.
+- **Deferred** — "Not now" uploads nothing and deletes nothing. The offer stays
+  reachable from Settings for the rest of the visit and returns on the next
+  sign-in, for as long as guest data exists on the device.
 
 ## 11. Content versioning & staged persistence
 

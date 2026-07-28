@@ -11,13 +11,32 @@
  * as password reset) — this dialog is honest about that, never claiming
  * the account is already gone. Deletion cascades every personal server
  * row via each table's own `ON DELETE CASCADE` foreign key to `users.id`
- * (already in place since earlier phases); local Dexie guest data is
- * never touched by this action.
+ * (already in place since earlier phases). The confirmation link returns to
+ * `deletedAccountCallback(nonce)`, where DeletedAccountCleanup removes this
+ * device's copy of the deleted account's rows (phases-17.md §11) — a guest's own rows
+ * are preserved, so someone studying as a guest on the same device keeps their
+ * progress and their deferred merge. Both descriptions below say so: a learner
+ * about to delete an account is entitled to know that this device's copy goes
+ * with it, queued-but-unsynced work included.
+ *
+ * On acceptance this mints a one-time NONCE, keeps it locally
+ * (`pending-account-deletion.ts`) and asks Better Auth to return to
+ * `/?account-deleted=<nonce>`. Better Auth carries that URL inside the emailed
+ * link and only redirects to it after the account is gone, so the nonce coming
+ * back is what authorises the local clear — a link an attacker appends a marker
+ * to cannot reproduce it, and neither can a session that merely ended. This is
+ * the only place the nonce is written, and only after the server has verified
+ * the learner's password.
  */
 import { useState, type FormEvent } from "react";
 
 import { useAuthFormSubmit } from "@/components/auth/use-auth-form-submit";
-import { deleteUser } from "@/modules/auth/client";
+import { deletedAccountCallback } from "@/components/account/deleted-account-cleanup";
+import {
+  newAccountDeletionNonce,
+  rememberPendingAccountDeletion,
+} from "@/components/account/pending-account-deletion";
+import { deleteUser, useSession } from "@/modules/auth/client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +56,10 @@ export function DeleteAccountDialog({ email }: { email: string }) {
   const [password, setPassword] = useState("");
   const [requested, setRequested] = useState(false);
   const { pending, error, submit } = useAuthFormSubmit();
+  // Captured while the session is still alive — after the emailed link is
+  // followed there is no session left to ask, which is the whole reason the
+  // cleanup needs this written down in advance.
+  const userId = useSession().data?.user?.id ?? null;
 
   function resetFields() {
     setPassword("");
@@ -46,9 +69,22 @@ export function DeleteAccountDialog({ email }: { email: string }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
+    // Minted BEFORE the request, because it has to be inside the callback URL
+    // the server stores against the deletion token — that is what makes the
+    // returning link unforgeable.
+    const nonce = newAccountDeletionNonce();
     await submit(
-      () => deleteUser({ password, callbackURL: "/" }),
-      () => setRequested(true),
+      () =>
+        deleteUser({ password, callbackURL: deletedAccountCallback(nonce) }),
+      () => {
+        // Only on success: the server has verified the password and sent the
+        // confirmation mail. If the id could not be read there is nothing
+        // honest to record, and the cleanup declines rather than guessing.
+        if (userId !== null) {
+          rememberPendingAccountDeletion(userId, nonce, Date.now());
+        }
+        setRequested(true);
+      },
     );
   }
 
@@ -72,9 +108,9 @@ export function DeleteAccountDialog({ email }: { email: string }) {
               <DialogTitle>Check your email</DialogTitle>
               <DialogDescription>
                 We sent a confirmation link to {email}. Follow it to finish
-                deleting your account. Your account has not been deleted yet —
-                this device&apos;s local study progress is never affected by
-                this action.
+                deleting your account. Your account has not been deleted yet.
+                Following that link on this device also clears this
+                device&apos;s copy of the account&apos;s study progress.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -91,9 +127,11 @@ export function DeleteAccountDialog({ email }: { email: string }) {
               <DialogTitle>Delete {email}?</DialogTitle>
               <DialogDescription>
                 This permanently deletes your Safwa account and every
-                server-stored record tied to it. This device&apos;s local study
-                progress stays right here unless you clear it separately in
-                Settings.
+                server-stored record tied to it. When you follow the emailed
+                link on this device, this device&apos;s copy of the
+                account&apos;s study progress is cleared too — including
+                anything not yet synced. Progress saved while studying as a
+                guest is kept.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-3">

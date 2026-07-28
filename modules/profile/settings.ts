@@ -11,7 +11,8 @@ import type {
   SafwaDb,
   SettingRecord,
 } from "@/modules/content/db";
-import { sameOwner } from "@/modules/content/owner-scope";
+import { toOwnerKey } from "@/modules/content/owner-key";
+import { ownedKey } from "@/modules/content/owner-scope";
 import {
   ensureDurableGuestState,
   type StorageManagerLike,
@@ -36,36 +37,26 @@ import {
 export { SETTING_KEYS };
 
 /**
- * Read a setting's value for `owner` (R2-F3). The `settings` store has a single
- * natural key (`key`), so a row stamped with a different identity (a pre-login
- * guest's, say) reads as ABSENT for this owner — a signed-in account never
- * inherits a guest's setting for a shared key, and vice versa. `undefined` (the
- * absent-setting signal every caller already sanitises to a default) is returned
- * for both "no row" and "row owned by someone else".
+ * Read a setting's value for `owner`. Since schema v7 the owner is half of the
+ * settings primary key `[ownerKey+key]`, so this is a direct keyed lookup: a
+ * guest's and an account's value for the same key are different rows, and
+ * `undefined` (the absent-setting signal every caller already sanitises to a
+ * default) means only "this identity has not set it".
  */
 export async function readSetting(
   db: SafwaDb,
   key: string,
   owner: LocalOwnerId,
 ): Promise<unknown> {
-  const record = await db.settings.get(key);
-  if (!record || !sameOwner(record.userId, owner)) return undefined;
-  return record.value;
+  const record = await db.settings.get(ownedKey(owner, key));
+  return record?.value;
 }
 
 /**
- * Write a setting's value stamped with `owner` (R2-F3).
- *
- * NATURAL-KEY CLAIM (ARCH-004 / SEC-002): the store keeps its pre-v6 PRIMARY
- * KEY, so `userId` scopes reads but is not part of the row identity — this
- * `put` REPLACES any row a different identity holds for the same key. That is
- * deliberate and safe for Stage A, on the same reasoning stated at
- * `setBookmarked`: the other identity's row was already invisible to every
- * owner-scoped read, local-only state carries no durability guarantee across an
- * identity switch, and sign-out wipes these stores wholesale anyway
- * (`clearAccountLocalState`). Coexisting rows per identity would need a
- * composite `[userId+key]` primary key — a data-moving migration deliberately
- * left to the Phase-17 guest-merge work.
+ * Write a setting's value for `owner`. The owner is part of the row's identity
+ * (schema v7), so this can no longer overwrite another identity's value for the
+ * same key — the Phase 16 natural-key claim that made a guest's setting
+ * replaceable by an account write (and vice versa) is gone.
  */
 export async function writeSetting(
   db: SafwaDb,
@@ -74,7 +65,12 @@ export async function writeSetting(
   now: () => number = Date.now,
   owner: LocalOwnerId = null,
 ): Promise<void> {
-  const record: SettingRecord = { key, value, updatedAt: now(), userId: owner };
+  const record: SettingRecord = {
+    ownerKey: toOwnerKey(owner),
+    key,
+    value,
+    updatedAt: now(),
+  };
   await db.settings.put(record);
 }
 

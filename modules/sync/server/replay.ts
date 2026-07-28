@@ -130,15 +130,51 @@ function cardFields(card: SchedulerCard | null): {
 }
 
 /**
+ * Phase 17 §14 — whether this component is PERMITTED to hold a union.
+ *
+ * `study_components.merged_at`, and nothing else. A multi-rooted accepted set is
+ * either an authorised guest→account merge or corruption, and the two are
+ * structurally identical, so the difference has to be recorded rather than
+ * inferred. Passing `mergedAt: null` (the default, and every Phase 16 caller)
+ * keeps `partitionScheduling`'s `ChainError` as the loud detector it has always
+ * been; passing a real stamp says a merge coordinator put this union here on
+ * purpose and replaying it is expected.
+ *
+ * A Date-or-null rather than a boolean flag, so that a call site reads as "the
+ * column, passed through" instead of "true". That is a naming safeguard against
+ * an absent-minded literal, NOT a compile-time guarantee of provenance: this is
+ * a plain structural type and `{ mergedAt: new Date() }` type-checks. Unlike
+ * `MergeUnionContext` in `./lineage`, which is brand-sealed because it carries
+ * DERIVED data worth protecting, this carries one raw column value and its
+ * provenance rests on call-site discipline — every call site passes it straight
+ * from a row the same transaction locked.
+ */
+export type ComponentMergeMark = {
+  mergedAt: Date | null;
+};
+
+function replayOptions(mark: ComponentMergeMark | undefined) {
+  return { allowMergeUnion: mark?.mergedAt != null };
+}
+
+/**
  * Replay a component's accepted scheduling events into its authoritative state.
  * Deterministic: identical event sets yield identical state (the §15 replay
  * invariant that a fresh replay must equal the persisted state).
+ *
+ * `mark` grants union tolerance for a legitimately merged component; omitting it
+ * is Phase 16's behaviour exactly (see {@link ComponentMergeMark}).
  */
 export function replayComponent(
   events: readonly ComponentReplayEvent[],
   nowMs: number,
+  mark?: ComponentMergeMark,
 ): AuthoritativeComponentState {
-  const projection = projectComponent(events.map(toSchedulerEvent), nowMs);
+  const projection = projectComponent(
+    events.map(toSchedulerEvent),
+    nowMs,
+    replayOptions(mark),
+  );
   return {
     ...cardFields(projection.card),
     learnerState: projection.state,
@@ -157,6 +193,11 @@ export function replayComponent(
 export function projectComponentForPull(
   events: readonly ComponentReplayEvent[],
   nowMs: number,
+  mark?: ComponentMergeMark,
 ): ComponentProjection {
-  return projectComponent(events.map(toSchedulerEvent), nowMs);
+  return projectComponent(
+    events.map(toSchedulerEvent),
+    nowMs,
+    replayOptions(mark),
+  );
 }

@@ -21,6 +21,15 @@ from the content release's eligibility matrix. PostgreSQL enforces shape via
 a composite FK to `skill_types(id, component_shape)` plus shape-predicated
 partial unique indexes; Dexie mirrors identity via natural-key primary keys.
 
+> **Superseded in part by
+> [ADR-009](009-owner-keyed-local-state-and-merge-multi-root-replay.md)
+> (Phase 17).** The _component identity_ above is unchanged. What changed is the
+> Dexie **primary key**: since schema v7 the private learner-state stores are
+> keyed `[ownerKey+naturalKey]`, so a guest's and an account's rows for the same
+> component can coexist on one device instead of overwriting each other. A new
+> owner-scoped store must follow that shape, not the natural-key-only one
+> described here.
+
 ## Consequences
 
 ~6,800 components ceiling per user (acceptable); honest per-form/per-direction

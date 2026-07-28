@@ -45,7 +45,11 @@ export type SettingsSyncResult = {
 };
 
 /** A validated partial update to the user_settings row. */
-type SettingApplication = Partial<typeof userSettings.$inferInsert>;
+/**
+ * The subset of `user_settings` columns one validated setting writes.
+ * Exported for the guest-merge settings path, which accumulates the same shape.
+ */
+export type SettingApplication = Partial<typeof userSettings.$inferInsert>;
 
 const THEME_VALUES = new Set<string>(APP_THEMES);
 const FONT_SCALE_VALUES = new Set<string>(Object.keys(ARABIC_FONT_SCALES));
@@ -71,7 +75,17 @@ function intInBounds(
  * ONLY place a wire setting becomes a persisted column — no key reaches
  * `user_settings` without passing here.
  */
-function validateSetting(
+/**
+ * Validate one submitted setting against the server allow-list and its value
+ * bounds, returning the columns it writes, or null if the key is not syncable or
+ * the value is out of bounds.
+ *
+ * Exported so the guest-merge path (§18) applies the SAME allow-list and the
+ * SAME bounds as ordinary sync. A merge that validated guest values through a
+ * second copy would be a second trust boundary, and the one that drifts is
+ * always the one nobody is looking at.
+ */
+export function validateSetting(
   key: string,
   value: unknown,
 ): SettingApplication | null {

@@ -42,6 +42,10 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
   shape enforcement
 - [ADR-008](adr/008-postgres-driver-choice.md) `drizzle-orm/node-postgres` +
   `pg` as the Postgres driver (Phase 15)
+- [ADR-009](adr/009-owner-keyed-local-state-and-merge-multi-root-replay.md)
+  The owner is part of the local primary key (Dexie schema v7), and a
+  multi-rooted component is legitimate only where a recorded merge says so
+  (Phase 17)
 
 ## 2. Application architecture
 
@@ -68,7 +72,13 @@ apps (single Next.js app)
 ├── modules/profile        device profile, settings, session defaults, data
 │                          export, timezone preference + THE effective-clock
 │                          resolver (resolveEffectiveClock)
-├── modules/sync           mutation queue, event push/pull, rebase handling
+├── modules/sync           mutation queue, event push/pull, rebase handling,
+│                          and (Phase 17) the guest→account merge — the same
+│                          ingestion pipeline as push, never a parallel one.
+│                          protocol/ is pure and shared by both sides;
+│                          server/ is server-only; client/ owns the merge's
+│                          state machine, chunking and local finalisation
+│                          (modules/sync/README.md)
 ├── modules/auth           Better Auth config
 ├── modules/email          (Phase 15) provider-neutral email contract:
 │                          types/templates/send-email dispatch + transports

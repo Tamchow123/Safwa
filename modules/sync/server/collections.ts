@@ -68,10 +68,17 @@ export type CollectionsSyncResult = {
   serverCursor: number;
 };
 
-type ItemKind = "bookmark" | "list";
+export type ItemKind = "bookmark" | "list";
 
-/** The set of entry ids the active release can resolve (for validation). */
-async function activeEntryIds(
+/**
+ * The set of entry ids the active release can resolve (for validation).
+ *
+ * Exported for the guest-merge collection path (§16, §17), which validates
+ * against exactly the same release the ordinary path does — §13 requires the
+ * merge to reuse collection validation rather than grow a second copy that
+ * could drift into accepting an entry id ordinary sync refuses.
+ */
+export async function activeEntryIds(
   options: CollectionsSyncOptions,
 ): Promise<ReadonlySet<number>> {
   const release = await getActiveRelease(
@@ -95,7 +102,7 @@ function reject(
   };
 }
 
-function accepted(itemId: string, itemKind: ItemKind): SyncItemResult {
+export function accepted(itemId: string, itemKind: ItemKind): SyncItemResult {
   return {
     itemId,
     itemKind,
@@ -108,7 +115,7 @@ function accepted(itemId: string, itemKind: ItemKind): SyncItemResult {
 
 /** Audit a rejection/anomaly, then return the rejection result (paired so a
  *  branch can never reject without leaving the monitoring signal §17). */
-async function rejectAndAudit(
+export async function rejectAndAudit(
   db: Database | SyncTx,
   entry: Omit<SyncAuditEntry, "severity"> & {
     severity?: SyncAuditEntry["severity"];
@@ -121,7 +128,7 @@ async function rejectAndAudit(
 }
 
 /** Delete any tombstone shadowing a re-created collection item. */
-async function clearTombstone(
+export async function clearTombstone(
   tx: SyncTx,
   userId: string,
   kind: ItemKind,

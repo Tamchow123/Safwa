@@ -15,6 +15,7 @@ import {
 } from "@/lib/preferences/use-arabic-font-scale";
 import { getSafwaDb } from "@/modules/content/db";
 import { SETTING_KEYS, writeSetting } from "@/modules/profile/settings";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 // The hook reads through the real browser singleton; tests seed and clear
 // that same database.
@@ -75,7 +76,10 @@ describe("reconcileArabicFontScaleFromDb", () => {
     ).toBe("1.2");
     // …including durably, via the fire-and-forget Dexie write.
     await waitFor(async () => {
-      const record = await db.settings.get(SETTING_KEYS.arabicFontScale);
+      const record = await db.settings.get([
+        GUEST_OWNER_KEY,
+        SETTING_KEYS.arabicFontScale,
+      ]);
       expect(record?.value).toBe("large");
     });
   });
@@ -116,7 +120,10 @@ describe("reconcileArabicFontScaleFromDb", () => {
       );
       // …but the durable copy still lands.
       await waitFor(async () => {
-        const record = await db.settings.get(SETTING_KEYS.arabicFontScale);
+        const record = await db.settings.get([
+          GUEST_OWNER_KEY,
+          SETTING_KEYS.arabicFontScale,
+        ]);
         expect(record?.value).toBe("large");
       });
     } finally {

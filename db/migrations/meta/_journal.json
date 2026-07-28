@@ -22,6 +22,34 @@
       "when": 1784735232276,
       "tag": "0002_thick_mentallo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785191695223,
+      "tag": "0003_married_cerise",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785200922014,
+      "tag": "0004_volatile_lord_hawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785216003849,
+      "tag": "0005_brown_wild_child",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785218710572,
+      "tag": "0006_simple_inhumans",
+      "breakpoints": true
     }
   ]
 }

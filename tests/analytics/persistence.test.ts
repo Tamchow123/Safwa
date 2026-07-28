@@ -14,6 +14,7 @@ import {
   readAnalyticsSnapshot,
   rebuildDailyActivity,
 } from "@/modules/analytics/persistence";
+import { GUEST_OWNER_KEY, toOwnerKey } from "@/modules/content/owner-key";
 
 let dbCounter = 0;
 let db: SafwaDb;
@@ -46,6 +47,7 @@ async function seedAttempt(
   const id = overrides.id ?? `attempt-${rowCounter}`;
   await db.studyAttempts.put({
     id,
+    ownerKey: GUEST_OWNER_KEY,
     componentKey: KEY,
     sessionId: "session-1",
     attemptedAt: NOW,
@@ -87,6 +89,7 @@ async function seedEvent(
   const eventId = overrides.eventId ?? `event-${rowCounter}`;
   await db.reviewEvents.put({
     eventId,
+    ownerKey: GUEST_OWNER_KEY,
     componentKey: KEY,
     parentEventId:
       overrides.parentEventId === undefined ? null : overrides.parentEventId,
@@ -117,7 +120,7 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
       },
     ]);
     expect(await db.dailyActivity.toArray()).toEqual([
-      { ...derived[0], derivedAt: NOW },
+      { ...derived[0], ownerKey: GUEST_OWNER_KEY, derivedAt: NOW },
     ]);
   });
 
@@ -125,6 +128,7 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
     await seedAttempt();
     // A corrupted cache row for the real date and a fabricated extra date.
     await db.dailyActivity.put({
+      ownerKey: GUEST_OWNER_KEY,
       localDate: "2026-07-17",
       attempts: 999,
       reviews: 999,
@@ -133,6 +137,7 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
       derivedAt: 1,
     });
     await db.dailyActivity.put({
+      ownerKey: GUEST_OWNER_KEY,
       localDate: "2001-01-01",
       attempts: 5,
       reviews: 5,
@@ -209,6 +214,7 @@ describe("rebuildDailyActivity (§14.3, §14.5)", () => {
 describe("readAnalyticsSnapshot (§15)", () => {
   it("returns components, attempts, events and REBUILT daily activity", async () => {
     await db.studyComponents.put({
+      ownerKey: GUEST_OWNER_KEY,
       componentKey: KEY,
       entryId: 1,
       learnerState: "learning",
@@ -291,6 +297,7 @@ describe("readAnalyticsSnapshot (§15)", () => {
   it("never trusts a corrupted cache row over the raw truth (§14.2)", async () => {
     await seedAttempt();
     await db.dailyActivity.put({
+      ownerKey: GUEST_OWNER_KEY,
       localDate: "2026-07-17",
       attempts: 42,
       reviews: 42,
@@ -303,7 +310,9 @@ describe("readAnalyticsSnapshot (§15)", () => {
       attempts: 1,
       studyMs: 1500,
     });
-    expect(await db.dailyActivity.get("2026-07-17")).toMatchObject({
+    expect(
+      await db.dailyActivity.get([GUEST_OWNER_KEY, "2026-07-17"]),
+    ).toMatchObject({
       attempts: 1,
     });
   });
@@ -312,6 +321,7 @@ describe("readAnalyticsSnapshot (§15)", () => {
 describe("readAnalyticsRawSnapshot (Phase 13 §7, §30 — read-only, no cache write)", () => {
   it("returns the same components/attempts/events as readAnalyticsSnapshot, without touching the cache", async () => {
     await db.studyComponents.put({
+      ownerKey: GUEST_OWNER_KEY,
       componentKey: KEY,
       entryId: 1,
       learnerState: "learning",
@@ -402,17 +412,17 @@ describe("analytics owner scoping (R2-F3 / SEC-001)", () => {
     await db.studyComponents.put({
       componentKey,
       entryId: componentKey.startsWith("entry:1") ? 1 : 2,
-      userId: owner,
+      ownerKey: toOwnerKey(owner),
       learnerState: "learning",
       revision: 1,
     });
     await db.studyAttempts.put({
+      ownerKey: toOwnerKey(owner),
       id: `attempt-${suffix}`,
       componentKey,
       sessionId: `session-${suffix}`,
       attemptedAt: NOW,
       attempt: {
-        userId: owner,
         localDateAtEvent: "2026-07-17",
         responseTimeMs: 1500,
         occurredAtUtc: "2026-07-17T12:00:00.000Z",
@@ -427,9 +437,10 @@ describe("analytics owner scoping (R2-F3 / SEC-001)", () => {
       } as never,
     });
     await db.reviewEvents.put({
+      ownerKey: toOwnerKey(owner),
       eventId: `event-${suffix}`,
       componentKey,
-      userId: owner,
+
       parentEventId: null,
       clientComponentRevision: 1,
       syncStatus: "local",
@@ -484,9 +495,14 @@ describe("analytics owner scoping (R2-F3 / SEC-001)", () => {
     const derived = await rebuildDailyActivity(db, NOW, ACCOUNT);
     expect(derived).toHaveLength(1);
     expect(derived[0]?.attempts).toBe(1);
-    expect(await db.dailyActivity.get("2026-07-17")).toMatchObject({
-      attempts: 1,
-    });
+    // The cache row is keyed to the ACCOUNT (schema v7): rebuilding one
+    // identity's cache neither writes nor clears the other identity's day.
+    expect(
+      await db.dailyActivity.get([toOwnerKey(ACCOUNT), "2026-07-17"]),
+    ).toMatchObject({ attempts: 1 });
+    expect(
+      await db.dailyActivity.get([GUEST_OWNER_KEY, "2026-07-17"]),
+    ).toBeUndefined();
   });
 
   it("a pre-v6 row (absent userId) reads as the GUEST's, not any account's", async () => {

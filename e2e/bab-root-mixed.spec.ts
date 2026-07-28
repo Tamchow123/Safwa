@@ -3,6 +3,10 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { loadLearnerRelease } from "./helpers/learner-release";
+import {
+  answerCorrectly,
+  readyQuestion as correctOptionRef,
+} from "./helpers/quiz";
 
 /** The two unresolved-root entries (root/verb-type unverified in the source). */
 const UNRESOLVED_ROOT_ENTRY_IDS = [369, 372];
@@ -99,22 +103,6 @@ function idbRootEventCount(page: Page): Promise<number> {
       database.close();
     }
   });
-}
-
-/** The serialized ref of the current question's correct option. */
-async function correctOptionRef(page: Page): Promise<string> {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  return `entry:${entryId}:field:${answerField}`;
-}
-
-/** Click the correct option for the current question. */
-async function answerCorrectly(page: Page) {
-  const ref = await correctOptionRef(page);
-  await page
-    .locator(`[data-testid="mc-option"][data-answer-ref="${ref}"]`)
-    .click();
 }
 
 /** Complete a full immediate-feedback session by answering correctly. */
@@ -491,12 +479,18 @@ test.describe("mixed revision — Start studying", () => {
           };
           await new Promise<void>((resolve, reject) => {
             const tx = database.transaction(
-              ["study_components", "study_attempts"],
+              ["study_components_owned", "study_attempts"],
               "readwrite",
             );
-            const components = tx.objectStore("study_components");
-            for (const row of componentRows) components.put(row);
-            tx.objectStore("study_attempts").put(attemptRow);
+            // Owner-keyed since schema v7: a seeded row belongs to the GUEST.
+            const components = tx.objectStore("study_components_owned");
+            for (const row of componentRows) {
+              components.put({ ownerKey: "guest", ...row });
+            }
+            tx.objectStore("study_attempts").put({
+              ownerKey: "guest",
+              ...attemptRow,
+            });
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
           });

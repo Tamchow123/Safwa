@@ -41,6 +41,7 @@ vi.mock("@/components/content/use-active-content", async (importOriginal) => {
 
 import { SavedVocabularyClient } from "@/components/collections/saved-vocabulary-client";
 import { getSafwaDb } from "@/modules/content/db";
+import { GUEST_OWNER_KEY } from "@/modules/content/owner-key";
 
 const db = getSafwaDb();
 const [entryA, entryB] = entries;
@@ -75,8 +76,8 @@ describe("SavedVocabularyClient — empty states", () => {
 describe("SavedVocabularyClient — bookmarks section", () => {
   it("lists bookmarked entries newest-first with a working remove action", async () => {
     await db.bookmarks.bulkAdd([
-      { entryId: entryA.id, createdAt: 100 },
-      { entryId: entryB.id, createdAt: 200 },
+      { ownerKey: GUEST_OWNER_KEY, entryId: entryA.id, createdAt: 100 },
+      { ownerKey: GUEST_OWNER_KEY, entryId: entryB.id, createdAt: 200 },
     ]);
     render(<SavedVocabularyClient />);
     const list = await screen.findByTestId("saved-bookmarks-list");
@@ -90,12 +91,15 @@ describe("SavedVocabularyClient — bookmarks section", () => {
     const removeButtons = within(list).getAllByTestId("bookmark-toggle");
     await user.click(removeButtons[0]);
     await waitFor(async () => {
-      expect(await db.bookmarks.get(entryB.id)).toBeUndefined();
+      expect(
+        await db.bookmarks.get([GUEST_OWNER_KEY, entryB.id]),
+      ).toBeUndefined();
     });
   });
 
   it("never exposes a raw list id anywhere in the page", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "11111111-1111-7111-8111-111111111111",
       name: "Verbs",
       entryIds: [],
@@ -112,8 +116,8 @@ describe("SavedVocabularyClient — bookmarks section", () => {
   it("silently excludes a stale bookmark whose entry is not in the active release, without crashing", async () => {
     const staleEntryId = Math.max(...entries.map((e) => e.id)) + 1;
     await db.bookmarks.bulkAdd([
-      { entryId: staleEntryId, createdAt: 50 },
-      { entryId: entryA.id, createdAt: 100 },
+      { ownerKey: GUEST_OWNER_KEY, entryId: staleEntryId, createdAt: 50 },
+      { ownerKey: GUEST_OWNER_KEY, entryId: entryA.id, createdAt: 100 },
     ]);
     render(<SavedVocabularyClient />);
     const list = await screen.findByTestId("saved-bookmarks-list");
@@ -128,6 +132,7 @@ describe("SavedVocabularyClient — bookmarks section", () => {
 describe("SavedVocabularyClient — custom lists section", () => {
   it("shows list cards with name, count and updated context", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Difficult Verbs",
       entryIds: [entryA.id, entryB.id],
@@ -164,6 +169,7 @@ describe("SavedVocabularyClient — custom lists section", () => {
 
   it("renaming a list from its card updates the displayed name", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Old name",
       entryIds: [],
@@ -188,6 +194,7 @@ describe("SavedVocabularyClient — custom lists section", () => {
 
   it("deleting a list from its card removes the card, naming the list in the confirmation", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Revision week",
       entryIds: [],
@@ -210,13 +217,18 @@ describe("SavedVocabularyClient — custom lists section", () => {
 
   it("deleting a list does not remove an independently bookmarked entry from that list", async () => {
     await db.lists.add({
+      ownerKey: GUEST_OWNER_KEY,
       id: "list-1",
       name: "Revision week",
       entryIds: [entryA.id],
       createdAt: 1,
       updatedAt: 1,
     });
-    await db.bookmarks.add({ entryId: entryA.id, createdAt: 1 });
+    await db.bookmarks.add({
+      ownerKey: GUEST_OWNER_KEY,
+      entryId: entryA.id,
+      createdAt: 1,
+    });
     const user = userEvent.setup();
     render(<SavedVocabularyClient />);
     await screen.findByText("Revision week");
@@ -225,6 +237,6 @@ describe("SavedVocabularyClient — custom lists section", () => {
     await waitFor(() =>
       expect(screen.queryByText("Revision week")).not.toBeInTheDocument(),
     );
-    expect(await db.bookmarks.get(entryA.id)).toBeDefined();
+    expect(await db.bookmarks.get([GUEST_OWNER_KEY, entryA.id])).toBeDefined();
   });
 });

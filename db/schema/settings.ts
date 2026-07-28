@@ -14,9 +14,12 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "@/db/schema/auth";
@@ -85,7 +88,24 @@ export const userSettings = pgTable(
   ],
 );
 
-/** Future guest->account merge audit + idempotency anchor (Phase 17 populates it). */
+/**
+ * The guest→account merge's durable audit record AND its idempotency anchor
+ * (phases-17.md §15). Phase 15 created the table as a placeholder; Phase 17
+ * gives it the columns the staged protocol actually needs.
+ *
+ * The row is the server's memory of an import between requests, which is what
+ * makes the whole thing resumable: `begin` creates or finds it, each `chunk`
+ * advances it, `finalize` concludes it. Nothing else remembers.
+ *
+ * IN-PROGRESS STATE AND TERMINAL OUTCOME ARE SEPARATE COLUMNS. `status` is the
+ * lifecycle (open → completed/rejected); `result` is the outcome finalisation
+ * reported and is NULL until it reports one. Folding them together would force
+ * an interrupted-but-partially-applied import to be recorded as `rejected` —
+ * telling a later reader the merge terminally failed when it is in fact
+ * retryable, exactly the false rollback claim §29 forbids. So `result` also
+ * admits `incomplete`: finalisation was attempted and could not conclude, while
+ * `status` stays `open` so the client resumes under the same key.
+ */
 export const guestImports = pgTable(
   "guest_imports",
   {
@@ -96,21 +116,262 @@ export const guestImports = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     deviceId: text("device_id").notNull(),
+    /**
+     * The client-minted idempotency key. GLOBALLY unique, which is what makes
+     * §15's "an import key cannot be claimed across accounts" a database
+     * invariant: a key names at most one row, and that row names one account, so
+     * a second account presenting the same key collides rather than being
+     * quietly served.
+     */
     importKey: text("import_key").notNull().unique(),
+    /**
+     * Canonical hash of the snapshot this key is bound to (§12). Compared on
+     * every stage: the same key with materially different content is a payload
+     * conflict, never a silent merge of data the key was not opened for.
+     *
+     * NOT NULL with no default: an import without a snapshot hash has no
+     * conflict detector at all, so there is no sensible value to invent for one.
+     * The migration can add it unconditionally because nothing has ever written
+     * to this table — Phase 15 created it as a placeholder and Phase 16 never
+     * used it — so an existing row would mean the assumption is wrong, and the
+     * migration failing loudly is the right outcome.
+     */
+    snapshotHash: text("snapshot_hash").notNull(),
     importedAt: timestamp("imported_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    /** Lifecycle. Mirrors the protocol's GUEST_IMPORT_SERVER_STATUSES. */
+    status: text("status").notNull().default("open"),
+    /** What the client declared at `begin`; finalisation checks arrivals against it. */
+    declaredItems: integer("declared_items").notNull().default(0),
+    /** Items durably accepted so far — the resume denominator. */
+    acceptedItems: integer("accepted_items").notNull().default(0),
+    /** The next chunk index expected; a client resumes from here. */
+    nextChunkIndex: integer("next_chunk_index").notNull().default(0),
+    /**
+     * Cumulative custom lists accepted under this key. Persisted because the
+     * per-request wire schema cannot bound a cross-chunk total (SEC-003): the
+     * ceiling is only enforceable against a running count that survives between
+     * requests, and this column is that count.
+     */
+    acceptedLists: integer("accepted_lists").notNull().default(0),
     eventCount: integer("event_count").notNull().default(0),
     attemptCount: integer("attempt_count").notNull().default(0),
-    result: text("result").notNull(),
+    /** The terminal outcome, or NULL while the import is still open. */
+    result: text("result"),
+    /**
+     * WHY the import ended the way it did — the protocol's own import-level
+     * reason code (`GUEST_MERGE_REASON_CODES`), or NULL while it is still
+     * running with nothing to report.
+     *
+     * `status` already says an import was refused, but a refusal that cannot say
+     * why is not actionable by anyone: not the client, which must decide whether
+     * a retry could ever succeed; not the learner, who is owed a reason their
+     * history was not taken; and not an operator reading the table after the
+     * fact. The one durable rejection this phase can produce —
+     * `list_ceiling_exceeded`, which is only detectable across several requests
+     * — is precisely a case where the client re-presents the key later and has
+     * to be told something better than "no".
+     *
+     * The reason must NOT live in `summary`: that column is constrained to
+     * numbers only, deliberately, so nothing textual can be smuggled into it
+     * (§30). A separate, enumerated column keeps that guarantee intact and keeps
+     * this value bounded to the vocabulary the wire already publishes — never
+     * free text, never a raw error, never a payload echo.
+     */
+    reasonCode: text("reason_code"),
+    /** Cursor the client should pull from after a successful merge. */
+    finalServerCursor: bigint("final_server_cursor", { mode: "number" }),
+    /**
+     * The post-merge summary COUNTS, and nothing else (§15 "safe result
+     * metadata", §30 "no raw payloads in logs"). Stored so a resubmission after
+     * success replays the same numbers without reapplying anything. Never a
+     * payload, an answer, or an Arabic string.
+     */
+    summary: jsonb("summary"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => [
     check(
+      "guest_imports_status_check",
+      sql`${table.status} IN ('open', 'completed', 'rejected')`,
+    ),
+    check(
       "guest_imports_result_check",
-      sql`${table.result} IN ('applied', 'no_op', 'rejected')`,
+      sql`${table.result} IS NULL OR ${table.result} IN ('applied', 'no_op', 'rejected', 'incomplete')`,
+    ),
+    /**
+     * The reason vocabulary, mirroring `GUEST_MERGE_REASON_CODES`. Enumerated in
+     * the database as well as in TypeScript for the same reason every other
+     * vocabulary on this table is: a seed script, a backfill or a repair query
+     * that never passes through the protocol boundary still cannot write free
+     * text into a column the client reads.
+     */
+    check(
+      "guest_imports_reason_code_check",
+      sql`${table.reasonCode} IS NULL OR ${table.reasonCode} IN (
+            'accepted', 'already_completed', 'snapshot_mismatch', 'unknown_import',
+            'incomplete_upload', 'declared_totals_exceeded', 'chunk_out_of_range',
+            'list_ceiling_exceeded', 'cross_account_import', 'merge_disabled',
+            'email_unverified', 'malformed_request', 'internal_error')`,
+    ),
+    /**
+     * A CONCLUDED import says why it concluded. `status` and `result` are already
+     * paired exhaustively below; this extends that discipline to the reason, so
+     * a terminal row can never be left mute about a decision a learner is owed
+     * an explanation for. An `open` row may carry one or not — it carries one
+     * once finalisation has been attempted and reported `incomplete`.
+     */
+    check(
+      "guest_imports_terminal_reason_check",
+      sql`${table.status} = 'open' OR ${table.reasonCode} IS NOT NULL`,
+    ),
+    /**
+     * The status/result pairing, EXHAUSTIVELY. Splitting lifecycle from outcome
+     * only helps if the two cannot contradict each other; a check that merely
+     * required "some result once concluded" would still admit `open` +
+     * `applied` (a terminal outcome recorded while the lifecycle says the import
+     * is still running) or `rejected` + `applied`. A resubmission arriving at
+     * such a row reads `open` and resumes, while a summary reading `result` says
+     * the merge finished — the false-completion the split exists to prevent.
+     *
+     * The three legal shapes, and nothing else:
+     *   open      — still running. No completion time. `result` is NULL, or
+     *               `incomplete` when finalisation was attempted and could not
+     *               conclude (§29: neither succeeded nor rolled back).
+     *   completed — applied, or a no-op when everything in it was already there.
+     *   rejected  — refused; the outcome can only be the refusal itself.
+     *
+     * Every branch that compares `result` guards it with `IS NOT NULL` FIRST.
+     * A CHECK constraint rejects a row only when its expression is FALSE, not
+     * when it is NULL — so `result IN ('applied','no_op')` against a NULL result
+     * evaluates to NULL, the whole OR evaluates to NULL, and the row is
+     * ACCEPTED. Without these guards this constraint silently admitted a
+     * `completed` row with no result at all: exactly the "a concluded import
+     * must say how it concluded" case it exists to forbid.
+     */
+    check(
+      "guest_imports_completion_check",
+      sql`(${table.status} = 'open' AND ${table.completedAt} IS NULL
+           AND (${table.result} IS NULL OR ${table.result} = 'incomplete'))
+          OR (${table.status} = 'completed' AND ${table.completedAt} IS NOT NULL
+              AND ${table.result} IS NOT NULL
+              AND ${table.result} IN ('applied', 'no_op'))
+          OR (${table.status} = 'rejected' AND ${table.completedAt} IS NOT NULL
+              AND ${table.result} IS NOT NULL
+              AND ${table.result} = 'rejected')`,
+    ),
+    // The hash's shape is an invariant of the data, so the database states it
+    // too. The protocol already rejects a malformed hash at the boundary; this
+    // is what still holds when a seed script, a backfill or a repair query
+    // writes without going through that boundary.
+    check(
+      "guest_imports_snapshot_hash_check",
+      sql`${table.snapshotHash} ~ '^[0-9a-f]{64}$'`,
+    ),
+    /**
+     * `summary` may hold NUMBERS AND NOTHING ELSE (§15 "safe result metadata",
+     * §30 "no raw payloads in logs", "no Arabic answers copied into audit
+     * logs"). Every field of `GuestMergeSummary` is a count, so anything
+     * non-numeric in here is by definition something that does not belong — a
+     * payload fragment, an answer, a stack trace.
+     *
+     * Every other column on this table is defended by the database rather than
+     * by the code that writes it, and this is the one §30 names outright. A
+     * comment would only describe the intent; this refuses the write. It costs
+     * nothing and it survives a future maintainer adding a "just for debugging"
+     * field to the object the coordinator serialises.
+     */
+    check(
+      "guest_imports_summary_numeric_check",
+      sql`${table.summary} IS NULL
+          OR (jsonb_typeof(${table.summary}) = 'object'
+              AND NOT jsonb_path_exists(${table.summary}, '$.* ? (@.type() != "number")'))`,
     ),
     check("guest_imports_event_count_check", sql`${table.eventCount} >= 0`),
     check("guest_imports_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "guest_imports_declared_items_check",
+      sql`${table.declaredItems} >= 0`,
+    ),
+    check(
+      "guest_imports_accepted_items_check",
+      sql`${table.acceptedItems} >= 0`,
+    ),
+    check(
+      "guest_imports_next_chunk_index_check",
+      sql`${table.nextChunkIndex} >= 0`,
+    ),
+    check(
+      "guest_imports_accepted_lists_check",
+      sql`${table.acceptedLists} >= 0`,
+    ),
+    check(
+      "guest_imports_final_server_cursor_check",
+      sql`${table.finalServerCursor} IS NULL OR ${table.finalServerCursor} >= 0`,
+    ),
     index("guest_imports_user_imported_idx").on(table.userId, table.importedAt),
+    // Resolving a key on every chunk is the hot path.
+    index("guest_imports_key_idx").on(table.importKey),
+    /**
+     * One account merges a given snapshot AT MOST ONCE. This turns §15's "the
+     * same successful import resubmitted is a no-op" from application logic into
+     * a database invariant: even if a client mints a fresh key for a snapshot it
+     * already merged, the second completion cannot be recorded, so the same
+     * history cannot be applied twice under two keys. Partial (WHERE completed)
+     * so retries and abandoned attempts of the same snapshot stay legal.
+     */
+    uniqueIndex("guest_imports_user_snapshot_completed_idx")
+      .on(table.userId, table.snapshotHash)
+      .where(sql`${table.status} = 'completed'`),
+  ],
+);
+
+/**
+ * The guest-list-id → account-list-id mapping one import produced (§17).
+ *
+ * A guest list whose normalised name already existed on the account is folded
+ * into the ACCOUNT's list, which keeps its own id — and a guest list whose uuid
+ * was already taken is created under a server-minted one. Either way the id the
+ * client still holds locally no longer names anything, and without the mapping
+ * it cannot re-key its rows: the next sync would duplicate the list or lose the
+ * membership the merge just took in.
+ *
+ * DURABLE, AND THAT IS THE WHOLE POINT. The mappings are produced by `chunk`
+ * requests and consumed by the `finalize` request — different HTTP requests,
+ * which on this deployment (Vercel serverless, see docs/DEPLOYMENT.md) are
+ * routinely served by different instances. An in-process accumulator therefore
+ * loses them for a merge that genuinely succeeded, and there is no way to
+ * recompute them afterwards: once the import is `completed` the coordinator
+ * refuses to re-apply its chunks, which is exactly what idempotency requires.
+ *
+ * Bounded by `GUEST_MERGE_BOUNDS.maxLists` per import, which the coordinator
+ * enforces cumulatively before any list is accepted.
+ *
+ * Rows carry no learner content — two uuids and nothing else — so this stores
+ * no payload, no answer and no Arabic string (§30).
+ */
+export const guestImportListMappings = pgTable(
+  "guest_import_list_mappings",
+  {
+    importId: uuid("import_id")
+      .notNull()
+      .references(() => guestImports.id, { onDelete: "cascade" }),
+    /** The id the guest's local row still carries. */
+    guestListId: uuid("guest_list_id").notNull(),
+    /** The list that id now resolves to on the account. */
+    accountListId: uuid("account_list_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    /**
+     * One destination per guest list per import. This is what makes recording
+     * them idempotent: a re-sent chunk inserts the same pair and conflicts,
+     * rather than accumulating duplicates that would then overflow the
+     * response's own `maxLists` bound.
+     */
+    primaryKey({ columns: [table.importId, table.guestListId] }),
   ],
 );

@@ -1,15 +1,33 @@
-import { randomUUID } from "node:crypto";
-import type { Page } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { errorAlert } from "./helpers/auth-ui";
-import { bookmarksRowCount, userRowExists } from "./helpers/db-probe";
+import { answerCorrectly } from "./helpers/quiz";
+import {
+  declineMergePrompt,
+  E2E_PASSWORD,
+  freshEmail,
+  login,
+  logout,
+  registerAndVerify,
+  registerOnly,
+} from "./helpers/auth-flows";
+import {
+  bookmarksRowCount,
+  userIdByEmail,
+  userRowExists,
+} from "./helpers/db-probe";
 import {
   extractUrlFromMessage,
   waitForOutboxMessage,
 } from "./helpers/email-outbox";
-import { idbAll, idbSeed, seedBookmark, seedWeakAttempt } from "./helpers/idb";
+import {
+  e2eAccountOwnerKey,
+  E2E_GUEST_OWNER_KEY,
+  idbAll,
+  idbSeed,
+  seedBookmark,
+  seedWeakAttempt,
+} from "./helpers/idb";
 
 /**
  * Phase 15 auth E2E suite (phases-15.md §60), scenarios 60.1, 60.3-60.6,
@@ -32,74 +50,11 @@ import { idbAll, idbSeed, seedBookmark, seedWeakAttempt } from "./helpers/idb";
  */
 test.use({ trace: "off" });
 
-const PASSWORD = "correct-horse-battery-staple";
+// The register/verify/login/logout journeys live in helpers/auth-flows.ts
+// since Phase 17, so the guest-merge suite drives sign-in exactly the way this
+// one does. NEW_PASSWORD is only meaningful here (the change-password case).
+const PASSWORD = E2E_PASSWORD;
 const NEW_PASSWORD = "brand-new-password-1";
-
-function freshEmail(prefix: string): string {
-  return `e2e.${prefix}.${randomUUID()}@example.test`;
-}
-
-/** Submit the register form only — does not follow the verification link. */
-async function registerOnly(
-  page: Page,
-  email: string,
-  password = PASSWORD,
-  name = "E2E Learner",
-): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel("Name").fill(name);
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByLabel("Confirm password").fill(password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("register-verification-notice")).toBeVisible();
-}
-
-/** Register, read the real verification email from the local outbox, and follow it. */
-async function registerAndVerify(
-  page: Page,
-  email: string,
-  password = PASSWORD,
-  name = "E2E Learner",
-): Promise<void> {
-  await registerOnly(page, email, password, name);
-  const message = await waitForOutboxMessage(email, "verify-email");
-  await page.goto(extractUrlFromMessage(message));
-  await expect(page.getByTestId("verify-email-success")).toBeVisible();
-}
-
-async function login(
-  page: Page,
-  email: string,
-  password = PASSWORD,
-): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  // Wait for the sign-in call + redirect to actually complete before
-  // returning — otherwise a caller's immediate page.goto() to a session-
-  // gated route can race the still-in-flight request.
-  await expect(page).not.toHaveURL(/\/login/);
-}
-
-async function logout(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
-  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
-}
-
-/** Click the correct option for the current MC question (mirrors dashboard.spec.ts). */
-async function answerCorrectly(page: Page): Promise<void> {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"][data-answer-ref="entry:${entryId}:field:${answerField}"]`,
-    )
-    .click();
-}
 
 test.describe("60.1 guest regression", () => {
   test("guest can browse, study and view progress without any registration", async ({
@@ -317,9 +272,18 @@ test.describe("60.8 account settings", () => {
     const email = freshEmail("settings");
     await registerAndVerify(page, email);
     await login(page, email);
+    // Phase 17 puts a merge prompt in front of a learner signing in with guest
+    // data still on the device. This spec is not about the merge, so it answers
+    // the question the non-destructive way and carries on — which also keeps its
+    // own claim honest: declining sends nothing.
+    await declineMergePrompt(page);
 
-    // A distinct DEVICE-LOCAL study default, set first.
+    // A distinct DEVICE-LOCAL study default, set first. Each FULL page load
+    // asks about the merge again (the deferral is remembered for the visit,
+    // and a `page.goto` is a new visit), so it is answered wherever this spec
+    // then needs to click something behind the modal.
     await page.goto("/settings");
+    await declineMergePrompt(page);
     const localInput = page.getByTestId("study-default-questionCount");
     await expect(localInput).toBeEnabled();
     await localInput.fill("7");
@@ -327,6 +291,7 @@ test.describe("60.8 account settings", () => {
 
     // A DIFFERENT SERVER-SAVED study default + theme, via /account/settings.
     await page.goto("/account/settings");
+    await declineMergePrompt(page);
     await expect(page.getByTestId("account-settings-form")).toBeVisible();
     await page.getByRole("button", { name: "Dark", exact: true }).click();
     const serverInput = page.getByLabel("Questions per session");
@@ -349,8 +314,8 @@ test.describe("60.8 account settings", () => {
   });
 });
 
-test.describe("60.9 login does not merge/upload guest data; logout wipes local account-scoped state", () => {
-  test("no merge or upload on login; local account-scoped data wiped on logout", async ({
+test.describe("60.9 login does not merge/upload guest data; sign-out removes only the account's own state", () => {
+  test("no merge or upload on login; the guest's rows survive sign-out", async ({
     page,
   }) => {
     const beforeCount = await bookmarksRowCount();
@@ -377,6 +342,11 @@ test.describe("60.9 login does not merge/upload guest data; logout wipes local a
     const email = freshEmail("guest-persist");
     await registerAndVerify(page, email);
     await login(page, email);
+    // Phase 17 puts a merge prompt in front of a learner signing in with guest
+    // data still on the device. This spec is not about the merge, so it answers
+    // the question the non-destructive way and carries on — which also keeps its
+    // own claim honest: declining sends nothing.
+    await declineMergePrompt(page);
     // Guest data survives LOGIN unchanged: login neither merges nor uploads the
     // guest's local history (Phase 16 §18 — "login alone does not merge guest
     // history"; the account was created fresh, so the bootstrap pull brings
@@ -384,12 +354,17 @@ test.describe("60.9 login does not merge/upload guest data; logout wipes local a
     await expect(await idbAll(page, "bookmarks")).toHaveLength(1);
 
     await logout(page);
-    // Phase 16 SEC-002-T15d (shared-device privacy): sign-out wipes every
-    // account-scoped local store so the next account on a shared device cannot
-    // read the previous user's data. The guest-origin bookmark is cleared along
-    // with everything else account-scoped — a deliberate, security-reviewed
-    // change from the Phase-15 "survives logout" behaviour.
-    await expect(await idbAll(page, "bookmarks")).toHaveLength(0);
+    // Shared-device privacy still holds — sign-out removes the departing
+    // ACCOUNT's rows — but it is now owner-SCOPED (phases-17.md §11), so the
+    // guest's own bookmark survives. That is what makes the deferred merge real:
+    // §9.1 requires "Not now" to be non-destructive and the merge to stay
+    // available afterwards, which the Phase-16 wholesale wipe could not offer
+    // because the stores could not tell the two identities apart.
+    const afterLogout = (await idbAll(page, "bookmarks")) as {
+      ownerKey?: string;
+    }[];
+    expect(afterLogout).toHaveLength(1);
+    expect(afterLogout[0]?.ownerKey).toBe("guest");
 
     // The wipe is purely LOCAL: no server-side upload ever occurred, so the
     // account's server-side bookmark count is unchanged.
@@ -403,27 +378,68 @@ test.describe("60.10 delete account", () => {
   // 401 (the account no longer exists).
   test.use({ allowExpectedNetworkErrors: true });
 
-  test("session invalid, login fails, local Dexie untouched, server rows gone", async ({
+  test("session invalid, login fails, the ACCOUNT's local rows go and the guest's stay, server rows gone", async ({
     page,
   }) => {
     const email = freshEmail("delete");
     await registerAndVerify(page, email);
     await login(page, email);
+    // Phase 17 puts a merge prompt in front of a learner signing in with guest
+    // data still on the device. This spec is not about the merge, so it answers
+    // the question the non-destructive way and carries on — which also keeps its
+    // own claim honest: declining sends nothing.
+    await declineMergePrompt(page);
 
     await page.goto("/library");
     await expect(page.getByTestId("library-result-count")).toHaveText(
       /entries/,
       { timeout: 15_000 },
     );
-    await idbSeed(page, "bookmarks", [seedBookmark(2, Date.now())]);
+    // Three rows across three owners. Deleting the account must take ITS row
+    // and leave both the guest's and the OTHER account's — §11's policy, the
+    // same split sign-out makes, and the reason someone studying as a guest (or
+    // a second learner) on a shared device does not lose their progress when
+    // somebody else deletes their account (phases-17.md §11 final paragraph).
+    // The deleted account's row is seeded under its REAL owner key, because the
+    // clear is scoped to one account: an invented id would let the row survive
+    // for the wrong reason.
+    const userId = await userIdByEmail(email);
+    expect(userId).not.toBeNull();
+    await idbSeed(page, "bookmarks", [
+      seedBookmark(2, Date.now()),
+      { ...seedBookmark(3, Date.now()), ownerKey: e2eAccountOwnerKey(userId!) },
+      {
+        ...seedBookmark(4, Date.now()),
+        ownerKey: e2eAccountOwnerKey("someone-else"),
+      },
+    ]);
 
-    // "Create account settings" step.
+    // A crafted link is not authority to delete anything. The callback's value
+    // is a one-time nonce this device minted and kept for itself; a URL
+    // carrying a constant marker or a guess must do nothing — otherwise anyone
+    // could destroy a learner's local (including not-yet-synced) data by
+    // sending them a link.
+    await page.goto("/?account-deleted=1");
+    await page.goto("/?account-deleted=guessed-nonce");
+    const afterCraftedLink = (await idbAll(page, "bookmarks")) as {
+      entryId: number;
+    }[];
+    expect(afterCraftedLink.map((row) => row.entryId).sort()).toEqual([
+      2, 3, 4,
+    ]);
+
+    // "Create account settings" step. The merge prompt asks again after each
+    // FULL page load — the deferral is remembered for the visit, and a
+    // `page.goto` is a new visit — so it is answered wherever this spec then
+    // needs to click something behind it.
     await page.goto("/account/settings");
+    await declineMergePrompt(page);
     await page.getByLabel("Questions per session").fill("11");
     await page.getByRole("button", { name: "Save account settings" }).click();
     await expect(page.getByText("Account settings saved")).toBeVisible();
 
     await page.goto("/account");
+    await declineMergePrompt(page);
     await page.getByRole("button", { name: "Delete account" }).click();
     await page.getByLabel("Password").fill(PASSWORD);
     await page
@@ -431,6 +447,15 @@ test.describe("60.10 delete account", () => {
       .getByRole("button", { name: "Delete account" })
       .click();
     await expect(page.getByText(/Check your email/)).toBeVisible();
+
+    // Now a deletion IS pending, which is the harder case: the device holds a
+    // record, so only the matching nonce may act on it. A guess must still do
+    // nothing, and must not cancel the request the learner is about to confirm.
+    await page.goto("/?account-deleted=guessed-nonce");
+    const whilePending = (await idbAll(page, "bookmarks")) as {
+      entryId: number;
+    }[];
+    expect(whilePending.map((row) => row.entryId).sort()).toEqual([2, 3, 4]);
 
     const message = await waitForOutboxMessage(email, "delete-account");
     await page.goto(extractUrlFromMessage(message));
@@ -446,8 +471,22 @@ test.describe("60.10 delete account", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(errorAlert(page)).toHaveText("Incorrect email or password.");
 
-    // Local Dexie data untouched.
-    await expect(await idbAll(page, "bookmarks")).toHaveLength(1);
+    // The deleted account's local rows are gone; the guest's and the other
+    // account's remain. Deletion is confirmed by an emailed endpoint, so
+    // nothing runs at the moment the account goes — the callback lands on a
+    // marked URL and the cleanup runs there, doing on arrival what sign-out
+    // does on departure, for the one account that was actually deleted.
+    const remaining = (await idbAll(page, "bookmarks")) as {
+      ownerKey: string;
+      entryId: number;
+    }[];
+    expect(remaining.map((row) => row.entryId).sort()).toEqual([2, 4]);
+    expect(remaining.find((row) => row.entryId === 2)?.ownerKey).toBe(
+      E2E_GUEST_OWNER_KEY,
+    );
+    expect(remaining.find((row) => row.entryId === 4)?.ownerKey).toBe(
+      e2eAccountOwnerKey("someone-else"),
+    );
 
     // Server personal rows gone.
     expect(await userRowExists(email)).toBe(false);

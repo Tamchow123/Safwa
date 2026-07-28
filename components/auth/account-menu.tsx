@@ -43,15 +43,21 @@ export function AccountMenu() {
     );
   }
 
+  // The signed-in id this menu is already rendering for. Passing it into the
+  // sign-out helper means the owner-scoped cleanup (§11) never has to re-read
+  // the session to scope itself; the helper still falls back to a bounded
+  // lookup for any caller that cannot supply it.
+  const departingUserId = session.data?.user?.id ?? null;
+
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
     try {
       // Global header sign-out — the app's primary sign-out affordance. Routes
-      // through the ONE shared helper so this path also wipes the previous
+      // through the ONE shared helper so this path also removes the previous
       // account's local state on a shared device (SEC-002-T15d), exactly like
       // the /account page button.
-      await signOutAndClearLocalState();
+      await signOutAndClearLocalState(departingUserId);
     } finally {
       setSigningOut(false);
     }

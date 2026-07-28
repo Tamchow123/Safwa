@@ -2,8 +2,10 @@ import type { Page } from "@playwright/test";
 
 import { deriveAllComponents } from "../modules/study-engine/components";
 import { expect, test } from "./fixtures";
+import { idbAll, idbSeed } from "./helpers/idb";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { loadLearnerRelease } from "./helpers/learner-release";
+import { answerCorrectly, answerIncorrectly } from "./helpers/quiz";
 
 /**
  * Phase 12 dashboard & progress E2E (§26): new-guest zero state, the real
@@ -24,100 +26,12 @@ import { loadLearnerRelease } from "./helpers/learner-release";
  * is fully deterministic by construction instead (see §26.7).
  */
 
-const DB_NAME = "safwa-content";
-
-/** Read all rows of an app IndexedDB store, independent of app code. */
-function idbAll(page: Page, store: string): Promise<unknown[]> {
-  return page.evaluate(
-    async ({ dbName, store }) => {
-      const database = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(dbName);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      try {
-        if (!database.objectStoreNames.contains(store)) return [];
-        return await new Promise<unknown[]>((resolve, reject) => {
-          const request = database
-            .transaction(store, "readonly")
-            .objectStore(store)
-            .getAll();
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-      } finally {
-        database.close();
-      }
-    },
-    { dbName: DB_NAME, store },
-  );
-}
-
-/** Put rows into an app IndexedDB store (schema must already exist). */
-function idbSeed(
-  page: Page,
-  store: string,
-  rows: readonly unknown[],
-): Promise<void> {
-  return page.evaluate(
-    async ({ dbName, store, rows }) => {
-      const database = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(dbName);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      try {
-        if (!database.objectStoreNames.contains(store)) {
-          throw new Error(
-            `idbSeed: store "${store}" not found — navigate to the app first so its schema exists`,
-          );
-        }
-        await new Promise<void>((resolve, reject) => {
-          const transaction = database.transaction(store, "readwrite");
-          const objectStore = transaction.objectStore(store);
-          for (const row of rows) objectStore.put(row);
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error);
-        });
-      } finally {
-        database.close();
-      }
-    },
-    { dbName: DB_NAME, store, rows },
-  );
-}
-
 /** The dd value that follows an exact-matching dt in a summary list. */
 function statValue(page: Page, label: RegExp) {
   return page
     .locator("dt")
     .filter({ hasText: label })
     .locator("xpath=following-sibling::dd[1]");
-}
-
-/** Click the correct option for the current MC question. */
-async function answerCorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"][data-answer-ref="entry:${entryId}:field:${answerField}"]`,
-    )
-    .click();
-}
-
-/** Click a wrong option for the current MC question. */
-async function answerIncorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"]:not([data-answer-ref="entry:${entryId}:field:${answerField}"])`,
-    )
-    .first()
-    .click();
 }
 
 /** Set questions/session to 1 so a session is a single scheduling attempt. */
