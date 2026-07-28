@@ -1271,3 +1271,76 @@ Do not mark the PR ready for review unless the repository workflow explicitly re
 Do not merge it.
 
 The human reviews and merges manually.
+
+---
+
+# As built
+
+Phase 17 is implemented and the Core MVP is complete. The sections above are
+the specification; this records where the work landed and the places the
+as-built answer differs from, or is narrower than, the sketch.
+
+## Where it lives
+
+| Concern                          | Code                                                                    |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| Wire contract                    | `modules/sync/protocol/*` (shared verbatim by both sides)                |
+| Endpoint + coordinator           | `app/api/sync/guest-merge`, `modules/sync/server/guest-merge.ts`         |
+| Ingestion                        | reuses `modules/sync/server/ingest.ts` — the same pipeline as push       |
+| Client flow                      | `modules/sync/client/guest-merge-{machine,chunking,api,upload,finalise}` |
+| Learner-facing text and surface  | `modules/sync/client/guest-merge-{copy,surface}.ts` (pure, tested)       |
+| UI                               | `components/sync/guest-merge-{provider,dialog}.tsx`, `components/settings/data-settings.tsx` |
+| Owner-keyed local state          | `modules/content/owner-key.ts`, `modules/content/owner-scope.ts`, Dexie v7–v9 |
+| Scoped departure                 | `modules/sync/client/logout.ts`, `components/account/*`                  |
+| Tests                            | `tests/integration/guest-merge-*`, `modules/sync/client/guest-merge-*.test.ts`, `e2e/guest-merge.spec.ts` |
+
+Architecture: **ADR-009**. Data flow: `docs/DATA_MODEL.md` §4.1, §9.2, §10.
+Model: `docs/OFFLINE_AND_SYNC.md` §7 and its as-built section.
+
+## Decisions worth knowing about
+
+- **The chunk's unit is an attempt plus every event grading against it**, not a
+  count of rows. Ingest resolves an event's attempt within the request that
+  carries it, so splitting that pair across two requests makes the second one
+  refuse a perfectly valid event as malformed. The planner packs indivisible
+  units for that reason, and a legal snapshot is never refused for arithmetic.
+- **The multi-root exemption is conditional on stored provenance**, never on
+  inference — both the component's `merged_at`/`merged_from_guest_import_id`
+  and each extra root's `imported_from_guest_import_id` (§4.1). This was the
+  alternative to rewriting the guest's events to descend from the account's
+  chain, which would have invented causality that did not happen.
+- **The owner had to become part of the local primary key**, not merely an
+  indexed column. IndexedDB cannot index `null` and a compound key containing
+  `null` is not a key, so `userId` could not be promoted directly; the answer is
+  a total `ownerKey` string, branded so a raw user id cannot stand in for one.
+- **Account deletion is authorised by a one-time nonce**, not by a marker in a
+  URL and not by "nobody is signed in". Two weaker designs were built and
+  rejected during review: a constant marker is something anyone can append to a
+  link, and a session ends for reasons that are not deletion (this app revokes
+  every session on a password reset). The nonce rides inside the callback URL
+  Better Auth stores against the deletion token, so it is evidence of the
+  deletion itself.
+- **A failed merge keeps everything.** Local rows are dropped only after the
+  account's copy is durable, and every failure path returns before that point.
+  A retry is a distinct action from a fresh consent, because part of the import
+  may already be durable and the learner already agreed once.
+
+## Known limits, stated rather than papered over
+
+- The pending-deletion nonce lives on the device that **requested** the
+  deletion. Requesting on a laptop and confirming from a phone leaves the
+  laptop's rows until that laptop next signs out (RISK_REGISTER #26).
+- A **full page load** re-asks the merge question: the deferral is remembered
+  for the visit, not persisted. Declining again is free, and the Settings entry
+  point carries the offer within a visit.
+- Two guest-import trust-boundary cases named in §24 are covered in the shared
+  release-resolution layer rather than in a merge-specific test, because that
+  layer is where the check actually lives; duplicating them would have tested
+  the test.
+
+## Deliberately not done here
+
+Phase 18's durable offline queue and PWA; Phase 19's concurrent multi-device
+conflict resolution — whose resolver must **not** reuse the merge's multi-root
+exemption (RISK_REGISTER #25); Phase 20's resets; and the background purge of
+expired pending-parent rows (RISK_REGISTER #21).

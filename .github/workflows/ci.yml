@@ -101,7 +101,12 @@ jobs:
           BETTER_AUTH_URL: ${{ env.CI_APP_URL }}
           NEXT_PUBLIC_APP_URL: ${{ env.CI_APP_URL }}
 
-      - name: Database constraint + auth integration tests
+      # One Vitest config picks up every tests/integration/*.test.ts, so the
+      # Phase 16 sync suites and the Phase 17 guest-merge suites run here
+      # without this step changing — the same is true of the local gate's
+      # step 11 (scripts/quality-gate.ps1), which is what keeps the two
+      # equivalent (phases-17.md §27).
+      - name: Database integration tests (constraints, auth, sync, guest merge)
         run: pnpm test:integration
         env:
           NODE_ENV: test
@@ -175,9 +180,13 @@ jobs:
       - name: Run E2E tests (desktop + mobile Chromium, auth-disabled, rate-limit, sync-disabled)
         run: pnpm test:e2e
         env:
-          # e2e/global-setup.ts shells out to `pnpm db:test:reset`, which
-          # (like the quality job's own migration/integration steps) goes
-          # through modules/env/server.ts's getServerEnv(), so the full
+          # e2e/global-setup.ts shells out to `pnpm db:test:reset` AND, since
+          # Phase 17, `pnpm db:register-content` — every study session the
+          # server stores carries a `release_id` foreign key into
+          # `content_versions`, so an authenticated push or guest merge fails
+          # at the database without it. Both (like the quality job's own
+          # migration/integration steps) go through
+          # modules/env/server.ts's getServerEnv(), so the full
           # server-env schema must be satisfied even though this step only
           # touches the database — not just DATABASE_URL. Job-level `env:`
           # cannot reference the `env` context (only step-level `env:`
