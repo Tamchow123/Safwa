@@ -158,6 +158,27 @@ export const guestImports = pgTable(
     attemptCount: integer("attempt_count").notNull().default(0),
     /** The terminal outcome, or NULL while the import is still open. */
     result: text("result"),
+    /**
+     * WHY the import ended the way it did — the protocol's own import-level
+     * reason code (`GUEST_MERGE_REASON_CODES`), or NULL while it is still
+     * running with nothing to report.
+     *
+     * `status` already says an import was refused, but a refusal that cannot say
+     * why is not actionable by anyone: not the client, which must decide whether
+     * a retry could ever succeed; not the learner, who is owed a reason their
+     * history was not taken; and not an operator reading the table after the
+     * fact. The one durable rejection this phase can produce —
+     * `list_ceiling_exceeded`, which is only detectable across several requests
+     * — is precisely a case where the client re-presents the key later and has
+     * to be told something better than "no".
+     *
+     * The reason must NOT live in `summary`: that column is constrained to
+     * numbers only, deliberately, so nothing textual can be smuggled into it
+     * (§30). A separate, enumerated column keeps that guarantee intact and keeps
+     * this value bounded to the vocabulary the wire already publishes — never
+     * free text, never a raw error, never a payload echo.
+     */
+    reasonCode: text("reason_code"),
     /** Cursor the client should pull from after a successful merge. */
     finalServerCursor: bigint("final_server_cursor", { mode: "number" }),
     /**
@@ -177,6 +198,32 @@ export const guestImports = pgTable(
     check(
       "guest_imports_result_check",
       sql`${table.result} IS NULL OR ${table.result} IN ('applied', 'no_op', 'rejected', 'incomplete')`,
+    ),
+    /**
+     * The reason vocabulary, mirroring `GUEST_MERGE_REASON_CODES`. Enumerated in
+     * the database as well as in TypeScript for the same reason every other
+     * vocabulary on this table is: a seed script, a backfill or a repair query
+     * that never passes through the protocol boundary still cannot write free
+     * text into a column the client reads.
+     */
+    check(
+      "guest_imports_reason_code_check",
+      sql`${table.reasonCode} IS NULL OR ${table.reasonCode} IN (
+            'accepted', 'already_completed', 'snapshot_mismatch', 'unknown_import',
+            'incomplete_upload', 'declared_totals_exceeded', 'chunk_out_of_range',
+            'list_ceiling_exceeded', 'cross_account_import', 'merge_disabled',
+            'email_unverified', 'malformed_request', 'internal_error')`,
+    ),
+    /**
+     * A CONCLUDED import says why it concluded. `status` and `result` are already
+     * paired exhaustively below; this extends that discipline to the reason, so
+     * a terminal row can never be left mute about a decision a learner is owed
+     * an explanation for. An `open` row may carry one or not — it carries one
+     * once finalisation has been attempted and reported `incomplete`.
+     */
+    check(
+      "guest_imports_terminal_reason_check",
+      sql`${table.status} = 'open' OR ${table.reasonCode} IS NOT NULL`,
     ),
     /**
      * The status/result pairing, EXHAUSTIVELY. Splitting lifecycle from outcome

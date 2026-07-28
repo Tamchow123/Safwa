@@ -152,6 +152,7 @@ describe("user cascade deletion", () => {
       status: "completed",
       completedAt: new Date(),
       result: "applied",
+      reasonCode: "already_completed",
     });
 
     await db.delete(users).where(eq(users.id, userId));
