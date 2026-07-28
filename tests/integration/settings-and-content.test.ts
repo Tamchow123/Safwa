@@ -252,6 +252,8 @@ describe("guest_imports constraint integration", () => {
       status: "completed",
       completedAt: new Date(),
       result: "applied",
+      // A concluded import says WHY it concluded (0005).
+      reasonCode: "already_completed",
     } as const;
 
     await db
@@ -285,16 +287,49 @@ describe("guest_imports constraint integration", () => {
       deviceId: "device-1",
       snapshotHash: "a".repeat(64),
     };
+    // Every row below carries a valid reasonCode, so the terminal-reason
+    // constraint added in 0005 cannot be what rejects them — the status/result
+    // pairing has to be, which is what this test is about.
     const illegal = [
       // A terminal outcome recorded while the lifecycle says still running.
-      { status: "open", result: "applied", completedAt: null },
-      { status: "open", result: "no_op", completedAt: null },
-      { status: "open", result: "rejected", completedAt: null },
+      {
+        status: "open",
+        result: "applied",
+        completedAt: null,
+        reasonCode: "internal_error",
+      },
+      {
+        status: "open",
+        result: "no_op",
+        completedAt: null,
+        reasonCode: "internal_error",
+      },
+      {
+        status: "open",
+        result: "rejected",
+        completedAt: null,
+        reasonCode: "internal_error",
+      },
       // "Finalisation could not conclude" is not a way to CONCLUDE.
-      { status: "completed", result: "incomplete", completedAt: new Date() },
+      {
+        status: "completed",
+        result: "incomplete",
+        completedAt: new Date(),
+        reasonCode: "internal_error",
+      },
       // A refusal that claims it applied something, and its mirror image.
-      { status: "rejected", result: "applied", completedAt: new Date() },
-      { status: "completed", result: "rejected", completedAt: new Date() },
+      {
+        status: "rejected",
+        result: "applied",
+        completedAt: new Date(),
+        reasonCode: "internal_error",
+      },
+      {
+        status: "completed",
+        result: "rejected",
+        completedAt: new Date(),
+        reasonCode: "internal_error",
+      },
     ] as const;
 
     for (const row of illegal) {
@@ -304,6 +339,80 @@ describe("guest_imports constraint integration", () => {
           .values({ ...base, importKey: randomUUID(), ...row }),
       ).rejects.toThrow();
     }
+  });
+
+  it("refuses a concluded import that does not say WHY it concluded (0005)", async () => {
+    // `status` says an import was refused; without a reason nobody can act on
+    // it — not the client deciding whether a retry could ever succeed, not the
+    // learner owed an explanation, not an operator reading the table later.
+    const db = getDb();
+    const userId = await createTestUser();
+    const base = {
+      userId,
+      deviceId: "device-1",
+      snapshotHash: "a".repeat(64),
+      completedAt: new Date(),
+    };
+
+    for (const row of [
+      { status: "completed", result: "applied" },
+      { status: "rejected", result: "rejected" },
+    ] as const) {
+      await expect(
+        db.insert(guestImports).values({
+          ...base,
+          ...row,
+          importKey: randomUUID(),
+          // reasonCode deliberately omitted
+        }),
+      ).rejects.toThrow();
+    }
+
+    // An OPEN import may be silent — it has not decided anything yet.
+    await expect(
+      db.insert(guestImports).values({
+        userId,
+        deviceId: "device-1",
+        importKey: randomUUID(),
+        snapshotHash: "a".repeat(64),
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it("bounds the reason to the protocol's own vocabulary (0005)", async () => {
+    // The reason is read by the client, so it may never carry free text: not a
+    // raw error, not a SQL fragment, not a payload echo (§30). The protocol
+    // refuses those at the wire; this is what still holds when a repair query
+    // writes without passing through it.
+    const db = getDb();
+    const userId = await createTestUser();
+
+    await expect(
+      db.insert(guestImports).values({
+        userId,
+        deviceId: "device-1",
+        importKey: randomUUID(),
+        snapshotHash: "a".repeat(64),
+        status: "rejected",
+        completedAt: new Date(),
+        result: "rejected",
+        reasonCode: "duplicate key value violates unique constraint",
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      db.insert(guestImports).values({
+        userId,
+        deviceId: "device-1",
+        importKey: randomUUID(),
+        snapshotHash: "b".repeat(64),
+        status: "rejected",
+        completedAt: new Date(),
+        result: "rejected",
+        // The one durable rejection this phase can actually produce.
+        reasonCode: "list_ceiling_exceeded",
+      }),
+    ).resolves.toBeDefined();
   });
 
   it("rejects a malformed snapshot hash written outside the protocol boundary", async () => {
@@ -337,6 +446,7 @@ describe("guest_imports constraint integration", () => {
       status: "completed" as const,
       completedAt: new Date(),
       result: "applied" as const,
+      reasonCode: "already_completed" as const,
     };
 
     await expect(

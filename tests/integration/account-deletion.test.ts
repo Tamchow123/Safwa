@@ -124,6 +124,7 @@ async function seedUserWithAppRows(email: string): Promise<string> {
     status: "completed",
     completedAt: new Date(),
     result: "applied",
+    reasonCode: "already_completed",
   });
 
   return userId;
