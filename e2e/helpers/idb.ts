@@ -22,6 +22,22 @@ const DB_NAME = "safwa-content";
 export const E2E_GUEST_OWNER_KEY = "guest";
 
 /**
+ * An owner key for a signed-in account, for the specs that need to seed a row
+ * belonging to one — deletion cleanup in particular, where the whole point is
+ * that the DELETED account's rows go while a guest's and any other account's
+ * stay.
+ *
+ * Pass the REAL id when the row is meant to be swept: the cleanup is scoped to
+ * one account (phases-17.md §11), so a made-up id survives because it belonged
+ * to nobody rather than because the scoping worked. `userIdByEmail` in
+ * `db-probe.ts` reads it from the database. The default is for the opposite
+ * case — a bystander account whose rows must NOT be touched.
+ */
+export function e2eAccountOwnerKey(userId = "e2e-account"): string {
+  return `account:${userId}`;
+}
+
+/**
  * Schema v7 (phases-17.md §10) re-keyed four stores to `[ownerKey+naturalKey]`,
  * which IndexedDB can only do by creating a new store — so their PHYSICAL names
  * changed and the v6 originals were dropped. Specs keep using the logical names

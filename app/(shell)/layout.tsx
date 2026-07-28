@@ -1,4 +1,7 @@
+import { Suspense } from "react";
+
 import { AppShell } from "@/components/app-shell";
+import { DeletedAccountCleanup } from "@/components/account/deleted-account-cleanup";
 import { GuestMergeDialog } from "@/components/sync/guest-merge-dialog";
 import { GuestMergeProvider } from "@/components/sync/guest-merge-provider";
 import { SyncProvider } from "@/components/sync/sync-provider";
@@ -26,6 +29,13 @@ export default function ShellLayout({
           say, so it costs a mounted component and no markup the rest of the time.
         */}
         <GuestMergeDialog />
+        {/*
+          Runs only on the deletion callback URL; renders nothing ever.
+          Suspense because it reads search params, which Next requires.
+        */}
+        <Suspense fallback={null}>
+          <DeletedAccountCleanup />
+        </Suspense>
       </GuestMergeProvider>
     </SyncProvider>
   );
