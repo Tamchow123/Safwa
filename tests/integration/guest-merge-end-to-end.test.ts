@@ -15,12 +15,12 @@
  * about idempotency.
  */
 import { randomUUID } from "node:crypto";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
 import { registerContent } from "@/db/register-content";
@@ -126,6 +126,14 @@ beforeAll(async () => {
     }),
     "utf8",
   );
+});
+
+afterAll(async () => {
+  // `mkdtemp` leaves the directory behind on every run; nothing else will
+  // remove it on a Windows CI agent. Same reasoning as `sync-ingest.test.ts`.
+  if (revokedRegistryDir) {
+    await rm(revokedRegistryDir, { recursive: true, force: true });
+  }
 });
 
 function run(userId: string, request: GuestMergeRequest, registryDir?: string) {

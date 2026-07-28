@@ -236,7 +236,10 @@ any migration.
     release — each asserted on the reason code the client is told, the stored
     summary, and the rows the account is left with, because the shared unit
     tests for those checks say nothing about any of the three); and a snapshot
-    **larger than one network batch**.
+    **larger than one network batch**. The release half of that boundary is
+    proven from the **push** entry point as well
+    (`tests/integration/sync-ingest.test.ts` §8.3) — same shared resolution
+    code, two callers, so neither suite alone guards it.
   - **Unit** (`modules/sync/client/guest-merge-*.test.ts`): the twelve-state
     machine driven through sequences (sign-out mid-merge, account switch,
     retry budget); the chunk planner's indivisible attempt+event unit; local

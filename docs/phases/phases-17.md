@@ -1346,7 +1346,12 @@ Model: `docs/OFFLINE_AND_SYNC.md` §7 and its as-built section.
   shared pipeline: a revoked release was reported as `revoked_release` only for
   the item its component group's context was resolved from, and as
   `invalid_release` for every later item. Fixed in
-  `modules/sync/server/ingest.ts`.
+  `modules/sync/server/ingest.ts`, where the per-batch cache now carries the
+  reason code alongside the context so there is one resolution path rather than
+  three. Because that code is shared with the Phase 16 push, the same boundary
+  is now proven from the **push** entry point too
+  (`tests/integration/sync-ingest.test.ts` §8.3), including that an item is
+  judged by its own release whatever position it holds in its component group.
 
 ## Deliberately not done here
 
