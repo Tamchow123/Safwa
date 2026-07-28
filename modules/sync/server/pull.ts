@@ -52,6 +52,7 @@ import type {
   WireTombstone,
 } from "@/modules/sync/protocol";
 
+import { selectHead } from "./chain-head";
 import { currentAccountCursor } from "./cursor";
 import { type ComponentReplayEvent, projectComponentForPull } from "./replay";
 import { extractSyncableSettings } from "./settings";
@@ -252,22 +253,33 @@ export async function pullChanges(
     const projection = projectComponentForPull(
       schedulingRows.map(toReplayEvent),
       options.nowMs,
+      { mergedAt: row.mergedAt },
     );
-    // Lineage anchor (R2-F2): the accepted chain HEAD is the highest-revision
-    // scheduling row (the chain is serial, so client_component_revision strictly
-    // increases along it). A fresh device parents its next review onto this,
-    // rather than rooting a rejected stale branch. Null when there is no head.
-    let headEventId: string | null = null;
-    let headClientRevision: number | null = null;
-    for (const e of schedulingRows) {
-      if (
-        headClientRevision === null ||
-        e.clientComponentRevision > headClientRevision
-      ) {
-        headClientRevision = e.clientComponentRevision;
-        headEventId = e.eventId;
-      }
-    }
+    // Lineage anchor (R2-F2). A fresh device parents its next review onto this,
+    // rather than rooting a rejected stale branch — so the server has to name
+    // the SAME head the ingestion side will demand, or the very next review it
+    // sends back is rejected as a stale branch and that device silently stops
+    // recording reviews for this component.
+    //
+    // Which is why this is `selectHead` and not the highest-revision scan it
+    // used to be (Phase 17 §14): for a merged component the two disagree, since
+    // the guest's and the account's chains each number from 1 and "highest
+    // revision" names the longer history rather than the later event. For every
+    // single-rooted component — which is all of them until a merge happens —
+    // `selectHead` IS the highest-revision scan, so nothing changes.
+    const head = selectHead(
+      schedulingRows.map((e) => ({
+        eventId: e.eventId,
+        clientComponentRevision: e.clientComponentRevision,
+        canonicalMs: e.occurredAtCanonical.getTime(),
+        parentEventId: e.parentEventId,
+      })),
+    );
+    const headEventId = head?.eventId ?? null;
+    // Paired with the HEAD'S OWN revision, not the union maximum: replay
+    // enforces contiguity per CHAIN, so the client's next event must be one past
+    // the head it parents on, not one past the longest other history.
+    const headClientRevision = head?.clientComponentRevision ?? null;
     return {
       componentKey: key,
       entryId: row.entryId,

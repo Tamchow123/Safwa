@@ -109,6 +109,33 @@ export const studyComponents = pgTable(
     lastSyncSeq: bigint("last_sync_seq", { mode: "number" })
       .notNull()
       .default(0),
+    /**
+     * Phase 17 §14 — when this component's accepted events were legitimately
+     * unioned by a guest→account merge. Written ONLY inside the merge
+     * coordinator's own transaction, at the moment it accepts a union.
+     *
+     * This exists to keep a canary alive. A component with two accepted roots
+     * is either an authorised merge or corruption — a bad migration, a manual
+     * repair, a restore interleaving two histories, a future write path that
+     * bypasses the classifier — and `partitionScheduling` throwing `ChainError`
+     * on a multi-rooted set is currently the ONLY thing that notices the
+     * second case. Tolerating unions unconditionally on the server would have
+     * been simpler and would have deleted that detector: corruption would
+     * quietly replay into a plausible merged-looking card at every read path,
+     * with nothing to alert anyone. So union tolerance is granted per component,
+     * by this stamp, and an unflagged multi-root component still fails loudly.
+     */
+    mergedAt: timestamp("merged_at", { withTimezone: true }),
+    /**
+     * Which import produced the union — provenance for support and audit, not
+     * the gate. Deliberately NOT a foreign key, for the same reason
+     * `review_events.parent_event_id` is not: an FK's `ON DELETE SET NULL`
+     * would silently clear this when a `guest_imports` row is pruned, and if
+     * the GATE depended on it a legitimately merged component would turn back
+     * into a corrupt-looking one and start throwing at every read path. Keeping
+     * `merged_at` as the gate means losing provenance costs provenance only.
+     */
+    mergedFromGuestImportId: uuid("merged_from_guest_import_id"),
   },
   (table) => [
     foreignKey({
@@ -143,6 +170,18 @@ export const studyComponents = pgTable(
     check(
       "study_components_last_sync_seq_check",
       sql`${table.lastSyncSeq} >= 0`,
+    ),
+    // BOTH OR NEITHER. Provenance without the stamp is a half-written merge
+    // record; the stamp without provenance is worse, because `merged_at` is the
+    // only thing separating an authorised merge from corruption, and a stamp
+    // that names no import cannot be told apart afterwards from one set by a
+    // coordinator bug or a manual repair — which is exactly the question an
+    // incident investigation would need to answer. Requiring both makes every
+    // grant of union tolerance traceable to the import that justified it.
+    check(
+      "study_components_merge_provenance_check",
+      sql`(${table.mergedAt} IS NULL AND ${table.mergedFromGuestImportId} IS NULL)
+          OR (${table.mergedAt} IS NOT NULL AND ${table.mergedFromGuestImportId} IS NOT NULL)`,
     ),
     check(
       "study_components_stability_check",
@@ -400,6 +439,26 @@ export const reviewEvents = pgTable(
     // Hash of the event's immutable payload — a second delivery of the same
     // event_id with a DIFFERENT payload is a conflict (rejected + audited, §8.5).
     idempotencyPayloadHash: text("idempotency_payload_hash"),
+    /**
+     * Phase 17 §14 — set ONLY on an event the guest-merge coordinator itself
+     * wrote, naming the import that wrote it.
+     *
+     * This is what scopes the merge rule to the merge. The component also
+     * carries `study_components.merged_at`, but that grants only the right to
+     * REPLAY a union that already exists; it must not decide which rule new
+     * arrivals are judged by, or a component would stay permanently easier to
+     * write to once merged — §14 says the merge behaviour must not be available
+     * to ordinary sync requests, and "ordinary sync requests, on a component
+     * that was merged once, for the rest of time" is not an exception to that.
+     * An ordinary push is judged by Phase 16's rule whatever the component's
+     * history; only a row bearing this marker is judged by the union rule.
+     *
+     * Deliberately NOT a foreign key, like `parent_event_id` above: an
+     * `ON DELETE SET NULL` when a `guest_imports` row is pruned would silently
+     * re-classify imported history as ordinary history, which is the one change
+     * that must never happen quietly.
+     */
+    importedFromGuestImportId: uuid("imported_from_guest_import_id"),
     // Set when the event is revoked by a post-sync undo (§16); the row is kept
     // (history preserved) and excluded from replay.
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
