@@ -75,6 +75,46 @@ const nondeterminismRules = {
   ],
 };
 
+/**
+ * Phase 17 §14 (SEC-001) — the merge-union escape hatch is not general-purpose.
+ *
+ * `classifyMergeLineage` relaxes the lineage rule that stops one device
+ * silently overwriting another's history, and `mergeUnionContext` mints the
+ * branded evidence that relaxation is allowed. Together they are the only way
+ * to persist a second root on a component, so an import of either from a file
+ * that has not thought about that is the beginning of a hole in the trust
+ * boundary — reachable, eventually, from an ordinary push.
+ *
+ * They are therefore importable from ONE file. `ingest.ts` is the server's only
+ * write path into `review_events`, and it consults them only for an event
+ * bearing merge provenance the coordinator wrote. `lineage.ts` itself and its
+ * own test are exempt because that is where they are defined and proved.
+ *
+ * The exemption list is the whole point — extend it only with a file that has a
+ * reason to be there, never by widening the pattern.
+ */
+const MERGE_LINEAGE_CALLERS = [
+  "modules/sync/server/ingest.ts",
+  "modules/sync/server/lineage.ts",
+  "modules/sync/server/lineage.test.ts",
+];
+
+const mergeLineageBoundary = {
+  "no-restricted-imports": [
+    "error",
+    {
+      patterns: [
+        {
+          group: ["**/sync/server/lineage", "**/server/lineage", "./lineage"],
+          importNames: ["classifyMergeLineage", "mergeUnionContext"],
+          message:
+            "The merge-union lineage rule is reachable only from modules/sync/server/ingest.ts, which applies it to events the guest-merge coordinator marked as imported. Ordinary sync must keep Phase 16's rule (phases-17.md §14).",
+        },
+      ],
+    },
+  ],
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -91,6 +131,11 @@ const eslintConfig = defineConfig([
       "modules/analytics/weakness-persistence.ts",
     ],
     rules: nondeterminismRules,
+  },
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    ignores: MERGE_LINEAGE_CALLERS,
+    rules: mergeLineageBoundary,
   },
   globalIgnores([
     ".next/**",
