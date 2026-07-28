@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
 import { registerContent } from "@/db/register-content";
@@ -33,6 +36,8 @@ import { createTestUser } from "@/tests/integration/helpers/users";
 const SEED = "ingest-test-seed";
 const NOW = Date.parse("2026-07-20T10:01:00.000Z");
 const OCCURRED = "2026-07-20T10:00:00.000Z";
+/** A release the shipped registry has never listed, marked revoked in a fixture. */
+const REVOKED_RELEASE_ID = "safwa-ingest-fixture-revoked";
 
 type Component = {
   identity: ResolvedComponentIdentity;
@@ -43,6 +48,8 @@ let releaseId: string;
 let context: QuestionContext;
 let comp1: Component;
 let comp2: Component;
+/** A throwaway registry identical to the real one but for a revoked entry. */
+let revokedRegistryDir: string;
 
 beforeAll(async () => {
   // Register the real active release so review_events.release_id FKs resolve and
@@ -74,6 +81,37 @@ beforeAll(async () => {
   }
   if (found.length < 2) throw new Error("need two generatable components");
   [comp1, comp2] = found as [Component, Component];
+
+  // The real release stays ACTIVE so everything else in this registry resolves
+  // exactly as it does without the override; the only addition is a second,
+  // revoked entry for an item to reference.
+  revokedRegistryDir = await mkdtemp(
+    path.join(tmpdir(), "safwa-ingest-registry-"),
+  );
+  const support = {
+    minimum_supported_client_version: "0.1.0",
+    minimum_supported_event_schema: 1,
+  };
+  await writeFile(
+    path.join(revokedRegistryDir, "release-registry.json"),
+    JSON.stringify({
+      active_release_id: releaseId,
+      releases: {
+        [releaseId]: { status: "active", ...support },
+        [REVOKED_RELEASE_ID]: { status: "revoked", ...support },
+      },
+    }),
+    "utf8",
+  );
+});
+
+afterAll(async () => {
+  // `mkdtemp` leaves the directory behind on every run. Windows agents do not
+  // purge the system temp on reboot the way a Linux `/tmp` does, so a suite
+  // that runs on every commit would accumulate one per run indefinitely.
+  if (revokedRegistryDir) {
+    await rm(revokedRegistryDir, { recursive: true, force: true });
+  }
 });
 
 function attempt(
@@ -1069,5 +1107,135 @@ describe("ingestSchedulingBatch", () => {
       const { results } = await ingestSchedulingBatch(userId, [e3], [a3], opts);
       expect(results[0]?.status).toBe("pending");
     });
+  });
+});
+
+/**
+ * The content boundary on the ORDINARY push path (§8.3).
+ *
+ * `modules/sync/server/release.test.ts` proves `resolveReleaseForIngestion`
+ * returns the right code, and `guest-merge-end-to-end.test.ts` proves the merge
+ * coordinator surfaces it. Neither proves it for this entry point, and the
+ * release-resolution cache these tests exercise is shared between the two —
+ * so a change that reintroduced per-position reason-code drift here, on the
+ * push route only, would pass the merge suite untouched.
+ */
+describe("ingestSchedulingBatch — release status (§8.3)", () => {
+  const revokedOpts = () => ({ nowMs: NOW, registryDir: revokedRegistryDir });
+
+  it("refuses an item on a REVOKED release, and says revoked rather than unknown", async () => {
+    // A withdrawn release and one this server has never heard of are different
+    // operational facts. Only the first tells an operator that content they
+    // pulled is still arriving, and only it is fixable by re-shipping artifacts.
+    const userId = await createTestUser();
+    const att = attempt({ releaseId: REVOKED_RELEASE_ID });
+    const ev = event(att, { releaseId: REVOKED_RELEASE_ID });
+
+    const { results } = await ingestSchedulingBatch(
+      userId,
+      [ev],
+      [att],
+      revokedOpts(),
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      status: "rejected",
+      reasonCode: "revoked_release",
+      recoverable: true,
+    });
+
+    const db = getDb();
+    // The audit log carries the same code — it is the monitoring signal, and a
+    // signal that says "unknown release" would send an operator looking for a
+    // release id that does not exist instead of one they withdrew.
+    const audits = await db
+      .select()
+      .from(syncAuditLog)
+      .where(eq(syncAuditLog.userId, userId));
+    expect(
+      audits.some(
+        (a) => a.itemId === ev.eventId && a.reasonCode === "revoked_release",
+      ),
+    ).toBe(true);
+    // And nothing was written on the strength of withdrawn content.
+    expect(
+      await db
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId)),
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(studyAttempts)
+        .where(eq(studyAttempts.userId, userId)),
+    ).toHaveLength(0);
+  });
+
+  it("refuses an item on an UNKNOWN release as invalid, not revoked", async () => {
+    // The neighbour, so the two facts cannot quietly collapse into one code.
+    const userId = await createTestUser();
+    const att = attempt({ releaseId: "safwa-ingest-fixture-unknown" });
+    const ev = event(att, { releaseId: "safwa-ingest-fixture-unknown" });
+
+    const { results } = await ingestSchedulingBatch(
+      userId,
+      [ev],
+      [att],
+      revokedOpts(),
+    );
+
+    expect(results[0]).toMatchObject({
+      status: "rejected",
+      reasonCode: "invalid_release",
+    });
+  });
+
+  it("judges each item by its OWN release, whatever position it holds in the group", async () => {
+    // A component group takes its question context from the FIRST attempt. An
+    // item further down the group must still be judged — and REPORTED — by the
+    // release it actually names. This is the drift that shipped once: the same
+    // revoked release was called `revoked_release` in first position and
+    // `invalid_release` everywhere else, so what an operator saw depended on
+    // sort order.
+    const userId = await createTestUser();
+    const a1 = attempt();
+    const e1 = event(a1, { clientComponentRevision: 1, parentEventId: null });
+    const bad = attempt({ releaseId: REVOKED_RELEASE_ID });
+    const badEv = event(bad, {
+      releaseId: REVOKED_RELEASE_ID,
+      clientComponentRevision: 1,
+    });
+    const a2 = attempt();
+    const e2 = event(a2, {
+      clientComponentRevision: 2,
+      parentEventId: e1.eventId,
+    });
+
+    const { results } = await ingestSchedulingBatch(
+      userId,
+      [e1, e2, badEv],
+      [a1, a2, bad],
+      revokedOpts(),
+    );
+
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        itemId: badEv.eventId,
+        status: "rejected",
+        reasonCode: "revoked_release",
+      }),
+    );
+    // Exactly the one refused, and the good pair still applied — a `>= 1`
+    // assertion would also pass if the withdrawn item took the batch with it.
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+    expect(results.filter((r) => r.status === "accepted")).toHaveLength(2);
+    expect(
+      await getDb()
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.userId, userId)),
+    ).toHaveLength(2);
   });
 });
