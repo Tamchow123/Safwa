@@ -25,6 +25,25 @@ export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
+  /*
+   * 60s, not Playwright's default 30s (Phase 17).
+   *
+   * These specs run in parallel against ONE `next dev` server, which compiles
+   * routes on demand. A test that navigates to a route no worker has visited
+   * yet pays for that compile, and several workers doing it at once is enough
+   * to push a perfectly healthy journey past 30 seconds — which showed up as
+   * a DIFFERENT test failing on each run while every one of them passed in
+   * isolation. Phase 17's merge journeys (register, verify by email, study,
+   * merge) are long enough to make it routine rather than occasional.
+   *
+   * This is a budget, not a tolerance: nothing here waits 60s in the ordinary
+   * case, and no assertion was relaxed to fit.
+   */
+  timeout: 60_000,
+  expect: {
+    // Likewise: the same contention delays a single assertion's element.
+    timeout: 10_000,
+  },
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: [["list"], ["html", { open: "never" }]],

@@ -40,6 +40,24 @@ export default function globalSetup(): void {
     },
   });
 
+  // Register the content release (Phase 17). `db:test:reset` migrates and
+  // seeds but does not populate `content_versions`, and every study session the
+  // server stores carries a `release_id` foreign key into it — so without this
+  // an authenticated push or guest merge fails at the database with a 23503
+  // and the whole point of the merge suite is unprovable. The Vitest
+  // integration suite registers it per-file; the quality gate runs it as its
+  // own step (scripts/quality-gate.ps1); this is the E2E server's equivalent.
+  execFileSync("pnpm", ["db:register-content"], {
+    stdio: "inherit",
+    shell: true,
+    timeout: SUBPROCESS_TIMEOUT_MS,
+    env: {
+      ...process.env,
+      NODE_ENV: "test",
+      DATABASE_URL: E2E_DATABASE_URL,
+    },
+  });
+
   execFileSync("pnpm", ["email:clear-outbox"], {
     stdio: "inherit",
     shell: true,

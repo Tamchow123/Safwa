@@ -94,3 +94,63 @@ test.describe("sync kill-switch (SYNC_ENABLED=false)", () => {
     ).toHaveCount(0);
   });
 });
+
+/**
+ * Phase 17 §26 — the guest→account merge under the kill-switch.
+ *
+ * The merge rides on the sync stack, so turning sync off turns the merge off
+ * with it. What §26 requires is that it fail SAFELY: refused, explained, and
+ * with every guest row exactly where it was. The one thing a learner can never
+ * afford is a merge that deletes the local copy on its way to a server that was
+ * never going to accept it.
+ */
+test.describe("guest merge with SYNC_ENABLED=false", () => {
+  test("the merge endpoint is refused before any auth check", async ({
+    request,
+  }) => {
+    // Same shape as pull/push above: the kill-switch is evaluated FIRST, so an
+    // unauthenticated call gets a clean 503 rather than a 401, a 500, or —
+    // worst of all — a partial import.
+    const merge = await request.post("/api/sync/guest-merge", {
+      data: { hello: "world" },
+      headers: { "content-type": "application/json" },
+    });
+    expect(merge.status()).toBe(503);
+  });
+
+  test("a guest with real local data is never prompted, and keeps every row", async ({
+    page,
+  }) => {
+    // No prompt, because there is nothing the app could honestly offer to do.
+    // The important half is the second assertion: the guest's data is still
+    // there afterwards. Nothing is cleared in anticipation of a merge.
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "Large" }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          document.documentElement.style.getPropertyValue(
+            "--arabic-font-scale",
+          ),
+        ),
+      )
+      .toBe("1.2");
+
+    await page.goto("/");
+    await expect(page.getByTestId("due-today-count")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId("guest-merge-dialog")).toHaveCount(0);
+
+    await page.reload();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          document.documentElement.style.getPropertyValue(
+            "--arabic-font-scale",
+          ),
+        ),
+      )
+      .toBe("1.2");
+  });
+});

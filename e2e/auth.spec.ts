@@ -1,9 +1,16 @@
-import { randomUUID } from "node:crypto";
-import type { Page } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { errorAlert } from "./helpers/auth-ui";
+import { answerCorrectly } from "./helpers/quiz";
+import {
+  declineMergePrompt,
+  E2E_PASSWORD,
+  freshEmail,
+  login,
+  logout,
+  registerAndVerify,
+  registerOnly,
+} from "./helpers/auth-flows";
 import {
   bookmarksRowCount,
   userIdByEmail,
@@ -43,74 +50,11 @@ import {
  */
 test.use({ trace: "off" });
 
-const PASSWORD = "correct-horse-battery-staple";
+// The register/verify/login/logout journeys live in helpers/auth-flows.ts
+// since Phase 17, so the guest-merge suite drives sign-in exactly the way this
+// one does. NEW_PASSWORD is only meaningful here (the change-password case).
+const PASSWORD = E2E_PASSWORD;
 const NEW_PASSWORD = "brand-new-password-1";
-
-function freshEmail(prefix: string): string {
-  return `e2e.${prefix}.${randomUUID()}@example.test`;
-}
-
-/** Submit the register form only — does not follow the verification link. */
-async function registerOnly(
-  page: Page,
-  email: string,
-  password = PASSWORD,
-  name = "E2E Learner",
-): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel("Name").fill(name);
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByLabel("Confirm password").fill(password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("register-verification-notice")).toBeVisible();
-}
-
-/** Register, read the real verification email from the local outbox, and follow it. */
-async function registerAndVerify(
-  page: Page,
-  email: string,
-  password = PASSWORD,
-  name = "E2E Learner",
-): Promise<void> {
-  await registerOnly(page, email, password, name);
-  const message = await waitForOutboxMessage(email, "verify-email");
-  await page.goto(extractUrlFromMessage(message));
-  await expect(page.getByTestId("verify-email-success")).toBeVisible();
-}
-
-async function login(
-  page: Page,
-  email: string,
-  password = PASSWORD,
-): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  // Wait for the sign-in call + redirect to actually complete before
-  // returning — otherwise a caller's immediate page.goto() to a session-
-  // gated route can race the still-in-flight request.
-  await expect(page).not.toHaveURL(/\/login/);
-}
-
-async function logout(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
-  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
-}
-
-/** Click the correct option for the current MC question (mirrors dashboard.spec.ts). */
-async function answerCorrectly(page: Page): Promise<void> {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"][data-answer-ref="entry:${entryId}:field:${answerField}"]`,
-    )
-    .click();
-}
 
 test.describe("60.1 guest regression", () => {
   test("guest can browse, study and view progress without any registration", async ({
@@ -328,9 +272,18 @@ test.describe("60.8 account settings", () => {
     const email = freshEmail("settings");
     await registerAndVerify(page, email);
     await login(page, email);
+    // Phase 17 puts a merge prompt in front of a learner signing in with guest
+    // data still on the device. This spec is not about the merge, so it answers
+    // the question the non-destructive way and carries on — which also keeps its
+    // own claim honest: declining sends nothing.
+    await declineMergePrompt(page);
 
-    // A distinct DEVICE-LOCAL study default, set first.
+    // A distinct DEVICE-LOCAL study default, set first. Each FULL page load
+    // asks about the merge again (the deferral is remembered for the visit,
+    // and a `page.goto` is a new visit), so it is answered wherever this spec
+    // then needs to click something behind the modal.
     await page.goto("/settings");
+    await declineMergePrompt(page);
     const localInput = page.getByTestId("study-default-questionCount");
     await expect(localInput).toBeEnabled();
     await localInput.fill("7");
@@ -338,6 +291,7 @@ test.describe("60.8 account settings", () => {
 
     // A DIFFERENT SERVER-SAVED study default + theme, via /account/settings.
     await page.goto("/account/settings");
+    await declineMergePrompt(page);
     await expect(page.getByTestId("account-settings-form")).toBeVisible();
     await page.getByRole("button", { name: "Dark", exact: true }).click();
     const serverInput = page.getByLabel("Questions per session");
@@ -388,6 +342,11 @@ test.describe("60.9 login does not merge/upload guest data; sign-out removes onl
     const email = freshEmail("guest-persist");
     await registerAndVerify(page, email);
     await login(page, email);
+    // Phase 17 puts a merge prompt in front of a learner signing in with guest
+    // data still on the device. This spec is not about the merge, so it answers
+    // the question the non-destructive way and carries on — which also keeps its
+    // own claim honest: declining sends nothing.
+    await declineMergePrompt(page);
     // Guest data survives LOGIN unchanged: login neither merges nor uploads the
     // guest's local history (Phase 16 §18 — "login alone does not merge guest
     // history"; the account was created fresh, so the bootstrap pull brings
@@ -425,6 +384,11 @@ test.describe("60.10 delete account", () => {
     const email = freshEmail("delete");
     await registerAndVerify(page, email);
     await login(page, email);
+    // Phase 17 puts a merge prompt in front of a learner signing in with guest
+    // data still on the device. This spec is not about the merge, so it answers
+    // the question the non-destructive way and carries on — which also keeps its
+    // own claim honest: declining sends nothing.
+    await declineMergePrompt(page);
 
     await page.goto("/library");
     await expect(page.getByTestId("library-result-count")).toHaveText(
@@ -464,13 +428,18 @@ test.describe("60.10 delete account", () => {
       2, 3, 4,
     ]);
 
-    // "Create account settings" step.
+    // "Create account settings" step. The merge prompt asks again after each
+    // FULL page load — the deferral is remembered for the visit, and a
+    // `page.goto` is a new visit — so it is answered wherever this spec then
+    // needs to click something behind it.
     await page.goto("/account/settings");
+    await declineMergePrompt(page);
     await page.getByLabel("Questions per session").fill("11");
     await page.getByRole("button", { name: "Save account settings" }).click();
     await expect(page.getByText("Account settings saved")).toBeVisible();
 
     await page.goto("/account");
+    await declineMergePrompt(page);
     await page.getByRole("button", { name: "Delete account" }).click();
     await page.getByLabel("Password").fill(PASSWORD);
     await page

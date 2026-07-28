@@ -3,6 +3,10 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { loadLearnerRelease } from "./helpers/learner-release";
+import {
+  answerCorrectly,
+  readyQuestion as correctOptionRef,
+} from "./helpers/quiz";
 
 /** Count rows in an app IndexedDB object store, independent of app code. */
 function idbCount(page: Page, store: string): Promise<number> {
@@ -84,23 +88,6 @@ function idbAttemptSourceFields(page: Page): Promise<(string | null)[]> {
       database.close();
     }
   });
-}
-
-/** The serialized ref of the current question's correct option — always the
- * prompt entry's answer field (distractors are drawn from OTHER entries). */
-async function correctOptionRef(page: Page): Promise<string> {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  return `entry:${entryId}:field:${answerField}`;
-}
-
-/** Click the correct option for the current question. */
-async function answerCorrectly(page: Page) {
-  const ref = await correctOptionRef(page);
-  await page
-    .locator(`[data-testid="mc-option"][data-answer-ref="${ref}"]`)
-    .click();
 }
 
 /** Complete a full session by answering every question correctly (advancing
@@ -330,6 +317,13 @@ test.describe("multiple-choice quizzes", () => {
   test("test mode withholds feedback until the results screen", async ({
     page,
   }) => {
+    // The longest test in the suite by a wide margin: up to 40 questions, each
+    // one waiting on a real IndexedDB write before it may advance. It fits the
+    // ordinary budget on an idle machine and does not when eight workers are
+    // sharing one dev server, so it gets a bigger budget rather than a smaller
+    // loop — the point of the test is that feedback is withheld for a WHOLE
+    // session, and a shorter session proves less.
+    test.slow();
     await page.goto("/study/mc");
     await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
 

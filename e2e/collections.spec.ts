@@ -3,6 +3,7 @@ import { chromium, type Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { idbAll, idbSeed, seedBookmark, seedList } from "./helpers/idb";
+import { answerCorrectly, answerIncorrectly } from "./helpers/quiz";
 import {
   duplicateMadiPair,
   loadLearnerRelease,
@@ -79,31 +80,6 @@ function twoBabsWithTwoEntries(): {
     babB,
     entriesB: entriesB.slice(0, 2),
   };
-}
-
-/** Click the correct MC option for the current custom-session question. */
-async function answerCorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"][data-answer-ref="entry:${entryId}:field:${answerField}"]`,
-    )
-    .click();
-}
-
-/** Click a wrong MC option for the current custom-session question. */
-async function answerIncorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"]:not([data-answer-ref="entry:${entryId}:field:${answerField}"])`,
-    )
-    .first()
-    .click();
 }
 
 /** No horizontal overflow: the page must not scroll sideways (§31.14). */

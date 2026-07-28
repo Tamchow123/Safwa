@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { idbAll, idbSeed } from "./helpers/idb";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { loadLearnerRelease } from "./helpers/learner-release";
+import { answerCorrectly, answerIncorrectly } from "./helpers/quiz";
 
 /**
  * Phase 12 dashboard & progress E2E (§26): new-guest zero state, the real
@@ -31,31 +32,6 @@ function statValue(page: Page, label: RegExp) {
     .locator("dt")
     .filter({ hasText: label })
     .locator("xpath=following-sibling::dd[1]");
-}
-
-/** Click the correct option for the current MC question. */
-async function answerCorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"][data-answer-ref="entry:${entryId}:field:${answerField}"]`,
-    )
-    .click();
-}
-
-/** Click a wrong option for the current MC question. */
-async function answerIncorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"]:not([data-answer-ref="entry:${entryId}:field:${answerField}"])`,
-    )
-    .first()
-    .click();
 }
 
 /** Set questions/session to 1 so a session is a single scheduling attempt. */
