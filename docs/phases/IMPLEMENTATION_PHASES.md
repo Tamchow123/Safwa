@@ -497,7 +497,24 @@ chain.ts,states.ts,due.ts}` + tests.
 - **Demonstrate:** two-browser cross-device session; a tampering attempt
   rejected in the audit log.
 
-## Phase 17 — Guest→account merge 🏁 Core MVP
+## Phase 17 — Guest→account merge 🏁 Core MVP — **IMPLEMENTED**
+
+**As built.** The Core MVP is complete. Delivered: consent before any upload
+(signing in is not agreement); one authenticated, kill-switch-gated
+`POST /api/sync/guest-merge` behind the same guard as push/pull; the snapshot
+ingested through the **same** pipeline as push, chunked with attempt+event units
+kept indivisible; idempotency on a client-minted import key (same snapshot →
+no-op, different snapshot under a used key → refused, cross-account key →
+refused); merge provenance (`merged_at`, `merged_from_guest_import_id`,
+`imported_from_guest_import_id`) gating a conditional multi-root replay;
+bookmarks/lists union and account-wins settings; a twelve-state client machine
+with one consent→progress→summary dialog and Settings entry points for a
+deferred offer and for a retry; local finalisation in one Dexie transaction
+**after** the account's copy is durable; Dexie **schema v7** owner-keyed
+primary keys (ADR-009) making scoped sign-out/switch/deletion possible, so
+"Not now" costs nothing; and the authenticated multi-context second-device E2E
+that Stage A deferred. See `docs/OFFLINE_AND_SYNC.md` "As built — the
+guest→account merge", `docs/DATA_MODEL.md` §4.1/§9.2/§10, and ADR-009.
 
 - **Objective:** no progress lost at registration; **the MVP is complete**.
 - **Scope:** merge consent flow on first sign-in with local guest data;

@@ -222,9 +222,35 @@ any migration.
 
 ## 9. Merge, progress & long-offline suites
 
-- Merge (Phase 17): idempotent; replay of guest+account union matches
-  fixtures; bookmarks/lists union; settings account-wins; guest-only and
-  interleaved-history scenarios.
+- Merge (Phase 17) — **implemented**, and split across three layers so each
+  proves what only it can:
+  - **Integration** (`tests/integration/guest-merge-*.test.ts`, against real
+    Postgres): idempotency (same snapshot → no-op; a different snapshot under a
+    used import key → refused, not half-applied; a key belonging to another
+    account → refused); replay of the guest+account union against fixtures
+    (guest-only, account-only, both-with-history, interleaved); the conditional
+    multi-root rule (accepted with matching merge provenance, still refused
+    without it); bookmarks/lists union and account-wins settings; the ceilings
+    and the declared-totals check; and a snapshot **larger than one network
+    batch**.
+  - **Unit** (`modules/sync/client/guest-merge-*.test.ts`): the twelve-state
+    machine driven through sequences (sign-out mid-merge, account switch,
+    retry budget); the chunk planner's indivisible attempt+event unit; local
+    finalisation's ordering; and the pure copy/surface modules — which is what
+    makes "no raw internal identifiers in learner-facing text" a check rather
+    than an intention.
+  - **E2E** (`e2e/guest-merge.spec.ts`, §26): the whole journey in a browser,
+    including the authenticated **second-device** proof deferred in Phase 16.
+    Nothing is seeded into IndexedDB — history is produced through the UI,
+    because a seeded row proves only that a seeded row survives. Also: no
+    prompt without guest data; consent before any upload (asserted against the
+    server's own count, not just the absence of local rows); "Not now" sends
+    and deletes nothing; a failed upload leaves every guest row and is
+    retryable across a reload; a finished merge offers nothing further; 320px;
+    keyboard-only, including that Escape is a decline; axe in light and dark;
+    and no credential in web storage or the local import metadata. The
+    `SYNC_ENABLED=false` refusal lives in `e2e/sync-disabled.spec.ts`, which
+    has its own server.
 - Progress (Phase 12, implemented in `tests/analytics/`): every §6 formula
   against the real generated release — exact denominators asserted
   programmatically (455 entries, 6,793 eligible / 2,717 essential components,

@@ -19,8 +19,11 @@
       9.  Migration chain            pnpm db:migrate
       10. Content version registration pnpm db:register-content
       11. Database integration tests  pnpm test:integration  (constraints, content
-                                      registration, Better Auth, manifest loader —
-                                      one Vitest config covers all of these)
+                                      registration, Better Auth, manifest loader,
+                                      Phase 16 sync ingest/pull/revoke, Phase 17
+                                      guest merge — one Vitest config covers all
+                                      of these, and every tests/integration/*.test.ts
+                                      is picked up by it without a config change)
       12. Type checking              pnpm typecheck
       13. Linting                    pnpm lint
       14. Formatting check           pnpm format:check     (check only, never writes)
@@ -142,7 +145,7 @@ $steps = @(
       ); Env = $postgresCheckEnv },
     @{ Name = "Apply full migration chain";              Exe = "pnpm";   Args = @("db:migrate"); Env = $dbStepEnv },
     @{ Name = "Register content versions";               Exe = "pnpm";   Args = @("db:register-content"); Env = $dbStepEnv },
-    @{ Name = "Database integration tests (constraints, content registration, auth, manifest loader)"; Exe = "pnpm"; Args = @("test:integration"); Env = $dbStepEnv },
+    @{ Name = "Database integration tests (constraints, content registration, auth, manifest loader, sync, guest merge)"; Exe = "pnpm"; Args = @("test:integration"); Env = $dbStepEnv },
     @{ Name = "Type checking";                           Exe = "pnpm";   Args = @("typecheck") },
     @{ Name = "Linting";                                 Exe = "pnpm";   Args = @("lint") },
     @{ Name = "Formatting check";                        Exe = "pnpm";   Args = @("format:check") },

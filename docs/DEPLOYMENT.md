@@ -211,3 +211,42 @@ Local verification uses the disposable `safwa_test` database (see the Commands
 section in `CLAUDE.md`): `pnpm test:integration` covers ingest/pull/revoke
 against real Postgres; `pnpm test:e2e` includes the `SYNC_ENABLED=false`
 kill-switch config (`playwright.sync-disabled.config.ts`).
+
+## Guest→account merge (Phase 17)
+
+The merge rides on the same infrastructure and the same kill-switch as sync —
+there is nothing new to provision, and nothing new to turn on.
+
+- **Endpoint:** `POST /api/sync/guest-merge`, authenticated and
+  email-verified, behind the identical guard as push/pull. `SYNC_ENABLED=false`
+  makes it return a clean `503` **before** any session read, exactly as the
+  other two do; a guest is then never prompted, and no guest row is touched.
+  There is no separate merge flag: a deployment that has turned sync off has
+  turned the merge off, which is the honest coupling — the merge has nowhere
+  to put anything.
+- **Migrations:** `0003`–`0006` add `guest_imports`, the merge-marker columns
+  on `study_components` / `review_events`, the refusal-reason column and the
+  import's list-id mappings. They ship in the same set (`pnpm db:migrate`) and
+  each has a matching `db/rollback/*_down.sql`.
+- **Rollback:** the down migrations drop the merge's own tables and columns.
+  They are safe to run on a database where merges have happened, in the sense
+  that no imported learning state is deleted — the imported attempts and events
+  are ordinary rows in the ordinary tables and stay. What is lost is the
+  **provenance**: without `merged_at` / `merged_from_guest_import_id`, a
+  component whose history was united has a DAG the older replay refuses as
+  multi-rooted. So a rollback past `0004` must be paired with rolling the
+  application back to a build whose replay predates the merge, or those
+  components will fail to project. Roll the app back first, then the schema.
+- **Client schema:** Dexie **v9** (owner-keyed primary keys since v7, ADR-009).
+  The upgrade copies rows into new physical stores and drops the old ones;
+  IndexedDB cannot re-key in place. It is forward-only — an older build opening
+  a v9 database will not find the stores it expects, so a client rollback past
+  v7 means a learner's local guest state is not readable by the older build.
+  Server-backed account state is unaffected and re-pulls.
+- **Local verification:** `pnpm test:integration` covers the merge coordinator,
+  collections union and end-to-end import against real Postgres;
+  `pnpm test:e2e` runs the full journey including the second-device proof, and
+  the `SYNC_ENABLED=false` refusal in the sync-disabled config. The E2E global
+  setup registers a content release (`pnpm db:register-content`) — every stored
+  study session carries a `release_id` foreign key, so an authenticated push or
+  merge fails at the database without it.
