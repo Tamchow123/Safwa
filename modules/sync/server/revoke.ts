@@ -314,6 +314,10 @@ async function processComponentRevocations(
       const replayed = replayComponent(
         remaining.map(toReplayEvent),
         options.nowMs,
+        // Phase 17 §14: a merged component is still undoable. Without its mark
+        // the union would throw here and an undo would fail for the one reason
+        // a learner cannot act on.
+        { mergedAt: component.mergedAt },
       );
       const newRevision = component.revision + accepted.length;
       await tx
