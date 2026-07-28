@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { loadLearnerRelease } from "./helpers/learner-release";
+import { answerCorrectly, answerIncorrectly } from "./helpers/quiz";
 
 /**
  * Phase 11 — custom session configuration (§4.4), hint system and editable
@@ -72,30 +73,6 @@ function idbAttemptHints(
       database.close();
     }
   });
-}
-
-/** Click the correct option for the current question. */
-async function answerCorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"][data-answer-ref="entry:${entryId}:field:${answerField}"]`,
-    )
-    .click();
-}
-
-async function answerIncorrectly(page: Page) {
-  const session = page.getByTestId("mc-quiz-session");
-  const entryId = await session.getAttribute("data-entry-id");
-  const answerField = await session.getAttribute("data-answer-field");
-  await page
-    .locator(
-      `[data-testid="mc-option"]:not([data-answer-ref="entry:${entryId}:field:${answerField}"])`,
-    )
-    .first()
-    .click();
 }
 
 test.describe("custom session — §4.4 filter matrix", () => {

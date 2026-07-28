@@ -98,6 +98,12 @@ export function GuestMergeDialog() {
       <DialogContent
         showCloseButton={copy.dismissible}
         className="max-w-md"
+        data-testid="guest-merge-dialog"
+        // The flow's own name, so the E2E suite can wait for a STATE rather
+        // than for a sentence. Asserting on prose would make every copy edit a
+        // test failure, and worse, would let a test pass because two different
+        // states happen to share a word.
+        data-flow={merge.state.flow.name}
         // A merge in progress is not dismissible: closing would imply it
         // stopped. Radix's own escape/outside-click paths are refused here so
         // the guarantee does not depend on the close button being hidden.

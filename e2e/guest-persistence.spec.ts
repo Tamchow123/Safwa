@@ -288,6 +288,13 @@ test.describe("guest identity & local persistence", () => {
     await page.goto("/settings");
     await page.getByRole("button", { name: "Large" }).click();
     await expect.poll(() => readStoredScale(page)).toBe("large");
+    // The device profile is MINTED by that first progress, asynchronously and
+    // independently of the setting write — so waiting only for the setting
+    // races it, and the export then legitimately reports a null profile that
+    // the assertion below dereferences. Wait for the thing being asserted.
+    await expect
+      .poll(async () => (await readProfile(page)) !== null)
+      .toBe(true);
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByTestId("export-my-data").click();
