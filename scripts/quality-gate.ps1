@@ -34,8 +34,10 @@
       18. Production build           pnpm build
       19. Traced routes in build     pnpm routes:verify    (must follow 18 — reads .next's own
                                      app-paths manifest; see below)
-      20. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
-      21. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 20)
+      20. Service-worker criteria    pnpm sw:verify        (must follow 18 — reads the emitted
+                                     worker and client bundle; see below)
+      21. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
+      22. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 21)
 
     Notes:
       - No check modifies application source files. Step 4 regenerates the
@@ -66,7 +68,12 @@
         `/^safwa_test(_\w+)?$/` AND NODE_ENV=test) refuses to touch
         anything else — this script does not duplicate that check, only
         surfaces its failure clearly if it fires.
-      - Step 19 must stay immediately after the build and is mirrored in CI.
+      - Steps 19 and 20 must stay immediately after the build, and both are
+        mirrored in CI. Step 20 checks the four conditions phases-18.md §6
+        makes adopting @serwist/turbopack contingent on; they are invisible
+        until something is built, and a worker that still compiles with an
+        empty precache manifest is the failure that looks most like success.
+      - Step 19's own reason:
         The unit suite already checks next.config.ts's
         outputFileTracingIncludes against the route graph that derives it;
         only .next/server/app-paths-manifest.json can say whether either
@@ -176,7 +183,8 @@ $steps = @(
     @{ Name = "Push-guard hook self-tests";              Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-guard-git-push.ps1") },
     @{ Name = "Unit tests (Vitest)";                     Exe = "pnpm";   Args = @("test") },
     @{ Name = "Production build";                        Exe = "pnpm";   Args = @("build") },
-    @{ Name = "Traced routes exist in the build";        Exe = "pnpm";   Args = @("routes:verify") }
+    @{ Name = "Traced routes exist in the build";        Exe = "pnpm";   Args = @("routes:verify") },
+    @{ Name = "Service worker meets its adoption criteria"; Exe = "pnpm"; Args = @("sw:verify") }
 )
 
 if (-not $SkipE2E) {

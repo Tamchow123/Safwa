@@ -150,6 +150,14 @@ jobs:
       - name: Traced routes exist in the build
         run: pnpm routes:verify
 
+      # Also after the build, and for the same class of reason: the four
+      # conditions phases-18.md §6 makes adopting @serwist/turbopack contingent
+      # on are all invisible until something is built. A worker that still
+      # compiles with an empty precache manifest is the failure that looks most
+      # like success.
+      - name: Service worker meets its adoption criteria
+        run: pnpm sw:verify
+
   e2e:
     name: E2E (Chromium)
     runs-on: ubuntu-latest

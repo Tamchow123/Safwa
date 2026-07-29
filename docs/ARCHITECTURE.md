@@ -101,6 +101,15 @@ apps (single Next.js app)
 │                          preparation and group aggregation (Phase 13) +
 │                          sanctioned Dexie adapters (daily_activity cache
 │                          rebuild; weakness read, no cache write)
+├── modules/pwa            (Phase 18) the service worker and its runtime cache
+│                          rules. `sw.ts` is the ONLY module compiled for a
+│                          worker global scope: `lib.dom` and `lib.webworker`
+│                          cannot share a TypeScript program, so it is excluded
+│                          from the root tsconfig and checked by
+│                          `tsconfig.sw.json` — `pnpm typecheck` runs both
+│                          passes. Keep the entry thin; testable logic goes in
+│                          sibling files the main program can still see.
+│                          See `modules/pwa/README.md`.
 ├── modules/admin          (phase 21) content operations
 └── shared/arabic          normalisation, natural keys, extraction helpers
 ```

@@ -1,3 +1,4 @@
+import { withSerwist } from "@serwist/turbopack";
 import type { NextConfig } from "next";
 
 /**
@@ -90,6 +91,14 @@ const SECURITY_HEADERS = [
  * A fifth route that reaches either module must be added here — no check
  * enforces that, which is why `docs/DEPLOYMENT.md` §6 records it as a
  * standing obligation.
+ *
+ * The `public/content/**` entry below is `CONTENT_ARTIFACT_PUBLIC_GLOB` from
+ * `modules/content/constants.ts`, spelled out rather than imported: this file
+ * is loaded through Next's own config path, not the app's, and importing
+ * alias-resolved application modules into it is a distinct and less-supported
+ * thing to do for the sake of one string. `tests/unit/next-config.test.ts`
+ * asserts the two agree, so a move of that subtree still fails a test — but if
+ * you are editing this array, that is where to look.
  */
 const CONTENT_ARTIFACTS = ["content-server/**", "public/content/**"];
 
@@ -110,4 +119,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * `withSerwist` adds `esbuild`/`esbuild-wasm` to `serverExternalPackages` and
+ * nothing else (Phase 18, slice 9). It is a wrapper in name only — there is no
+ * bundler plugin, no webpack coupling, and no build step it owns. The worker is
+ * emitted by `app/serwist/[path]/route.ts`, which is where the interesting part
+ * lives; this exists so the two esbuild packages are not traced into the
+ * serverless bundle they are only needed to BUILD.
+ */
+export default withSerwist(nextConfig);
