@@ -146,8 +146,12 @@ compares bytes, and is authoritative only on the platform the icons were
 authored on — the portable freshness check is `scripts/icons-lock.ts`, run by
 the unit suite and therefore by CI, and `icons:build` refuses to rewrite the
 set from a platform the lock does not name unless passed
-`--allow-foreign-platform`), `pnpm check` (typecheck + lint + format:check +
-test + build).
+`--allow-foreign-platform`), `pnpm deploy:verify` (Phase 18 — checks a
+production environment before it is deployed; the rules it shares with the
+runtime validator live in `modules/env/rules.ts`), `pnpm routes:verify`
+(Phase 18 — checks `next.config.ts`'s `outputFileTracingIncludes` keys against
+`.next`'s own app-paths manifest; **must run after `pnpm build`**),
+`pnpm check` (typecheck + lint + format:check + test + build).
 
 Server/database (added Phase 15 — Postgres, Drizzle, Better Auth, email):
 `docker compose up -d db` starts the local `postgres:17-alpine` container
@@ -177,14 +181,15 @@ four `AUTH_RATE_LIMIT_*` variables carry production bounds
 (`docs/DEPLOYMENT.md` §2) so an E2E-tuned `.env` cannot reach production.
 
 `scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
-locally in 20 steps (18 with `-SkipE2E`): dependency/data/Arabic checks,
+locally in 21 steps (19 with `-SkipE2E`): dependency/data/Arabic checks,
 content-artifact freshness (build + `git diff`/untracked checks), icon
 byte-identity (the one step deliberately _not_ mirrored in CI — see step 7's
 own note), docs verification, disposable-Postgres reachability + migrations +
 content-version registration + `test:integration` (against `safwa_test`,
 derived from `.env.local`'s `DATABASE_URL`), typecheck/lint/format, the
-push-guard hook self-tests, unit tests, build, and E2E. `-SkipE2E` skips
-only the E2E steps for fast inner-loop iteration — the full gate (E2E
+push-guard hook self-tests, unit tests, build, `routes:verify` (must follow
+the build — it reads `.next`'s own app-paths manifest), and E2E. `-SkipE2E`
+skips only the E2E steps for fast inner-loop iteration — the full gate (E2E
 included) must still pass before review.
 
 ## Document map

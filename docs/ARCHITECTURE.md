@@ -87,7 +87,15 @@ apps (single Next.js app)
 │                          client environment variables; server.ts is
 │                          server-only and lazy-memoised (validated on first
 │                          use, never at import), client.ts exposes only
-│                          NEXT_PUBLIC_* values
+│                          NEXT_PUBLIC_* values. (Phase 18) rules.ts is a
+│                          third file and a deliberate exception to that
+│                          server-only convention: dependency-free, no
+│                          marker, holding the bounds and value shapes that
+│                          BOTH server.ts and the pre-deploy check
+│                          (scripts/verify-deploy-preconditions.ts) must
+│                          agree on. A build-time gate stricter or looser
+│                          than the runtime validator is worse than no gate,
+│                          so the rules live in one place both can import.
 ├── modules/analytics      PURE TS: date/activity/streak/progress formulas
 │                          (Phase 12) + weakness heuristic v2, evidence
 │                          preparation and group aggregation (Phase 13) +
