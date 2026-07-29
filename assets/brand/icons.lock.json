@@ -1,0 +1,63 @@
+{
+  "generatedOn": {
+    "platform": "win32",
+    "arch": "x64",
+    "sharp": "sharp 0.35.3, libvips 8.18.3"
+  },
+  "master": "efcc09d883bd4d584d7420b5c1fffbc3e060937deab879de4c16696f610852c0",
+  "settings": {
+    "cornerRadiusRatio": 0.22,
+    "masterEdge": 512,
+    "baseDensity": 72,
+    "png": {
+      "compressionLevel": 9,
+      "effort": 10,
+      "palette": false,
+      "force": true
+    }
+  },
+  "icons": [
+    {
+      "file": "icon-192.png",
+      "size": 192,
+      "shape": "rounded",
+      "sha256": "cf9688fdc7feffc965a8ae979cea2a4a007437a9869aabbce846f347501bbb3d"
+    },
+    {
+      "file": "icon-512.png",
+      "size": 512,
+      "shape": "rounded",
+      "sha256": "60c44833deda231207a28e015105e0ab806254b8f5e00c75882626a3677344ef"
+    },
+    {
+      "file": "icon-maskable-192.png",
+      "size": 192,
+      "shape": "square",
+      "sha256": "cc1eeca8e5eaf5a9088d3522b7332a90817e895d3ec2ca34c038bd254fa6b327"
+    },
+    {
+      "file": "icon-maskable-512.png",
+      "size": 512,
+      "shape": "square",
+      "sha256": "44b784f4a7f7912e32a7491e3dab85d70ddd5d079b99e336ecaad987df9aa444"
+    },
+    {
+      "file": "apple-touch-icon.png",
+      "size": 180,
+      "shape": "square",
+      "sha256": "a9b116e67944fc5cc2449ef1101cc1a09d4e9e867f28be4c5be6e6d9bff22537"
+    },
+    {
+      "file": "favicon-32.png",
+      "size": 32,
+      "shape": "square",
+      "sha256": "f6c895f0b9c6b4e3d07eb6f4a6c51cf469c8450e7b87316424d61f47110e7b0f"
+    },
+    {
+      "file": "favicon-16.png",
+      "size": 16,
+      "shape": "square",
+      "sha256": "d6278d20c48148c92cacf24ca02243607f8c21fa10991418e3e6b7071d2b7595"
+    }
+  ]
+}

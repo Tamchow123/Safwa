@@ -7,14 +7,22 @@ import { isActiveRoute, NAV_ITEMS } from "@/components/navigation/nav-items";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-/** Desktop sidebar — hidden below the md breakpoint. */
+/**
+ * Desktop sidebar — hidden below the md breakpoint.
+ *
+ * It owns the left physical edge wherever it is visible, so it is where the
+ * left display-cutout inset is absorbed (see components/app-header.tsx, which
+ * drops its own left inset at the same breakpoint for that reason). The
+ * padding is on the aside itself so `bg-sidebar` still reaches the glass;
+ * `env()` is 0 on any device without a cutout, which is every desktop.
+ */
 export function AppSidebar() {
   const pathname = usePathname();
 
   return (
     <aside
       data-testid="app-sidebar"
-      className="bg-sidebar sticky top-0 hidden h-svh w-60 shrink-0 flex-col border-r md:flex"
+      className="bg-sidebar sticky top-0 hidden h-svh w-60 shrink-0 flex-col border-r pl-[env(safe-area-inset-left)] md:flex"
     >
       <div className="flex h-14 items-center px-5">
         <span className="text-lg font-semibold tracking-tight">Safwa</span>
