@@ -85,7 +85,8 @@ device reopens Phase 19**.
 - `app/` — App Router: `(auth)` and `(shell)` route groups, `api/`
   (`auth/`, `account/`, `health/`, and `sync/*` — push, pull, guest-merge),
   plus `serwist/[path]` (Phase 18 — a `force-static` handler that emits the
-  service worker at build time).
+  service worker at build time) and `~offline` (Phase 18 — the offline
+  fallback page, deliberately outside `(shell)` so it depends on no provider).
 - `modules/` — feature modules: `analytics`, `auth`, `collections`, `content`,
   `email`, `env`, `profile`, `pwa`, `scheduler`, `study-engine`,
   `study-session`, `sync` (`sync/client`, `sync/server`, `sync/protocol`).
@@ -94,7 +95,9 @@ device reopens Phase 19**.
   — read it before changing that module, and update it in the same phase.
   `modules/pwa/sw.ts` is the one file compiled for a **worker** global scope:
   it is excluded from the root `tsconfig.json` and checked by
-  `tsconfig.sw.json`, which `pnpm typecheck` also runs.
+  `tsconfig.sw.json`, which `pnpm typecheck` also runs. Nothing in it is
+  reachable from the unit suite, so it stays wiring-only — the cache rules and
+  the Cache Storage operations live in sibling files that are.
 - `components/` — UI foldered by feature, with a few app-wide components at
   the root; `components/ui` holds the generated shadcn primitives. Client
   flow providers live here (`components/sync/*-provider.tsx`, mounted in
@@ -157,10 +160,11 @@ runtime validator live in `modules/env/rules.ts`), `pnpm routes:verify`
 (Phase 18 — checks `next.config.ts`'s `outputFileTracingIncludes` keys against
 `.next`'s own app-paths manifest; **must run after `pnpm build`**),
 `pnpm sw:verify` (Phase 18 — checks the four service-worker adoption criteria
-of `docs/phases/phases-18.md` §6 against the build output, plus two absence
-checks review added: the route serves nothing beyond the worker and its source
-map, and no content-release artifact is precached; **must run after `pnpm
-build`**), `pnpm check` (typecheck + lint + format:check + test + build).
+of `docs/phases/phases-18.md` §6 against the build output, plus three checks
+that are not §6 criteria: the route serves nothing beyond the worker and its
+source map, every runtime cache rule reached the worker bundle, and no
+content-release artifact is precached; **must run after `pnpm build`**),
+`pnpm check` (typecheck + lint + format:check + test + build).
 
 Server/database (added Phase 15 — Postgres, Drizzle, Better Auth, email):
 `docker compose up -d db` starts the local `postgres:17-alpine` container

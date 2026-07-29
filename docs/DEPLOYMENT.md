@@ -396,6 +396,38 @@ runner — check this first: the remedy is either an `esbuild` version with a
 binary for that platform, or dropping the pin and accepting `esbuild-wasm`
 there.
 
+### 5d. The `Cache-Control` contract the service worker depends on (Phase 18)
+
+Unlike §5a's headers, these are not set by `next.config.ts` — Next emits them
+per route, and the service worker's confidentiality guarantee rests on them.
+`modules/pwa/cache-policy.ts` stores a document or RSC response unless its
+`Cache-Control` says `private` or `no-store`, which is what keeps
+`/account`'s server-rendered name and email out of Cache Storage. Measured
+against `pnpm start` on this build:
+
+| Route class                       | `Cache-Control`                                           |
+| --------------------------------- | --------------------------------------------------------- |
+| prerendered (`/study`)            | `s-maxage=31536000` (plus `x-nextjs-prerender: 1`)        |
+| dynamically rendered (`/account`) | `private, no-cache, no-store, max-age=0, must-revalidate` |
+
+A missing header is treated as "no claim" and still caches — deliberately, with
+the reasoning recorded at `isPrivateResponse`. `SERVER_RENDERED_CACHE_MAX_AGE_SECONDS`
+(30 days) bounds whatever slips through.
+
+**Verify this on the first production deploy, and after any change of host or
+edge configuration.** The offline E2E asserts it against a local server; only
+this checks the CDN in front of it, which is what can normalise a header away:
+
+```bash
+curl -sI https://<host>/account | grep -i '^cache-control'   # must contain private/no-store
+curl -sI https://<host>/study   | grep -i '^cache-control'   # must NOT
+```
+
+If a signed-out `/account` redirects before rendering, sign in first and repeat
+with the session cookie — the header on the redirect is not the one that
+matters. If the dynamic route ever comes back cacheable, the service worker is
+storing account markup: treat it as a live incident, not a docs drift.
+
 ## 6. Content seed / import process
 
 - Stage 1: `pnpm content:build` runs in CI/build from the validated JSON;

@@ -65,6 +65,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { forgetLastKnownOwner } from "@/modules/auth/last-known-owner";
 import { getSafwaDb } from "@/modules/content/db";
+import { clearOwnerSensitiveCachesIfAvailable } from "@/modules/pwa/cache-storage";
 import { clearAccountLocalState } from "@/modules/sync/client/logout";
 import {
   forgetPendingAccountDeletion,
@@ -144,6 +145,14 @@ export function DeletedAccountCleanup() {
     // guest fallback, which is the safe direction. Not gated on the sweep
     // either — a stale owner is wrong whether or not the rows were removed.
     forgetLastKnownOwner();
+
+    // Cache Storage goes with the Dexie sweep, not after it (Phase 18 §7).
+    // Account deletion is the strongest "forget this device" signal there is,
+    // and a cached document or RSC payload can carry the deleted account's
+    // rendered data — with no session left to sign out of, this is the last
+    // code path that will ever run for that account. Not chained onto the
+    // sweep's `then`, because it must happen even if the Dexie side fails.
+    void clearOwnerSensitiveCachesIfAvailable();
 
     void clearAccountLocalState(getSafwaDb(), deleted)
       .then(() => {
