@@ -9,6 +9,7 @@ import {
   CONTENT_ARTIFACT_URL_PREFIX,
   learnerUrlForRelease,
 } from "@/modules/content/constants";
+import { CACHE_NAMES, OFFLINE_FALLBACK_URL } from "@/modules/pwa/cache-rules";
 import {
   checkServiceWorkerCriteria,
   DEV_ONLY,
@@ -37,13 +38,28 @@ describe("the service-worker adoption criteria", () => {
     writeFileSync(full, contents, "utf8");
   };
 
+  /**
+   * A worker body carrying every token the wiring check looks for.
+   *
+   * Built from the same constants the check reads, so a rule added to
+   * `cache-rules.ts` does not need remembering here — and a rule REMOVED from
+   * `sw.ts` still fails, because the check reads the real bundle.
+   */
+  const wiredWorker = (manifest: string): string =>
+    `var y=${manifest};` +
+    Object.values(CACHE_NAMES)
+      .map((name) => `new CacheFirst({cacheName:"${name}"});`)
+      .join("") +
+    `caches.open("x").then(c=>c.add("${OFFLINE_FALLBACK_URL}"));` +
+    'self.addEventListener("install",()=>{});';
+
+  const DEFAULT_MANIFEST =
+    '[{url:"/_next/static/chunks/abc.js",revision:null},' +
+    '{url:"/icons/icon-192.png",revision:null}]';
+
   /** A build output that satisfies every criterion. */
   const writeGoodBuild = (): void => {
-    write(
-      "server/app/serwist/sw.js.body",
-      'var y=[{url:"/_next/static/chunks/abc.js",revision:null},' +
-        '{url:"/icons/icon-192.png",revision:null}];self.addEventListener("install",()=>{});',
-    );
+    write("server/app/serwist/sw.js.body", wiredWorker(DEFAULT_MANIFEST));
     write(
       "server/app/serwist/sw.js.meta",
       JSON.stringify({
@@ -91,7 +107,7 @@ describe("the service-worker adoption criteria", () => {
     // The failure mode that looks most like success: this builds, installs,
     // and precaches nothing.
     writeGoodBuild();
-    write("server/app/serwist/sw.js.body", "var m=self.__SW_MANIFEST;");
+    write("server/app/serwist/sw.js.body", wiredWorker("self.__SW_MANIFEST"));
     expect(failures()).toEqual([
       "2a. the precache manifest was injected, not left as a placeholder",
       "2b. the manifest contains _next/static chunks",
@@ -113,8 +129,10 @@ describe("the service-worker adoption criteria", () => {
       writeGoodBuild();
       write(
         "server/app/serwist/sw.js.body",
-        'var y=[{url:"/_next/static/chunks/abc.js",revision:null},' +
-          `{url:"${url}",revision:"deadbeef"}];`,
+        wiredWorker(
+          '[{url:"/_next/static/chunks/abc.js",revision:null},' +
+            `{url:"${url}",revision:"deadbeef"}]`,
+        ),
       );
       expect(failures(), url).toEqual([
         "2c. no content-release artifact is precached",
@@ -159,13 +177,43 @@ describe("the service-worker adoption criteria", () => {
     ]);
   });
 
+  it("fails when a cache rule never reached the worker bundle", () => {
+    // The gap this closes: `modules/pwa/cache-rules.test.ts` passes in full even
+    // if `sw.ts` stops importing the rules altogether. Dropping one rule is
+    // invisible to the unit suite and visible here.
+    for (const dropped of Object.values(CACHE_NAMES)) {
+      writeGoodBuild();
+      write(
+        "server/app/serwist/sw.js.body",
+        wiredWorker(DEFAULT_MANIFEST).replace(`"${dropped}"`, '"gone"'),
+      );
+      expect(failures(), dropped).toEqual([
+        "1c. every runtime cache rule reached the worker bundle",
+      ]);
+    }
+  });
+
+  it("fails when the offline page is no longer warmed", () => {
+    // A document rule with no fallback still caches, still serves visited
+    // pages, and answers an unvisited one with a browser error page — the
+    // regression that looks like nothing at all until someone is offline.
+    writeGoodBuild();
+    write(
+      "server/app/serwist/sw.js.body",
+      wiredWorker(DEFAULT_MANIFEST).replace(OFFLINE_FALLBACK_URL, "/nothing"),
+    );
+    expect(failures()).toEqual([
+      "1c. every runtime cache rule reached the worker bundle",
+    ]);
+  });
+
   it("fails when the manifest carries no build output", () => {
     // A manifest of only public/ assets means the app shell itself is not
     // precached — offline would load icons and nothing else.
     writeGoodBuild();
     write(
       "server/app/serwist/sw.js.body",
-      'var y=[{url:"/icons/icon-192.png",revision:null}];',
+      wiredWorker('[{url:"/icons/icon-192.png",revision:null}]'),
     );
     expect(failures()).toEqual([
       "2b. the manifest contains _next/static chunks",

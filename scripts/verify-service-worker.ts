@@ -24,6 +24,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { CONTENT_ARTIFACT_URL_PREFIX } from "../modules/content/constants";
+import { CACHE_NAMES, OFFLINE_FALLBACK_URL } from "../modules/pwa/cache-rules";
 
 /**
  * Everything the route is allowed to serve (§6 criterion 1, the "and nothing
@@ -95,6 +96,26 @@ function emittedFilesCheck(distDir: string): Check {
   };
 }
 
+/**
+ * Every runtime cache rule, and the offline page, present in the bundle.
+ *
+ * Names come from `cache-rules.ts` rather than being listed again here, so
+ * adding a rule extends this check for free and renaming one cannot leave it
+ * asserting a token nothing emits.
+ */
+function wiringCheck(source: string): Check {
+  const expected = [...Object.values(CACHE_NAMES), OFFLINE_FALLBACK_URL];
+  const missing = expected.filter((token) => !source.includes(token));
+  return {
+    name: "1c. every runtime cache rule reached the worker bundle",
+    ok: missing.length === 0,
+    detail:
+      missing.length === 0
+        ? `all ${expected.length} present`
+        : `MISSING: ${missing.join(", ")}`,
+  };
+}
+
 function workerChecks(distDir: string): Check[] {
   const body = join(distDir, "server", "app", "serwist", "sw.js.body");
   if (!existsSync(body)) {
@@ -124,6 +145,17 @@ function workerChecks(distDir: string): Check[] {
       detail: `${source.length} bytes`,
     },
     emittedFilesCheck(distDir),
+    // Not one of §6's four criteria — added when slice 10 wired the rules.
+    //
+    // `modules/pwa/cache-rules.ts` is thoroughly unit-tested, and every one of
+    // those tests passes just as well if `sw.ts` stops importing it. The unit
+    // suite proves the rules are RIGHT; nothing in it proves they are REACHED.
+    // A cache name is a unique token that only appears in the bundle because a
+    // handler was constructed with it, so its absence means that rule is gone.
+    //
+    // Slice 12's offline E2E is the real proof — this is the version that
+    // fails in seconds, in CI, on the build that broke it.
+    wiringCheck(source),
     // The injection point must have been REPLACED, not merely present: an
     // unreplaced `self.__SW_MANIFEST` still builds, still runs, and precaches
     // nothing at all.

@@ -33,12 +33,18 @@ vi.mock("@/modules/sync/client/logout", () => ({
 const fakeDb = { name: "fake" };
 vi.mock("@/modules/content/db", () => ({ getSafwaDb: () => fakeDb }));
 
+const toastMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: (...args: unknown[]) => toastMock(...args),
+}));
+
 import { SignOutButton } from "@/components/account/sign-out-button";
 import { LAST_KNOWN_OWNER_STORAGE_KEY } from "@/modules/auth/last-known-owner";
 
 beforeEach(() => {
   signOutMock.mockClear();
   clearAccountLocalStateMock.mockClear();
+  toastMock.mockClear();
   localStorage.setItem("theme", "dark");
   localStorage.setItem("safwa:settings:arabic-font-scale", "large");
 });
@@ -106,5 +112,48 @@ describe("SignOutButton", () => {
     await waitFor(() =>
       expect(localStorage.getItem(LAST_KNOWN_OWNER_STORAGE_KEY)).toBeNull(),
     );
+  });
+
+  describe("when the server sign-out itself fails (Phase 18)", () => {
+    // The case an offline-capable app has to handle: someone on a shared
+    // device signing out with no connection. Before Phase 18 a throw here
+    // skipped every local sweep; now the sweeps run first and the error is
+    // rethrown last, so the device is safe to hand over either way.
+    beforeEach(() => {
+      signOutMock.mockRejectedValueOnce(new Error("offline"));
+    });
+
+    it("clears local state anyway", async () => {
+      localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, SIGNED_IN_USER_ID);
+      render(<SignOutButton />);
+      fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+
+      await waitFor(() =>
+        expect(clearAccountLocalStateMock).toHaveBeenCalled(),
+      );
+      expect(localStorage.getItem(LAST_KNOWN_OWNER_STORAGE_KEY)).toBeNull();
+      expect(localStorage.getItem("theme")).toBeNull();
+    });
+
+    it("tells the learner, rather than silently returning to idle", async () => {
+      render(<SignOutButton />);
+      fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+
+      await waitFor(() => expect(toastMock).toHaveBeenCalledOnce());
+      // The message has to be the narrow truth: this device IS clean, and it
+      // is the server session that may not be. "Sign-out failed" would be
+      // wrong and would push someone into re-trying on a device that is
+      // already safe to hand over.
+      const [title, options] = toastMock.mock.calls[0]!;
+      expect(String(title)).toMatch(/signed out on this device/i);
+      expect(String((options as { description?: string }).description)).toMatch(
+        /may still be open on others/i,
+      );
+      // And nothing internal reaches the learner.
+      expect(JSON.stringify(toastMock.mock.calls)).not.toContain("offline");
+      await waitFor(() =>
+        expect(screen.getByRole("button")).not.toBeDisabled(),
+      );
+    });
   });
 });

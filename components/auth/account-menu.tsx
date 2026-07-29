@@ -29,6 +29,7 @@
 import { LogOut, User, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { signOutAndClearLocalState } from "@/components/account/sign-out-action";
 import { useLocalOwner } from "@/components/sync/use-local-owner";
@@ -107,6 +108,13 @@ export function AccountMenu() {
       // account's local state on a shared device (SEC-002-T15d), exactly like
       // the /account page button.
       await signOutAndClearLocalState(departingUserId);
+    } catch {
+      // Server call failed; the local sweeps ran regardless (Phase 18). Same
+      // message as the /account button, because it is the same situation.
+      toast("Signed out on this device", {
+        description:
+          "We couldn't reach the server, so your session may still be open on others. Try again once you're back online.",
+      });
     } finally {
       setSigningOut(false);
     }

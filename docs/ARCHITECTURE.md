@@ -108,7 +108,11 @@ apps (single Next.js app)
 │                          from the root tsconfig and checked by
 │                          `tsconfig.sw.json` — `pnpm typecheck` runs both
 │                          passes. Keep the entry thin; testable logic goes in
-│                          sibling files the main program can still see.
+│                          sibling files the main program can still see —
+│                          `cache-rules.ts` (which rule a request gets, and the
+│                          registration order it is wired in) and
+│                          `cache-storage.ts` (the offline-page warm, and the
+│                          sign-out sweep the app side calls).
 │                          See `modules/pwa/README.md`.
 ├── modules/admin          (phase 21) content operations
 └── shared/arabic          normalisation, natural keys, extraction helpers
