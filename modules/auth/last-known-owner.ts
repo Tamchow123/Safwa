@@ -154,9 +154,14 @@ export function rememberLastKnownOwner(
  * leave a stale owner behind, and this is the sign-out and account-deletion
  * path — the one place a stale owner matters most, because on a shared device
  * the next person's offline writes would be stamped with the departing
- * account's key. Callers that can act on the failure (T4's sign-out) should;
- * callers that cannot may ignore the result, which is why this stays total
- * rather than throwing.
+ * account's key.
+ *
+ * The second of those failures gets a real second attempt (see below), and it
+ * lives HERE rather than at either call site, so sign-out and account deletion
+ * cannot drift apart in how hard they try. `false` means every avenue this
+ * module has was tried and the memory may still be readable; there is nothing
+ * further a caller can do about it, which is why this stays total rather than
+ * throwing.
  */
 export function forgetLastKnownOwner(
   storage: LastKnownOwnerStorage | null = ambientStorage(),
@@ -164,6 +169,19 @@ export function forgetLastKnownOwner(
   if (!storage) return false;
   try {
     storage.removeItem(LAST_KNOWN_OWNER_STORAGE_KEY);
+    if (readStoredOwner(storage) === null) return true;
+  } catch {
+    return false;
+  }
+
+  // The delete returned normally and the value is STILL there. Repeating the
+  // same call would do the same nothing, so NEUTRALISE it instead: an empty
+  // string can never be a valid owner account id, so every reader — which
+  // re-validates, always — treats it as no memory at all. This is a different
+  // operation against the same store, which is the only reason it might
+  // succeed where the delete silently did not.
+  try {
+    storage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, "");
     return readStoredOwner(storage) === null;
   } catch {
     return false;
