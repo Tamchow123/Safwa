@@ -36,7 +36,7 @@ import {
   useState,
 } from "react";
 
-import { useSession } from "@/modules/auth/client";
+import { useLocalOwner } from "@/components/sync/use-local-owner";
 import { getSafwaDb } from "@/modules/content/db";
 import { getOrCreateDeviceProfile } from "@/modules/profile/device";
 import {
@@ -140,24 +140,34 @@ function guestStatus(): SyncStatus {
 
 /**
  * The status shown for a signed-in account before its controller's first
- * notification — we have just kicked off a bootstrap sync, so `syncing` is the
- * honest placeholder (the controller replaces it on its first notify, which
- * always fires, even on the offline/guest early-return paths).
+ * notification. `running` is conditioned on being online: a bootstrap sync has
+ * been kicked off, so `syncing` is the honest placeholder for a device that can
+ * actually reach the server — but claiming it while OFFLINE would be a claim
+ * about the network, and `running` outranks `offline` in the precedence order,
+ * so the placeholder would hide the very thing the learner needs to see. The
+ * controller replaces this on its first notify either way (it always fires,
+ * even on the offline early-return path); this is about the moment before that.
  */
 function initialSignedInStatus(): SyncStatus {
+  const online = onlineNow();
   return deriveSyncStatus({
     enabled: true,
     authenticated: true,
-    online: onlineNow(),
-    running: true,
+    online,
+    running: online,
     pendingCount: 0,
     needsAttention: false,
   });
 }
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const session = useSession();
-  const userId = session.data?.user?.id ?? null;
+  // Phase 18: the LOCAL OWNER, not a raw `useSession()` read. On an offline
+  // cold boot the session resolves to `unknown`, which `data?.user?.id ?? null`
+  // reported as a guest — so no controller was built, no trigger ever fired,
+  // and the indicator claimed `guest` to a learner who was signed in. Going
+  // through the classifier means the controller exists, the queue drains on
+  // reconnect, and the status reads `offline`, which is the true thing.
+  const userId = useLocalOwner();
 
   // Only the signed-in status lives in state (set via the controller's async
   // subscription); the guest status is derived at render, so the effect never
@@ -215,6 +225,34 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         void controller?.sync("session-end");
       }
     };
+    // iOS Safari does not reliably fire `visibilitychange` when the app is
+    // backgrounded or killed — `pagehide` is the event that is actually
+    // dispatched there, and it is the last moment this document is guaranteed
+    // to run code. Without it, a learner who studies offline in an installed
+    // PWA and swipes away loses the session-end flush entirely.
+    //
+    // Safe beside the visibilitychange handler rather than instead of it: on
+    // desktop both can fire for one backgrounding, and the controller delegates
+    // to the coalescing `runSync`, so overlapping triggers join the one
+    // in-flight run. No debounce of our own is needed or wanted.
+    const onPageHide = (): void => {
+      stopInterval();
+      void controller?.sync("session-end");
+    };
+    // The other half of `pagehide`, and not optional once it exists. A page
+    // restored from the back/forward cache — which is what an installed iOS
+    // PWA returning to the foreground looks like — resumes the SAME JavaScript
+    // heap, so this effect never re-runs and nothing rebuilds itself. It fires
+    // `pageshow`; `visibilitychange` is not guaranteed, which is the very
+    // unreliability that made `pagehide` necessary above. Without this, the
+    // interval that `pagehide` stopped stays stopped and the indicator freezes
+    // on its pre-background status while fresh reviews queue up unreported.
+    const onPageShow = (): void => {
+      if (document.visibilityState === "visible") {
+        void controller?.sync("visible");
+        startInterval();
+      }
+    };
     const onOnline = (): void => {
       void controller?.sync("online");
     };
@@ -244,6 +282,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         });
 
         document.addEventListener("visibilitychange", onVisibility);
+        window.addEventListener("pagehide", onPageHide);
+        window.addEventListener("pageshow", onPageShow);
         window.addEventListener("online", onOnline);
         startInterval();
         void controller.sync("bootstrap");
@@ -271,6 +311,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       disposed = true;
       stopInterval();
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("online", onOnline);
       unsubscribe();
       controllerRef.current = null;
@@ -278,14 +320,31 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   }, [userId, retryToken]);
 
   const retry = useCallback((): void => {
-    if (controllerRef.current) {
-      void controllerRef.current.sync("manual");
-    } else if (userId !== null) {
-      // No controller (device-id mint failed): re-run the effect to re-attempt
-      // building it, so the attention-state retry actually recovers (§20).
+    if (userId === null) return; // Guest: guests never call the server.
+
+    // Rebuild rather than re-call ONLY when the controller has nothing left to
+    // give. Two cases: the device-id mint failed so there is no controller at
+    // all (§20), or an `auth_lost`/`invalidated` outcome set the permanent
+    // back-off — and `sync()` discards its `reason`, so a "manual" call through
+    // a stopped controller returns immediately without attempting anything,
+    // leaving the app's own visible remedy inert. Rebuilding is self-limiting:
+    // the effect re-reads the owner, so a session that has since resolved to
+    // guest builds nothing.
+    //
+    // Asked of the controller rather than inferred from an `attention` status,
+    // which cannot answer it: `attention` also covers a plain recoverable
+    // failure and a dead-letter backlog, and rebuilding for either would
+    // discard an accurate `deadLetterCount` for a fresh controller's zero —
+    // which, if the device is offline at that moment, its bootstrap never
+    // refreshes. A learner tapping retry on a permanent failure would watch it
+    // soften to "offline" while nothing had been resolved (R2-F6).
+    const controller = controllerRef.current;
+    if (controller === null || controller.isStopped()) {
       setRetryToken((token) => token + 1);
+      return;
     }
-    // Guest (userId null): retry is a no-op — guests never call the server.
+
+    void controller.sync("manual");
   }, [userId]);
 
   // Stable so a study runner can list it as an effect dependency without churn.
