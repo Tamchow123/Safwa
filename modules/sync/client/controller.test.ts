@@ -167,6 +167,87 @@ describe("createSyncController", () => {
     });
   });
 
+  describe("isStopped — can this instance still act?", () => {
+    // The provider offers a manual retry and has to choose between calling this
+    // controller again and replacing it. `attention` cannot answer that: it
+    // covers a recoverable failure, a dead-letter backlog AND the permanent
+    // stop alike. Replacing a controller that could still act would discard its
+    // accurate counts for a fresh instance's zeroes (R2-F6), so the distinction
+    // has to come from here.
+    it("is false for a fresh controller", () => {
+      expect(createSyncController(makeDeps()).isStopped()).toBe(false);
+    });
+
+    it("is true after an auth_lost outcome, which no reason gets past", async () => {
+      const deps = makeDeps({
+        run: vi.fn(async () => ({ outcome: "auth_lost" }) as SyncRunResult),
+      });
+      const controller = createSyncController(deps);
+
+      await controller.sync("bootstrap");
+
+      expect(controller.isStopped()).toBe(true);
+      // Not merely "automatic runs": an explicitly manual one is refused too,
+      // which is exactly why only a rebuild can recover this state.
+      expect(await controller.sync("manual")).toBeNull();
+      expect(deps.run).toHaveBeenCalledTimes(1);
+    });
+
+    it("is true after an invalidated outcome", async () => {
+      const controller = createSyncController(
+        makeDeps({
+          run: vi.fn(async () => ({ outcome: "invalidated" }) as SyncRunResult),
+        }),
+      );
+
+      await controller.sync("periodic");
+
+      expect(controller.isStopped()).toBe(true);
+    });
+
+    it("stays false for a recoverable failure that reports attention", async () => {
+      const controller = createSyncController(
+        makeDeps({
+          run: vi.fn(async () => ({ outcome: "retry" }) as SyncRunResult),
+        }),
+      );
+
+      await controller.sync("periodic");
+
+      expect(controller.getStatus().kind).toBe("attention");
+      expect(controller.isStopped()).toBe(false);
+    });
+
+    it("stays false for a dead-letter backlog that reports attention", async () => {
+      const controller = createSyncController(
+        makeDeps({ countDeadLetter: vi.fn(async () => 2) }),
+      );
+
+      await controller.sync("bootstrap");
+
+      // A successful run, so nothing is backed off — but the permanent
+      // rejections still force the honest attention state.
+      expect(controller.getStatus().kind).toBe("attention");
+      expect(controller.isStopped()).toBe(false);
+    });
+
+    it("stays false when a disabled server backs the controller off", async () => {
+      // `disabled` is a separate lever from `stopped`: the server said there is
+      // nothing to do, not that this instance is broken. A rebuild would change
+      // nothing, so the provider must not be told to attempt one.
+      const controller = createSyncController(
+        makeDeps({
+          run: vi.fn(async () => ({ outcome: "disabled" }) as SyncRunResult),
+        }),
+      );
+
+      await controller.sync("bootstrap");
+
+      expect(controller.getStatus().kind).toBe("disabled");
+      expect(controller.isStopped()).toBe(false);
+    });
+  });
+
   describe("in-flight status", () => {
     it("announces syncing at the START of a run, before it settles", async () => {
       // A run that stays pending until we resolve it — modelling a slow pull.
