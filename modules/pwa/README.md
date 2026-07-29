@@ -5,12 +5,14 @@ the runtime cache rules it applies.
 
 ## Files
 
-| File               | Runs in             | Purpose                                                                                                                |
-| ------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `sw.ts`            | **worker scope**    | the service-worker entry point — deliberately thin, see below                                                          |
-| `cache-rules.ts`   | both                | which rule a **request** gets, as pure predicates plus the names, bounds and registration order they are wired with    |
-| `cache-policy.ts`  | both                | which **response** may then be written to the two server-rendered caches, and for how long — the confidentiality guard |
-| `cache-storage.ts` | worker **and** page | the three Cache Storage operations: warm the offline page, read it, and drop the account-sensitive caches on sign-out  |
+| File               | Runs in             | Purpose                                                                                                                                            |
+| ------------------ | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sw.ts`            | **worker scope**    | the service-worker entry point — deliberately thin, see below                                                                                      |
+| `cache-rules.ts`   | both                | which rule a **request** gets, as pure predicates plus the names, bounds and registration order they are wired with                                |
+| `cache-policy.ts`  | both                | which **response** may then be written to the two server-rendered caches, and for how long — the confidentiality guard                             |
+| `cache-storage.ts` | worker **and** page | the Cache Storage operations: warm the offline page, read it, drop the account-sensitive caches on sign-out, and drop them all for the kill switch |
+| `registration.ts`  | page                | whether this build registers, unregisters, or reloads — the update strategy and the kill switch                                                    |
+| `install-hint.ts`  | page                | whether to offer installing the app, and by which of the two mechanisms                                                                            |
 
 `cache-rules.ts` and `cache-policy.ts` are split because they answer to
 different owners. The first is a routing table; the second is where "what can
@@ -156,6 +158,76 @@ Two consequences worth knowing:
   relevant changed. With `skipWaiting` + `clientsClaim` still set, that means
   every deploy claims open tabs — which is why slice 11 has to decide the
   update strategy rather than inherit it.
+
+## Registration, the update strategy, and the kill switch
+
+`components/pwa/service-worker-provider.tsx` is mounted in the **root** layout,
+not the shell's — `(auth)` is a sibling route group, and someone who lands on
+`/sign-in` first would otherwise reach the app with no worker registered. It
+decides nothing; `registration.ts` does.
+
+**`NEXT_PUBLIC_SW_ENABLED` is a tri-state, not a boolean.** Unset means on in a
+production build and off otherwise, which keeps a worker out of `next dev` and
+out of the four Playwright configs that predate this phase. `true` forces it on
+(slice 12's offline config is the one place a worker must run outside a real
+deploy). `false` **unregisters and clears the caches** — and that active undo is
+the whole point: a worker is installed on the device, not shipped with the page,
+so a build that merely stopped calling `register()` would leave the previous one
+in control forever and `docs/DEPLOYMENT.md` §8's "unregister SW" step would be a
+sentence rather than a mechanism. Anything unrecognised is treated as unset, not
+as off: a typo silently disabling offline support in production is the worse
+failure, and it is invisible until someone loses their connection.
+
+Both halves enumerate, for the same reason: the rollback exists for the case
+where something **unexpected** is installed, so neither half may depend on the
+installed thing matching today's constants. `unregisterServiceWorkers` uses
+`getRegistrations()` rather than the scope this build knows, and
+`clearAllAppCaches` uses `caches.keys()` rather than the seven names in
+`CACHE_NAMES`.
+
+The cache sweep is separate and necessary because **`unregister()` does not
+empty Cache Storage**. Cache Storage belongs to the origin, not to the
+registration; Serwist's precache is pruned by a _new_ worker's activate-time
+cleanup, which a rollback never runs because it installs no replacement. A kill
+switch that only unregistered would leave every cache the worker ever wrote on
+the device, inert and unreclaimable, until someone turned the worker back on.
+
+They are also **not chained** — the call
+`components/account/deleted-account-cleanup.tsx` already makes, for the same
+reason. They touch different stores, so neither depends on the other, and
+sequencing them would let an unregistration that hangs rather than rejects take
+the cache sweep down with it silently.
+
+`clearOwnerSensitiveCaches` stays narrow for the opposite reason: over-deleting
+during a rollback costs a re-download, which is what a rollback implies, while
+over-deleting on an ordinary sign-out costs the next learner on a shared device
+the whole app.
+
+**The update strategy is a reload.** `sw.ts` sets `skipWaiting` +
+`clientsClaim`, and every build produces a new worker (see the section above),
+so a new worker claims open tabs on every deploy. `shouldReloadOnControllerChange`
+reloads when a worker takes over a page that **already had one** — never on the
+first worker a page gets, which is every first visit, and never twice. The cost
+is at most the current unanswered question: `modules/study-session/persistence.ts`
+writes each graded attempt, its review event and the replayed scheduling state
+atomically before the next question renders. The alternative — an open tab
+running the old build's JS under the new precache — is a cache miss on the next
+lazily-loaded route, which offline is a broken route.
+
+## Two install mechanisms, because there are two
+
+Chromium fires `beforeinstallprompt` and hands the page an object that can
+trigger the real flow. WebKit implements none of it, on any iOS browser — the
+app is still installable there, but only through Share → Add to Home Screen,
+which a page can describe and cannot trigger. So iOS gets a different answer,
+not a degraded version of the same one.
+
+That is also why `install-hint.ts` sniffs the user agent, which is normally the
+wrong tool: the thing being detected genuinely is the platform, and there is no
+feature to test for, because the whole signal is the _absence_ of an event and
+absence is indistinguishable from "not yet". iPadOS 13+ reports a desktop
+Macintosh UA, so an iPad is recognised by a Mac-like UA that also reports touch
+points.
 
 ## Content artifacts are excluded from the precache manifest
 

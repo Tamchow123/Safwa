@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Noto_Naskh_Arabic } from "next/font/google";
+import { ServiceWorkerProvider } from "@/components/pwa/service-worker-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/lib/site";
@@ -84,6 +85,12 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
+          {/*
+            In the ROOT layout, not the shell's: `(auth)` is a sibling route
+            group, and a learner who arrives at /sign-in first would otherwise
+            reach the app with no worker registered. Renders nothing.
+          */}
+          <ServiceWorkerProvider />
         </ThemeProvider>
       </body>
     </html>

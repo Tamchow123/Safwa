@@ -164,15 +164,16 @@ const serwist = new Serwist({
   // until they happen to close the last tab, which is indistinguishable from
   // "the update did not install".
   //
-  // OPEN QUESTION FOR SLICE 11, recorded here because this is where the
-  // decision is made: together these claim already-open tabs the instant a new
-  // worker activates, with no reload. A tab left open across a deploy then
-  // runs old page JS against a new precache, and if it is mid-quiz with an
-  // unsynced review event the version skew has no defined recovery path.
-  // Vercel keeps previous deployments' hashed assets reachable, which blunts
-  // it, but slice 11 owns registration and must decide explicitly: silent
-  // takeover, a `controllerchange`-triggered reload, or deferring control
-  // while `runSync` has a push in flight.
+  // ANSWERED IN SLICE 11, recorded here because this is where the takeover is
+  // configured. Together these claim already-open tabs the instant a new
+  // worker activates, with no reload — so a tab left open across a deploy runs
+  // old page JS against a new precache. Slice 11 takes the reload:
+  // `shouldReloadOnControllerChange` in `modules/pwa/registration.ts` reloads
+  // the page when a NEW worker takes over one that already had a controller,
+  // which costs at most the current unanswered question (every graded attempt
+  // is already durable) and is the only option that leaves no window in which
+  // a lazily-loaded chunk is missing offline. That function's docblock carries
+  // the full reasoning and the alternatives that were rejected.
   skipWaiting: true,
   clientsClaim: true,
   // Enabled HERE and not in slice 9, because the payoff needs a route that

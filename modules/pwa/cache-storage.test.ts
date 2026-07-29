@@ -6,6 +6,8 @@ import {
   OWNER_SENSITIVE_CACHE_NAMES,
 } from "@/modules/pwa/cache-rules";
 import {
+  clearAllAppCaches,
+  clearAllAppCachesIfAvailable,
   clearOwnerSensitiveCaches,
   clearOwnerSensitiveCachesIfAvailable,
   readOfflineFallback,
@@ -40,7 +42,11 @@ const EXPECTED_URL = `https://safwa.example${OFFLINE_FALLBACK_URL}`;
  * Implementing the rest would add fifty lines that no test could reach.
  */
 function createObservableStorage(
-  options: { addFails?: boolean; deleteFails?: string } = {},
+  options: {
+    addFails?: boolean;
+    deleteFails?: string;
+    keysFails?: boolean;
+  } = {},
 ) {
   const contents = new Map<string, Map<string, Response>>();
   const added: Request[] = [];
@@ -66,6 +72,10 @@ function createObservableStorage(
     delete: async (name: string) => {
       if (options.deleteFails === name) throw new Error("blocked");
       return contents.delete(name);
+    },
+    keys: async () => {
+      if (options.keysFails) throw new Error("blocked");
+      return [...contents.keys()];
     },
   } as unknown as CacheStorage;
 
@@ -265,5 +275,100 @@ describe("the wrapper both departure paths call", () => {
     await expect(
       clearOwnerSensitiveCachesIfAvailable(),
     ).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * The kill switch's second half (slice 11).
+ *
+ * Unregistering the worker stops it intercepting; it does **not** empty Cache
+ * Storage, because the caches belong to the origin rather than to the
+ * registration and nothing about removing a registration touches them. Serwist's
+ * precache is pruned by a NEW worker's activate-time cleanup, which a rollback
+ * never runs because it installs no replacement — so this function is the only
+ * thing that removes anything.
+ */
+describe("clearing every cache, for the kill switch", () => {
+  const globals = globalThis as { caches?: CacheStorage };
+  const original = Object.getOwnPropertyDescriptor(globalThis, "caches");
+
+  afterEach(() => {
+    if (original) Object.defineProperty(globalThis, "caches", original);
+    else delete globals.caches;
+  });
+
+  const withEveryCache = async () => {
+    const fake = createObservableStorage();
+    for (const name of Object.values(CACHE_NAMES))
+      await fake.storage.open(name);
+    return fake;
+  };
+
+  it("deletes all seven, not just the account-sensitive two", async () => {
+    const { storage, contents } = await withEveryCache();
+    const deleted = await clearAllAppCaches(storage);
+    expect(deleted.sort()).toEqual(Object.values(CACHE_NAMES).sort());
+    expect(contents.size).toBe(0);
+    // And the sign-out sweep is still the narrow one — an ordinary sign-out
+    // must not make the next learner on a shared device re-download the app.
+    expect(OWNER_SENSITIVE_CACHE_NAMES.length).toBeLessThan(
+      Object.values(CACHE_NAMES).length,
+    );
+  });
+
+  it("removes a cache this module has never heard of", async () => {
+    // Serwist's precache is the concrete case, and it is the reason the sweep
+    // enumerates: unregistering does NOT remove it, and no replacement worker
+    // will ever activate to clean it up, so a named-caches-only sweep would
+    // leave it on the device permanently. The same reasoning covers a cache
+    // written by a build that is being rolled back precisely because nobody
+    // knows quite what it did.
+    const { storage, contents } = await withEveryCache();
+    await storage.open("serwist-precache-v2-https://safwa.example/");
+    await clearAllAppCaches(storage);
+    expect(contents.size).toBe(0);
+  });
+
+  it("falls back to the names it knows when it cannot enumerate", async () => {
+    // Partial is better than nothing, and the difference shows in the return
+    // value rather than being swallowed.
+    const fake = createObservableStorage({ keysFails: true });
+    for (const name of Object.values(CACHE_NAMES))
+      await fake.storage.open(name);
+    await fake.storage.open("unknown-to-this-module");
+    const deleted = await clearAllAppCaches(fake.storage);
+    expect(deleted.sort()).toEqual(Object.values(CACHE_NAMES).sort());
+    expect([...fake.contents.keys()]).toEqual(["unknown-to-this-module"]);
+  });
+
+  it("keeps going when one cache refuses", async () => {
+    const fake = createObservableStorage({
+      deleteFails: CACHE_NAMES.documents,
+    });
+    for (const name of Object.values(CACHE_NAMES))
+      await fake.storage.open(name);
+    const deleted = await clearAllAppCaches(fake.storage);
+    expect(deleted).not.toContain(CACHE_NAMES.documents);
+    expect(deleted).toHaveLength(Object.values(CACHE_NAMES).length - 1);
+  });
+
+  it("degrades to nothing where Cache Storage does not exist", async () => {
+    delete globals.caches;
+    await expect(clearAllAppCachesIfAvailable()).resolves.toEqual([]);
+  });
+
+  it("never propagates a failure through the wrapper", async () => {
+    Object.defineProperty(globalThis, "caches", {
+      value: {
+        delete: async () => {
+          throw new Error("storage blocked");
+        },
+      } as unknown as CacheStorage,
+      configurable: true,
+    });
+    // The inner loop already swallows per-cache failures, so this asserts the
+    // outer guard: a `caches` whose own property access or shape is broken must
+    // still not throw into the effect that calls it.
+    await expect(clearAllAppCachesIfAvailable()).resolves.toEqual([]);
   });
 });
