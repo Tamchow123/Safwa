@@ -1,24 +1,28 @@
 import { defineConfig, devices } from "@playwright/test";
 import { E2E_MAIN_BASE_URL, mainServerEnv } from "./e2e/helpers/e2e-server-env";
 
-// e2e/auth-disabled.spec.ts (§60.2) and e2e/auth-rate-limit.spec.ts (§60.7)
-// each need a `next dev` instance booted with a DIFFERENT AUTH_ENABLED /
-// rate-limit configuration than every other spec (both are read once and
-// memoised per server process — modules/env/server.ts). `next dev` also
-// refuses to run a second concurrent instance from the same project
-// directory at all, regardless of port ("Another next dev server is
-// already running") — so a single Playwright config cannot run three
-// simultaneous webServers here. Each of those two specs instead has its
-// own SEPARATE Playwright config (playwright.auth-disabled.config.ts,
-// playwright.auth-rate-limit.config.ts) with its own single webServer;
-// `pnpm test:e2e` runs all three configs one after another (never
-// overlapping), and this config explicitly ignores both files so they are
-// never accidentally picked up here too.
+// Several specs each need a `next dev` instance booted with a DIFFERENT
+// environment than every other spec — auth-disabled (§60.2), auth-rate-limit
+// (§60.7), sync-disabled (phases-16.md §16) and signup-closed (phases-18.md
+// §5 slice 6). Every one of those variables is read once and memoised per
+// server process (modules/env/server.ts), and `next dev` refuses to run a
+// second concurrent instance from the same project directory at all,
+// regardless of port ("Another next dev server is already running") — so a
+// single Playwright config cannot run several simultaneous webServers here.
+// Each of those specs instead has its own SEPARATE Playwright config with its
+// own single webServer; `pnpm test:e2e` runs every config one after another
+// (never overlapping), and this config explicitly ignores those files so they
+// are never accidentally picked up here too.
 const SPECIAL_SERVER_SPECS = [
   /e2e\/auth-disabled\.spec\.ts/,
   /e2e\/auth-rate-limit\.spec\.ts/,
   // Runs against its own SYNC_ENABLED=false server (playwright.sync-disabled.config.ts).
   /e2e\/sync-disabled\.spec\.ts/,
+  // Runs against its own SIGNUP_ALLOWED_EMAILS server
+  // (playwright.signup-closed.config.ts). It MUST be ignored here: this
+  // server leaves sign-up open, so every one of that spec's refusals would
+  // instead register an account and the spec would fail for the wrong reason.
+  /e2e\/signup-closed\.spec\.ts/,
 ];
 
 export default defineConfig({

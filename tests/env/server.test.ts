@@ -193,109 +193,229 @@ describe("getServerEnv", () => {
   });
 
   describe("production invariants", () => {
-    it("rejects a short BETTER_AUTH_SECRET in production", () => {
+    /**
+     * A production configuration that passes every invariant. Each test below
+     * overrides exactly the one thing it is about, so what a case is actually
+     * testing is the diff from here — and adding a new invariant means adding
+     * it here once rather than to a dozen near-identical literals.
+     */
+    function setProductionEnv(
+      overrides: Record<string, string | undefined> = {},
+    ) {
       setEnv({
         NODE_ENV: "production",
+        BETTER_AUTH_SECRET: "a".repeat(32),
         BETTER_AUTH_URL: "https://safwa.example.com",
         NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
         EMAIL_TRANSPORT: "resend",
         RESEND_API_KEY: "re_test",
         EMAIL_FROM: "noreply@safwa.example.com",
+        SIGNUP_ALLOWED_EMAILS: "owner@safwa.example.com",
+        ...overrides,
       });
+    }
+
+    it("rejects a short BETTER_AUTH_SECRET in production", () => {
+      setProductionEnv({ BETTER_AUTH_SECRET: "too-short" });
       expect(() => getServerEnv()).toThrow(/BETTER_AUTH_SECRET/);
     });
 
     it("rejects a non-https BETTER_AUTH_URL in production", () => {
-      setEnv({
-        NODE_ENV: "production",
-        BETTER_AUTH_SECRET: "a".repeat(32),
-        BETTER_AUTH_URL: "http://safwa.example.com",
-        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-        EMAIL_TRANSPORT: "resend",
-        RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "noreply@safwa.example.com",
-      });
+      setProductionEnv({ BETTER_AUTH_URL: "http://safwa.example.com" });
       expect(() => getServerEnv()).toThrow(/BETTER_AUTH_URL/);
     });
 
     it("rejects console-file transport in production without the escape hatch", () => {
-      setEnv({
-        NODE_ENV: "production",
-        BETTER_AUTH_SECRET: "a".repeat(32),
-        BETTER_AUTH_URL: "https://safwa.example.com",
-        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
+      setProductionEnv({
         EMAIL_TRANSPORT: "console-file",
+        RESEND_API_KEY: undefined,
+        EMAIL_FROM: undefined,
       });
       expect(() => getServerEnv()).toThrow(/console-file/);
     });
 
     it("allows console-file transport in production with the explicit escape hatch", () => {
-      setEnv({
-        NODE_ENV: "production",
-        BETTER_AUTH_SECRET: "a".repeat(32),
-        BETTER_AUTH_URL: "https://safwa.example.com",
-        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
+      setProductionEnv({
         EMAIL_TRANSPORT: "console-file",
+        RESEND_API_KEY: undefined,
+        EMAIL_FROM: undefined,
         ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION: "true",
       });
       expect(getServerEnv().emailTransport).toBe("console-file");
     });
 
     it("requires RESEND_API_KEY and EMAIL_FROM when EMAIL_TRANSPORT=resend in production", () => {
-      setEnv({
-        NODE_ENV: "production",
-        BETTER_AUTH_SECRET: "a".repeat(32),
-        BETTER_AUTH_URL: "https://safwa.example.com",
-        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-        EMAIL_TRANSPORT: "resend",
-      });
+      setProductionEnv({ RESEND_API_KEY: undefined, EMAIL_FROM: undefined });
       expect(() => getServerEnv()).toThrow(/RESEND_API_KEY/);
     });
 
     it("accepts a fully valid production configuration", () => {
-      setEnv({
-        NODE_ENV: "production",
-        BETTER_AUTH_SECRET: "a".repeat(32),
-        BETTER_AUTH_URL: "https://safwa.example.com",
-        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-        EMAIL_TRANSPORT: "resend",
-        RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "noreply@safwa.example.com",
-      });
+      setProductionEnv();
       const env = getServerEnv();
       expect(env.nodeEnv).toBe("production");
       expect(env.emailTransport).toBe("resend");
       expect(env.syncEnabled).toBe(true);
+      expect(env.signupAllowedEmails).toEqual(["owner@safwa.example.com"]);
     });
 
     it("rejects SYNC_ENABLED=true with AUTH_ENABLED=false in production", () => {
-      setEnv({
-        NODE_ENV: "production",
-        BETTER_AUTH_SECRET: "a".repeat(32),
-        BETTER_AUTH_URL: "https://safwa.example.com",
-        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-        EMAIL_TRANSPORT: "resend",
-        RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "noreply@safwa.example.com",
-        AUTH_ENABLED: "false",
-        SYNC_ENABLED: "true",
-      });
+      setProductionEnv({ AUTH_ENABLED: "false", SYNC_ENABLED: "true" });
       expect(() => getServerEnv()).toThrow(/SYNC_ENABLED/);
     });
 
     it("accepts SYNC_ENABLED=false with AUTH_ENABLED=false in production", () => {
-      setEnv({
-        NODE_ENV: "production",
-        BETTER_AUTH_SECRET: "a".repeat(32),
-        BETTER_AUTH_URL: "https://safwa.example.com",
-        NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-        EMAIL_TRANSPORT: "resend",
-        RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "noreply@safwa.example.com",
-        AUTH_ENABLED: "false",
-        SYNC_ENABLED: "false",
-      });
+      setProductionEnv({ AUTH_ENABLED: "false", SYNC_ENABLED: "false" });
       expect(getServerEnv().syncEnabled).toBe(false);
+    });
+
+    describe("sign-up fails closed", () => {
+      it("rejects an unset SIGNUP_ALLOWED_EMAILS in production", () => {
+        setProductionEnv({ SIGNUP_ALLOWED_EMAILS: undefined });
+        expect(() => getServerEnv()).toThrow(/SIGNUP_ALLOWED_EMAILS/);
+      });
+
+      it("rejects a blank SIGNUP_ALLOWED_EMAILS in production", () => {
+        // Blank parses to `null` (= not configured), which must reach the same
+        // refusal as an absent variable rather than reading as an empty list.
+        setProductionEnv({ SIGNUP_ALLOWED_EMAILS: "   " });
+        expect(() => getServerEnv()).toThrow(/SIGNUP_ALLOWED_EMAILS/);
+      });
+
+      it("still requires the allowlist when AUTH_ENABLED=false", () => {
+        // The kill-switch is a temporary rollback position; flipping it back
+        // on must not be the moment sign-up silently opens to the world.
+        setProductionEnv({
+          AUTH_ENABLED: "false",
+          SYNC_ENABLED: "false",
+          SIGNUP_ALLOWED_EMAILS: undefined,
+        });
+        expect(() => getServerEnv()).toThrow(/SIGNUP_ALLOWED_EMAILS/);
+      });
+
+      it("accepts a multi-address allowlist, normalised", () => {
+        setProductionEnv({
+          SIGNUP_ALLOWED_EMAILS: " Owner@Safwa.Example.com , second@x.test ",
+        });
+        expect(getServerEnv().signupAllowedEmails).toEqual([
+          "owner@safwa.example.com",
+          "second@x.test",
+        ]);
+      });
+    });
+
+    describe("rate-limit ceilings", () => {
+      // docs/DEPLOYMENT.md §2 has warned since Phase 15 that copying an E2E-
+      // tuned env into production would silently gut rate limiting. These are
+      // the exact values e2e/helpers/e2e-server-env.ts really sets.
+      it("rejects the E2E sensitive-endpoint max (1000) in production", () => {
+        setProductionEnv({ AUTH_RATE_LIMIT_MAX: "1000" });
+        expect(() => getServerEnv()).toThrow(/AUTH_RATE_LIMIT_MAX/);
+      });
+
+      it("rejects the E2E default-bucket max (100000) in production", () => {
+        setProductionEnv({ AUTH_RATE_LIMIT_DEFAULT_MAX: "100000" });
+        expect(() => getServerEnv()).toThrow(/AUTH_RATE_LIMIT_DEFAULT_MAX/);
+      });
+
+      it("rejects a window so short it makes the max meaningless", () => {
+        setProductionEnv({ AUTH_RATE_LIMIT_WINDOW_SECONDS: "1" });
+        expect(() => getServerEnv()).toThrow(/AUTH_RATE_LIMIT_WINDOW_SECONDS/);
+      });
+
+      it("rejects a window so long it locks the learner out for hours", () => {
+        setProductionEnv({ AUTH_RATE_LIMIT_WINDOW_SECONDS: "86400" });
+        expect(() => getServerEnv()).toThrow(/AUTH_RATE_LIMIT_WINDOW_SECONDS/);
+      });
+
+      it("rejects a default-bucket window below its floor", () => {
+        setProductionEnv({ AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "1" });
+        expect(() => getServerEnv()).toThrow(
+          /AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS/,
+        );
+      });
+
+      it("accepts the shipped defaults, which is what production actually runs", () => {
+        // The defaults (60s/5 and 10s/100) must sit inside every bound, or a
+        // deployment that sets none of these four variables cannot start.
+        setProductionEnv({
+          AUTH_RATE_LIMIT_WINDOW_SECONDS: undefined,
+          AUTH_RATE_LIMIT_MAX: undefined,
+          AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: undefined,
+          AUTH_RATE_LIMIT_DEFAULT_MAX: undefined,
+        });
+        const env = getServerEnv();
+        expect(env.authRateLimitWindowSeconds).toBe(60);
+        expect(env.authRateLimitMax).toBe(5);
+        expect(env.authRateLimitDefaultWindowSeconds).toBe(10);
+        expect(env.authRateLimitDefaultMax).toBe(100);
+      });
+
+      it("accepts values at each bound", () => {
+        setProductionEnv({
+          AUTH_RATE_LIMIT_WINDOW_SECONDS: "30",
+          AUTH_RATE_LIMIT_MAX: "20",
+          AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "5",
+          AUTH_RATE_LIMIT_DEFAULT_MAX: "1000",
+        });
+        expect(() => getServerEnv()).not.toThrow();
+      });
+
+      it("reports every out-of-bounds variable at once, not just the first", () => {
+        setProductionEnv({
+          AUTH_RATE_LIMIT_MAX: "1000",
+          AUTH_RATE_LIMIT_DEFAULT_MAX: "100000",
+        });
+        try {
+          getServerEnv();
+          expect.unreachable("expected getServerEnv to throw");
+        } catch (error) {
+          expect(String(error)).toContain("AUTH_RATE_LIMIT_MAX");
+          expect(String(error)).toContain("AUTH_RATE_LIMIT_DEFAULT_MAX");
+        }
+      });
+
+      it("leaves the ceilings off outside production", () => {
+        // The E2E and integration suites depend on this: they set exactly
+        // these values against a development/test NODE_ENV.
+        setEnv({
+          AUTH_RATE_LIMIT_MAX: "1000",
+          AUTH_RATE_LIMIT_DEFAULT_MAX: "100000",
+        });
+        const env = getServerEnv();
+        expect(env.authRateLimitMax).toBe(1000);
+        expect(env.authRateLimitDefaultMax).toBe(100000);
+      });
+    });
+  });
+
+  describe("SIGNUP_ALLOWED_EMAILS parsing", () => {
+    it("is null when unset (sign-up open outside production)", () => {
+      setEnv({});
+      expect(getServerEnv().signupAllowedEmails).toBeNull();
+    });
+
+    it("parses a comma-separated list outside production too", () => {
+      setEnv({ SIGNUP_ALLOWED_EMAILS: "a@x.test,b@x.test" });
+      expect(getServerEnv().signupAllowedEmails).toEqual([
+        "a@x.test",
+        "b@x.test",
+      ]);
+    });
+
+    it("reports a malformed entry as an environment error, in any environment", () => {
+      setEnv({ SIGNUP_ALLOWED_EMAILS: "a@x.test,not-an-email" });
+      expect(() => getServerEnv()).toThrow(/SIGNUP_ALLOWED_EMAILS/);
+    });
+
+    it("never echoes a configured address in the thrown error", () => {
+      const address = "someone.private@example.test";
+      setEnv({ SIGNUP_ALLOWED_EMAILS: `${address},not-an-email` });
+      try {
+        getServerEnv();
+        expect.unreachable("expected getServerEnv to throw");
+      } catch (error) {
+        expect(String(error)).not.toContain(address);
+      }
     });
   });
 });

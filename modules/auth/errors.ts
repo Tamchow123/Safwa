@@ -9,6 +9,8 @@
 
 import type { BASE_ERROR_CODES } from "better-auth";
 
+import { SIGNUP_NOT_ALLOWED_CODE } from "@/modules/auth/signup-allowlist";
+
 const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 const RATE_LIMIT_MESSAGE =
   "Too many attempts. Please wait a moment and try again.";
@@ -40,6 +42,19 @@ export const ERROR_CODE_MESSAGES = {
   SESSION_EXPIRED: "Your session has expired. Sign in again to continue.",
   SESSION_NOT_FRESH: "Sign in again to confirm this action.",
 } satisfies Partial<Record<keyof typeof BASE_ERROR_CODES, string>>;
+
+// Codes this APP defines, for refusals Better Auth has no notion of. Kept in
+// its own map because ERROR_CODE_MESSAGES is deliberately constrained to
+// BASE_ERROR_CODES keys — that `satisfies` is what turns a library rename into
+// a typecheck failure, and widening it to admit our own strings would quietly
+// disable that safeguard.
+const APP_ERROR_CODE_MESSAGES: Record<string, string> = {
+  // Phase 18: this instance's sign-up allowlist refused the address. Saying so
+  // plainly matters — the generic fallback ("Something went wrong. Please try
+  // again.") invites a person to retry an action that will never succeed.
+  // Identical for every refused address, so it reveals nothing about the list.
+  [SIGNUP_NOT_ALLOWED_CODE]: "This app is not accepting new accounts.",
+};
 
 type AuthErrorLike =
   | {
@@ -79,7 +94,9 @@ export function toLearnerSafeMessage(error: AuthErrorLike): string {
 
   const code = extractErrorCode(record);
   if (code !== undefined) {
-    const mapped = (ERROR_CODE_MESSAGES as Record<string, string>)[code];
+    const mapped =
+      (ERROR_CODE_MESSAGES as Record<string, string>)[code] ??
+      APP_ERROR_CODE_MESSAGES[code];
     if (mapped !== undefined) {
       return mapped;
     }
