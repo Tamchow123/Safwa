@@ -80,6 +80,15 @@ jobs:
       - name: Verify documentation Arabic
         run: pnpm docs:verify
 
+      # Content only — the generated PWA icons are deliberately NOT re-rendered
+      # here. sharp compiles a separate native binary per OS/arch, so byte
+      # equality between a Windows-authored commit and this ubuntu runner is a
+      # hope rather than a guarantee, and a gate built on it would eventually
+      # go red for a reason unrelated to the change under review. The portable
+      # half of that check — master digest, per-file digests, declared set,
+      # stray files, brand colours — is scripts/icons-lock.ts and runs in the
+      # "Unit tests" step below; the exact re-render is quality-gate.ps1 step
+      # 7, on the authoring machine. See scripts/icons-lock.ts's header.
       - name: Generated artifacts are current and deterministic
         run: git diff --exit-code -- public/content content-server
 

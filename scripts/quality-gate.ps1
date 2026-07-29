@@ -14,31 +14,45 @@
       5.  Generated artifacts fresh  git diff --exit-code -- public/content content-server
       6.  No untracked artifacts     git ls-files --others -- public/content content-server
                                      (no --exclude-standard: even ignored files may not hide there)
-      7.  Documentation Arabic       pnpm docs:verify
-      8.  Disposable Postgres reachable (concise diagnostic if not; see below)
-      9.  Migration chain            pnpm db:migrate
-      10. Content version registration pnpm db:register-content
-      11. Database integration tests  pnpm test:integration  (constraints, content
+      7.  Icon set byte-identical    pnpm icons:verify     (re-renders public/icons from the
+                                     master mark; authoring-platform only, see below)
+      8.  Documentation Arabic       pnpm docs:verify
+      9.  Disposable Postgres reachable (concise diagnostic if not; see below)
+      10. Migration chain            pnpm db:migrate
+      11. Content version registration pnpm db:register-content
+      12. Database integration tests  pnpm test:integration  (constraints, content
                                       registration, Better Auth, manifest loader,
                                       Phase 16 sync ingest/pull/revoke, Phase 17
                                       guest merge — one Vitest config covers all
                                       of these, and every tests/integration/*.test.ts
                                       is picked up by it without a config change)
-      12. Type checking              pnpm typecheck
-      13. Linting                    pnpm lint
-      14. Formatting check           pnpm format:check     (check only, never writes)
-      15. Push-guard hook self-tests scripts/test-guard-git-push.ps1
-      16. Unit tests                 pnpm test
-      17. Production build           pnpm build
-      18. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
-      19. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 18)
+      13. Type checking              pnpm typecheck
+      14. Linting                    pnpm lint
+      15. Formatting check           pnpm format:check     (check only, never writes)
+      16. Push-guard hook self-tests scripts/test-guard-git-push.ps1
+      17. Unit tests                 pnpm test
+      18. Production build           pnpm build
+      19. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
+      20. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 19)
 
     Notes:
       - No check modifies application source files. Step 4 regenerates the
         DERIVED content artifacts (public/content, content-server) exactly as
         CI does; step 5 then fails if the committed artifacts were stale,
         which means the implementer must commit the regenerated output.
-      - Steps 8-11 are the only ones that touch a database. They require a
+      - Step 7 is deliberately NOT mirrored in .github/workflows/ci.yml, and
+        that asymmetry with steps 4-6 is the point. It re-renders the PNGs
+        through sharp, whose native binary is compiled separately per OS and
+        architecture, so byte equality between a Windows-authored commit and
+        an ubuntu-latest runner is a hope rather than a guarantee — gating CI
+        on it would risk a permanently red check for a reason unrelated to the
+        change under review. This gate runs on the machine the icons are
+        authored on, where the comparison is exact and meaningful. The
+        portable half (master digest, per-file digests, declared set, stray
+        files, brand colours) lives in scripts/icons-lock.ts and runs in the
+        unit suite, so CI still catches every drift that actually occurs; that
+        file's header explains the split.
+      - Steps 9-12 are the only ones that touch a database. They require a
         reachable local Postgres with a `safwa_test` database already
         provisioned (`docker compose up -d db` — see compose.yaml and
         docker/init-test-db.sql) and run with NODE_ENV=test against a
@@ -65,7 +79,7 @@
 .NOTES
     Always invoke as `powershell -File scripts/quality-gate.ps1` (its own
     process). Do not dot-source this script into an interactive session —
-    steps 8-11's temporary NODE_ENV=test/DATABASE_URL overrides are
+    steps 9-12's temporary NODE_ENV=test/DATABASE_URL overrides are
     restored in a `finally` block scoped to this script's own execution,
     which only fully protects an interactive shell's own environment when
     the script runs as a separate process.
@@ -91,7 +105,7 @@ Set-Location $repoRoot.Trim()
 # behaviour), so a green gate always describes THIS tree.
 $env:CI = "1"
 
-# Derives the disposable-test-database DATABASE_URL for steps 8-11: reads
+# Derives the disposable-test-database DATABASE_URL for steps 9-12: reads
 # .env.local's own DATABASE_URL (the same one `pnpm dev` uses, pointing at
 # `safwa_dev`) and swaps ONLY the database name to `safwa_test` — host,
 # port and credentials are reused as-is. This script is plain PowerShell,
@@ -138,6 +152,7 @@ $steps = @(
     @{ Name = "Content release build";                   Exe = "pnpm";   Args = @("content:build") },
     @{ Name = "Generated artifacts current and deterministic"; Exe = "git"; Args = @("diff", "--exit-code", "--", "public/content", "content-server") },
     @{ Name = "No untracked generated artifacts"; Exe = "git"; Args = @("ls-files", "--others", "--", "public/content", "content-server"); FailOnOutput = $true },
+    @{ Name = "Icon set byte-identical to the master mark"; Exe = "pnpm"; Args = @("icons:verify") },
     @{ Name = "Documentation Arabic verification";       Exe = "pnpm";   Args = @("docs:verify") },
     @{ Name = "Disposable Postgres reachable (safwa_test)"; Exe = "node"; Args = @(
         "-e",
@@ -175,7 +190,7 @@ foreach ($step in $steps) {
     # executable is a PowerShell shim (pnpm.ps1) rather than a native exe.
     $stepArgs = @($step.Args)
 
-    # Steps 8-11 (Env present) run against the disposable test database;
+    # Steps 9-12 (Env present) run against the disposable test database;
     # every other step is unaffected — set only for this step's duration,
     # then restored (in `finally`, so a thrown exception mid-step can never
     # leak NODE_ENV=test/DATABASE_URL into a later, unrelated step).
@@ -217,6 +232,9 @@ foreach ($step in $steps) {
         Write-Host "Command: $($step.Exe) $($step.Args -join ' ')" -ForegroundColor Red
         if ($step.Name -like "Generated artifacts*") {
             Write-Host "The generated artifacts are stale. Review the diff under public/content and content-server, stage the regenerated output (git add public/content content-server) and rerun the gate; it becomes part of the phase commit after review approval." -ForegroundColor Yellow
+        }
+        if ($step.Name -like "Icon set*") {
+            Write-Host "The committed icons no longer match assets/brand/safwa-mark.svg. Run 'pnpm icons:build' and stage public/icons plus assets/brand/icons.lock.json. If the output above says the icons were generated on a DIFFERENT platform, read scripts/icons-lock.ts first: byte equality across sharp's per-platform native builds is not guaranteed, and this step is only authoritative on the authoring machine." -ForegroundColor Yellow
         }
         exit 1
     }
