@@ -4,6 +4,7 @@ import {
   ERROR_CODE_MESSAGES,
   toLearnerSafeMessage,
 } from "@/modules/auth/errors";
+import { SIGNUP_NOT_ALLOWED_CODE } from "@/modules/auth/signup-allowlist";
 
 describe("toLearnerSafeMessage", () => {
   it("maps INVALID_EMAIL_OR_PASSWORD to a generic credentials message", () => {
@@ -81,6 +82,46 @@ describe("toLearnerSafeMessage", () => {
     const result = toLearnerSafeMessage(poisoned);
     expect(result).not.toContain("secret-path.ts");
     expect(result).not.toContain("at Object.<anonymous>");
+  });
+
+  describe("the app's own sign-up refusal (Phase 18)", () => {
+    it("maps the allowlist refusal to a message that does not invite a retry", () => {
+      // The generic fallback would tell someone who can never register to
+      // "try again" — the one thing that is guaranteed not to work.
+      expect(toLearnerSafeMessage({ code: SIGNUP_NOT_ALLOWED_CODE })).toBe(
+        "This app is not accepting new accounts.",
+      );
+    });
+
+    it("maps it through the nested BetterFetchError shape too", () => {
+      expect(
+        toLearnerSafeMessage({
+          status: 403,
+          error: { code: SIGNUP_NOT_ALLOWED_CODE },
+        }),
+      ).toBe("This app is not accepting new accounts.");
+    });
+
+    it("says nothing about who is allowed", () => {
+      // Assigned first, as the "poisoned" cases above are: a bare object
+      // literal would trip TypeScript's excess-property check, and the point
+      // here is precisely that extra fields on the wire are ignored.
+      const withExtras = {
+        code: SIGNUP_NOT_ALLOWED_CODE,
+        message: "Sign-up is not open on this instance.",
+        allowed: ["owner@example.test"],
+      };
+      const message = toLearnerSafeMessage(withExtras);
+      expect(message).not.toContain("@");
+      expect(message).not.toContain("owner");
+    });
+
+    it("is not one of Better Auth's own codes", () => {
+      // If a future Better Auth version ever defines this name, the two maps
+      // would silently disagree about which message wins.
+      expect(BASE_ERROR_CODES).not.toHaveProperty(SIGNUP_NOT_ALLOWED_CODE);
+      expect(ERROR_CODE_MESSAGES).not.toHaveProperty(SIGNUP_NOT_ALLOWED_CODE);
+    });
   });
 
   it("every mapped key is still a real Better Auth error code (catches drift on a library upgrade)", () => {

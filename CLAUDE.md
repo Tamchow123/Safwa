@@ -127,9 +127,9 @@ App: `pnpm dev`, `pnpm build`, `pnpm test` (Vitest unit tests),
 registration, Better Auth, manifest loader, sync ingest/pull/revoke, guest
 merge; one config picks up every `tests/integration/**/*.test.ts`, so a new
 suite needs no config change), `pnpm test:e2e` (Playwright, runs the
-default + auth-disabled + auth-rate-limit + sync-disabled configs;
-`e2e/global-setup.ts` resets `safwa_test` and registers a content release, so
-Postgres must be up for E2E too), `pnpm typecheck`,
+default + auth-disabled + auth-rate-limit + sync-disabled + signup-closed
+configs; `e2e/global-setup.ts` resets `safwa_test` and registers a content
+release, so Postgres must be up for E2E too), `pnpm typecheck`,
 `pnpm lint`, `pnpm format:check`, `pnpm validate:data`
 (`scripts/validate-vocabulary.py`, must exit 0), `pnpm verify:arabic`
 (`scripts/arabic-extract.py --verify-known`), `pnpm content:build`
@@ -156,6 +156,14 @@ is refused with a 503 by the same guard as push/pull. In production
 `SYNC_ENABLED=true` with `AUTH_ENABLED=false` is rejected. Each flag has its
 own Playwright config + spec (`playwright.auth-disabled.config.ts`,
 `playwright.sync-disabled.config.ts`).
+
+`SIGNUP_ALLOWED_EMAILS` (Phase 18) is not a flag but a policy: production
+**fails closed** without it, and a `hooks.before` middleware in
+`modules/auth/server.ts` refuses `/sign-up/email` for anything not on the list.
+It also has its own config + spec (`playwright.signup-closed.config.ts`), since
+every other E2E server leaves it unset so its specs can register freely. The
+four `AUTH_RATE_LIMIT_*` variables carry production bounds
+(`docs/DEPLOYMENT.md` §2) so an E2E-tuned `.env` cannot reach production.
 
 `scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
 locally in 19 steps (17 with `-SkipE2E`): dependency/data/Arabic checks,

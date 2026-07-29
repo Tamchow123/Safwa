@@ -41,6 +41,7 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 | `RESEND_API_KEY`                                                         | transactional email                                                                            | preview/prod (dev uses console transport) |
 | `EMAIL_FROM`                                                             | verified sender                                                                                | preview/prod                              |
 | `ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION`                                | explicit escape hatch for `console-file` in production (default `false`)                       | prod only, exceptional                    |
+| `SIGNUP_ALLOWED_EMAILS`                                                  | comma-separated addresses permitted to register — **required in production**                   | all (unset outside prod = sign-up open)   |
 | `SENTRY_DSN`                                                             | error monitoring                                                                               | preview/prod                              |
 | `CONTENT_SERVER_DIR` / storage binding                                   | assessment+validation manifests location                                                       | all                                       |
 | `ADMIN_BOOTSTRAP_EMAIL`                                                  | first admin promotion (one-shot)                                                               | prod                                      |
@@ -48,18 +49,66 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 Secrets live only in Vercel/Neon dashboards and local `.env.local`
 (gitignored). `.env.example` documents every variable without values.
 
-**Rate-limit tuning variables — production caveat (Phase 15).** All four
-`AUTH_RATE_LIMIT*` variables are validated only for positivity — there is no
-upper-bound production sanity check yet. Local development, CI and the E2E
-suite each set these to values tuned for their own purposes (e.g. the E2E
-suite's main server sets the default bucket to a very permissive `100000`
-max so legitimate parallel test traffic never trips it — see
-`e2e/helpers/e2e-server-env.ts`). **Never copy an E2E- or CI-tuned `.env`
-into a production deployment** — a stray `AUTH_RATE_LIMIT_DEFAULT_MAX=100000`
-in production would silently and drastically weaken rate limiting with no
-validation error to catch it at deploy time. A future production-hardening
-pass should add an explicit ceiling to `modules/env/server.ts`'s
-`assertProductionInvariants()`.
+**Rate-limit tuning variables — production bounds (Phase 15, enforced in
+Phase 18).** Local development, CI and the E2E suite each tune these for their
+own purposes; the E2E suite's main server really does set the default bucket to
+a very permissive `100000` max so legitimate parallel test traffic never trips
+it (`e2e/helpers/e2e-server-env.ts`). Phase 15 could only warn about that in
+prose. `modules/env/server.ts`'s `assertProductionInvariants()` now enforces it:
+with `NODE_ENV=production`, each variable must fall inside its bound or
+validation throws, so an E2E- or CI-tuned `.env` is structurally unable to reach
+production rather than merely discouraged from it.
+
+| Variable                                 | Production bound | Default | What the bound is for                                                                                                     |
+| ---------------------------------------- | ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_RATE_LIMIT_MAX`                    | 1–20             | 5       | security — the sensitive-endpoint bucket (sign-in, sign-up, reset, delete)                                                |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS`         | 30–3600          | 60      | floor is security (a 1s window empties faster than an attacker is slowed); ceiling is availability (an hour-long lockout) |
+| `AUTH_RATE_LIMIT_DEFAULT_MAX`            | 1–1000           | 100     | security — the read-mostly bucket (get-session and friends), which needs real headroom                                    |
+| `AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS` | 5–3600           | 10      | as above; Better Auth's own default window is 10s                                                                         |
+
+The shipped defaults sit inside every bound, so a production deployment that
+sets none of these four variables starts normally.
+
+**When these checks actually run — and what that means for a deploy.**
+`getServerEnv()` validates LAZILY, on first use, not at process boot
+(`modules/env/server.ts`'s own docblock explains why: guest-only pages must
+never pay for or fail on server-env validation). So a misconfigured production
+deployment does **not** refuse to start in the conventional sense. It comes up,
+and the first request that touches auth/db/email throws. Two consequences:
+
+- **Gate the rollout on `GET /api/health`**, which already wraps
+  `getServerEnv()` and reports 503/unhealthy on exactly this failure. That is
+  the runtime signal that a config is bad, and it is only useful if the
+  platform's traffic cutover waits for it.
+- **Prefer catching it before the deploy**, with the pre-deploy precondition
+  check (added in Phase 18's deploy-readiness slice) rather than in production.
+
+**Sign-up is closed by default in production (Phase 18).**
+`SIGNUP_ALLOWED_EMAILS` must list at least one address when
+`NODE_ENV=production`; an unset or blank value is refused by the same
+validation. Safwa is a personal instance whose production URL is reachable by
+anyone who finds it, so an unset allowlist would mean "anyone may create an
+account", and every account costs metered Neon rows and Resend sends. The
+requirement holds even with `AUTH_ENABLED=false` — that kill-switch is a
+temporary rollback position, and flipping it back on must not be the moment
+sign-up silently opens.
+
+Matching is case-insensitive and exact: `owner+tag@example.com` does **not**
+match an allowlisted `owner@example.com`, so list any alias you actually use.
+A refused registration gets a 403 whose body is identical for every refused
+address, so the response cannot be used to probe the list. Registration is the
+only gated action — existing accounts sign in normally, including one whose
+address you later remove from the list.
+
+One thing the allowlist deliberately does **not** hide: an address that IS on
+the list and already has an account gets Better Auth's ordinary "an account
+with that email already exists", not the uniform refusal. Someone who has
+already guessed the exact allowlisted address can therefore learn whether it is
+registered. That is accepted rather than overlooked — unifying the two would
+mean the legitimate owner is told "not accepting new accounts" when the real
+answer is "you already have one, sign in" — and it is narrower than the
+pre-Phase-18 behaviour, where the same signal was available for every address
+rather than only the listed ones.
 
 ## 3. Hosting recommendation
 

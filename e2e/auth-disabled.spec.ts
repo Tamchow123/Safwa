@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "./fixtures";
+import { fillAndSubmitRegisterForm } from "./helpers/auth-flows";
 import { errorAlert } from "./helpers/auth-ui";
 
 /**
@@ -45,13 +46,14 @@ test.describe("60.2 authentication disabled", () => {
     await page.goto("/register");
     await expect(page.getByTestId("register-form")).toBeVisible();
 
-    await page.getByLabel("Name").fill("Disabled Auth Probe");
-    await page
-      .getByLabel("Email")
-      .fill(`e2e.auth-disabled.${randomUUID()}@example.test`);
-    await page.getByLabel("Password", { exact: true }).fill("irrelevant-pw-1");
-    await page.getByLabel("Confirm password").fill("irrelevant-pw-1");
-    await page.getByRole("button", { name: "Create account" }).click();
+    // The shared helper, not a local copy of the same locators: the assertion
+    // above needs the page already open, so this is the fill-and-submit rung.
+    await fillAndSubmitRegisterForm(
+      page,
+      `e2e.auth-disabled.${randomUUID()}@example.test`,
+      "irrelevant-pw-1",
+      "Disabled Auth Probe",
+    );
 
     // The client hits /api/auth/sign-up/email, which the route handler
     // rejects with a fast 503 before ever calling getAuth() — the form

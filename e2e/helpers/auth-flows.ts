@@ -39,6 +39,52 @@ export function freshEmail(prefix: string): string {
   return `e2e.${prefix}.${randomUUID()}@example.test`;
 }
 
+/**
+ * Fill and submit the register form ON THE PAGE ALREADY OPEN — no navigation,
+ * and no assertion about the outcome.
+ *
+ * The no-navigation part is the reason this exists separately from
+ * {@link submitRegistration}: the sign-up-allowlist spec (Phase 18) has to
+ * prove a learner can correct a refused address IN PLACE, and a `goto` would
+ * quietly turn that into "start over", which is the thing it is testing did
+ * not happen.
+ *
+ * This is now the only place in `e2e/` that knows the register form's
+ * locators — `auth-disabled.spec.ts` and `guest-merge.spec.ts` were each
+ * carrying their own copy and were migrated onto this ladder when it was
+ * extracted. If you add a field to the form, this function is the one to
+ * change.
+ */
+export async function fillAndSubmitRegisterForm(
+  page: Page,
+  email: string,
+  password = E2E_PASSWORD,
+  name = "E2E Learner",
+): Promise<void> {
+  await page.getByLabel("Name").fill(name);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("Confirm password").fill(password);
+  await page.getByRole("button", { name: "Create account" }).click();
+}
+
+/**
+ * Open /register and submit it, asserting NOTHING about the outcome.
+ *
+ * Split out from {@link registerOnly} for the sign-up-allowlist spec, which
+ * submits registrations that are meant to be refused — so it needs the same
+ * form-driving as every other spec without the success assertion.
+ */
+export async function submitRegistration(
+  page: Page,
+  email: string,
+  password = E2E_PASSWORD,
+  name = "E2E Learner",
+): Promise<void> {
+  await page.goto("/register");
+  await fillAndSubmitRegisterForm(page, email, password, name);
+}
+
 /** Submit the register form only — does not follow the verification link. */
 export async function registerOnly(
   page: Page,
@@ -46,12 +92,7 @@ export async function registerOnly(
   password = E2E_PASSWORD,
   name = "E2E Learner",
 ): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel("Name").fill(name);
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByLabel("Confirm password").fill(password);
-  await page.getByRole("button", { name: "Create account" }).click();
+  await submitRegistration(page, email, password, name);
   await expect(page.getByTestId("register-verification-notice")).toBeVisible();
 }
 

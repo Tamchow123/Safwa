@@ -215,4 +215,5 @@ jobs:
             playwright-report-auth-disabled/
             playwright-report-auth-rate-limit/
             playwright-report-sync-disabled/
+            playwright-report-signup-closed/
           retention-days: 7

@@ -47,6 +47,8 @@ export const E2E_PORTS = {
   rateLimited: 3102,
   /** Auth-enabled but SYNC_ENABLED=false — the sync kill-switch (phases-16.md §16, T19). */
   syncDisabled: 3103,
+  /** Auth-enabled with a sign-up allowlist configured (phases-18.md §5 slice 6). */
+  signupClosed: 3104,
 } as const;
 
 function baseUrlFor(port: number): string {
@@ -73,6 +75,14 @@ export const E2E_MAIN_BASE_URL = baseUrlFor(E2E_PORTS.main);
 export const E2E_AUTH_DISABLED_BASE_URL = baseUrlFor(E2E_PORTS.authDisabled);
 export const E2E_RATE_LIMITED_BASE_URL = baseUrlFor(E2E_PORTS.rateLimited);
 export const E2E_SYNC_DISABLED_BASE_URL = baseUrlFor(E2E_PORTS.syncDisabled);
+export const E2E_SIGNUP_CLOSED_BASE_URL = baseUrlFor(E2E_PORTS.signupClosed);
+
+/**
+ * The one address `signupClosedServerEnv()` permits. Exported so the spec and
+ * the server configuration cannot drift apart — a spec that hard-coded its own
+ * "allowed" address would pass for the wrong reason the day this list changes.
+ */
+export const E2E_ALLOWED_SIGNUP_EMAIL = "e2e.allowed.owner@example.test";
 
 export function mainServerEnv(): E2EServerEnv {
   return {
@@ -114,6 +124,24 @@ export function syncDisabledServerEnv(): E2EServerEnv {
     // must degrade gracefully — study still works, no error surfaces.
     AUTH_ENABLED: "true",
     SYNC_ENABLED: "false",
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
+    AUTH_RATE_LIMIT_MAX: "1000",
+    AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "60",
+    AUTH_RATE_LIMIT_DEFAULT_MAX: "100000",
+  };
+}
+
+/**
+ * A server with the Phase 18 sign-up allowlist configured. Every OTHER E2E
+ * server deliberately leaves `SIGNUP_ALLOWED_EMAILS` unset, because their specs
+ * register throwaway accounts constantly — which is also the property this
+ * server exists to prove is a choice rather than an accident.
+ */
+export function signupClosedServerEnv(): E2EServerEnv {
+  return {
+    ...commonEnv(E2E_PORTS.signupClosed),
+    AUTH_ENABLED: "true",
+    SIGNUP_ALLOWED_EMAILS: E2E_ALLOWED_SIGNUP_EMAIL,
     AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
     AUTH_RATE_LIMIT_MAX: "1000",
     AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "60",

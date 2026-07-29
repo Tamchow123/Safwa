@@ -11,6 +11,11 @@
 import "server-only";
 import { z } from "zod";
 
+import {
+  parseSignupAllowlist,
+  type SignupAllowlist,
+} from "@/modules/auth/signup-allowlist";
+
 export type NodeEnvironment = "development" | "test" | "production";
 export type EmailTransportKind = "console-file" | "resend";
 
@@ -85,6 +90,24 @@ const rawServerEnvSchema = z.object({
     .positive()
     .default(10),
   AUTH_RATE_LIMIT_DEFAULT_MAX: z.coerce.number().int().positive().default(100),
+  // Who may create an account (Phase 18). Comma-separated addresses; unset
+  // means sign-up is open, which production refuses below. Parsed here rather
+  // than at the auth layer so a malformed list is a start-up failure with the
+  // rest of the environment, not a surprise on the first sign-up attempt.
+  SIGNUP_ALLOWED_EMAILS: z
+    .string()
+    .optional()
+    .transform((raw, ctx): SignupAllowlist => {
+      try {
+        return parseSignupAllowlist(raw);
+      } catch (error) {
+        ctx.addIssue({
+          code: "custom",
+          message: error instanceof Error ? error.message : "is invalid",
+        });
+        return z.NEVER;
+      }
+    }),
 });
 
 export type ServerEnv = {
@@ -104,9 +127,44 @@ export type ServerEnv = {
   authRateLimitMax: number;
   authRateLimitDefaultWindowSeconds: number;
   authRateLimitDefaultMax: number;
+  /** Addresses permitted to register, or null when sign-up is open. */
+  signupAllowedEmails: SignupAllowlist;
 };
 
 const MIN_PRODUCTION_SECRET_LENGTH = 32;
+
+/**
+ * Production bounds on the four rate-limit tuning variables (Phase 18).
+ *
+ * `docs/DEPLOYMENT.md` §2 has warned since Phase 15 that these are validated
+ * only for positivity, and that copying an E2E- or CI-tuned `.env` into
+ * production would "silently and drastically weaken rate limiting with no
+ * validation error to catch it at deploy time". `e2e/helpers/e2e-server-env.ts`
+ * really does set `AUTH_RATE_LIMIT_DEFAULT_MAX=100000` and
+ * `AUTH_RATE_LIMIT_MAX=1000`; the bounds below make both structurally
+ * unreachable in production rather than merely discouraged in prose.
+ *
+ * The two MAX ceilings are the security-relevant ones. The window bounds are a
+ * pair of sanity limits, and it is worth being precise about which risk each
+ * one addresses, because they are not the same risk:
+ *  - the FLOOR is security: a one-second window makes any max meaningless,
+ *    because the bucket empties faster than an attacker can be slowed down.
+ *  - the CEILING is availability: an hour-long window means one fat-fingered
+ *    burst locks the instance's only learner out until it expires.
+ */
+const PRODUCTION_RATE_LIMIT_BOUNDS = {
+  /** Sensitive endpoints (sign-in, sign-up, reset, delete). Default is 5. */
+  AUTH_RATE_LIMIT_MAX: { min: 1, max: 20 },
+  AUTH_RATE_LIMIT_WINDOW_SECONDS: { min: 30, max: 3600 },
+  /**
+   * The default bucket covers get-session and friends — read-mostly, hit on
+   * every page mount, not brute-forceable — so it legitimately needs far more
+   * headroom than the sensitive rules. Better Auth's own default is 100/10s;
+   * 1000 leaves room for a busy real session while refusing the E2E 100000.
+   */
+  AUTH_RATE_LIMIT_DEFAULT_MAX: { min: 1, max: 1000 },
+  AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: { min: 5, max: 3600 },
+} as const;
 
 function assertProductionInvariants(
   raw: z.infer<typeof rawServerEnvSchema>,
@@ -148,6 +206,25 @@ function assertProductionInvariants(
   // than ship a silently non-functional feature.
   if (raw.SYNC_ENABLED && !raw.AUTH_ENABLED) {
     problems.push("SYNC_ENABLED=true requires AUTH_ENABLED=true");
+  }
+  // Fail closed on sign-up. Safwa is a personal instance whose production URL
+  // is reachable by anyone who finds it, so an unset allowlist means "anyone
+  // may create an account here", which is never what this deployment wants.
+  // Required regardless of AUTH_ENABLED: the kill-switch is a temporary
+  // rollback position, and flipping it back on must not be the moment sign-up
+  // silently opens.
+  if (raw.SIGNUP_ALLOWED_EMAILS === null) {
+    problems.push(
+      "SIGNUP_ALLOWED_EMAILS must list at least one address in production (sign-up fails closed)",
+    );
+  }
+  for (const [name, bound] of Object.entries(PRODUCTION_RATE_LIMIT_BOUNDS)) {
+    const value = raw[name as keyof typeof PRODUCTION_RATE_LIMIT_BOUNDS];
+    if (value < bound.min || value > bound.max) {
+      problems.push(
+        `${name} must be between ${bound.min} and ${bound.max} in production (got ${value})`,
+      );
+    }
   }
 
   if (problems.length > 0) {
@@ -196,6 +273,7 @@ export function getServerEnv(): ServerEnv {
     authRateLimitDefaultWindowSeconds:
       parsed.data.AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS,
     authRateLimitDefaultMax: parsed.data.AUTH_RATE_LIMIT_DEFAULT_MAX,
+    signupAllowedEmails: parsed.data.SIGNUP_ALLOWED_EMAILS,
   };
   return cachedEnv;
 }
