@@ -123,6 +123,60 @@ export async function clearOwnerSensitiveCaches(
 }
 
 /**
+ * Delete every cache on this origin — the other half of the kill switch (slice
+ * 11).
+ *
+ * **`unregister()` does not empty Cache Storage.** That is the fact this
+ * function exists for, and it is worth stating plainly because it is easy to
+ * assume otherwise: Cache Storage belongs to the ORIGIN, not to the service
+ * worker registration, and nothing about removing a registration touches it.
+ * Serwist's precache is pruned by a NEW worker's activate-time cleanup — which
+ * never runs during a rollback, because a rollback installs no replacement. So
+ * a kill switch that only unregistered would leave every cache the worker ever
+ * wrote sitting on the device, inert and unreclaimable, until someone turned
+ * the worker back on.
+ *
+ * Hence `keys()` rather than the seven names in `CACHE_NAMES`. Deleting only
+ * what this module knows about would leave the two halves of one kill switch
+ * with different threat models: `unregisterServiceWorkers` deliberately
+ * enumerates, precisely so it can undo something unexpected, and a cache sweep
+ * that could not do the same would be the weaker half of a rollback whose whole
+ * purpose is that something unexpected is installed.
+ *
+ * This is a deliberately destructive, operator-triggered path, and enumerating
+ * is safe here in a way it would not be for the sign-out sweep above: the cost
+ * of over-deleting is that the device re-downloads the app, which is exactly
+ * what a rollback implies, whereas the cost of under-deleting is a cache nobody
+ * can reach to inspect or expire. `clearOwnerSensitiveCaches` stays narrow for
+ * the opposite reason — an ordinary sign-out must not make the next learner on
+ * a shared device re-download everything.
+ *
+ * Returns the names actually deleted.
+ */
+export async function clearAllAppCaches(
+  storage: CacheStorage,
+): Promise<string[]> {
+  const deleted: string[] = [];
+  // A storage that cannot enumerate still gets the seven this module knows by
+  // name. Partial is better than nothing, and the difference is visible in the
+  // return value rather than swallowed.
+  let names: readonly string[] = Object.values(CACHE_NAMES);
+  try {
+    names = await storage.keys();
+  } catch {
+    // Fall through with the known names.
+  }
+  for (const name of names) {
+    try {
+      if (await storage.delete(name)) deleted.push(name);
+    } catch {
+      // As above: one refusal must not strand the rest.
+    }
+  }
+  return deleted;
+}
+
+/**
  * The same sweep, as the one line an account-departure path should call.
  *
  * There are two such paths — `signOutAndClearLocalState` and
@@ -145,5 +199,15 @@ export async function clearOwnerSensitiveCachesIfAvailable(): Promise<void> {
     // Best-effort by contract: every caller has already done something
     // irreversible (ended the session, or observed the account deleted), and
     // nothing may block on storage.
+  }
+}
+
+/** {@link clearAllAppCaches}, guarded the same way, for the kill switch. */
+export async function clearAllAppCachesIfAvailable(): Promise<string[]> {
+  if (typeof caches === "undefined") return [];
+  try {
+    return await clearAllAppCaches(caches);
+  } catch {
+    return [];
   }
 }

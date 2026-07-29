@@ -27,24 +27,25 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 
 ## 2. Environment variables
 
-| Variable                                                                 | Purpose                                                                                        | Envs                                      |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `DATABASE_URL`                                                           | Postgres connection (Neon pooled URL in prod)                                                  | all                                       |
-| `NODE_ENV`                                                               | `development \| test \| production`                                                            | all (set by tooling, rarely by hand)      |
-| `BETTER_AUTH_SECRET`                                                     | session/token signing                                                                          | all (unique per env)                      |
-| `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL`                                | canonical origin                                                                               | all                                       |
-| `AUTH_ENABLED`                                                           | auth feature-flag kill-switch (default `true`)                                                 | all                                       |
-| `AUTH_RATE_LIMIT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_MAX`                 | sensitive-endpoint rate-limit tuning (default 60s/5)                                           | all — see caveat below                    |
-| `AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_DEFAULT_MAX` | default rate-limit bucket tuning (default 10s/100, matches Better Auth's own built-in default) | all — see caveat below                    |
-| `EMAIL_TRANSPORT`                                                        | `console-file` (dev/test) \| `resend` (preview/prod)                                           | all                                       |
-| `EMAIL_OUTBOX_DIR`                                                       | console-file transport's output dir (default `.local/email-outbox`)                            | dev/test only                             |
-| `RESEND_API_KEY`                                                         | transactional email                                                                            | preview/prod (dev uses console transport) |
-| `EMAIL_FROM`                                                             | verified sender                                                                                | preview/prod                              |
-| `ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION`                                | explicit escape hatch for `console-file` in production (default `false`)                       | prod only, exceptional                    |
-| `SIGNUP_ALLOWED_EMAILS`                                                  | comma-separated addresses permitted to register — **required in production**                   | all (unset outside prod = sign-up open)   |
-| `SENTRY_DSN`                                                             | error monitoring                                                                               | preview/prod                              |
-| `CONTENT_SERVER_DIR` / storage binding                                   | assessment+validation manifests location                                                       | all                                       |
-| `ADMIN_BOOTSTRAP_EMAIL`                                                  | first admin promotion (one-shot)                                                               | prod                                      |
+| Variable                                                                 | Purpose                                                                                                        | Envs                                      |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `DATABASE_URL`                                                           | Postgres connection (Neon pooled URL in prod)                                                                  | all                                       |
+| `NODE_ENV`                                                               | `development \| test \| production`                                                                            | all (set by tooling, rarely by hand)      |
+| `BETTER_AUTH_SECRET`                                                     | session/token signing                                                                                          | all (unique per env)                      |
+| `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL`                                | canonical origin                                                                                               | all                                       |
+| `NEXT_PUBLIC_SW_ENABLED`                                                 | service-worker kill switch — unset = on in production builds only; `false` unregisters and clears caches (§8a) | all (normally unset)                      |
+| `AUTH_ENABLED`                                                           | auth feature-flag kill-switch (default `true`)                                                                 | all                                       |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_MAX`                 | sensitive-endpoint rate-limit tuning (default 60s/5)                                                           | all — see caveat below                    |
+| `AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_DEFAULT_MAX` | default rate-limit bucket tuning (default 10s/100, matches Better Auth's own built-in default)                 | all — see caveat below                    |
+| `EMAIL_TRANSPORT`                                                        | `console-file` (dev/test) \| `resend` (preview/prod)                                                           | all                                       |
+| `EMAIL_OUTBOX_DIR`                                                       | console-file transport's output dir (default `.local/email-outbox`)                                            | dev/test only                             |
+| `RESEND_API_KEY`                                                         | transactional email                                                                                            | preview/prod (dev uses console transport) |
+| `EMAIL_FROM`                                                             | verified sender                                                                                                | preview/prod                              |
+| `ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION`                                | explicit escape hatch for `console-file` in production (default `false`)                                       | prod only, exceptional                    |
+| `SIGNUP_ALLOWED_EMAILS`                                                  | comma-separated addresses permitted to register — **required in production**                                   | all (unset outside prod = sign-up open)   |
+| `SENTRY_DSN`                                                             | error monitoring                                                                                               | preview/prod                              |
+| `CONTENT_SERVER_DIR` / storage binding                                   | assessment+validation manifests location                                                                       | all                                       |
+| `ADMIN_BOOTSTRAP_EMAIL`                                                  | first admin promotion (one-shot)                                                                               | prod                                      |
 
 Secrets live only in Vercel/Neon dashboards and local `.env.local`
 (gitignored). `.env.example` documents every variable without values.
@@ -459,8 +460,52 @@ storing account markup: treat it as a live incident, not a docs drift.
 - Rollback: redeploy the previous Vercel build (instant); DB rollback via
   down-migration only for additive changes, otherwise restore-from-backup
   path; a rollback rehearsal is part of the Phase 22 checkpoint.
-- Feature flags for risky subsystems (sync, SW) act as kill-switches without
-  redeploys.
+- Feature flags for risky subsystems act as kill-switches: `AUTH_ENABLED` and
+  `SYNC_ENABLED` are server-side and take effect on the next request; the
+  service worker's is **not**, and that difference matters — see below.
+
+### 8a. Rolling back the service worker (Phase 18)
+
+**Redeploying the previous build does not remove a service worker.** A worker
+is installed on the device, not shipped with the page: it keeps controlling
+every navigation and serving its own caches until something explicitly
+unregisters it. So the rollback is a deploy with the switch turned off, not a
+deploy of an older build:
+
+1. Set `NEXT_PUBLIC_SW_ENABLED=false` in the Vercel environment and redeploy.
+   It is a `NEXT_PUBLIC_*` variable, so it is inlined at **build** time —
+   changing it without a rebuild changes nothing.
+2. On their next load, every device runs
+   `components/pwa/service-worker-provider.tsx`, which unregisters **every**
+   registration for the origin (not only the scope this build knows about) and
+   deletes **every cache on the origin** (not only the seven this app names) —
+   Serwist's precache included.
+3. A device that never loads the app again keeps its worker. There is no way
+   around that from the server, and it is the reason the switch is worth
+   deploying promptly rather than treated as a background cleanup. If a device
+   is known to be affected and cannot be reached, the only remaining lever is
+   the browser's own "Clear site data" for the origin, performed by whoever
+   holds the device.
+
+Leave it at `false` until the cause is fixed, then remove the variable — unset
+means "on in a production build", so deleting it is what turns the worker back
+on.
+
+**The cache sweep is a separate step because unregistration does not do it.**
+`ServiceWorkerRegistration.unregister()` removes the registration and nothing
+else: Cache Storage belongs to the **origin**, not to the registration, and is
+otherwise pruned only by a _new_ worker's activate-time cleanup — which a
+rollback never runs, because it installs no replacement. Without the sweep, a
+rollback would leave every cache the worker ever wrote on the device, inert and
+unreclaimable, until the worker was turned back on.
+
+The two steps are run independently rather than in sequence, so an
+unregistration that stalls cannot prevent the sweep.
+
+**A sign-out is not a rollback and does not do this.** It clears only the two
+caches that can hold account-specific markup (`OWNER_SENSITIVE_CACHE_NAMES`);
+the app shell, build assets and downloaded vocabulary are deliberately kept, so
+the next learner on that device is not made to re-download the whole app.
 
 ## 9. Monitoring & operations
 

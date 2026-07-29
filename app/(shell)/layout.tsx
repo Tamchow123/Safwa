@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { DeletedAccountCleanup } from "@/components/account/deleted-account-cleanup";
+import { InstallHint } from "@/components/pwa/install-hint";
 import { GuestMergeDialog } from "@/components/sync/guest-merge-dialog";
 import { GuestMergeProvider } from "@/components/sync/guest-merge-provider";
 import { SyncProvider } from "@/components/sync/sync-provider";
@@ -22,7 +23,15 @@ export default function ShellLayout({
         reads guest data — so mounting it shell-wide is safe.
       */}
       <GuestMergeProvider>
-        <AppShell>{children}</AppShell>
+        <AppShell>
+          {/*
+            In the shell and not the root layout: /sign-in is the wrong moment
+            to suggest installing an app the visitor has not used yet. Renders
+            nothing unless there is an install route to offer.
+          */}
+          <InstallHint />
+          {children}
+        </AppShell>
         {/*
           Shell-wide, so the offer reaches a learner wherever they landed after
           signing in. It renders nothing at all unless the flow has something to
