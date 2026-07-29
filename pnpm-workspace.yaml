@@ -1,4 +1,9 @@
 allowBuilds:
+  # Declared as a dependency of @serwist/turbopack but imported by nothing in
+  # its published dist — verified by grep across the package. Denying a native
+  # postinstall we do not need is the safer default; if a future version
+  # actually reaches for it, the failure is loud rather than silent.
+  "@swc/core": false
   esbuild: true
   sharp: true
   unrs-resolver: true

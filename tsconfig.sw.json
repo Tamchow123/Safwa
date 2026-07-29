@@ -1,0 +1,15 @@
+{
+  // The service worker is the one module compiled for a worker global scope,
+  // and `lib.dom` and `lib.webworker` cannot both be in one program — they
+  // declare the same names with different shapes. So `modules/pwa/sw.ts` is
+  // excluded from the root config and checked here instead, with the worker
+  // lib in place of the DOM one. `pnpm typecheck` runs both passes; dropping
+  // this one would leave the worker the only unchecked TypeScript in the repo.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["esnext", "webworker"],
+    "types": []
+  },
+  "include": ["modules/pwa/sw.ts"],
+  "exclude": []
+}

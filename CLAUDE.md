@@ -83,13 +83,18 @@ device reopens Phase 19**.
 ## Code layout
 
 - `app/` — App Router: `(auth)` and `(shell)` route groups, `api/`
-  (`auth/`, `account/`, `health/`, and `sync/*` — push, pull, guest-merge).
+  (`auth/`, `account/`, `health/`, and `sync/*` — push, pull, guest-merge),
+  plus `serwist/[path]` (Phase 18 — a `force-static` handler that emits the
+  service worker at build time).
 - `modules/` — feature modules: `analytics`, `auth`, `collections`, `content`,
-  `email`, `env`, `profile`, `scheduler`, `study-engine`, `study-session`,
-  `sync` (`sync/client`, `sync/server`, `sync/protocol`). Modules with
-  non-obvious boundaries carry a `README.md` (`analytics`, `content`,
-  `scheduler`, `study-engine`, `sync`, plus `shared/arabic`) — read it before
-  changing that module, and update it in the same phase.
+  `email`, `env`, `profile`, `pwa`, `scheduler`, `study-engine`,
+  `study-session`, `sync` (`sync/client`, `sync/server`, `sync/protocol`).
+  Modules with non-obvious boundaries carry a `README.md` (`analytics`,
+  `content`, `pwa`, `scheduler`, `study-engine`, `sync`, plus `shared/arabic`)
+  — read it before changing that module, and update it in the same phase.
+  `modules/pwa/sw.ts` is the one file compiled for a **worker** global scope:
+  it is excluded from the root `tsconfig.json` and checked by
+  `tsconfig.sw.json`, which `pnpm typecheck` also runs.
 - `components/` — UI foldered by feature, with a few app-wide components at
   the root; `components/ui` holds the generated shadcn primitives. Client
   flow providers live here (`components/sync/*-provider.tsx`, mounted in
@@ -151,7 +156,11 @@ production environment before it is deployed; the rules it shares with the
 runtime validator live in `modules/env/rules.ts`), `pnpm routes:verify`
 (Phase 18 — checks `next.config.ts`'s `outputFileTracingIncludes` keys against
 `.next`'s own app-paths manifest; **must run after `pnpm build`**),
-`pnpm check` (typecheck + lint + format:check + test + build).
+`pnpm sw:verify` (Phase 18 — checks the four service-worker adoption criteria
+of `docs/phases/phases-18.md` §6 against the build output, plus two absence
+checks review added: the route serves nothing beyond the worker and its source
+map, and no content-release artifact is precached; **must run after `pnpm
+build`**), `pnpm check` (typecheck + lint + format:check + test + build).
 
 Server/database (added Phase 15 — Postgres, Drizzle, Better Auth, email):
 `docker compose up -d db` starts the local `postgres:17-alpine` container
@@ -181,14 +190,14 @@ four `AUTH_RATE_LIMIT_*` variables carry production bounds
 (`docs/DEPLOYMENT.md` §2) so an E2E-tuned `.env` cannot reach production.
 
 `scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
-locally in 21 steps (19 with `-SkipE2E`): dependency/data/Arabic checks,
+locally in 22 steps (20 with `-SkipE2E`): dependency/data/Arabic checks,
 content-artifact freshness (build + `git diff`/untracked checks), icon
 byte-identity (the one step deliberately _not_ mirrored in CI — see step 7's
 own note), docs verification, disposable-Postgres reachability + migrations +
 content-version registration + `test:integration` (against `safwa_test`,
 derived from `.env.local`'s `DATABASE_URL`), typecheck/lint/format, the
-push-guard hook self-tests, unit tests, build, `routes:verify` (must follow
-the build — it reads `.next`'s own app-paths manifest), and E2E. `-SkipE2E`
+push-guard hook self-tests, unit tests, build, `routes:verify` and `sw:verify`
+(both must follow the build — they read `.next`'s own output), and E2E. `-SkipE2E`
 skips only the E2E steps for fast inner-loop iteration — the full gate (E2E
 included) must still pass before review.
 

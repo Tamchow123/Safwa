@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { CONTENT_ARTIFACT_PUBLIC_GLOB } from "@/modules/content/constants";
 import nextConfig from "@/next.config";
 import {
   declaredContentFilesystemModules,
@@ -168,12 +169,17 @@ describe("output file tracing", () => {
     // A release is only loadable if all four of its files are present: three
     // under content-server/ and learner.json under public/content/. Pinning
     // one root without the other fails exactly as loudly as pinning neither.
+    //
+    // The public-side pattern is asserted through the content module's own
+    // constant, which is the same one the service worker excludes from its
+    // precache — so a move of that subtree cannot leave next.config.ts naming
+    // the old path while everything else names the new one.
     for (const [route, patterns] of Object.entries(traced)) {
       expect(patterns, `${route} must include content-server`).toContain(
         "content-server/**",
       );
       expect(patterns, `${route} must include public/content`).toContain(
-        "public/content/**",
+        CONTENT_ARTIFACT_PUBLIC_GLOB,
       );
     }
   });

@@ -374,6 +374,28 @@ different ways:
    this one can catch both agreeing on a key Next does not recognise, which
    would pin nothing and produce no error at build time.
 
+### 5c. The service worker's build dependency (Phase 18)
+
+`pnpm sw:verify` is the second post-build check, quality-gate step 20 and a CI
+step, and `modules/pwa/README.md` explains what it asserts. One deployment
+consequence belongs here rather than there:
+
+**The build now requires a native `esbuild` binary.**
+`app/serwist/[path]/route.ts` pins `useNativeEsbuild: true` rather than taking
+the package default, which is native on Windows and WebAssembly everywhere
+else — a default that would have the worker bundled by one tool on the
+authoring machine and a different one in CI and on Vercel. The cost of pinning
+is that the whole build, not just the worker, fails on any platform with no
+matching prebuilt binary for the resolved `esbuild` version.
+
+That is the right failure (loud, at build time, on a platform change nobody
+would otherwise notice), and both current build platforms — GitHub Actions
+`ubuntu-latest` and Vercel — are well supported. **If the build platform ever
+changes** — a different base image, an unusual architecture, a musl/Alpine
+runner — check this first: the remedy is either an `esbuild` version with a
+binary for that platform, or dropping the pin and accepting `esbuild-wasm`
+there.
+
 ## 6. Content seed / import process
 
 - Stage 1: `pnpm content:build` runs in CI/build from the validated JSON;
