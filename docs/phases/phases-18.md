@@ -96,6 +96,19 @@ resolve to the **old, deleted** account id — stamping fresh offline reviews wi
 a dead owner key. A clock cannot fix that (the id is wrong immediately, not
 eventually); forgetting on the deletion event can, and does.
 
+**The residual gap, stated rather than papered over.** `forgetLastKnownOwner()`
+is exhaustive within what a caller can control: it deletes, verifies by reading
+back, and — when the delete returns normally but the value survives —
+neutralises the value with a write, which is a different operation and so can
+succeed where the delete silently did not. Three failures survive even that: a
+storage that refuses every operation, one that accepts both and honours
+neither, and one whose reads throw so nothing can be confirmed. In those cases
+the only remaining backstop is the hooks' own forget on the next `guest`
+classification, and **that requires a render to happen**. A learner who signs
+out and immediately closes the tab, on a device where storage is that broken,
+can leave the memory behind. Nothing in this phase closes that; it is recorded
+here so it is not mistaken for a guarantee.
+
 ## 3. What is deliberately skipped, and what reopens it
 
 | Deferred                | Why                                                                                                                                                                                        | What reopens it                                                                                    |

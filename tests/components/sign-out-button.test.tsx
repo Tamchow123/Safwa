@@ -34,6 +34,7 @@ const fakeDb = { name: "fake" };
 vi.mock("@/modules/content/db", () => ({ getSafwaDb: () => fakeDb }));
 
 import { SignOutButton } from "@/components/account/sign-out-button";
+import { LAST_KNOWN_OWNER_STORAGE_KEY } from "@/modules/auth/last-known-owner";
 
 beforeEach(() => {
   signOutMock.mockClear();
@@ -76,5 +77,34 @@ describe("SignOutButton", () => {
     await waitFor(() => expect(signOutMock).toHaveBeenCalled());
     // The button recovers (not stuck pending) despite the clear failure.
     await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
+  });
+
+  it("forgets the durable last-known owner (Phase 18 §2.1)", async () => {
+    // Not a cosmetic mirror like theme/font-scale: this is what an offline
+    // cold boot resolves an unclassifiable session to, so leaving it behind
+    // would let the NEXT person on this device write rows stamped with the
+    // departing account's owner key.
+    localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, SIGNED_IN_USER_ID);
+
+    render(<SignOutButton />);
+    fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+
+    await waitFor(() =>
+      expect(localStorage.getItem(LAST_KNOWN_OWNER_STORAGE_KEY)).toBeNull(),
+    );
+  });
+
+  it("forgets it even when the Dexie sweep fails", async () => {
+    // The two are independent: a stale owner is wrong whether or not the
+    // account's rows were removed, and the forget runs BEFORE the sweep.
+    clearAccountLocalStateMock.mockRejectedValueOnce(new Error("dexie down"));
+    localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, SIGNED_IN_USER_ID);
+
+    render(<SignOutButton />);
+    fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+
+    await waitFor(() =>
+      expect(localStorage.getItem(LAST_KNOWN_OWNER_STORAGE_KEY)).toBeNull(),
+    );
   });
 });

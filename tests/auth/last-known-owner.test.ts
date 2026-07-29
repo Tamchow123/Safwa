@@ -247,11 +247,35 @@ describe("the result is read back, not inferred from 'it did not throw'", () => 
     expect(forgetLastKnownOwner(storage)).toBe(true);
   });
 
-  it("reports failure for a storage that accepts a write and does nothing", () => {
-    // The failure the sign-out path most needs to know about, and the one an
-    // exception-only check cannot see: removeItem returns normally, and the
-    // value is still there. On a shared device that stale owner is what the
-    // NEXT person's offline writes would be stamped with.
+  it("neutralises the value when the delete is a silent no-op", () => {
+    // A repeat `removeItem` would do the same nothing, so forget falls back to
+    // a DIFFERENT operation: writing an empty string, which can never be a
+    // valid owner account id and so reads as no memory at all. This is what
+    // makes the failure recoverable rather than merely reported.
+    const map = new Map<string, string>([
+      [LAST_KNOWN_OWNER_STORAGE_KEY, ACCOUNT_ID],
+    ]);
+    const undeletable: LastKnownOwnerStorage = {
+      getItem: (key) => map.get(key) ?? null,
+      setItem: (key, value) => void map.set(key, value),
+      removeItem: () => {
+        // Accepts the call and does nothing — the failure an exception-only
+        // check cannot see.
+      },
+    };
+
+    expect(forgetLastKnownOwner(undeletable)).toBe(true);
+    expect(readLastKnownOwner(undeletable)).toBeNull();
+    // The key may still exist; what matters is that no reader can get an owner
+    // out of it.
+    expect(map.get(LAST_KNOWN_OWNER_STORAGE_KEY)).toBe("");
+  });
+
+  it("reports failure when neither the delete nor the neutralising write takes", () => {
+    // A store that accepts every mutation and honours none. Both avenues are
+    // exhausted, so `false` here is the honest answer rather than a missing
+    // attempt — and on a shared device that surviving owner is what the NEXT
+    // person's offline writes would be stamped with.
     const amnesiac: LastKnownOwnerStorage = {
       getItem: () => ACCOUNT_ID,
       setItem: () => {},
@@ -259,6 +283,18 @@ describe("the result is read back, not inferred from 'it did not throw'", () => 
     };
 
     expect(forgetLastKnownOwner(amnesiac)).toBe(false);
+  });
+
+  it("reports failure when the neutralising write itself throws", () => {
+    const deleteIgnoredWriteBlocked: LastKnownOwnerStorage = {
+      getItem: () => ACCOUNT_ID,
+      setItem() {
+        throw new DOMException("QuotaExceededError");
+      },
+      removeItem: () => {},
+    };
+
+    expect(forgetLastKnownOwner(deleteIgnoredWriteBlocked)).toBe(false);
   });
 
   it("reports failure when a write silently stores something else", () => {

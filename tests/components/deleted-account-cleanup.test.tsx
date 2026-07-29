@@ -33,6 +33,7 @@ import {
   readPendingAccountDeletion,
   rememberPendingAccountDeletion,
 } from "@/components/account/pending-account-deletion";
+import { LAST_KNOWN_OWNER_STORAGE_KEY } from "@/modules/auth/last-known-owner";
 
 const NONCE = "9d3a1f2c-0000-4000-8000-abcabcabcabc";
 
@@ -88,6 +89,40 @@ describe("clearing a deleted account's local rows (§11)", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
   });
 
+  it("forgets the durable last-known owner (Phase 18 §2.1)", async () => {
+    // A TTL-free memory would otherwise outlive the account it names: delete,
+    // re-register, then go offline before the new account completes one
+    // successful session check, and an `unknown` classification would resolve
+    // to the DELETED account's id and stamp fresh offline reviews with a dead
+    // owner key. No clock could fix that — the id is wrong the instant it
+    // changes, not eventually.
+    localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, "user-1");
+    requestDeletionOf("user-1");
+    arriveWith(NONCE);
+
+    render(<DeletedAccountCleanup />);
+
+    await waitFor(() =>
+      expect(localStorage.getItem(LAST_KNOWN_OWNER_STORAGE_KEY)).toBeNull(),
+    );
+  });
+
+  it("forgets it even when the Dexie sweep fails and will be retried", async () => {
+    // The forget is not gated on the sweep: a stale owner is wrong whether or
+    // not the rows were removed, and the retry path deliberately leaves the
+    // nonce in place, so this must not depend on the sweep succeeding.
+    clearAccountLocalState.mockRejectedValueOnce(new Error("dexie down"));
+    localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, "user-1");
+    requestDeletionOf("user-1");
+    arriveWith(NONCE);
+
+    render(<DeletedAccountCleanup />);
+
+    await waitFor(() =>
+      expect(localStorage.getItem(LAST_KNOWN_OWNER_STORAGE_KEY)).toBeNull(),
+    );
+  });
+
   it("builds the callback URL the reader looks at", async () => {
     // The dialog and this component have to agree, and they are in different
     // files — so the URL is built by one exported function, not two spellings.
@@ -117,10 +152,16 @@ describe("the marker alone is not authority to delete anything", () => {
     // record it must do nothing at all — the account's queued-but-unpushed
     // mutations exist nowhere else.
     forgetPendingAccountDeletion();
+    localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, "user-1");
     arriveWith("attacker-supplied");
     render(<DeletedAccountCleanup />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
     expect(clearAccountLocalState).not.toHaveBeenCalled();
+    // The last-known owner is part of "does nothing at all". Forgetting it on
+    // an unauthorised link would let that link log the learner's own device
+    // out of itself while offline — smaller than deleting rows, but the same
+    // class of damage from the same unverified input.
+    expect(localStorage.getItem(LAST_KNOWN_OWNER_STORAGE_KEY)).toBe("user-1");
   });
 
   it("ignores a link whose nonce does not match, and keeps the request alive", async () => {
