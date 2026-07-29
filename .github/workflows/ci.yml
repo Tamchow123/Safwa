@@ -141,6 +141,15 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Must follow the build, and only works after it: this compares
+      # next.config.ts's outputFileTracingIncludes keys against Next's own
+      # app-paths manifest. The unit suite checks the config against the route
+      # graph that derives it; only Next's output can say whether either
+      # spelling is one Next actually recognises. A key it does not is not an
+      # error at build time — it silently pins nothing.
+      - name: Traced routes exist in the build
+        run: pnpm routes:verify
+
   e2e:
     name: E2E (Chromium)
     runs-on: ubuntu-latest
@@ -186,7 +195,7 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run E2E tests (desktop + mobile Chromium, auth-disabled, rate-limit, sync-disabled)
+      - name: Run E2E tests (desktop + mobile Chromium, auth-disabled, rate-limit, sync-disabled, signup-closed)
         run: pnpm test:e2e
         env:
           # e2e/global-setup.ts shells out to `pnpm db:test:reset` AND, since

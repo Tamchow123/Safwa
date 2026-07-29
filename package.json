@@ -26,6 +26,8 @@
     "icons:verify": "tsx scripts/generate-icons.ts --check",
     "content:verify": "pnpm content:build && pnpm docs:verify",
     "docs:verify": "tsx tools/docs-verify.ts",
+    "deploy:verify": "tsx scripts/verify-deploy-preconditions.ts",
+    "routes:verify": "tsx scripts/verify-route-manifest.ts",
     "validate:data": "python scripts/validate-vocabulary.py",
     "verify:arabic": "python scripts/arabic-extract.py --verify-known",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",

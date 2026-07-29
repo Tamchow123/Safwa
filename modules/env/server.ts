@@ -15,6 +15,12 @@ import {
   parseSignupAllowlist,
   type SignupAllowlist,
 } from "@/modules/auth/signup-allowlist";
+import {
+  looksLikePostgresUrl,
+  MIN_PRODUCTION_SECRET_LENGTH,
+  normaliseBooleanFlag,
+  PRODUCTION_RATE_LIMIT_BOUNDS,
+} from "@/modules/env/rules";
 
 export type NodeEnvironment = "development" | "test" | "production";
 export type EmailTransportKind = "console-file" | "resend";
@@ -24,12 +30,11 @@ function booleanFlag(defaultValue: boolean) {
     if (value === undefined || value === null || value === "") {
       return defaultValue;
     }
-    if (typeof value === "string") {
-      const normalized = value.trim().toLowerCase();
-      if (normalized === "true") return true;
-      if (normalized === "false") return false;
-    }
-    return value;
+    // Normalisation lives in modules/env/rules.ts so the pre-deploy check
+    // reads these variables exactly the way the runtime does. `undefined`
+    // means "not a boolean at all" — pass the original through so Zod reports
+    // it rather than this silently deciding.
+    return normaliseBooleanFlag(value) ?? value;
   }, z.boolean());
 }
 
@@ -40,11 +45,9 @@ const rawServerEnvSchema = z.object({
   DATABASE_URL: z
     .string()
     .min(1, "DATABASE_URL is required")
-    .refine(
-      (value) =>
-        value.startsWith("postgres://") || value.startsWith("postgresql://"),
-      { message: "DATABASE_URL must be a postgres:// or postgresql:// URL" },
-    ),
+    .refine(looksLikePostgresUrl, {
+      message: "DATABASE_URL must be a postgres:// or postgresql:// URL",
+    }),
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET is required"),
   BETTER_AUTH_URL: z.string().url("BETTER_AUTH_URL must be a valid URL"),
   NEXT_PUBLIC_APP_URL: z
@@ -131,40 +134,28 @@ export type ServerEnv = {
   signupAllowedEmails: SignupAllowlist;
 };
 
-const MIN_PRODUCTION_SECRET_LENGTH = 32;
-
 /**
- * Production bounds on the four rate-limit tuning variables (Phase 18).
+ * The variables this schema cannot supply a default for — derived from the
+ * schema itself, never listed by hand.
  *
- * `docs/DEPLOYMENT.md` §2 has warned since Phase 15 that these are validated
- * only for positivity, and that copying an E2E- or CI-tuned `.env` into
- * production would "silently and drastically weaken rate limiting with no
- * validation error to catch it at deploy time". `e2e/helpers/e2e-server-env.ts`
- * really does set `AUTH_RATE_LIMIT_DEFAULT_MAX=100000` and
- * `AUTH_RATE_LIMIT_MAX=1000`; the bounds below make both structurally
- * unreachable in production rather than merely discouraged in prose.
- *
- * The two MAX ceilings are the security-relevant ones. The window bounds are a
- * pair of sanity limits, and it is worth being precise about which risk each
- * one addresses, because they are not the same risk:
- *  - the FLOOR is security: a one-second window makes any max meaningless,
- *    because the bucket empties faster than an attacker can be slowed down.
- *  - the CEILING is availability: an hour-long window means one fat-fingered
- *    burst locks the instance's only learner out until it expires.
+ * `scripts/verify-deploy-preconditions.ts` has to know which variables must be
+ * present before a deploy, and the honest source of that fact is what the Zod
+ * schema rejects when handed nothing. Exported so a unit test can hold the two
+ * against each other: a new required variable added here and not mirrored
+ * there would otherwise make the pre-deploy check report "OK" for a
+ * configuration the deployed instance rejects on its first request.
  */
-const PRODUCTION_RATE_LIMIT_BOUNDS = {
-  /** Sensitive endpoints (sign-in, sign-up, reset, delete). Default is 5. */
-  AUTH_RATE_LIMIT_MAX: { min: 1, max: 20 },
-  AUTH_RATE_LIMIT_WINDOW_SECONDS: { min: 30, max: 3600 },
-  /**
-   * The default bucket covers get-session and friends — read-mostly, hit on
-   * every page mount, not brute-forceable — so it legitimately needs far more
-   * headroom than the sensitive rules. Better Auth's own default is 100/10s;
-   * 1000 leaves room for a busy real session while refusing the E2E 100000.
-   */
-  AUTH_RATE_LIMIT_DEFAULT_MAX: { min: 1, max: 1000 },
-  AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: { min: 5, max: 3600 },
-} as const;
+export function requiredServerEnvKeys(): string[] {
+  const parsed = rawServerEnvSchema.safeParse({});
+  if (parsed.success) return [];
+  return [
+    ...new Set(
+      parsed.error.issues
+        .map((issue) => String(issue.path[0] ?? ""))
+        .filter((key) => key !== ""),
+    ),
+  ].sort();
+}
 
 function assertProductionInvariants(
   raw: z.infer<typeof rawServerEnvSchema>,

@@ -80,8 +80,40 @@ and the first request that touches auth/db/email throws. Two consequences:
   `getServerEnv()` and reports 503/unhealthy on exactly this failure. That is
   the runtime signal that a config is bad, and it is only useful if the
   platform's traffic cutover waits for it.
-- **Prefer catching it before the deploy**, with the pre-deploy precondition
-  check (added in Phase 18's deploy-readiness slice) rather than in production.
+- **Prefer catching it before the deploy**, with `pnpm deploy:verify`
+  (`scripts/verify-deploy-preconditions.ts`, Phase 18) rather than in
+  production. It reads the same variables production will see and reports
+  every problem at once: missing required variables, a non-https origin, a
+  short signing secret, an unset sign-up allowlist, any of the four rate
+  limits outside its production bound, and an email transport that would
+  write verification links to a local directory instead of sending them. It
+  opens no connection and sends no email, so it is safe to run anywhere, and
+  it never echoes a value — only the name of the variable and what is wrong
+  with it. It is wired into `vercel.json`'s `buildCommand`, so a
+  misconfigured deployment fails at build rather than on first request, and
+  into `deploy-migrate.yml` before any migration runs.
+
+  The rules it enforces are not a second copy: `modules/env/rules.ts` holds
+  the bounds, the minimum secret length, the Postgres URL shape and the
+  boolean-parsing rule once, and both this script and `modules/env/server.ts`
+  import it. That module is dependency-free and carries no `server-only`
+  marker precisely so a script that must run _without_ a valid environment can
+  still read it. `tests/unit/deploy-preconditions.test.ts` goes further and
+  drives the **real** runtime validator over a table of environments,
+  asserting the pre-deploy check is never the more permissive of the two — so
+  a variable that becomes required in the schema cannot silently stop being
+  checked here.
+
+  It distinguishes **failures** from **warnings**. Failures fail the build.
+  The one warning today is `ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION=true`,
+  which the runtime permits outright: making it fatal here would mean the
+  documented escape hatch could never get a build through the gate — an escape
+  hatch that blocks the thing it exists to allow. It is printed loudly and
+  does not stop the deploy.
+
+  Note that preview deployments run the same check, and that is intended: a
+  preview with sign-up open is the same bug as production with sign-up open.
+  Give the preview environment its own values, not none.
 
 **Sign-up is closed by default in production (Phase 18).**
 `SIGNUP_ALLOWED_EMAILS` must list at least one address when
@@ -112,15 +144,15 @@ rather than only the listed ones.
 
 ## 3. Hosting recommendation
 
-| Component               | Choice                                                                                    | Assumption / note                                                                                                            |
-| ----------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Web app + API           | **Vercel**                                                                                | Hobby tier suffices pre-launch for a free educational app; upgrade trigger: team members, higher limits, or commercial terms |
-| Database                | **Neon Postgres**                                                                         | free tier assumed adequate at low usage; serverless driver from Vercel functions; PITR window per plan                       |
-| Static content releases | shipped with the app (`public/content/`) or Vercel Blob later                             | releases are small (hundreds of KB)                                                                                          |
-| Server manifests        | bundled server-side at build (Stage 1); DB/Blob after Phase 21                            | must never be publicly served from `public/`                                                                                 |
-| Email                   | **Resend**                                                                                | free tier assumed ~100 emails/day — enough for verification/reset at launch scale                                            |
-| Scheduled tasks         | none required for MVP; Vercel Cron if needed (pending-parent TTL sweep, activity rollups) |                                                                                                                              |
-| Push notifications      | deferred post-MVP; web-push via a small worker + VAPID when added                         | iOS constraints documented in `OFFLINE_AND_SYNC.md`                                                                          |
+| Component               | Choice                                                                                    | Assumption / note                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Web app + API           | **Vercel**                                                                                | Hobby tier suffices pre-launch for a free educational app; upgrade trigger: team members, higher limits, or commercial terms      |
+| Database                | **Neon Postgres**                                                                         | free tier assumed adequate at low usage; **`pg` Pool over TCP, not the Neon serverless driver** (see below); PITR window per plan |
+| Static content releases | shipped with the app (`public/content/`) or Vercel Blob later                             | releases are small (hundreds of KB)                                                                                               |
+| Server manifests        | bundled server-side at build (Stage 1); DB/Blob after Phase 21                            | must never be publicly served from `public/`                                                                                      |
+| Email                   | **Resend**                                                                                | free tier assumed ~100 emails/day — enough for verification/reset at launch scale                                                 |
+| Scheduled tasks         | none required for MVP; Vercel Cron if needed (pending-parent TTL sweep, activity rollups) |                                                                                                                                   |
+| Push notifications      | deferred post-MVP; web-push via a small worker + VAPID when added                         | iOS constraints documented in `OFFLINE_AND_SYNC.md`                                                                               |
 
 **Expected low-usage cost: ~~$0–5/month** (assumption). Upgrade points:
 Vercel Pro (~$20/mo) for limits/analytics; Neon paid (~~$19/mo) for more
@@ -130,6 +162,27 @@ storage/compute/PITR; Resend paid at volume.
 portable to any Node host + managed Postgres. Vercel-specific surface is
 limited to config and (if adopted) Cron/Blob; Better Auth and Drizzle are
 self-hosted libraries; Resend sits behind the email adapter.
+
+**Database driver — corrected in Phase 18.** This table claimed the app talks
+to Neon through its serverless (HTTP/WebSocket) driver. It does not, and never
+has: `db/client.ts` uses `drizzle-orm/node-postgres` over a `pg` Pool on a
+plain TCP connection, which is the choice ADR-008 records and the reason the
+pooled and direct Neon endpoints are different URLs with different uses. Two
+things follow, and both were left implicit while the claim stood:
+
+- **`DATABASE_URL` must be Neon's POOLED endpoint** for the app. A `pg` Pool
+  per serverless instance, multiplied by concurrent instances, is exactly the
+  connection-exhaustion shape PgBouncer exists to absorb.
+- **Migrations and `pg_dump` must use the DIRECT endpoint.** PgBouncer in
+  transaction mode does not support session-level state, some DDL, or advisory
+  locks, and the resulting failure is partial rather than clean.
+  `.github/workflows/deploy-migrate.yml` therefore reads
+  `PRODUCTION_DATABASE_URL_DIRECT`, not the pooled URL the app uses.
+
+**Region.** Set the Vercel function region to match the Neon project's region
+when creating the project (H1). It is deliberately not pinned in `vercel.json`:
+a wrong hardcoded region is worse than an unset one, since it silently adds a
+round trip to every query. Record the chosen region here once it exists.
 
 ## 4. Environments
 
@@ -161,6 +214,165 @@ self-hosted libraries; Resend sits behind the email adapter.
 - Production: apply migrations as a deploy step _before_ promoting the build;
   destructive migrations require a documented plan + fresh backup + rollback
   note.
+- **How, concretely (Phase 18):** run the **Deploy migrations** workflow
+  (`.github/workflows/deploy-migrate.yml`) by hand from the Actions tab, typing
+  the confirmation phrase. It is `workflow_dispatch` only — an automatic
+  migration on push means a schema change ships whenever someone merges, at
+  whatever moment CI finishes, with nobody deciding that now is a good time to
+  alter the database holding the only copy of a learner's history. It runs
+  `pnpm deploy:verify` first, then takes a **restore point** (below), then
+  `pnpm db:migrate`, then (by default)
+  `pnpm db:register-content`, all against the **direct** Neon endpoint from
+  `PRODUCTION_DATABASE_URL_DIRECT`. Its concurrency group has
+  `cancel-in-progress: false`: making a second run wait is always better than
+  interrupting a migration mid-transaction.
+  Content registration is not optional before first traffic — every session
+  the server stores carries a `release_id` foreign key into `content_versions`,
+  so without it the first authenticated push fails at the database and
+  presents to the user as "sync is broken".
+- **The restore point is taken by the workflow, and it fails closed.** Before
+  `pnpm db:migrate` runs, the workflow creates a Neon branch named
+  `pre-migrate-<run-id>-<attempt>` through the Neon API. Without `NEON_API_KEY`
+  (secret), `NEON_PROJECT_ID` and `NEON_PRODUCTION_BRANCH_ID` (variables)
+  configured on the `production` environment, the run stops there and nothing
+  is migrated — recoverability is not left resting on an unenforced note in
+  this document, nor on Neon's plan-dependent PITR window.
+
+  A branch rather than a `pg_dump` uploaded as a workflow artifact: branches
+  are copy-on-write, so it costs seconds and moves no data, and a dump of this
+  database contains verified email addresses, password hashes and live session
+  tokens — not something to place in artifact storage every repository reader
+  can download. To recover, point `DATABASE_URL` at the branch's endpoint, or
+  restore it over the primary from the Neon console.
+
+  **`NEON_PRODUCTION_BRANCH_ID` is not optional and not cosmetic.** Neon's API
+  documents that a branch created without a parent forks from _the project's
+  default branch_, which is not necessarily the one
+  `PRODUCTION_DATABASE_URL_DIRECT` addresses. Unpinned, the call would still
+  return 201 and the run would still print a restore-point line, having
+  snapshotted the wrong database — a failure nothing in the run's output could
+  reveal. Take the id from the Neon console (Branches → the production branch →
+  `br-…`).
+
+  **The branch expires after 14 days**, set on the branch itself via Neon's
+  `expires_at`, so copies of production do not accumulate in the project one
+  per migration. Long enough that a bad migration found a week later is still
+  recoverable; past that horizon the scheduled encrypted dump (§7) is the
+  backup. If the API rejects the expiry — most likely the plan not offering the
+  feature — the run **warns and continues**, because the restore point itself
+  already exists and blocking a migration over housekeeping would trade a real
+  guarantee for a lesser one. In that case the job summary says
+  `NO EXPIRY SET`, and deleting the branch is manual. Either way both the
+  success summary and the failure runbook name the branch, because the run an
+  operator is already looking at is the only reliable place to be reminded.
+
+- **What it needs configured**, all on the `production` GitHub Environment
+  (Settings → Environments → production), not as bare repository secrets — the
+  environment binding is what makes required reviewers possible at all:
+
+  | Kind     | Name                               | Value                                                          |
+  | -------- | ---------------------------------- | -------------------------------------------------------------- |
+  | secret   | `PRODUCTION_DATABASE_URL_DIRECT`   | Neon **direct** endpoint (§3)                                  |
+  | secret   | `PRODUCTION_BETTER_AUTH_SECRET`    | the production signing secret                                  |
+  | secret   | `PRODUCTION_SIGNUP_ALLOWED_EMAILS` | comma-separated allowlist (§2)                                 |
+  | secret   | `PRODUCTION_RESEND_API_KEY`        | Resend API key                                                 |
+  | secret   | `NEON_API_KEY`                     | Neon personal/project API key, for the restore point           |
+  | variable | `NEON_PROJECT_ID`                  | Neon project id the branch is created in                       |
+  | variable | `NEON_PRODUCTION_BRANCH_ID`        | `br-…`, the branch the snapshot forks FROM (see above)         |
+  | variable | `PRODUCTION_APP_URL`               | `https://…` — both `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` |
+  | variable | `PRODUCTION_EMAIL_FROM`            | e.g. `Safwa <noreply@…>`                                       |
+
+  The allowlist is a secret rather than a variable because it is a list of
+  personal email addresses, and repository variables are readable by anyone
+  with read access.
+
+- **The guardrail this workflow cannot give itself.** The typed confirmation
+  phrase protects against a misclick and nothing else: its required text is
+  printed in its own input description, so anyone who can run workflows can
+  type it. **Configure "required reviewers" on the `production` GitHub
+  Environment** (Settings → Environments → production). That is the only real
+  second pair of eyes, and it lives in repository settings where no file in
+  this repo can assert it. If a second approver is impractical for a single
+  maintainer, set a wait timer instead and record that here as the accepted
+  compensating control.
+
+### 5a. Response headers (Phase 18)
+
+`next.config.ts` applies five headers to every response. Four are new in Phase
+18; `Referrer-Policy` predates it.
+
+| Header                      | Value                              | Why                                                                                                      |
+| --------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`  | verification / password-reset / delete-account links carry a single-use secret in the URL (Phase 17 §11) |
+| `X-Content-Type-Options`    | `nosniff`                          | `/content/*.json` is same-origin learner data; a sniffed JSON response is the classic path to script     |
+| `X-Frame-Options`           | `DENY`                             | nothing here is meant to be framed, and the authenticated surfaces are what clickjacking targets         |
+| `Permissions-Policy`        | capabilities denied (see the file) | the app uses no camera/mic/geolocation; deny them so a future dependency cannot quietly start asking     |
+| `Strict-Transport-Security` | `max-age=63072000`                 | two years, **no `preload`, no `includeSubDomains`** — see below                                          |
+
+**No Content-Security-Policy, deliberately.** A correct CSP for the App Router
+needs a per-request nonce threaded through middleware (Next inlines a bootstrap
+script and streams RSC payloads) plus a `worker-src` that survives the service
+worker arriving in slice 9. Without that work the only policies that "work" are
+ones asserting nothing — `unsafe-inline` everywhere — which is worse than none,
+because it looks like coverage. Phase 22 owns it. This is recorded rather than
+silently omitted so no future reader assumes protection that was never there.
+
+**HSTS is not preloaded, and that is a decision.** Preloading is effectively
+irreversible: browsers ship the list in their binaries, and removal takes
+months. Committing the apex and every future subdomain to HTTPS-only before a
+single production request has been served is a promise made too early. The
+`max-age` is the protection; the list can be joined later, deliberately.
+
+`tests/unit/next-config.test.ts` asserts all of the above, including the two
+absences — adding a CSP or a `preload` directive fails a test whose comment
+explains what to reconsider first.
+
+### 5b. Serverless file tracing (Phase 18)
+
+Four routes read content-release artifacts from the filesystem at request time:
+`/api/health`, `/api/sync/push`, `/api/sync/pull`, `/api/sync/guest-merge`.
+They read `content-server/release-registry.json`, each release's
+`validation.json` / `assessment.json` / `checksums.json`, and the public
+`learner.json` — every path built at **runtime** from a release id, never a
+static import, so `@vercel/nft` has nothing in the module graph to infer them
+from.
+
+It has worked so far only because the tracer is generous. When it stops being
+generous the failure is not a build error: the deploy succeeds and the route
+answers 503 to real traffic. `next.config.ts`'s `outputFileTracingIncludes`
+pins `content-server/**` and `public/content/**` onto those four routes.
+
+`public/**` needs pinning despite being served by the CDN. Vercel uploads it as
+static assets, which is a different thing from placing it inside a function's
+bundle where `readFile(process.cwd() + "/public/content/...")` can reach it.
+
+**A fifth route that reaches those loaders must be added to that list.** That
+obligation is enforced, not merely written down, by three checks that fail in
+different ways:
+
+1. `scripts/content-route-graph.ts` walks the import graph from every `app/**`
+   route and page — through barrels, dynamic imports and the layout chain — to
+   the modules that touch the filesystem, and `tests/unit/next-config.test.ts`
+   fails if the derived set and the committed config disagree in either
+   direction.
+2. The same file's `findFilesystemReaders()` scans the tree for filesystem
+   reads — any read, not reads of a recognised content path — and the test
+   asserts the result matches the leaf list the walk searches for. Deriving
+   the routes would otherwise just move the hand-maintained list one level
+   down: a third loader module nobody registered would make a route reaching
+   only it invisible to both sides. Keying on the read rather than the path
+   is deliberate, so a loader that receives its directory through a
+   generically-named parameter cannot slip past. The CLI trees (`scripts/`,
+   `tools/`, `db/`) are skipped wholesale; a file that reads from disk without
+   touching content and lives anywhere else goes in
+   `NON_CONTENT_FILESYSTEM_READERS` with its reason — there is one today, the
+   content builder, which sits in the same directory as the real loaders.
+3. `pnpm routes:verify` (`scripts/verify-route-manifest.ts`) runs **after
+   `pnpm build`**, in CI and as quality-gate step 19, and checks the config's
+   keys against `.next/server/app-paths-manifest.json` — Next's own output.
+   The first two checks compare two of our derivations with each other; only
+   this one can catch both agreeing on a key Next does not recognise, which
+   would pin nothing and produce no error at build time.
 
 ## 6. Content seed / import process
 
@@ -177,6 +389,11 @@ self-hosted libraries; Resend sits behind the email adapter.
 - Neon PITR within plan limits (assumption: 24h–7d depending on tier) plus a
   scheduled logical dump (`pg_dump`) to external storage (GitHub Actions cron
   → encrypted artifact or object storage) — daily at launch.
+- Independently of both, **every production migration takes its own restore
+  point first** and refuses to run without one — a Neon branch named
+  `pre-migrate-<run-id>-<attempt>` (§5). That covers the single most dangerous
+  operation; it is not a substitute for the scheduled dump, which is what
+  survives losing the Neon project itself.
 - Content releases are reproducible from git-tracked JSON — no separate
   backup needed; the original dataset is the canonical evidence.
 - **Restore drill at Phase 22** (documented): restore a dump into a fresh

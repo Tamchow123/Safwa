@@ -32,8 +32,10 @@
       16. Push-guard hook self-tests scripts/test-guard-git-push.ps1
       17. Unit tests                 pnpm test
       18. Production build           pnpm build
-      19. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
-      20. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 19)
+      19. Traced routes in build     pnpm routes:verify    (must follow 18 — reads .next's own
+                                     app-paths manifest; see below)
+      20. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
+      21. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 20)
 
     Notes:
       - No check modifies application source files. Step 4 regenerates the
@@ -64,6 +66,13 @@
         `/^safwa_test(_\w+)?$/` AND NODE_ENV=test) refuses to touch
         anything else — this script does not duplicate that check, only
         surfaces its failure clearly if it fires.
+      - Step 19 must stay immediately after the build and is mirrored in CI.
+        The unit suite already checks next.config.ts's
+        outputFileTracingIncludes against the route graph that derives it;
+        only .next/server/app-paths-manifest.json can say whether either
+        spelling is one Next actually recognises. A key it does not
+        recognise is not a build error — it silently pins nothing, and the
+        first evidence would be a deployed route answering 503.
       - Every OTHER step (typecheck, lint, unit tests, build, E2E) never
         requires a database — E2E provisions and tears down its own
         disposable state per e2e/global-setup.ts, independent of this
@@ -166,7 +175,8 @@ $steps = @(
     @{ Name = "Formatting check";                        Exe = "pnpm";   Args = @("format:check") },
     @{ Name = "Push-guard hook self-tests";              Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-guard-git-push.ps1") },
     @{ Name = "Unit tests (Vitest)";                     Exe = "pnpm";   Args = @("test") },
-    @{ Name = "Production build";                        Exe = "pnpm";   Args = @("build") }
+    @{ Name = "Production build";                        Exe = "pnpm";   Args = @("build") },
+    @{ Name = "Traced routes exist in the build";        Exe = "pnpm";   Args = @("routes:verify") }
 )
 
 if (-not $SkipE2E) {
