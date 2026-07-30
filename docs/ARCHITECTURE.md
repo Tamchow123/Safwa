@@ -260,6 +260,57 @@ service-worker, caching and offline/PWA integration.** Documented limitations
 - Offline sync ships in stages (online sync → offline queue → multi-device
   reconciliation) and is not claimed complete until cross-browser tested.
 
+### As built (Phase 18)
+
+`modules/pwa/` owns this, and its `README.md` is the authority on the module's
+internals — read it before changing any of them. The shape, and why it is this
+shape:
+
+- **The worker is served by a route, not by a static file.** `app/serwist/[path]`
+  is a `force-static` handler that emits the worker at build time, because
+  `@serwist/turbopack` needs to inject a precache manifest into it. `pnpm
+sw:verify` reads the build output afterwards and checks the four adoption
+  criteria of `phases-18.md` §6 plus three more: that the route serves nothing
+  beyond the worker and its source map, that every runtime rule reached the
+  bundle, and that **no content-release artifact is precached**.
+- **`modules/pwa/sw.ts` is wiring only, and deliberately so.** It is the one file
+  compiled for a worker global scope — excluded from the root `tsconfig.json`,
+  checked by `tsconfig.sw.json`, and unreachable from the unit suite. So the
+  decisions live in siblings that _are_ testable: `cache-rules.ts` (which rule a
+  request gets, resolved first-match-wins over an explicit `RULE_ORDER`),
+  `cache-policy.ts` (what may be written to the two server-rendered caches, and
+  the confidentiality guarantee), and `cache-storage.ts`.
+- **`/api/**` is `NetworkOnly`, registered first.** Not the same as registering
+  nothing, even though both reach the network today: it is in the way, so a later
+  rule with a looser matcher cannot start caching authenticated responses by
+  accident. No learner data is ever written to a cache.
+- **The offline fallback lives outside `(shell)`.** `app/~offline/page.tsx`
+  depends on no provider, because a page that needs a provider tree is a page
+  that can fail for a second reason at the moment the first one already happened.
+  It is warmed during `install` rather than precached, and served by the document
+  rule's `handlerDidError`.
+- **A worker outlives the deploy that installed it.** Rolling back is a deploy
+  with `NEXT_PUBLIC_SW_ENABLED=false`, not a deploy of an older build —
+  `DEPLOYMENT.md` §8a is the procedure and risk 30 the register entry.
+
+**The offline identity contract** is the part of this phase that is not about
+caching at all, and it is the reason the phase exists: on an offline cold boot
+Better Auth's session fetch _rejects_ rather than staying pending, so code that
+read "not pending, no data" as "resolved guest" would stamp a signed-in
+learner's rows `ownerKey: "guest"` — and the sync client only ever uploads
+account-owned rows, so the work would be silently unsyncable. `classifySessionIdentity`
+(`modules/auth/session-identity.ts`) therefore has a **third** answer beyond
+account and guest, and a durable last-known-owner memory
+(`modules/auth/last-known-owner.ts`) supplies the identity when the network
+cannot. `OFFLINE_AND_SYNC.md` carries the contract and, importantly, what it does
+**not** guarantee.
+
+**Knowingly not done: no Content-Security-Policy.** Next's inline bootstrap
+script plus the `worker-src` a service worker needs make a correct,
+non-`unsafe-inline` policy real work with a real chance of breaking the app
+subtly. It is left to Phase 22 honestly rather than shipped as a permissive
+policy that reads like protection.
+
 ## 6. Data-import architecture
 
 - Import/publish CLI (Phase 3) validates the JSON with Zod, checks the counts

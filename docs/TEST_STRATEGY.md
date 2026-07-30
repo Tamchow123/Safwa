@@ -427,3 +427,65 @@ server-authoritative properties are covered deterministically by the
 integration suites above, and the authenticated `disabled`→"Sync off" UI path
 by unit tests. Add the multi-context E2E alongside the Phase 19 multi-device
 work.
+
+## 14. Offline study and the PWA (Phase 18)
+
+A service worker cannot be observed under `next dev` — `@serwist/turbopack`
+leaves the precache manifest as an unreplaced placeholder and the registration
+provider does not run — so **none of the five dev-server Playwright configs can
+test any of this.** That is the whole reason a sixth config exists rather than a
+sixth spec file.
+
+- **Unit** — everything about the worker that can be a pure function, because
+  `modules/pwa/sw.ts` itself is unreachable from the unit suite (it compiles for a
+  worker global scope under `tsconfig.sw.json`). So: `cache-rules.test.ts` asserts
+  which rule a request gets by resolving first-match-wins over `RULE_ORDER` —
+  the SET being wrong is the failure mode a per-predicate test misses;
+  `cache-policy.test.ts` covers what may be written to the two server-rendered
+  caches; `cache-storage.test.ts` the Cache Storage operations;
+  `registration.test.ts` and `install-hint.test.ts` the client wiring, including
+  the `NEXT_PUBLIC_SW_ENABLED` tri-state. Plus
+  `modules/auth/session-identity.test.ts` and `last-known-owner.test.ts` for the
+  three-answer classifier and its forget triggers.
+- **Build-output verification, not a test but gating like one** — `pnpm sw:verify`
+  (gate step 21, and CI) reads `.next` after a real build and checks the four
+  §6 adoption criteria plus three more: the route serves nothing beyond the
+  worker and its map, every runtime rule reached the bundle, and no
+  content-release artifact is precached. `pnpm routes:verify` does the equivalent
+  for `outputFileTracingIncludes`. Both **must run after the build** — they read
+  the build's own output, so running them earlier proves nothing.
+- **E2E, on a real production build** — `playwright.offline.config.ts` (port 3105,
+  `pnpm build && pnpm start`, `pnpm test:e2e:offline`, gate steps 24–25). Two
+  projects, and they do **not** run the same tests:
+  - **Chromium (Pixel 7)** carries the offline journey — study online, cold-boot
+    offline in a NEW page, assert through the IndexedDB probe that new rows are
+    `account:<id>` and none is a guest's, study offline, reload offline,
+    reconnect and see the server's own count rise — plus the unvisited-route
+    fallback, checksum-mismatch recovery through the worker, and the
+    `Cache-Control` contract the cache policy rests on.
+  - **WebKit (iPhone)** carries what it can observe: the worker registers and
+    controls, `install` precaches `/~offline`, browsing fills the document,
+    build-asset and content-pointer caches, the §10 installability criteria, and
+    the 44px touch targets.
+  - **Why the split:** Playwright's WebKit cannot emulate an offline navigation
+    at all — measured, including with service workers blocked, so it is the
+    harness and not this app (`phases-18.md` §8.1 has the per-engine table).
+    Tests that need one are pinned to Chromium **by project name**, visibly.
+- **The console guard applies here too, and finding that mattered.** Every spec
+  in `e2e/` takes `test` from `e2e/fixtures.ts`, which fails a test on any console
+  or uncaught page error; the three new specs initially bypassed it. Putting them
+  on it surfaced a WebKit-only reporting difference the bypass had hidden, and the
+  fixture now tags page errors and filters the two channels differently — an
+  app-thrown, network-shaped message can still fail a test even in a spec that
+  opted into tolerating network errors.
+- **Backups** — `scripts/test-backup-restore-drill.ps1` (gate step 17) asserts the
+  restore script refuses every non-disposable database name and that its guard
+  has not drifted from `db/reset-test-database.ts`'s, comparing the two regex
+  literals mechanically. It touches no database.
+
+**Not tested automatically, and deliberately recorded rather than implied:** the
+dump/encrypt/size-guard path in `.github/workflows/backup.yml` (its regex and
+byte floor were verified by hand against a real PG17 dump, with the measurements
+in the comments), the `age` round trip, that a produced dump actually restores —
+that is **H5**'s drill, repeated quarterly — and offline behaviour on real iOS,
+which is **H4**. A green CI run does not claim either.
