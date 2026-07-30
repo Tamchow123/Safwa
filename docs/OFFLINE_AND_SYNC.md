@@ -266,13 +266,31 @@ Stage A (server-authoritative learning-state sync) is implemented. Delivered:
   logout wipe (which clears the `mutation_queue` with the other account-scoped
   stores).
 - **Sign-out wipes this device's local learner state — including a guest's.**
-  The wipe is what makes a shared device safe (the next account can never read
-  the previous one's bookmarks, lists, review history, FSRS cards or settings),
-  and since v6 a guest's rows live in the same physical stores, so they go too.
-  This is a deliberate trade-off of guest-data continuity for shared-device
-  confidentiality, pinned by `logout.test.ts` and E2E §60.9, and it supersedes
-  the earlier Phase-15 expectation that guest data survives login/logout.
-  Per-identity coexistence across a sign-out is Phase-17 merge work.
+  The wipe is what makes a shared device safe **when it happens** (the next
+  account can never read the previous one's bookmarks, lists, review history,
+  FSRS cards or settings), and since v6 a guest's rows live in the same physical
+  stores, so they go too.
+
+  > **Qualified by Phase 18.** "Sign-out makes a shared device safe" is precise
+  > about the wipe and silent about the case where no sign-out happens. Phase 18
+  > adds a durable last-known-owner memory with **no TTL**, forgotten only by the
+  > three triggers in `phases-18.md` §2.1 — a session that classifies as
+  > **guest**, an explicit **sign-out**, and **account deletion**. Closing the tab
+  > is not one of them, and neither is a different account signing in: that
+  > overwrites the memory rather than clearing it, which is the same outcome for
+  > this purpose only because the new account is then the one remembered. So a learner who closes the tab without signing out leaves a device
+  > whose next **offline** visitor resolves to their account, and that visitor's
+  > study is attributed to them. This is confidentiality-preserving in one
+  > direction only: the wipe still removes the old rows, so nobody reads anyone
+  > else's history — but new writes can land under the wrong owner. Risk 30's
+  > sibling, risk 28, records why that trade was taken (the alternative loses a
+  > signed-in learner's work outright) and the Phase 18 section below states it
+  > among the things this design does not guarantee.
+  > This is a deliberate trade-off of guest-data continuity for shared-device
+  > confidentiality, pinned by `logout.test.ts` and E2E §60.9, and it supersedes
+  > the earlier Phase-15 expectation that guest data survives login/logout.
+  > Per-identity coexistence across a sign-out is Phase-17 merge work.
+
 - **Local owner scoping** (Dexie schema **v6**, DATA_MODEL §9.1): the private
   learner-state stores carry a `userId` owner (`null` = guest) with owner-scoped
   indexes, so a signed-in account never reads, extends or overwrites a guest's
@@ -358,3 +376,120 @@ demotion (Phase 19); the background purge of expired pending-parent rows
 (RISK_REGISTER #21). A learner who requests deletion on one device and confirms
 it on another leaves the first device's rows until that device next signs out —
 recorded rather than papered over (DATA_MODEL §9.2).
+
+## As built — offline study and the PWA (Phase 18) 🏁 Offline-capable Beta
+
+This is the stage §10 calls "offline queue", and the milestone it delivers is a
+learner who can study with no network and lose nothing. What follows is what
+shipped, and — the longer half — what it does not claim.
+
+### The offline identity contract
+
+The feature this phase set out to ship would have shipped a silent data-loss bug
+with it, so the bug was fixed first (`phases-18.md` §2).
+
+On an offline cold boot, Better Auth's session fetch **rejects** rather than
+staying in flight. `isPending` therefore goes false with no data — a state
+indistinguishable, to a naive reader, from "resolved: this is a guest". Code that
+read it that way stamped every row the learner produced with
+`ownerKey: "guest"`, and the sync client only ever selects account-owned rows for
+upload. The learner sees an ordinary session, studies, reconnects, and their work
+never leaves the device. No server-side probe can see it: the rows never arrive.
+
+So the session has **three** answers, not two
+(`modules/auth/session-identity.ts`):
+
+| Answer               | When                                                  | Owner used              |
+| -------------------- | ----------------------------------------------------- | ----------------------- |
+| `account`            | the session resolved                                  | `account:<id>`          |
+| `guest`              | the session resolved to nobody                        | `guest`                 |
+| `unresolved-offline` | the fetch failed and this device remembers an account | that remembered account |
+
+The memory (`modules/auth/last-known-owner.ts`) is durable, carries **no clock**,
+and is forgotten by exactly three triggers (§2.1), each an identity change the app
+already observes:
+
+| Trigger                              | Wired in                                         |
+| ------------------------------------ | ------------------------------------------------ |
+| a session that classifies as `guest` | `components/sync/use-local-owner.ts`             |
+| an explicit sign-out                 | `components/account/sign-out-action.ts`          |
+| account deletion                     | `components/account/deleted-account-cleanup.tsx` |
+
+Account deletion is in that list for a reason a clock could not serve: delete the
+account, re-register, and go offline before the new account has completed one
+successful session check, and the memory would resolve to the **old, deleted**
+account id — stamping fresh reviews with a dead owner key. The id is wrong
+immediately rather than eventually, so only an event can fix it.
+
+A different account signing in is **not** a forget trigger; it overwrites the
+memory (`rememberLastKnownOwner`), which reaches the same place by a different
+operation. It is what turns "we cannot tell" into "we know who this is" without
+asking the network.
+
+**The regression test is client-side and it is the phase's most important
+assertion**: `e2e/offline.spec.ts` cold-boots a new page with the network off,
+studies, and asserts through the IndexedDB probe that every new `review_events`
+row carries `account:<id>` for the real account id read from Postgres — with no
+guest-owned row among them. It answers two questions, not one, because the owner
+is resolved per write and a late-settling resolution can get the first write
+right and later ones wrong.
+
+### What is NOT guaranteed
+
+- **A device whose storage refuses to forget can keep the memory.**
+  `forgetLastKnownOwner()` deletes, reads back to confirm, and neutralises the
+  value with a write when the delete returned normally but the value survived —
+  three operations, because a storage that silently ignores one may still honour
+  another. A storage that refuses everything, or accepts and honours nothing, or
+  whose reads throw, defeats all three. The only remaining backstop is the hooks'
+  forget on the next `guest` classification, **and that needs a render**: a
+  learner who signs out and immediately closes the tab on such a device leaves the
+  memory behind. `phases-18.md` §2.1 records this as the phase's residual gap.
+- **A shared device, offline, with no sign-out, attributes to the previous
+  learner.** The memory has no TTL and closing the tab is not a forget trigger.
+  Learner A closes the tab; learner B opens the app offline; B's study lands
+  under A's account. Taken deliberately as the lesser harm — the alternative is
+  the defect above, which loses a signed-in learner's work irrecoverably — and
+  recorded as risk 28. It needs no network **and** no sign-out **and** a second
+  person on the same device.
+- **iOS offline behaviour is not proved by any automated check.** Playwright's
+  WebKit cannot emulate an offline navigation at all (measured;
+  `phases-18.md` §8.1). WebKit does prove the worker registers and controls the
+  page, that `install` precaches `/~offline`, that browsing fills the document,
+  build-asset and content-pointer caches, and the installability criteria — every
+  part of the mechanism except serving a navigation with the network off. That
+  last step rests on **H4**, a real install on a real iPhone in airplane mode.
+  A green CI run does not say "offline works on iPhone". Risk 29.
+- **The service-worker cache rules are not what makes content load offline.**
+  `modules/content/load.ts` already falls back on every failure path to a
+  re-verified release read straight out of Dexie, and did so before this phase.
+  What the rules add is a latency bound (a 3s `NetworkFirst` timeout on the
+  pointer, which otherwise has no `AbortSignal` and can hang on a degraded
+  connection) and a second independent layer. This matters for debugging: a
+  broken cache rule degrades latency and redundancy, it does not make the app
+  offline-hostile — **start at `load.ts`, not at the worker** (`phases-18.md`
+  §7.1).
+- **A worker outlives its deploy.** Redeploying an older build removes nothing;
+  the rollback is `NEXT_PUBLIC_SW_ENABLED=false` plus a rebuild
+  (`DEPLOYMENT.md` §8a, risk 30). A device that never loads the app again keeps
+  its worker.
+- **Multi-device conflict resolution is still Phase 19.** Two devices studying
+  the same card offline still resolve by Stage A's rules; the pessimistic-winner
+  demotion of §6 is not implemented. Acquiring a second study device is the
+  recorded condition that reopens Phase 19.
+- **Background Sync is not used.** The queue flushes on app-open, on `online`,
+  and on the existing `SyncProvider` triggers — the API is not uniformly
+  available and a queue that only drains when the API happens to exist is worse
+  than one that always drains on a predictable event.
+
+### What sign-out and the caches do
+
+`/api/**` is `NetworkOnly`, so no authenticated response is ever stored. Two
+caches can hold account-specific markup — documents and RSC payloads, both
+server-rendered — and those two are what a sign-out clears
+(`OWNER_SENSITIVE_CACHE_NAMES`). The app shell, build assets and downloaded
+vocabulary are deliberately **kept**, so the next learner on the device is not
+made to re-download the app; none of them is learner-specific. This is the Cache
+Storage counterpart to the owner-keyed Dexie sweep, and it is coarse on purpose:
+a cached document has no owner key to filter on, so the only honest answer is to
+drop the lot and let the next session refill it.

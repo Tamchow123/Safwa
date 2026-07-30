@@ -225,11 +225,14 @@ full gate (E2E included) must still pass before review.
 
 - `docs/PRODUCT_REQUIREMENTS.md` — what to build, learning/quiz rules, acceptance criteria
 - `docs/ARCHITECTURE.md` — stack, module boundaries; the numbered decision
-  records themselves live in `docs/adr/` (001–009)
+  records themselves live in `docs/adr/` (001–009). §5's "As built (Phase 18)"
+  is the map of the PWA/service-worker layer and the offline identity contract
 - `docs/DATA_MODEL.md` — Postgres + Dexie schemas, component identity, event model
 - `docs/OFFLINE_AND_SYNC.md` — causal sync design, conflict policy, staged
-  rollout; the "As built" sections record what Phases 16–17 shipped and what
-  they still do not claim
+  rollout; the "As built" sections record what Phases 16–18 shipped and what
+  they still do not claim. Phase 18's section is the authority on the **offline
+  identity contract** and on the list of things offline study explicitly does
+  **not** guarantee — read that list before promising any of them
 - `docs/phases/IMPLEMENTATION_PHASES.md` — the 23 phases (0–22); implement one
   at a time. Later phases have expanded detail docs alongside it
   (`docs/phases/phases-12.md` through `-18.md` so far) — read the matching
