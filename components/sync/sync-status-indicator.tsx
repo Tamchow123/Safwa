@@ -106,10 +106,17 @@ export function SyncStatusIndicator() {
         {liveRegion}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
+            {/*
+              `min-h-11 min-w-11` for phases-18.md §8's 44px hit area. Both
+              minimums here, unlike the sign-in buttons: below the `sm`
+              breakpoint the label is hidden and this collapses to a lone 16px
+              icon, which is the narrowest control in the header on exactly the
+              device where it matters most.
+            */}
             <Button
               variant="ghost"
               size="sm"
-              className="text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400"
+              className="min-h-11 min-w-11 text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400"
             >
               <TriangleAlert aria-hidden className="size-4" />
               <span className="hidden text-xs font-medium sm:inline">

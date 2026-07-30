@@ -81,12 +81,16 @@ export function AccountMenu() {
       );
     }
 
+    // `min-h-11` on both, for phases-18.md §8's 44px hit area. Height only —
+    // these are text buttons and already wider than 44px, so a minimum width
+    // would change nothing while a minimum height is the whole difference on a
+    // phone.
     return (
       <div className="flex items-center gap-1">
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="min-h-11">
           <Link href="/login">Sign in</Link>
         </Button>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="min-h-11">
           <Link href="/register">Create account</Link>
         </Button>
       </div>
@@ -125,7 +129,12 @@ export function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Account menu">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Account menu"
+          className="min-h-11 min-w-11"
+        >
           <User aria-hidden className="size-5" />
           <span className="sr-only">Account</span>
         </Button>

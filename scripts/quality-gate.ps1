@@ -37,7 +37,12 @@
       20. Service-worker criteria    pnpm sw:verify        (must follow 18 — reads the emitted
                                      worker and client bundle; see below)
       21. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
-      22. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 21)
+      22. E2E tests (Playwright)     pnpm test:e2e         (the four dev-server configs)
+      23. Playwright WebKit          pnpm exec playwright install webkit    (no-op when present)
+      24. Offline / PWA E2E          pnpm test:e2e:offline (the ONLY config that builds and
+                                     starts the app for real — under `next dev` there is no
+                                     service worker to observe)
+                                     Steps 21-24 are all skipped by -SkipE2E.
 
     Notes:
       - No check modifies application source files. Step 4 regenerates the
@@ -190,6 +195,13 @@ $steps = @(
 if (-not $SkipE2E) {
     $steps += @{ Name = "Playwright Chromium available (installs if missing)"; Exe = "pnpm"; Args = @("exec", "playwright", "install", "chromium") }
     $steps += @{ Name = "E2E tests (Playwright, desktop + mobile Chromium)"; Exe = "pnpm"; Args = @("test:e2e") }
+    # WebKit is a separate download and a separate step because the offline
+    # config is the only one that needs it — and the only one that pays for a
+    # full production build before its first test. Kept out of `test:e2e` so
+    # that script keeps meaning "the four dev-server configs"; a reader who runs
+    # only that should not be told they have run this.
+    $steps += @{ Name = "Playwright WebKit available (installs if missing)"; Exe = "pnpm"; Args = @("exec", "playwright", "install", "webkit") }
+    $steps += @{ Name = "Offline / PWA E2E (Pixel 7 + iPhone WebKit, real build)"; Exe = "pnpm"; Args = @("test:e2e:offline") }
 } else {
     Write-Host "NOTE: -SkipE2E supplied. The FULL gate (including E2E) must pass before review and commit." -ForegroundColor Yellow
 }

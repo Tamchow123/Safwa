@@ -242,4 +242,87 @@ jobs:
             playwright-report-auth-rate-limit/
             playwright-report-sync-disabled/
             playwright-report-signup-closed/
+
+  e2e-offline:
+    # This exact name is what phases-18.md §12's H6 tells the repository owner to
+    # add to branch protection — keep the two in step.
+    name: E2E (offline + WebKit)
+    runs-on: ubuntu-latest
+    needs: quality
+    # A SEPARATE job, parallel with `e2e`, rather than another config appended
+    # to it. Three reasons, in order of how much they matter:
+    #
+    #  1. This is the only suite that runs `next build && next start` instead of
+    #     `next dev`, so it pays for a full production build before its first
+    #     test. Serialising that behind the four dev-server configs would add
+    #     its cost to the critical path for no benefit.
+    #  2. It needs a second browser download (WebKit) that no other job wants.
+    #  3. A failure here says something different from a failure in `e2e` —
+    #     "offline/PWA broke", not "the app broke" — and a separate red check
+    #     says that without anyone reading a log.
+    #
+    # Adding this to branch protection's required checks is a GitHub-UI action
+    # this file cannot perform: `main` currently requires "Quality & build" and
+    # "E2E (Chromium)" only. It is tracked as H6 in phases-18.md §12, so until
+    # the owner does it, a failure here does NOT block a merge.
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        # Same hand-synced literals as the `e2e` job — `services.*.options`
+        # cannot interpolate `${{ env.* }}`.
+        options: >-
+          --health-cmd "pg_isready -U ci_test -d safwa_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Both engines: Chromium runs the offline journey (WebKit cannot emulate
+      # an offline navigation — see e2e/offline.spec.ts), WebKit runs the
+      # installability and touch-target criteria on the engine every iOS
+      # browser actually uses.
+      - name: Install Playwright Chromium and WebKit
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run offline / PWA E2E (Pixel 7 + iPhone WebKit, real build)
+        run: pnpm test:e2e:offline
+        env:
+          # The same reasoning as the `e2e` job's step env: e2e/global-setup.ts
+          # resets the database and registers a content release through
+          # getServerEnv(), so the full server-env schema must be satisfied
+          # here too — not just DATABASE_URL. The Playwright-managed server's
+          # own origin/port come from e2e/helpers/e2e-server-env.ts
+          # (offlineServerEnv, port 3105), not from these.
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ env.CI_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ env.CI_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.CI_APP_URL }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-offline
+          # Same restriction as the `e2e` job: the HTML report only, never
+          # test-results/ or the outbox.
+          path: playwright-report-offline/
           retention-days: 7

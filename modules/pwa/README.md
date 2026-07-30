@@ -125,10 +125,19 @@ link points at `/` and loops back until connectivity returns. Bounded,
 self-healing on the next successful fetch, and it touches no study data —
 progress is in Dexie and the fallback page has its own cache with no expiry.
 
-**Not yet covered:** nothing asserts the real `Cache-Control` header against a
-running server. Slice 12's offline E2E owns that, and
-`docs/DEPLOYMENT.md`'s first-deploy checklist repeats it against the real host —
-a hosting edge, not `next start`, is what the guarantee actually rests on.
+**Covered as of slice 12:** `e2e/offline.spec.ts`'s "the Cache-Control contract
+the cache policy rests on" block asserts the real header against a real
+`next start` server, in both directions — `/account` (server-renders the
+learner's name and email) must come back `no-store` or `private`, and `/study`
+(prerendered) must not. Both halves matter: a contract that only refused to cache
+would cost offline study the app shell to protect nothing. The requests are made
+with `page.request`, which does not go through the service worker, so what is
+asserted is the server's response rather than a replay from a cache.
+
+That is still not the whole guarantee. `docs/DEPLOYMENT.md`'s first-deploy
+checklist repeats the same check against the real host, because a hosting edge —
+not `next start` — is what can normalise a header away, and no server Playwright
+starts will ever be one.
 
 ## The offline page is warmed, not precached
 
