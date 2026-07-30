@@ -30,19 +30,23 @@
       14. Linting                    pnpm lint
       15. Formatting check           pnpm format:check     (check only, never writes)
       16. Push-guard hook self-tests scripts/test-guard-git-push.ps1
-      17. Unit tests                 pnpm test
-      18. Production build           pnpm build
-      19. Traced routes in build     pnpm routes:verify    (must follow 18 — reads .next's own
+      17. Restore-drill guard self-tests scripts/test-backup-restore-drill.ps1
+                                     (asserts the restore script refuses every
+                                     non-disposable database name; touches no
+                                     database, so it runs anywhere)
+      18. Unit tests                 pnpm test
+      19. Production build           pnpm build
+      20. Traced routes in build     pnpm routes:verify    (must follow 19 — reads .next's own
                                      app-paths manifest; see below)
-      20. Service-worker criteria    pnpm sw:verify        (must follow 18 — reads the emitted
+      21. Service-worker criteria    pnpm sw:verify        (must follow 19 — reads the emitted
                                      worker and client bundle; see below)
-      21. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
-      22. E2E tests (Playwright)     pnpm test:e2e         (the four dev-server configs)
-      23. Playwright WebKit          pnpm exec playwright install webkit    (no-op when present)
-      24. Offline / PWA E2E          pnpm test:e2e:offline (the ONLY config that builds and
+      22. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
+      23. E2E tests (Playwright)     pnpm test:e2e         (the four dev-server configs)
+      24. Playwright WebKit          pnpm exec playwright install webkit    (no-op when present)
+      25. Offline / PWA E2E          pnpm test:e2e:offline (the ONLY config that builds and
                                      starts the app for real — under `next dev` there is no
                                      service worker to observe)
-                                     Steps 21-24 are all skipped by -SkipE2E.
+                                     Steps 22-25 are all skipped by -SkipE2E.
 
     Notes:
       - No check modifies application source files. Step 4 regenerates the
@@ -186,6 +190,10 @@ $steps = @(
     @{ Name = "Linting";                                 Exe = "pnpm";   Args = @("lint") },
     @{ Name = "Formatting check";                        Exe = "pnpm";   Args = @("format:check") },
     @{ Name = "Push-guard hook self-tests";              Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-guard-git-push.ps1") },
+    # Next to the push guard because it is the same kind of check: a safety guard
+    # whose whole value is that it refuses, tested by asserting that it does.
+    # Neither needs a database, a build or a browser.
+    @{ Name = "Restore-drill guard self-tests";          Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-backup-restore-drill.ps1") },
     @{ Name = "Unit tests (Vitest)";                     Exe = "pnpm";   Args = @("test") },
     @{ Name = "Production build";                        Exe = "pnpm";   Args = @("build") },
     @{ Name = "Traced routes exist in the build";        Exe = "pnpm";   Args = @("routes:verify") },

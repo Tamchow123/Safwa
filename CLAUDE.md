@@ -125,8 +125,13 @@ device reopens Phase 19**.
   whichever convention the code under test already uses.
 - `e2e/` — Playwright specs plus shared `e2e/helpers/` (auth flows, quiz
   driving, IndexedDB and DB probes); reuse a helper, never reimplement one.
-- `scripts/` — Python data tooling and the PowerShell quality gate, git guard
-  and workspace fingerprint. `tools/` — `docs-verify.ts`.
+- `scripts/` — Python data tooling and the PowerShell quality gate, git guard,
+  workspace fingerprint and (Phase 18) `backup-restore-drill.ps1`, which
+  restores an `age`-encrypted `pg_dump` artifact and is name-guarded exactly
+  like `db/reset-test-database.ts` — `NODE_ENV=test` plus a
+  `safwa_test(_\w+)?` database name, no override. Both guards ship a
+  table-driven `test-*.ps1` self-test that the gate runs (steps 16–17).
+  `tools/` — `docs-verify.ts`.
 
 ## Commands
 
@@ -202,17 +207,18 @@ four `AUTH_RATE_LIMIT_*` variables carry production bounds
 (`docs/DEPLOYMENT.md` §2) so an E2E-tuned `.env` cannot reach production.
 
 `scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
-locally in 24 steps (20 with `-SkipE2E`): dependency/data/Arabic checks,
+locally in 25 steps (21 with `-SkipE2E`): dependency/data/Arabic checks,
 content-artifact freshness (build + `git diff`/untracked checks), icon
 byte-identity (the one step deliberately _not_ mirrored in CI — see step 7's
 own note), docs verification, disposable-Postgres reachability + migrations +
 content-version registration + `test:integration` (against `safwa_test`,
 derived from `.env.local`'s `DATABASE_URL`), typecheck/lint/format, the
-push-guard hook self-tests, unit tests, build, `routes:verify` and `sw:verify`
+push-guard and restore-drill guard self-tests, unit tests, build,
+`routes:verify` and `sw:verify`
 (both must follow the build — they read `.next`'s own output), and E2E — the
-four dev-server configs (step 22) and then, on its own WebKit install and its
-own real `next build && next start`, the offline/PWA suite (steps 23–24).
-`-SkipE2E` skips only the E2E steps (21–24) for fast inner-loop iteration — the
+four dev-server configs (step 23) and then, on its own WebKit install and its
+own real `next build && next start`, the offline/PWA suite (steps 24–25).
+`-SkipE2E` skips only the E2E steps (22–25) for fast inner-loop iteration — the
 full gate (E2E included) must still pass before review.
 
 ## Document map

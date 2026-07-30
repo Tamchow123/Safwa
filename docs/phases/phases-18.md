@@ -435,14 +435,15 @@ These cannot be done from inside the repository.
 | H2  | before slice 8        | **Resend.** Email is a _hard_ dependency here: `requireEmailVerification: true`, and an unverified account cannot sync. Send one test email first. `onboarding@resend.dev` may reach your own address without domain verification — verify that against current Resend terms rather than assuming it. |
 | H3  | after the PR merges   | Set the Vercel environment variables (including `SIGNUP_ALLOWED_EMAILS` and `NEXT_PUBLIC_SW_ENABLED`); run the `deploy-migrate` workflow **before** first traffic; register the account and verify the email.               |
 | H4  | after slice 12        | **Real-device drill.** Install on iPhone (Share → Add to Home Screen) and on Android Chrome. Airplane mode → open from the home screen → complete a flashcard and an MC session → reconnect → confirm server state. Do the one manual DevTools installability check here. |
-| H5  | after slice 13        | Add the secret `PRODUCTION_DATABASE_URL_DIRECT` and the variable `BACKUP_AGE_PUBLIC_KEY`. Keep the `age` **private** key off GitHub entirely, and store it in **two** independent places per §9 (backed-up password manager + one offline copy elsewhere) — one copy is a single point of failure for every backup at once. Run the restore drill and record the output; **repeat quarterly**, and after any non-additive migration. |
+| H5  | after slice 13        | Create a **`production-backup`** GitHub Environment with **no required-reviewers rule** (an approval gate would leave the nightly cron waiting forever, and a pending run is neither a failure nor a cancellation, so nothing would report it). Put the secret `PRODUCTION_DATABASE_URL_DIRECT` and the variable `BACKUP_AGE_PUBLIC_KEY` in it. **That secret now lives in two environments (`production` and `production-backup`) — rotate both together, or the backup keeps using the old credential and fails for a reason no runbook lists.** Keep the `age` **private** key off GitHub entirely, and store it in **two** independent places per §9 (backed-up password manager + one offline copy elsewhere) — one copy is a single point of failure for every backup at once. Run the restore drill and record the output; **repeat quarterly**, and after any non-additive migration. Note the monthly offsite pull is also the check that GitHub has not disabled the schedule after 60 days of repository inactivity (`DEPLOYMENT.md` §7). |
 | H6  | after the PR merges   | Add the new **"E2E (offline + WebKit)"** job to branch protection on `main`.                                                                                                                                               |
 
 ## 13. Verification
 
-- **Gate:** `scripts/quality-gate.ps1` exit 0, all 24 steps including E2E — 20
-  with `-SkipE2E`, since slice 12 added the WebKit install and the offline suite
-  as steps 23–24. It is
+- **Gate:** `scripts/quality-gate.ps1` exit 0, all 25 steps including E2E — 21
+  with `-SkipE2E`. Slice 12 added the WebKit install and the offline suite (now
+  steps 24–25) and slice 13 added the restore-drill guard self-test (step 17).
+  It is
   run as two foreground calls, because the single full invocation exceeds this
   environment's background-task limit:
 
