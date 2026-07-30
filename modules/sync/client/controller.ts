@@ -103,6 +103,19 @@ export type SyncController = {
   sync(reason: SyncTriggerReason): Promise<SyncRunResult | null>;
   /** Recompute the pending count and re-derive status (no server call). */
   refreshPending(): Promise<void>;
+  /**
+   * Whether this controller has permanently stopped (`auth_lost`/`invalidated`)
+   * and will refuse every further `sync()`, INCLUDING a manual one — `sync()`
+   * discards its `reason`, so there is no trigger that gets past the back-off.
+   *
+   * Exposed so a caller offering a retry can tell the difference between "this
+   * controller can still try" and "only a fresh controller can". `attention` on
+   * its own cannot: it covers a recoverable failure, a dead-letter backlog, and
+   * this permanent stop alike, and rebuilding for the first two would discard
+   * an accurate `deadLetterCount` for a zeroed one (R2-F6 — a silently-failed
+   * change must never read as anything softer than it is).
+   */
+  isStopped(): boolean;
 };
 
 export function createSyncController(deps: SyncControllerDeps): SyncController {
@@ -242,5 +255,6 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
     },
     sync,
     refreshPending,
+    isStopped: () => stopped,
   };
 }

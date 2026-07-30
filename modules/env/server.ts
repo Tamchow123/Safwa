@@ -11,6 +11,17 @@
 import "server-only";
 import { z } from "zod";
 
+import {
+  parseSignupAllowlist,
+  type SignupAllowlist,
+} from "@/modules/auth/signup-allowlist";
+import {
+  looksLikePostgresUrl,
+  MIN_PRODUCTION_SECRET_LENGTH,
+  normaliseBooleanFlag,
+  PRODUCTION_RATE_LIMIT_BOUNDS,
+} from "@/modules/env/rules";
+
 export type NodeEnvironment = "development" | "test" | "production";
 export type EmailTransportKind = "console-file" | "resend";
 
@@ -19,12 +30,11 @@ function booleanFlag(defaultValue: boolean) {
     if (value === undefined || value === null || value === "") {
       return defaultValue;
     }
-    if (typeof value === "string") {
-      const normalized = value.trim().toLowerCase();
-      if (normalized === "true") return true;
-      if (normalized === "false") return false;
-    }
-    return value;
+    // Normalisation lives in modules/env/rules.ts so the pre-deploy check
+    // reads these variables exactly the way the runtime does. `undefined`
+    // means "not a boolean at all" — pass the original through so Zod reports
+    // it rather than this silently deciding.
+    return normaliseBooleanFlag(value) ?? value;
   }, z.boolean());
 }
 
@@ -35,11 +45,9 @@ const rawServerEnvSchema = z.object({
   DATABASE_URL: z
     .string()
     .min(1, "DATABASE_URL is required")
-    .refine(
-      (value) =>
-        value.startsWith("postgres://") || value.startsWith("postgresql://"),
-      { message: "DATABASE_URL must be a postgres:// or postgresql:// URL" },
-    ),
+    .refine(looksLikePostgresUrl, {
+      message: "DATABASE_URL must be a postgres:// or postgresql:// URL",
+    }),
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET is required"),
   BETTER_AUTH_URL: z.string().url("BETTER_AUTH_URL must be a valid URL"),
   NEXT_PUBLIC_APP_URL: z
@@ -85,6 +93,24 @@ const rawServerEnvSchema = z.object({
     .positive()
     .default(10),
   AUTH_RATE_LIMIT_DEFAULT_MAX: z.coerce.number().int().positive().default(100),
+  // Who may create an account (Phase 18). Comma-separated addresses; unset
+  // means sign-up is open, which production refuses below. Parsed here rather
+  // than at the auth layer so a malformed list is a start-up failure with the
+  // rest of the environment, not a surprise on the first sign-up attempt.
+  SIGNUP_ALLOWED_EMAILS: z
+    .string()
+    .optional()
+    .transform((raw, ctx): SignupAllowlist => {
+      try {
+        return parseSignupAllowlist(raw);
+      } catch (error) {
+        ctx.addIssue({
+          code: "custom",
+          message: error instanceof Error ? error.message : "is invalid",
+        });
+        return z.NEVER;
+      }
+    }),
 });
 
 export type ServerEnv = {
@@ -104,9 +130,32 @@ export type ServerEnv = {
   authRateLimitMax: number;
   authRateLimitDefaultWindowSeconds: number;
   authRateLimitDefaultMax: number;
+  /** Addresses permitted to register, or null when sign-up is open. */
+  signupAllowedEmails: SignupAllowlist;
 };
 
-const MIN_PRODUCTION_SECRET_LENGTH = 32;
+/**
+ * The variables this schema cannot supply a default for — derived from the
+ * schema itself, never listed by hand.
+ *
+ * `scripts/verify-deploy-preconditions.ts` has to know which variables must be
+ * present before a deploy, and the honest source of that fact is what the Zod
+ * schema rejects when handed nothing. Exported so a unit test can hold the two
+ * against each other: a new required variable added here and not mirrored
+ * there would otherwise make the pre-deploy check report "OK" for a
+ * configuration the deployed instance rejects on its first request.
+ */
+export function requiredServerEnvKeys(): string[] {
+  const parsed = rawServerEnvSchema.safeParse({});
+  if (parsed.success) return [];
+  return [
+    ...new Set(
+      parsed.error.issues
+        .map((issue) => String(issue.path[0] ?? ""))
+        .filter((key) => key !== ""),
+    ),
+  ].sort();
+}
 
 function assertProductionInvariants(
   raw: z.infer<typeof rawServerEnvSchema>,
@@ -148,6 +197,25 @@ function assertProductionInvariants(
   // than ship a silently non-functional feature.
   if (raw.SYNC_ENABLED && !raw.AUTH_ENABLED) {
     problems.push("SYNC_ENABLED=true requires AUTH_ENABLED=true");
+  }
+  // Fail closed on sign-up. Safwa is a personal instance whose production URL
+  // is reachable by anyone who finds it, so an unset allowlist means "anyone
+  // may create an account here", which is never what this deployment wants.
+  // Required regardless of AUTH_ENABLED: the kill-switch is a temporary
+  // rollback position, and flipping it back on must not be the moment sign-up
+  // silently opens.
+  if (raw.SIGNUP_ALLOWED_EMAILS === null) {
+    problems.push(
+      "SIGNUP_ALLOWED_EMAILS must list at least one address in production (sign-up fails closed)",
+    );
+  }
+  for (const [name, bound] of Object.entries(PRODUCTION_RATE_LIMIT_BOUNDS)) {
+    const value = raw[name as keyof typeof PRODUCTION_RATE_LIMIT_BOUNDS];
+    if (value < bound.min || value > bound.max) {
+      problems.push(
+        `${name} must be between ${bound.min} and ${bound.max} in production (got ${value})`,
+      );
+    }
   }
 
   if (problems.length > 0) {
@@ -196,6 +264,7 @@ export function getServerEnv(): ServerEnv {
     authRateLimitDefaultWindowSeconds:
       parsed.data.AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS,
     authRateLimitDefaultMax: parsed.data.AUTH_RATE_LIMIT_DEFAULT_MAX,
+    signupAllowedEmails: parsed.data.SIGNUP_ALLOWED_EMAILS,
   };
   return cachedEnv;
 }

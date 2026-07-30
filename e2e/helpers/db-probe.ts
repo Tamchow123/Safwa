@@ -49,6 +49,23 @@ export function userIdByEmail(email: string): Promise<string | null> {
   });
 }
 
+/**
+ * How many review events the server holds for one account (Phase 18, slice 12).
+ *
+ * The offline suite's reconnect assertion. Counting the SERVER's rows is what
+ * makes that a sync test: the client's own IndexedDB count was already asserted
+ * while offline, and re-reading it after reconnect would only restate it.
+ */
+export function reviewEventCountForUser(userId: string): Promise<number> {
+  return withDb(async (db) => {
+    const [row] = await db
+      .select({ total: count() })
+      .from(schema.reviewEvents)
+      .where(eq(schema.reviewEvents.userId, userId));
+    return row?.total ?? 0;
+  });
+}
+
 /** True if a `users` row with this email still exists. */
 export function userRowExists(email: string): Promise<boolean> {
   return withDb(async (db) => {

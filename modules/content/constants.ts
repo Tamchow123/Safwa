@@ -157,12 +157,29 @@ export const RELEASE_ID_PREFIX = "safwa";
 /** Hex chars of the release-basis SHA-256 used in the release id. */
 export const RELEASE_ID_HASH_LENGTH = 16;
 
+/**
+ * Where every content-release artifact lives — one fact, two spellings.
+ *
+ * The pointer and each release's learner artifact are the only files served
+ * from this subtree, and three things outside this module have to name it:
+ * Next's `outputFileTracingIncludes`, the service worker's precache exclusion
+ * (`app/serwist/[path]/route.ts`), and the check that verifies that exclusion
+ * (`scripts/verify-service-worker.ts`). Two of those are a filesystem glob and
+ * one is a URL prefix, so a rename could plausibly update some and not others —
+ * and the check is the one that fails silently, by matching nothing and passing.
+ * Deriving both spellings here makes that drift impossible.
+ */
+export const CONTENT_ARTIFACT_URL_PREFIX = "/content/";
+
+/** The same subtree as a glob under the Next.js `public/` directory. */
+export const CONTENT_ARTIFACT_PUBLIC_GLOB = `public${CONTENT_ARTIFACT_URL_PREFIX}**`;
+
 /** Public URL (Next.js public dir) of a release's learner artifact. */
 export function learnerUrlForRelease(releaseId: string): string {
-  return `/content/releases/${releaseId}/learner.json`;
+  return `${CONTENT_ARTIFACT_URL_PREFIX}releases/${releaseId}/learner.json`;
 }
 
-export const ACTIVE_POINTER_URL = "/content/active.json";
+export const ACTIVE_POINTER_URL = `${CONTENT_ARTIFACT_URL_PREFIX}active.json`;
 
 export const MINIMUM_SUPPORTED_CLIENT_VERSION = "0.1.0";
 export const MINIMUM_SUPPORTED_EVENT_SCHEMA = 1;

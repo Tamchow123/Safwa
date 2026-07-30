@@ -35,6 +35,7 @@
 import "server-only";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { dispatchEmail } from "@/modules/email/dispatch";
@@ -43,6 +44,10 @@ import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
 } from "@/modules/auth/password-policy";
+import {
+  isSignupAllowed,
+  SIGNUP_NOT_ALLOWED_CODE,
+} from "@/modules/auth/signup-allowlist";
 import { getServerEnv } from "@/modules/env/server";
 
 // Explicit per phases-15.md §30 ("Configure verification and reset token
@@ -55,6 +60,19 @@ const DELETE_ACCOUNT_TOKEN_EXPIRES_IN_SECONDS = 60 * 60 * 24; // 1 day
 // explicitly configured") — again matching Better Auth's own defaults.
 const SESSION_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24; // 1 day
+
+/**
+ * The one endpoint that can create an account on this instance (Phase 18).
+ *
+ * It is a complete list because of what is NOT configured above: no social
+ * providers, no magic link, no email-OTP, no passkey, no anonymous plugin, no
+ * `signUp` on any other surface — `emailAndPassword` is the only credential
+ * type enabled, and `/sign-up/email` is its only registration route. Enabling
+ * any other sign-in method in future adds a route this hook would not cover,
+ * which is why the allowlist check names the path it guards rather than trying
+ * to infer "anything that looks like a sign-up".
+ */
+const SIGN_UP_PATH = "/sign-up/email";
 
 export class AuthDisabledError extends Error {
   constructor() {
@@ -75,6 +93,12 @@ let cachedAuth: Auth | undefined;
 
 function createAuth() {
   const env = getServerEnv();
+
+  // Read once, at construction, and closed over by the hook below: the auth
+  // instance is memoised for the process lifetime, so re-reading the (also
+  // memoised) env on every request would buy nothing. `null` means no
+  // allowlist is configured, which production has already refused.
+  const allowedSignupEmails = env.signupAllowedEmails;
 
   // One customRule per phases-15.md §43's explicit endpoint list, all
   // sharing one configurable window/max pair so integration tests can
@@ -227,6 +251,34 @@ function createAuth() {
     },
     account: { modelName: "accounts" },
     verification: { modelName: "verifications" },
+    hooks: {
+      // Better Auth runs this ONE `before` hook for every endpoint (its
+      // internal matcher is `() => true` — see
+      // node_modules/better-auth/dist/api/dispatch.mjs's getHooks), so the
+      // path check comes first and costs a single string comparison on the
+      // hot read paths (get-session runs on every page mount).
+      //
+      // It sits in the endpoint dispatch pipeline, not the HTTP router, so it
+      // applies equally to a real POST through app/api/auth/[...all] and to a
+      // direct server-side `auth.api.signUpEmail(...)` call — which is what
+      // makes it testable at the integration layer and, more importantly,
+      // means no server-side caller can route around it.
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== SIGN_UP_PATH) return;
+        if (isSignupAllowed(ctx.body?.email, allowedSignupEmails)) return;
+        // 403, not 400: the request is well-formed, the instance simply does
+        // not accept it. The message and code say nothing about who IS allowed
+        // — they are identical for a stranger and for a typo'd owner address,
+        // so the response cannot be used to probe the allowlist for
+        // near-misses. The code is what lets the register form tell the person
+        // the truth rather than the generic "something went wrong" that would
+        // invite them to keep retrying.
+        throw new APIError("FORBIDDEN", {
+          code: SIGNUP_NOT_ALLOWED_CODE,
+          message: "Sign-up is not open on this instance.",
+        });
+      }),
+    },
   });
 }
 

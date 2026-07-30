@@ -63,7 +63,9 @@
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { forgetLastKnownOwner } from "@/modules/auth/last-known-owner";
 import { getSafwaDb } from "@/modules/content/db";
+import { clearOwnerSensitiveCachesIfAvailable } from "@/modules/pwa/cache-storage";
 import { clearAccountLocalState } from "@/modules/sync/client/logout";
 import {
   forgetPendingAccountDeletion,
@@ -127,6 +129,31 @@ export function DeletedAccountCleanup() {
     }
 
     inFlightNonce = nonce;
+
+    // Forget the durable last-known owner (Phase 18 §2.1) BEFORE the Dexie
+    // sweep, and unconditionally on a deletion this device vouched for.
+    //
+    // It has to be here and not only in sign-out, because a TTL-free memory
+    // would otherwise outlive the account it names: delete, re-register, then
+    // go offline before the new account completes one successful session check,
+    // and an `unknown` classification would resolve to the DELETED account's
+    // id and stamp fresh offline reviews with a dead owner key. No clock could
+    // have fixed that — the id is wrong the instant it changes, not eventually.
+    //
+    // Unconditional rather than only-if-it-matches-`deleted`: if the memory
+    // somehow named a different account, forgetting still degrades only to the
+    // guest fallback, which is the safe direction. Not gated on the sweep
+    // either — a stale owner is wrong whether or not the rows were removed.
+    forgetLastKnownOwner();
+
+    // Cache Storage goes with the Dexie sweep, not after it (Phase 18 §7).
+    // Account deletion is the strongest "forget this device" signal there is,
+    // and a cached document or RSC payload can carry the deleted account's
+    // rendered data — with no session left to sign out of, this is the last
+    // code path that will ever run for that account. Not chained onto the
+    // sweep's `then`, because it must happen even if the Dexie side fails.
+    void clearOwnerSensitiveCachesIfAvailable();
+
     void clearAccountLocalState(getSafwaDb(), deleted)
       .then(() => {
         // Spent, so the same link cannot replay a completed cleanup. Not gated

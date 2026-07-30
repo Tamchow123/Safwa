@@ -22,11 +22,13 @@ vi.mock("@/components/account/sign-out-action", () => ({
 }));
 
 import { AccountMenu } from "@/components/auth/account-menu";
+import { LAST_KNOWN_OWNER_STORAGE_KEY } from "@/modules/auth/last-known-owner";
 
 beforeEach(() => {
   signOutMock.mockReset();
   signOutAndClearMock.mockClear();
   sessionState = { data: null, isPending: false, error: null };
+  localStorage.clear();
 });
 
 describe("AccountMenu", () => {
@@ -56,6 +58,48 @@ describe("AccountMenu", () => {
     };
     render(<AccountMenu />);
     expect(screen.getByRole("link", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("says Offline — not 'Sign in' — when the read errored and this device remembers an owner", async () => {
+    // Phase 18 §5. An offline cold boot IS an errored session read. Showing a
+    // signed-in learner "Sign in / Create account" invites them to do the one
+    // thing that cannot work, and implies their account is gone.
+    localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, "user-1");
+    sessionState = { data: null, isPending: false, error: { status: 0 } };
+
+    render(<AccountMenu />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Offline"),
+    );
+    expect(screen.queryByRole("link", { name: "Sign in" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Create account" })).toBeNull();
+  });
+
+  it("still shows the guest links when the read errored and nothing is remembered", () => {
+    // A first-time visitor on a broken network is, as far as anyone knows, a
+    // guest — so the Phase 15 behaviour is unchanged for them.
+    sessionState = { data: null, isPending: false, error: { status: 0 } };
+
+    render(<AccountMenu />);
+
+    expect(screen.getByRole("link", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not say Offline merely because the session is still pending", () => {
+    // `isPending` also classifies as `unknown`, but a first read in flight is
+    // not evidence of a lost network, and the guest links must never block on
+    // it (the Phase 15 rule this component was built around).
+    localStorage.setItem(LAST_KNOWN_OWNER_STORAGE_KEY, "user-1");
+    sessionState = { data: null, isPending: true, error: null };
+
+    render(<AccountMenu />);
+
+    // Without this distinction every ordinary cold start would flash "Offline"
+    // at a signed-in learner before their session resolved.
+    expect(screen.getByRole("link", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("shows the account menu with the email (never a raw user id) when signed in", async () => {
