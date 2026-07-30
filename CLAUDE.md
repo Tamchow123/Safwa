@@ -140,8 +140,16 @@ registration, Better Auth, manifest loader, sync ingest/pull/revoke, guest
 merge; one config picks up every `tests/integration/**/*.test.ts`, so a new
 suite needs no config change), `pnpm test:e2e` (Playwright, runs the
 default + auth-disabled + auth-rate-limit + sync-disabled + signup-closed
-configs; `e2e/global-setup.ts` resets `safwa_test` and registers a content
-release, so Postgres must be up for E2E too), `pnpm typecheck`,
+configs — all five run `next dev`, so **none of them has a service worker**;
+`e2e/global-setup.ts` resets `safwa_test` and registers a content
+release, so Postgres must be up for E2E too), `pnpm test:e2e:offline`
+(Phase 18 — `playwright.offline.config.ts` on port 3105, the only config that
+runs a real `next build && next start` and therefore the only one where the
+service worker exists; Pixel 7 + iPhone WebKit projects, and it needs the
+WebKit browser installed. Deliberately outside `test:e2e` so that script keeps
+meaning "the dev-server configs" — but it is part of the gate and of CI, and
+`docs/phases/phases-18.md` §8.1 records which proofs each engine can and cannot
+carry), `pnpm typecheck`,
 `pnpm lint`, `pnpm format:check`, `pnpm validate:data`
 (`scripts/validate-vocabulary.py`, must exit 0), `pnpm verify:arabic`
 (`scripts/arabic-extract.py --verify-known`), `pnpm content:build`
@@ -194,16 +202,18 @@ four `AUTH_RATE_LIMIT_*` variables carry production bounds
 (`docs/DEPLOYMENT.md` §2) so an E2E-tuned `.env` cannot reach production.
 
 `scripts/quality-gate.ps1` runs the full CI-equivalent check sequence
-locally in 22 steps (20 with `-SkipE2E`): dependency/data/Arabic checks,
+locally in 24 steps (20 with `-SkipE2E`): dependency/data/Arabic checks,
 content-artifact freshness (build + `git diff`/untracked checks), icon
 byte-identity (the one step deliberately _not_ mirrored in CI — see step 7's
 own note), docs verification, disposable-Postgres reachability + migrations +
 content-version registration + `test:integration` (against `safwa_test`,
 derived from `.env.local`'s `DATABASE_URL`), typecheck/lint/format, the
 push-guard hook self-tests, unit tests, build, `routes:verify` and `sw:verify`
-(both must follow the build — they read `.next`'s own output), and E2E. `-SkipE2E`
-skips only the E2E steps for fast inner-loop iteration — the full gate (E2E
-included) must still pass before review.
+(both must follow the build — they read `.next`'s own output), and E2E — the
+four dev-server configs (step 22) and then, on its own WebKit install and its
+own real `next build && next start`, the offline/PWA suite (steps 23–24).
+`-SkipE2E` skips only the E2E steps (21–24) for fast inner-loop iteration — the
+full gate (E2E included) must still pass before review.
 
 ## Document map
 

@@ -49,6 +49,13 @@ export const E2E_PORTS = {
   syncDisabled: 3103,
   /** Auth-enabled with a sign-up allowlist configured (phases-18.md §5 slice 6). */
   signupClosed: 3104,
+  /**
+   * The only server built and started for real (`next build && next start`)
+   * rather than run under `next dev` — because under `next dev` there is no
+   * service worker at all, so offline behaviour cannot be observed from any of
+   * the other configs (phases-18.md §8, slice 12).
+   */
+  offline: 3105,
 } as const;
 
 function baseUrlFor(port: number): string {
@@ -76,6 +83,7 @@ export const E2E_AUTH_DISABLED_BASE_URL = baseUrlFor(E2E_PORTS.authDisabled);
 export const E2E_RATE_LIMITED_BASE_URL = baseUrlFor(E2E_PORTS.rateLimited);
 export const E2E_SYNC_DISABLED_BASE_URL = baseUrlFor(E2E_PORTS.syncDisabled);
 export const E2E_SIGNUP_CLOSED_BASE_URL = baseUrlFor(E2E_PORTS.signupClosed);
+export const E2E_OFFLINE_BASE_URL = baseUrlFor(E2E_PORTS.offline);
 
 /**
  * The one address `signupClosedServerEnv()` permits. Exported so the spec and
@@ -142,6 +150,39 @@ export function signupClosedServerEnv(): E2EServerEnv {
     ...commonEnv(E2E_PORTS.signupClosed),
     AUTH_ENABLED: "true",
     SIGNUP_ALLOWED_EMAILS: E2E_ALLOWED_SIGNUP_EMAIL,
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
+    AUTH_RATE_LIMIT_MAX: "1000",
+    AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "60",
+    AUTH_RATE_LIMIT_DEFAULT_MAX: "100000",
+  };
+}
+
+/**
+ * The production-built server the offline suite runs against (slice 12).
+ *
+ * Two things here are load-bearing and neither is obvious.
+ *
+ * `NODE_ENV=test` is what lets a real `next build && next start` run at all
+ * with the E2E-tuned rate limits below: `assertProductionInvariants()` would
+ * reject them, and demand `SIGNUP_ALLOWED_EMAILS`, if the server believed it
+ * were production. It does **not** weaken the build — measured, not assumed:
+ * `next build` forces its own production mode regardless, and `pnpm sw:verify`
+ * reports the same 9/9 for a `NODE_ENV=test` build, React production markers
+ * included. So this is a genuine production bundle with a server that knows it
+ * is a test.
+ *
+ * `NEXT_PUBLIC_SW_ENABLED=true` is redundant today for the same reason — the
+ * inlined `NODE_ENV` ends up `production`, so the worker would register anyway
+ * — and is set anyway. It states the intent at the one place a reader looks,
+ * it survives a change in what Next does with `NODE_ENV`, and it is the only
+ * exercise the tri-state's explicit-on branch gets outside a unit test.
+ */
+export function offlineServerEnv(): E2EServerEnv {
+  return {
+    ...commonEnv(E2E_PORTS.offline),
+    NODE_ENV: "test",
+    NEXT_PUBLIC_SW_ENABLED: "true",
+    AUTH_ENABLED: "true",
     AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
     AUTH_RATE_LIMIT_MAX: "1000",
     AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS: "60",

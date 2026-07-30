@@ -292,6 +292,59 @@ installability criteria of §10.
 The 28–32px header controls are raised to a 44px hit area **via padding only**
 — no visual change to the icons themselves.
 
+### 8.1 What each engine actually proves
+
+The two projects above do **not** run the same tests, and the reason is a
+limitation of the tooling that was found while implementing this slice rather
+than anything about the app. It is recorded here because the alternative — a
+config that lists two projects and quietly proves offline behaviour on one — is
+worse than a documented gap.
+
+**Measured** (Playwright 1.61.1, both projects, same run): in WebKit *every*
+navigation attempted while `context.setOffline(true)` is in effect rejects with
+`WebKit encountered an internal error` — `page.goto`, `page.reload` and a
+`newPage()` cold boot alike. It is not caused by the service worker: the same
+internal error appears in a context created with `serviceWorkers: "block"` that
+goes offline before its first navigation, where no worker exists and nothing has
+been cached. Chromium returns a clean `net::ERR_INTERNET_DISCONNECTED` for that
+same case and completes every offline navigation once a worker controls the page.
+In-page `fetch()` offline emulation *does* work on WebKit, so the limit is
+navigations specifically.
+
+So:
+
+| Proof                                                       | Chromium (Pixel 7) | WebKit (iPhone) |
+| ----------------------------------------------------------- | ------------------ | --------------- |
+| The §2 identity regression test (offline cold boot)          | yes                | **no** — cannot navigate offline |
+| Offline study, reload offline, reconnect and drain           | yes                | **no** — same reason |
+| A route never opened online falls back to `/~offline`        | yes                | **no** — same reason |
+| Worker registers **and controls** the page                   | yes                | yes             |
+| `install` precaches `/~offline`; browsing fills the runtime caches | yes         | yes             |
+| §10 installability criteria (manifest, icons, secure context) | yes              | yes             |
+| §8's 44px hit areas                                          | yes                | yes             |
+| Checksum-mismatch recovery with a worker in the way          | yes                | **no** — Playwright intercepts worker requests in Chromium only |
+| `Cache-Control` contract (a server header)                    | yes — asserted once | n/a — engine-independent |
+
+Two consequences worth stating plainly:
+
+1. **iOS offline behaviour is not proved by CI.** What proves it is **H4** in
+   §12 — a real install on a real iPhone, in airplane mode — which is a stronger
+   check than WebKit could have given. H4 is therefore load-bearing for
+   acceptance criterion 1 on iOS, not a nice-to-have.
+2. **WebKit still earns its place in the config.** It proves the install path and
+   the caching that offline study consumes, on the engine every iOS browser uses.
+   Everything except the final "serve it with the network off" step is asserted
+   there.
+
+One more thing this slice changed, and it is not cosmetic: the three new specs
+were initially written against Playwright's own `test` rather than
+`e2e/fixtures.ts`, which is what every other spec in `e2e/` uses and what fails
+a test on an unexpected console or page error. Moving them onto it immediately
+surfaced a WebKit-only reporting difference (a cancelled RSC prefetch arrives as
+an uncaught page error worded like a CORS denial) that the bypass had been
+hiding. The fixture now tags page errors and applies its network allow-list to
+both channels; `e2e/fixtures.ts` carries the detail.
+
 ## 9. Backups (slice 13)
 
 Daily `pg_dump --format=custom` against Neon's **direct** endpoint (the pooled
@@ -363,6 +416,14 @@ is being done anyway.
   `pg_dump` chain is the real restore path. The asymmetry is recorded in
   `docs/RISK_REGISTER.md` so the export button is never mistaken for a backup.
 - **No push notifications.** Out of scope for every prior phase and this one.
+- **No automated proof of offline behaviour on WebKit/iOS.** Playwright's WebKit
+  cannot emulate an offline navigation at all (§8.1 has the measurement). The
+  offline journey is pinned to Chromium and the iOS half rests on H4's real-device
+  drill. Recorded here so that a green CI run is never read as "offline works on
+  iPhone" — it does not say that, and no automated check in this repository does.
+  The condition that reopens this: a Playwright release whose WebKit returns a
+  normal network error for an offline navigation, at which point removing the pin
+  in `e2e/offline.spec.ts` is the whole change.
 
 ## 12. Human prerequisites
 
@@ -379,14 +440,22 @@ These cannot be done from inside the repository.
 
 ## 13. Verification
 
-- **Gate:** `scripts/quality-gate.ps1` exit 0, all 19 steps including E2E. It is
+- **Gate:** `scripts/quality-gate.ps1` exit 0, all 24 steps including E2E — 20
+  with `-SkipE2E`, since slice 12 added the WebKit install and the offline suite
+  as steps 23–24. It is
   run as two foreground calls, because the single full invocation exceeds this
   environment's background-task limit:
 
   ```powershell
   powershell -File scripts/quality-gate.ps1 -SkipE2E
   $env:CI = "1"; pnpm test:e2e
+  $env:CI = "1"; pnpm test:e2e:offline
   ```
+
+  The third call is slice 12's suite and is **not** covered by the second:
+  `pnpm test:e2e` deliberately means "the four dev-server configs", because
+  `test:e2e:offline` is the only one that pays for a `next build` and needs
+  WebKit. Skipping it skips every offline assertion in the phase.
 
   **`CI=1` on the second call is not optional.** The gate script sets it
   internally (`quality-gate.ps1` line 92) precisely because every Playwright

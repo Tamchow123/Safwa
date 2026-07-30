@@ -23,6 +23,21 @@ const SPECIAL_SERVER_SPECS = [
   // server leaves sign-up open, so every one of that spec's refusals would
   // instead register an account and the spec would fail for the wrong reason.
   /e2e\/signup-closed\.spec\.ts/,
+  // The Phase 18 offline/PWA suite (playwright.offline.config.ts). Ignored here
+  // for a stronger reason than the four above: this server runs `next dev`,
+  // where `@serwist/turbopack` leaves the precache manifest unreplaced and
+  // `components/pwa/service-worker-provider.tsx` never registers — so there is
+  // no service worker for these specs to observe and they fail on the absence
+  // of the very thing they exist to test. That is not a flake to tune; it is the
+  // wrong server. Their own config builds and starts the app for real.
+  //
+  // `shell-touch.spec.ts` is deliberately NOT in this list even though it is part
+  // of that suite: it measures rendered box sizes and needs no worker, so it runs
+  // here as well. That is the point — the offline job is not yet a required check
+  // on `main` (phases-18.md §12, H6), so this config is what actually holds the
+  // 44px rule to account until it is.
+  /e2e\/offline\.spec\.ts/,
+  /e2e\/pwa-installability\.spec\.ts/,
 ];
 
 export default defineConfig({
