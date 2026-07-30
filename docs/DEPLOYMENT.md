@@ -441,25 +441,172 @@ storing account markup: treat it as a live incident, not a docs drift.
 
 ## 7. Backups & restore
 
-- Neon PITR within plan limits (assumption: 24h–7d depending on tier) plus a
-  scheduled logical dump (`pg_dump`) to external storage (GitHub Actions cron
-  → encrypted artifact or object storage) — daily at launch.
-- Independently of both, **every production migration takes its own restore
-  point first** and refuses to run without one — a Neon branch named
-  `pre-migrate-<run-id>-<attempt>` (§5). That covers the single most dangerous
-  operation; it is not a substitute for the scheduled dump, which is what
-  survives losing the Neon project itself.
-- Content releases are reproducible from git-tracked JSON — no separate
-  backup needed; the original dataset is the canonical evidence.
-- **Restore drill at Phase 22** (documented): restore a dump into a fresh
-  branch, run the app against it, verify a known user's state.
+Three independent mechanisms, covering three different losses. None of them
+substitutes for another, and that is the point of listing them separately.
+
+| Mechanism                                      | Covers                               | Does **not** cover                                               |
+| ---------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| Neon PITR, within plan limits (assume 24h–7d)  | "I ran the wrong UPDATE an hour ago" | Losing the Neon project or account                               |
+| Pre-migration Neon branch (§5, automatic)      | A bad migration                      | Anything not caused by a migration; it lives in the same project |
+| **Daily encrypted `pg_dump` artifact** (below) | Losing the Neon project entirely     | Losing the GitHub account — see "not offsite"                    |
+
+Content releases need no backup: they are reproducible from git-tracked JSON, and
+the original transcription is the canonical evidence.
+
+### The daily dump
+
+`.github/workflows/backup.yml`, 03:17 UTC daily plus `workflow_dispatch`:
+
+- `pg_dump --format=custom` against the **direct** Neon endpoint. The pooled
+  endpoint does not support everything a dump needs and fails partially rather
+  than cleanly (§2 records which URL goes where). Custom format because
+  `pg_restore` can be selective with it during an incident — one table, schema
+  only, reordered — which a plain SQL dump forecloses.
+- A **PostgreSQL 17** client, installed from PGDG and version-asserted. `pg_dump`
+  refuses to dump a server newer than itself, and the runner image ships an
+  older client.
+- **`age`-encrypted to a public key** (`BACKUP_AGE_PUBLIC_KEY`) before the file
+  is uploaded anywhere; the plaintext is shredded in the same step. This is what
+  makes an artifact acceptable at all: a dump holds verified email addresses,
+  password hashes and live session tokens, and an artifact is downloadable by
+  anyone with repository read access. A compromised Actions token gets
+  ciphertext. The workflow refuses to run without a recipient key, and refuses
+  outright if the variable holds a _private_ key (repository variables are not
+  secrets).
+- **Guarded against a silently empty dump** two ways: a byte floor, and a
+  `pg_restore --list` check that the archive's table of contents actually
+  contains `users`, `sessions`, `review_events`, `study_components` and
+  `content_versions`. If either fails the run fails and keeps nothing — do not
+  raise the floor to make it pass.
+- Retained **30 days**.
+
+**Until H5 (phases-18.md §12) is done, this workflow fails every night.** That is
+deliberate. A backup that is not configured should be visible, and a run that
+skipped itself quietly is indistinguishable from one that worked.
+
+It runs against its own `production-backup` GitHub Environment, **not** the
+`production` one §5 tells you to put required reviewers on. That is why: an
+approval rule applies to scheduled runs too, so sharing the environment would
+leave the 03:17 run waiting for an approval nobody is awake to give — and a
+pending run is neither a failure nor a cancellation, so nothing would report it.
+The consequence to keep in mind: **`PRODUCTION_DATABASE_URL_DIRECT` now exists in
+two environments, and a rotation must update both.** Updating only `production`
+leaves the backup on the old credential — still working if the old one was merely
+rotated rather than revoked, and otherwise failing for a reason none of the
+troubleshooting steps below name.
+
+### An artifact is not offsite
+
+The artifacts live in the same GitHub account as the repository that produced
+them. A backup that shares a blast radius with the thing it backs up is a partial
+backup. So: **once a month, download the latest encrypted artifact and store it
+somewhere that is not GitHub and not the laptop that runs the app.** This is a
+human step; nothing here can do it, and nothing will remind you.
+
+**While you are on that screen, check the schedule is still alive.** GitHub
+disables a scheduled workflow after **60 days with no repository activity** and
+does not re-enable it. A disabled schedule produces no run, so there is no failed
+check to notice — the one way this workflow goes silent rather than red. It is a
+live risk here rather than a theoretical one: Phase 18 is the last implementation
+phase, so long quiet stretches are the expected steady state, and with 30-day
+retention 60 days of silence leaves no usable backup at all. So the monthly step
+is really two:
+
+1. Download the newest artifact and put it somewhere that is not GitHub.
+2. Confirm there are successful runs from the **last few days**. If the newest run
+   is weeks old, the schedule was disabled — re-enable it in the Actions tab and
+   run it once by hand.
+
+### Who can change where the backups go
+
+`BACKUP_AGE_PUBLIC_KEY` is a repository **variable**, not a secret. Anyone who can
+edit repository variables can point every future night's backup at a key **they**
+hold, and the workflow will report success — it validates the key's shape, not its
+identity. That is a lower bar than reading the database secret itself, so it is
+worth naming: the encryption guarantee is "unreadable by whoever holds the
+artifact", and it depends on the recipient being who you think it is.
+
+Two things follow. Keep the set of people who can edit Actions variables as small
+as the set who can read production secrets. And treat the **quarterly drill as the
+detector**: a re-keyed backup is indistinguishable from a good one until someone
+tries to decrypt it with the real private key, which is precisely what the drill
+does. (Pinning the expected key in a reviewed file was considered and rejected for
+now: it converts routine key rotation into a code change, and the drill already
+closes the loop within a quarter.)
+
+### The decryption key needs the redundancy the dumps get
+
+Every retained artifact is encrypted to **one** keypair. A lost private key voids
+all 30 days at once, silently, and you discover it during the incident that
+needed the restore.
+
+- The private key lives in a password manager that is **itself** backed up,
+  **plus** one independent offline copy kept physically elsewhere.
+- Encrypting to two recipients is an acceptable alternative.
+- What is **not** acceptable: a single copy, on the laptop that runs the app.
+- It must never be committed, and never placed in a repository _variable_ —
+  variables are readable by anyone with read access. The backup workflow rejects
+  an `AGE-SECRET-KEY-` value outright for exactly this reason.
+
+### Restoring — the drill
+
+`scripts/backup-restore-drill.ps1` decrypts an artifact and restores it. It is
+**name-guarded exactly like `db/reset-test-database.ts`**: it refuses unless
+`NODE_ENV=test` _and_ the target database name matches `safwa_test` or
+`safwa_test_<worker>`. There is no override. A drill that can overwrite the
+database it was copied from is not a drill.
+`scripts/test-backup-restore-drill.ps1` asserts those refusals as gate step 17,
+so the guard cannot rot unnoticed.
+
+```powershell
+$env:NODE_ENV = "test"
+./scripts/backup-restore-drill.ps1 `
+    -DumpPath ./safwa-20260730T031700Z.dump.age `
+    -IdentityFile $HOME/.config/safwa/backup-age.key `
+    -TargetDatabaseUrl "postgres://.../safwa_test?sslmode=require"
+```
+
+Restoring is only the first half. The drill is finished when you have:
+
+1. Checked row counts for `users`, `review_events` and `study_components` are
+   non-zero and plausible against production.
+2. Pointed the app at the restored database and signed in as a known account —
+   its due cards and history should be there.
+3. Recorded the date, which artifact you restored, and the outcome.
+4. **Dropped the scratch database.** It is a full copy of production.
+5. **Checked your temp directory for stray `safwa-restore-*.dump` files.** The
+   script deletes the decrypted copy on a normal failure and on a graceful
+   Ctrl-C, but nothing runs after a forced kill, a closed console window or a
+   crash — and what survives is plaintext production data, password hashes and
+   session tokens included.
+
+If the restore fails part-way, the target is neither its old self nor a complete
+copy: `--clean --if-exists` has already dropped objects by then. Do not read row
+counts from a partially restored database — drop and recreate it first. The script
+says so on that path too.
+
+**Cadence: quarterly, and additionally after any migration that is not purely
+additive.** A restore proved once is not a restore path — H5 proves it at t=0
+against the schema of that day, while migrations accumulate and the
+`pg_dump`/`pg_restore`/`age`/PG17 toolchain drifts underneath it. The drill is
+what turns "we have backups" into "we can restore", and those are different
+claims.
+
+**Nothing tracks or enforces that cadence.** No CI check, no reminder, no file in
+this repository knows when the last drill happened — it is a calendar commitment
+exactly like the monthly offsite pull above, and it lapses the same silent way.
+Gate step 17 proves the restore script still _refuses the wrong database_; it
+cannot prove anyone ran a drill.
 
 ## 8. Production deployment & rollback
 
 - Deploy: merge to main → CI (full matrix) → migrations → promote.
 - Rollback: redeploy the previous Vercel build (instant); DB rollback via
-  down-migration only for additive changes, otherwise restore-from-backup
-  path; a rollback rehearsal is part of the Phase 22 checkpoint.
+  down-migration only for additive changes, otherwise the restore-from-backup
+  path — which is drilled **quarterly** from Phase 18 onward (§7), not deferred.
+  What is still deferred to Phase 22 is a rehearsal of the **app-redeploy**
+  rollback itself; the two are separate exercises and only the second is
+  outstanding.
 - Feature flags for risky subsystems act as kill-switches: `AUTH_ENABLED` and
   `SYNC_ENABLED` are server-side and take effect on the next request; the
   service worker's is **not**, and that difference matters — see below.
