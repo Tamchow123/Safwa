@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Safwa's app mark (Phase 18). Hand-authored, and deliberately WORDLESS.
+
+  There is no Arabic in this file and there must not be. `safwa` is the app's
+  name, but CLAUDE.md's hard rule 3 forbids hand-typing an Arabic string that
+  has to match a source, and there is no source dataset for a brand word to
+  read it from programmatically. A glyph avoids the question entirely rather
+  than answering it badly; a wordmark stays a job for a human designer working
+  from a real reference.
+
+  What it draws: the name means the clear part, what is left once everything
+  cloudy has settled out. So: one drop, with a level line across it and the
+  settled portion below dimmed. Nothing here is a letter in any script.
+
+  What it deliberately is NOT: an earlier draft used three stacked arcs, which
+  rasterised into an unmistakable Wi-Fi signal glyph. For an app whose whole
+  selling point is that it works with no network, an icon that reads as a
+  connectivity indicator is worse than a dull one. Concentric arcs are off
+  limits here for that reason.
+
+  Geometry notes, because the export depends on them:
+  - The 512x512 viewBox is the export master; scripts/generate-icons.ts
+    rasterises this file and nothing else.
+  - All artwork sits well inside the circle of 80% diameter that a maskable
+    icon may be cropped to (centre 256,256, radius 204.8). That is why the
+    maskable and standard exports can share one master.
+  - Two shapes and one straight edge, so it survives being drawn at 16px.
+  - No double hyphen anywhere in this file: XML forbids it inside a comment,
+    and sharp's parser rejects the whole document over one.
+-->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 512 512"
+  width="512"
+  height="512"
+  role="img"
+  aria-label="Safwa"
+>
+  <title>Safwa</title>
+  <defs>
+    <!-- The drop, reused as a clip so the level line can cut across it
+         without any path arithmetic. Apex at the top, circular bowl below. -->
+    <clipPath id="safwa-drop">
+      <path
+        d="M256 116 C300 196 348 254 348 306 A92 92 0 1 1 164 306 C164 254 212 196 256 116 Z"
+      />
+    </clipPath>
+  </defs>
+
+  <!-- Full-bleed field. The maskable export keeps this; the standard export
+       rounds it. The value is the sRGB rendering of the app's own primary
+       design token, oklch(0.42 0.085 168) in app/globals.css. lib/site.ts
+       holds the same constant for the manifest, and that is enforced rather
+       than hoped for: assertMasterBrandColours() in scripts/icons-lock.ts
+       reads every fill in this file and refuses to build, or to pass the unit
+       suite, unless the palette here is exactly siteConfig's two colours. It
+       matters because square exports are flattened over siteConfig.themeColor
+       while the field below is drawn from this literal, so a disagreement
+       would ship as a visible seam at the icon's own edge. -->
+  <rect width="512" height="512" fill="#005b44" />
+
+  <g clip-path="url(#safwa-drop)">
+    <!-- The clear part: everything above the line. -->
+    <rect x="140" y="100" width="232" height="222" fill="#fbfaf7" />
+    <!-- What settled: the same shape, dimmed, below the line. The 12px gap
+         between the two rects IS the line, drawn in the field colour, so it
+         stays exactly one unit wide at every export size. -->
+    <rect x="140" y="334" width="232" height="90" fill="#fbfaf7" opacity="0.4" />
+  </g>
+</svg>

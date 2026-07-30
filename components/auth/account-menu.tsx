@@ -1,21 +1,40 @@
 "use client";
 
 /**
- * Account menu (Phase 15, phases-15.md §37). Guest and signed-in states
- * are both derived from a single `useSession()` read, never a separate
- * "is auth available" check: a genuine guest, a session read that errored
- * (AUTH_ENABLED=false, the auth endpoint unreachable), and a still-pending
- * first read all resolve `data` to a falsy value, so this component
- * treats them identically — the guest links render immediately and never
- * block on, or wait for, the session fetch to settle. Never displays the
- * raw user id — only the account email.
+ * Account menu (Phase 15, phases-15.md §37; Phase 18 §5). Guest and signed-in
+ * states are both derived from a single `useSession()` read, never a separate
+ * "is auth available" check. Never displays the raw user id — only the account
+ * email.
+ *
+ * Phase 15 deliberately collapsed three cases into the guest links: a genuine
+ * guest, a still-pending first read, and a session read that errored. That was
+ * right when the third case meant `AUTH_ENABLED=false` or a momentarily
+ * unreachable endpoint — the guest links render immediately and never block on
+ * the fetch.
+ *
+ * Once the app is installable it is also wrong, for one of those cases. An
+ * offline cold boot IS the errored read, and a learner who is signed in and
+ * has simply lost the network would be shown "Sign in / Create account" — an
+ * invitation to do the one thing that cannot work, phrased as though their
+ * account were gone. So when the read has FAILED and this device remembers an
+ * owner, the menu says **Offline** instead: no CTA, no claim about the account,
+ * just the true reason nothing more can be said.
+ *
+ * Two cases deliberately keep the Phase 15 behaviour, and both matter:
+ * a still-PENDING read is not a failed one, so an ordinary cold start never
+ * flashes "Offline" before the session resolves; and with no remembered owner
+ * a failed read still shows the guest links, because a first-time visitor on a
+ * broken network is, as far as anyone knows, a guest.
  */
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { signOutAndClearLocalState } from "@/components/account/sign-out-action";
+import { useLocalOwner } from "@/components/sync/use-local-owner";
 import { useSession } from "@/modules/auth/client";
+import { classifySessionIdentity } from "@/modules/auth/session-identity";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,15 +47,50 @@ import {
 
 export function AccountMenu() {
   const session = useSession();
+  const identity = classifySessionIdentity(session);
+  // The local owner, which resolves an `unknown` session to this device's
+  // remembered account. Non-null with no `session.data` is precisely "signed
+  // in, but the server could not be reached".
+  const rememberedOwner = useLocalOwner();
   const [signingOut, setSigningOut] = useState(false);
 
   if (!session.data) {
+    // `unknown` covers BOTH "the read failed" and "the read is still in
+    // flight", and only the first is offline. Excluding `isPending` is what
+    // stops every ordinary cold start flashing "Offline" at a signed-in
+    // learner before their session resolves — a false claim about the network,
+    // made at the one moment it is most likely to be believed.
+    //
+    // Classified once, here, and both facts derived from it. `rememberedOwner`
+    // being non-null happens to imply `unknown` today (useLocalOwner returns
+    // null outright for a `guest` verdict), but that invariant lives in another
+    // file and nothing enforces it from here — so this does not lean on it.
+    const readFailed = !session.isPending && identity.kind === "unknown";
+
+    if (readFailed && rememberedOwner !== null) {
+      return (
+        <span
+          className="text-muted-foreground flex items-center gap-1.5 px-2 text-sm"
+          // Announced politely rather than assertively: losing the network is
+          // not an error the learner must act on, and study continues.
+          role="status"
+        >
+          <WifiOff aria-hidden className="size-4" />
+          Offline
+        </span>
+      );
+    }
+
+    // `min-h-11` on both, for phases-18.md §8's 44px hit area. Height only —
+    // these are text buttons and already wider than 44px, so a minimum width
+    // would change nothing while a minimum height is the whole difference on a
+    // phone.
     return (
       <div className="flex items-center gap-1">
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="min-h-11">
           <Link href="/login">Sign in</Link>
         </Button>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="min-h-11">
           <Link href="/register">Create account</Link>
         </Button>
       </div>
@@ -58,6 +112,13 @@ export function AccountMenu() {
       // account's local state on a shared device (SEC-002-T15d), exactly like
       // the /account page button.
       await signOutAndClearLocalState(departingUserId);
+    } catch {
+      // Server call failed; the local sweeps ran regardless (Phase 18). Same
+      // message as the /account button, because it is the same situation.
+      toast("Signed out on this device", {
+        description:
+          "We couldn't reach the server, so your session may still be open on others. Try again once you're back online.",
+      });
     } finally {
       setSigningOut(false);
     }
@@ -68,7 +129,12 @@ export function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Account menu">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Account menu"
+          className="min-h-11 min-w-11"
+        >
           <User aria-hidden className="size-5" />
           <span className="sr-only">Account</span>
         </Button>

@@ -2,7 +2,9 @@ import { APP_THEME_STORAGE_KEY } from "@/lib/preferences/app-theme";
 import { ARABIC_FONT_SCALE_STORAGE_KEY } from "@/lib/preferences/arabic-font-scale";
 import { withTimeout } from "@/lib/with-timeout";
 import { authClient, signOut } from "@/modules/auth/client";
+import { forgetLastKnownOwner } from "@/modules/auth/last-known-owner";
 import { getSafwaDb } from "@/modules/content/db";
+import { clearOwnerSensitiveCachesIfAvailable } from "@/modules/pwa/cache-storage";
 import { clearAccountLocalState } from "@/modules/sync/client/logout";
 
 /**
@@ -28,6 +30,12 @@ import { clearAccountLocalState } from "@/modules/sync/client/logout";
  * failure here must never block sign-out — the authoritative session is already
  * ended, and the next account's own sync/reload also self-heals. The Dexie side
  * is unit-tested in modules/sync/client/logout.test.ts.
+ *
+ * Phase 18 adds the durable last-known owner to what departs with the account.
+ * It is not a cosmetic mirror like the two below: it is what an offline cold
+ * boot resolves an unclassifiable session to, so leaving it behind would mean
+ * the next person on this device writes rows owned by the account that just
+ * left (phases-18.md §2.1).
  */
 
 /**
@@ -57,7 +65,40 @@ export async function signOutAndClearLocalState(
       resolved = null;
     }
   }
-  await signOut();
+  // The local cleanup below must happen whether or not this succeeded. Better
+  // Auth resolves with an `{ error }` shape rather than rejecting on an
+  // ordinary failure, but this app is offline-capable by design, and someone
+  // signing out on a shared device with no connection is a case it has to
+  // handle: if the server call throws, the one thing that still protects them
+  // is that this device stops holding the account's data.
+  //
+  // The failure is not swallowed — it is remembered and rethrown at the end,
+  // so a caller can still show an error rather than silently returning to idle.
+  let signOutError: unknown = null;
+  try {
+    await signOut();
+  } catch (error) {
+    signOutError = error;
+  }
+
+  // Forget the durable last-known owner BEFORE the Dexie sweep (Phase 18 §2.1)
+  // and independently of whether that sweep succeeds. It is what an offline
+  // cold boot falls back to, so a stale one would let the next person on this
+  // device write rows stamped with the departing account's owner key — the
+  // shared-device case this whole function exists for, and it is wrong whether
+  // or not the account's rows were removed.
+  //
+  // No retry here. `forgetLastKnownOwner` already exhausts what is possible: it
+  // verifies by reading back and, if the delete silently did not take, falls
+  // back to neutralising the value with a write. The three ways it can still
+  // report false — storage blocked outright, a store that ignores both
+  // operations, or reads that throw — are none of them things a caller can
+  // improve on by asking again. What remains is the hooks' own forget on the
+  // next `guest` classification, which needs a render to happen; that residual
+  // gap is real, and is written down in phases-18.md §2.1 under "The residual
+  // gap, stated rather than papered over" rather than left implied here.
+  forgetLastKnownOwner();
+
   try {
     await clearAccountLocalState(getSafwaDb(), resolved);
   } catch {
@@ -71,4 +112,20 @@ export async function signOutAndClearLocalState(
   } catch {
     // No localStorage (private mode / SSR) — nothing to clear.
   }
+
+  // And the third store this device has held since Phase 18: Cache Storage.
+  // `/api/**` is NetworkOnly so no API response is ever in it, and a response
+  // the server marked private is refused at write time — but a document cached
+  // before that guard existed, or one the server did not mark, would otherwise
+  // survive sign-out and be served to whoever uses this device next. Dropped
+  // here rather than in the worker because sign-out happens on the page, and a
+  // device with no service worker registered (the kill switch, an unsupported
+  // browser) must still be swept.
+  await clearOwnerSensitiveCachesIfAvailable();
+
+  // Rethrown last, after every local store has been cleared. The device is now
+  // safe to hand over regardless; what the caller learns is that the SERVER
+  // session may still be live, which is a different problem and one only a
+  // reconnect can fix.
+  if (signOutError !== null) throw signOutError;
 }

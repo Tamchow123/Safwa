@@ -1,0 +1,360 @@
+name: Backup production database
+
+# A daily logical dump, encrypted to a public key before it is ever written
+# anywhere GitHub can see it (docs/DEPLOYMENT.md §7, phases-18.md §9).
+#
+# This workflow exists because Neon's PITR is a plan-level retention window, not
+# something this repository arranged, and it does not survive losing the Neon
+# project itself. The restore point taken before each migration
+# (deploy-migrate.yml) covers the single most dangerous operation and nothing
+# else — it is a branch inside the same project.
+#
+# WHY AN ENCRYPTED ARTIFACT IS ACCEPTABLE HERE, when deploy-migrate.yml
+# deliberately refused to upload a dump at all: that comment is about a
+# PLAINTEXT dump, which carries verified email addresses, password hashes and
+# live session tokens, and which anyone with repository read access could
+# download. Everything uploaded here is `age`-encrypted to a public key whose
+# private half never touches GitHub, so a repository reader — or a compromised
+# Actions token, or a leaked artifact URL — gets ciphertext. That is the whole
+# reason the encryption step is not optional and the workflow fails closed
+# without a recipient key.
+on:
+  schedule:
+    # 03:17 UTC. Not on the hour: GitHub's scheduler is busiest at :00 and
+    # delays or drops runs under load, and a backup that silently did not happen
+    # is the failure mode this whole workflow is against.
+    #
+    # THE ONE WAY THIS GOES SILENT ANYWAY, and it is not hypothetical here:
+    # GitHub DISABLES a scheduled workflow after 60 days with no repository
+    # activity, and does not re-enable it. A disabled schedule produces no run,
+    # so there is no failed check to notice — the exact silence this workflow's
+    # fail-closed design is built to avoid, arriving through the platform rather
+    # than through the code. It matters more for this repository than for most:
+    # Phase 18 is the last implementation phase (CLAUDE.md), so long quiet
+    # stretches are the EXPECTED steady state, not an anomaly. With 30-day
+    # retention, 60 days of silence means no usable backup at all.
+    #
+    # The countermeasure is the monthly offsite pull that docs/DEPLOYMENT.md §7
+    # already requires: the operator is opening the Actions tab to download an
+    # artifact anyway, and "are there runs from the last few days?" is visible on
+    # that same screen. §7 states this explicitly so the monthly step is
+    # understood as two checks, not one.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+# Read-only. This job needs no write access to the repository, and the artifact
+# upload does not require any (`actions/upload-artifact` uses its own scoped
+# token). A workflow holding production database credentials gets the narrowest
+# ambient token it can do its work with.
+permissions:
+  contents: read
+
+concurrency:
+  # Never two dumps of the same database at once. No cancel-in-progress: a
+  # manual run and the nightly one overlapping should queue, because cancelling
+  # the one already streaming data is how a day ends up with no backup.
+  group: backup-production
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    name: Dump, encrypt and retain
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # A SEPARATE environment from deploy-migrate.yml's `production`, and the
+    # separation is load-bearing rather than tidiness.
+    #
+    # docs/DEPLOYMENT.md §5 tells the operator to put "required reviewers" on
+    # `production`, because for a hand-triggered destructive migration that rule
+    # is the only real second pair of eyes. GitHub applies environment protection
+    # rules to EVERY run that names the environment, including `schedule` ones —
+    # so if this job named `production` too, following that instruction would
+    # leave the 03:17 run waiting for an approval nobody is awake to give. A
+    # pending run is neither `failure()` nor `cancelled()`, so the runbook step at
+    # the bottom of this file would never fire either: backups would stop, nightly
+    # and silently, as a direct consequence of doing the documented right thing
+    # elsewhere. Phase 18 review ARCH-001.
+    #
+    # This environment must therefore carry NO required-reviewers rule. It needs
+    # exactly two values, and `PRODUCTION_DATABASE_URL_DIRECT` has to be present
+    # in it as well as in `production` (phases-18.md §12, H5).
+    environment: production-backup
+    steps:
+      # Fail closed, loudly, BEFORE installing anything. Until H5
+      # (phases-18.md §12) is done this workflow fails every night, and that is
+      # deliberate: a missing backup should be visible. docs/DEPLOYMENT.md §7
+      # says so, so a red run here is read as "not configured yet" rather than
+      # as noise to suppress.
+      - name: Check the backup is configured
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          BACKUP_AGE_PUBLIC_KEY: ${{ vars.BACKUP_AGE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          missing=""
+          if [ -z "${DATABASE_URL:-}" ]; then
+            missing="${missing} PRODUCTION_DATABASE_URL_DIRECT (secret)"
+          fi
+          if [ -z "${BACKUP_AGE_PUBLIC_KEY:-}" ]; then
+            missing="${missing} BACKUP_AGE_PUBLIC_KEY (variable)"
+          fi
+          if [ -n "${missing}" ]; then
+            echo "::error::Backup not configured — missing:${missing}. See docs/DEPLOYMENT.md §7 and phases-18.md §12 H5. Refusing to run: an unencrypted or absent backup is worse than a failed one."
+            exit 1
+          fi
+          # The recipient must be an age X25519 public key. Checked because a
+          # value pasted from the wrong half of the keypair is the one mistake
+          # that would otherwise succeed here and be discovered only during a
+          # restore — and pasting the PRIVATE key into a repository variable,
+          # which is not a secret and is readable by anyone with read access,
+          # would be far worse than a failed run.
+          case "${BACKUP_AGE_PUBLIC_KEY}" in
+            age1*) ;;
+            AGE-SECRET-KEY-*)
+              echo "::error::BACKUP_AGE_PUBLIC_KEY holds an age PRIVATE key. Repository variables are not secrets. Rotate this keypair immediately, then set the public half (age1...)."
+              exit 1
+              ;;
+            *)
+              echo "::error::BACKUP_AGE_PUBLIC_KEY does not look like an age public key (expected it to start with 'age1')."
+              exit 1
+              ;;
+          esac
+
+      # PostgreSQL 17 specifically. ubuntu-latest ships an older client, and
+      # pg_dump refuses to dump a server newer than itself — so without the PGDG
+      # repository this job fails on a version mismatch rather than producing a
+      # bad dump, but it fails every night. The version is asserted below rather
+      # than assumed, because `apt-get install postgresql-client-17` succeeding
+      # is not the same as `pg_dump` on PATH being 17: postgresql-common installs
+      # a wrapper that selects a version, and which one it selects depends on
+      # what else is installed.
+      - name: Install the PostgreSQL 17 client and age
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --silent --show-error --fail --connect-timeout 15 --max-time 60 \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17 age
+          # Put the versioned binaries first, so what runs below is the client
+          # that was just installed rather than whatever the wrapper prefers.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Assert the client is PostgreSQL 17
+        run: |
+          set -euo pipefail
+          version="$(pg_dump --version)"
+          echo "${version}"
+          case "${version}" in
+            *"pg_dump (PostgreSQL) 17."*) ;;
+            *)
+              echo "::error::Expected a PostgreSQL 17 pg_dump, got: ${version}. A dump taken by a mismatched client is not a backup to rely on."
+              exit 1
+              ;;
+          esac
+          age --version
+
+      # Split the connection string into libpq's own PG* variables, so the
+      # credential is NEVER an argument to anything.
+      #
+      # `pg_dump --dbname="$DATABASE_URL"` — the obvious form, and what this
+      # workflow did first — puts the whole URI, password included, into
+      # pg_dump's argv, where any process on the runner able to read
+      # /proc/<pid>/cmdline can see it for as long as the dump runs. GitHub masks
+      # the secret in step LOGS, which is a different protection and does nothing
+      # about the process list. Phase 18 review SEC-001/REL-002 is exactly that
+      # objection, against a comment that claimed the opposite.
+      #
+      # PGDATABASE is deliberately given the bare database NAME, not the URI:
+      # libpq's URI expansion applies to an explicit `dbname` connection
+      # parameter, and relying on the environment variable to be expanded the
+      # same way is an assumption this does not need to make.
+      - name: Derive libpq settings from the connection string
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const url = new URL(process.env.DATABASE_URL);
+            const database = url.pathname.replace(/^\//, "");
+            if (!database) {
+              console.log("::error::PRODUCTION_DATABASE_URL_DIRECT names no database.");
+              process.exit(1);
+            }
+            const password = decodeURIComponent(url.password);
+            // Mask the component parts before writing them anywhere. The full
+            // secret is masked by GitHub automatically; its PIECES are not, and
+            // the password on its own is the piece that matters.
+            if (password) console.log("::add-mask::" + password);
+            const settings = {
+              PGHOST: url.hostname,
+              PGPORT: url.port || "5432",
+              PGUSER: decodeURIComponent(url.username),
+              PGPASSWORD: password,
+              PGDATABASE: database,
+              // Neon requires TLS. Defaulted to require rather than inherited
+              // from libpq (whose default, "prefer", silently accepts plaintext).
+              PGSSLMODE: url.searchParams.get("sslmode") || "require",
+              PGCONNECT_TIMEOUT: "30",
+            };
+            const fs = require("fs");
+            for (const [key, value] of Object.entries(settings)) {
+              if (!value) continue;
+              if (/[\r\n]/.test(value)) {
+                console.log("::error::Refusing to export " + key + ": it contains a newline.");
+                process.exit(1);
+              }
+              fs.appendFileSync(process.env.GITHUB_ENV, key + "=" + value + "\n");
+            }
+          '
+
+      # The DIRECT endpoint, not the pooled one. PgBouncer in transaction mode
+      # does not support everything a dump needs, and the failure is partial
+      # rather than clean — a dump that "succeeded" against the pooler is
+      # exactly the kind of backup that disappoints during a restore.
+      # docs/DEPLOYMENT.md §2 records which URL goes where.
+      #
+      # --format=custom because it is what pg_restore can be selective with
+      # (single table, schema only, reordered) during an incident. A plain SQL
+      # dump forecloses all of that.
+      #
+      # No connection arguments at all: everything comes from the PG* variables
+      # exported above, which is the whole point of the step above.
+      - name: Dump
+        id: dump
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          echo "stamp=${stamp}" >> "$GITHUB_OUTPUT"
+          # --no-owner / --no-privileges: the restore target is a fresh Neon
+          # branch or a local test database whose role names differ, and a dump
+          # that insists on production's roles fails to restore for a reason
+          # that has nothing to do with the data.
+          pg_dump \
+            --format=custom \
+            --compress=9 \
+            --no-owner \
+            --no-privileges \
+            --file="safwa-${stamp}.dump"
+
+      # A byte floor AND a content check. The floor alone would pass a dump that
+      # contains a schema and no rows; the content check alone would pass a
+      # truncated file whose header happens to parse. Both are cheap, and
+      # "silently empty" is the failure this guard exists for.
+      - name: Verify the dump is not silently empty
+        env:
+          DUMP: safwa-${{ steps.dump.outputs.stamp }}.dump
+        run: |
+          set -euo pipefail
+          # 16 KiB, and the number is measured rather than guessed: a
+          # `--format=custom --compress=9` dump of this schema with only the
+          # seeded reference rows (no learners at all) is 66 KB, so a real
+          # production dump cannot approach this floor. Deliberately low, because
+          # its job is to catch zero-byte, near-empty and truncated-at-the-start
+          # files — not to assert the data is complete. The table check below is
+          # what speaks to content, and neither check can prove row counts.
+          MINIMUM_BYTES=16384
+          size="$(stat -c%s "${DUMP}")"
+          echo "Dump size: ${size} bytes"
+          if [ "${size}" -lt "${MINIMUM_BYTES}" ]; then
+            echo "::error::Dump is only ${size} bytes (floor ${MINIMUM_BYTES}). Treating this as a failed backup rather than keeping a file that cannot be a real dump."
+            exit 1
+          fi
+          # pg_restore --list reads the archive's table of contents, so it both
+          # proves the file is a well-formed custom-format archive and shows
+          # what is in it. Tables that must be present or this is not a backup
+          # of THIS application: the account tables and the learner history the
+          # app cannot reconstruct from anything else.
+          #
+          # The pattern below was MEASURED against real output rather than
+          # reasoned about (Phase 18 review REL-005 asked for exactly that,
+          # because a wrong pattern here fails every night and looks like
+          # "not configured"). A PG17 `pg_dump --no-owner --no-privileges
+          # --format=custom` of this schema produces lines of the form
+          #   3796; 0 71933 TABLE DATA public accounts safwa
+          # — the owner IS still recorded despite --no-owner, which only changes
+          # what a RESTORE does with it. All five names below matched, and the
+          # prefix-only names "user" and "session" correctly did not, which is
+          # what the trailing word-boundary group is for.
+          pg_restore --list "${DUMP}" > toc.txt
+          for table in users sessions review_events study_components content_versions; do
+            if ! grep -qE "TABLE DATA public ${table}([[:space:]]|\$)" toc.txt; then
+              echo "::error::The dump's table of contents has no data entry for \"${table}\". Refusing to keep a backup that is missing a table the app cannot function without."
+              exit 1
+            fi
+          done
+          echo "Table of contents contains every required table."
+          rm -f toc.txt
+
+      # Encrypt BEFORE the artifact step, and delete the plaintext immediately.
+      # Nothing unencrypted may outlive this step: the runner's disk is not
+      # something this workflow controls the lifetime of.
+      - name: Encrypt to the backup public key
+        env:
+          BACKUP_AGE_PUBLIC_KEY: ${{ vars.BACKUP_AGE_PUBLIC_KEY }}
+          DUMP: safwa-${{ steps.dump.outputs.stamp }}.dump
+        run: |
+          set -euo pipefail
+          age --recipient "${BACKUP_AGE_PUBLIC_KEY}" --output "${DUMP}.age" "${DUMP}"
+          # shred, then rm: the point is that no later step, and no artifact
+          # glob, can pick up the cleartext.
+          shred --remove --zero "${DUMP}" 2>/dev/null || rm -f "${DUMP}"
+          if [ -e "${DUMP}" ]; then
+            echo "::error::The plaintext dump still exists after the shred step. Refusing to continue to the upload."
+            exit 1
+          fi
+          ls -l "${DUMP}.age"
+
+      - name: Upload the encrypted dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: safwa-backup-${{ steps.dump.outputs.stamp }}
+          # ONLY the encrypted file. An explicit single path rather than a glob,
+          # so a future file in the workspace cannot be swept in.
+          path: safwa-${{ steps.dump.outputs.stamp }}.dump.age
+          if-no-files-found: error
+          # 30 days (phases-18.md §9). Note this is also the window in which the
+          # decryption key must not be lost: every artifact here is encrypted to
+          # one keypair, so a lost private key voids all 30 days at once.
+          # docs/DEPLOYMENT.md §7 records the two-independent-copies requirement
+          # that follows from that.
+          retention-days: 30
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Encrypted backup retained"
+            echo ""
+            echo "- Artifact: \`safwa-backup-${{ steps.dump.outputs.stamp }}\`"
+            echo "- Retention: 30 days"
+            echo "- Encrypted to: \`${{ vars.BACKUP_AGE_PUBLIC_KEY }}\` (public half)"
+            echo ""
+            echo "**An artifact is not offsite.** It lives in the same GitHub"
+            echo "account as the repository. docs/DEPLOYMENT.md §7 documents the"
+            echo "monthly manual pull that makes this a real backup, and the"
+            echo "quarterly restore drill that makes it a real restore PATH."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: What to do if this run failed
+        if: failure() || cancelled()
+        run: |
+          {
+            echo "### Backup FAILED — there is no dump for today"
+            echo ""
+            echo "Nothing here is self-healing. Check, in order:"
+            echo ""
+            echo "1. Is the workflow configured at all? It fails closed without"
+            echo "   the \`PRODUCTION_DATABASE_URL_DIRECT\` secret and the"
+            echo "   \`BACKUP_AGE_PUBLIC_KEY\` variable (phases-18.md §12, H5)."
+            echo "2. Did the size or table-of-contents check reject the dump?"
+            echo "   That is a real signal about the database, not a flaky test —"
+            echo "   do not raise the floor to make it pass."
+            echo "3. Was the connection the DIRECT endpoint? The pooled one"
+            echo "   cannot serve a dump reliably (docs/DEPLOYMENT.md §2)."
+            echo ""
+            echo "Re-run manually once fixed. Two consecutive failures means the"
+            echo "most recent usable backup is more than 48 hours old."
+          } >> "$GITHUB_STEP_SUMMARY"

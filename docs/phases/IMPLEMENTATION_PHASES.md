@@ -13,9 +13,15 @@ Milestones:
 | -------------------------------- | ----------- | ---------------------------------------------------------------- |
 | 🏁 **Guest Alpha**               | 12          | a guest has the full local learning experience — **not** the MVP |
 | 🏁 **Core MVP**                  | 17          | accounts, server-backed progress, cross-device sync, guest merge |
-| 🏁 **Offline-capable Beta**      | 18          | installable PWA, offline study, queued sync                      |
+| 🏁 **Offline-capable Beta**      | 18          | installable PWA, offline study, queued sync — **deployed**       |
 | 🏁 **Multi-device offline Beta** | 19          | concurrent offline reconciliation proven                         |
 | 🏁 **Production launch**         | 22          | hardened, monitored, deployed                                    |
+
+**Phase 18 is the last implemented phase.** It widened to absorb Phase 22's
+deploy, backup and security-header slices, and 19–21 plus the rest of 22 are
+deferred with the condition that reopens each recorded under "Deliberately
+deferred after Phase 18". Personal daily use on a phone, not a public launch,
+is where this plan stops.
 
 Conventions: pnpm; `pnpm dev / build / typecheck / lint / test / test:e2e`;
 Python data tooling stays under `scripts/`.
@@ -534,28 +540,76 @@ guest→account merge", `docs/DATA_MODEL.md` §4.1/§9.2/§10, and ADR-009.
   don't require offline pass.
 - **Demonstrate:** full guest→registered→second-device journey.
 
-## Phase 18 — PWA & offline foundation 🏁 Offline-capable Beta
+## Phase 18 — PWA, offline & first production deploy 🏁 Offline-capable Beta
 
-- **Objective:** installable, studyable offline, syncs on reconnect.
-- **Scope:** Serwist service worker (app-shell precache, content-release
-  caching strategy, offline fallback page); web manifest + install prompts;
-  offline study for guests and signed-in users (engine already local — this
-  phase proves it without network); durable mutation queue flush (app open,
-  `online`, Background Sync where available); retry/backoff + dead-letter +
-  status UI; release checksum verification on activation; iOS caveats
-  documented in-app where relevant (install instructions).
-- **Non-goals:** concurrent multi-device conflict resolution (19).
+**Scope widened, and it is the LAST implementation phase.** Phase 18 now also
+absorbs the **deploy, backup and security-header** slices of Phase 22, because
+"studied daily on a phone" is what this phase is for and none of it is reachable
+without them. Phases 19, 20, 21 and the rest of 22 are deferred — see
+"Deliberately deferred after Phase 18" below and `docs/phases/phases-18.md` §3
+for what reopens each. The expanded detail doc is `docs/phases/phases-18.md`.
+
+- **Objective:** installable, studyable offline, syncs on reconnect —
+  **deployed, backed up, and used daily on a phone.**
+- **Prerequisite defect (fixed first, inside this phase):** on a cold boot with
+  no network while signed in, `components/sync/use-local-owner.ts` classifies
+  the learner as a **guest**, so every offline review would be stamped
+  `ownerKey: "guest"` — a hard-rule-8 violation that is invisible to the
+  account's own reads and never enqueued for sync. It is unreachable today only
+  because an offline cold boot currently shows the browser's error page;
+  **adding the service worker is what makes it reachable**, so the fix ships
+  ahead of the worker in the same phase (`phases-18.md` §2).
+- **Scope:** the offline identity classifier + durable last-known owner;
+  Serwist service worker (app-shell precache, explicit content-release caching
+  rules, offline fallback page — never `defaultCache`, which would cache
+  authenticated `/api` responses); web manifest + icons + install hint; offline
+  study for guests and signed-in users (the engine is already local — this phase
+  proves it without network); mutation-queue flush on app open and `online`;
+  release checksum verification; iOS install caveats shown in-app; **plus, from
+  Phase 22:** first production deploy readiness (`vercel.json`, output file
+  tracing pinned for the content artifacts, deploy-migrate workflow), the
+  security headers beside the existing `Referrer-Policy`, closed sign-up +
+  production rate-limit ceilings, and daily encrypted `pg_dump` backups with a
+  name-guarded restore drill.
+- **Non-goals:** concurrent multi-device conflict resolution (19); a
+  Content-Security-Policy (left to 22 honestly rather than shipped permissive —
+  `phases-18.md` §11); Background Sync (not available on WebKit, so it would be
+  a second, untested path); push notifications.
 - **Prerequisites:** Phase 17.
-- **Testing checkpoint:** Playwright offline emulation — load app, go
-  offline, complete a flashcard + MC session, go online, verify server state
-  matches; queue survives reload while offline; Lighthouse PWA installability
-  pass; checksum-mismatch recovery test.
+- **Testing checkpoint:** Playwright offline emulation on **Pixel 7 and iPhone
+  (WebKit)** against a real `next build && next start` server — load app, cold
+  boot offline in a new page, assert the account's cards render and new rows
+  carry `ownerKey = "account:<id>"` (the regression test for the defect above),
+  complete a flashcard + MC session offline, reload offline, go online, verify
+  server state matches; checksum-mismatch recovery; a route never visited
+  online. **Lighthouse's PWA category was removed in Lighthouse 12**, so the
+  original "Lighthouse PWA installability pass" is not automatable by any
+  current version; it is replaced by the explicit installability criteria in
+  `phases-18.md` §10 plus one manual DevTools check during the real-device
+  drill.
 - **Acceptance criteria:** Offline-capable Beta checklist — installable,
-  cached content, offline study, queued mutations, reconnection sync.
-- **Risks:** SW cache staleness — versioned caches + release pointer checks.
-- **Rollback:** unregister SW (kill-switch route) — app still works online.
+  cached content, offline study, queued mutations, reconnection sync — and
+  `phases-18.md` §14.
+- **Risks:** SW cache staleness — versioned caches + release pointer checks;
+  a cached-forever service-worker script (verified against the deployment, with
+  an explicit `headers()` rule).
+- **Rollback:** `NEXT_PUBLIC_SW_ENABLED=false` unregisters the SW **and clears
+  its caches** — app still works online.
 - **Demonstrate:** airplane-mode study session on an installed PWA, then
   reconnect and show synced state.
+
+### Deliberately deferred after Phase 18
+
+Phase 18 is the last implementation phase for the single-device, single-user
+deployment this project actually has. Nothing below is cancelled; each entry
+records the condition that reopens it.
+
+| Deferred                                          | Reopened by                                                                                                                                                                 |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase 19** — multi-device offline reconciliation | **Acquiring a second study device.** The `stale_branch_conflict` fork requires two devices alternating offline reviews on one component; single-device use cannot reach it, so the machinery would ship unexercised. The moment a second device studies the same account offline, 19 becomes required. |
+| **Phase 20** — settings & reset controls          | Sharing the app with anyone who needs a partial reset. ~70% already shipped across 12–17, and the remainder has a working substitute (delete the account and start again).    |
+| **Phase 21** — admin & content management         | A second content editor, or content editing from a device without the repository checked out. The JSON → `content:build` → `db:register-content` pipeline already works.      |
+| **Phase 22** (except deploy/backup/headers)       | Any public launch. Accessibility audit, CSP, Sentry, performance budget, analytics and the attribution page are all launch concerns for an app with more than one user.       |
 
 ## Phase 19 — Multi-device offline reconciliation 🏁 Multi-device offline Beta
 
@@ -637,6 +691,13 @@ guest→account merge", `docs/DATA_MODEL.md` §4.1/§9.2/§10, and ADR-009.
 
 ## Phase 22 — Hardening & launch 🏁 Production launch
 
+**Partly absorbed by Phase 18.** Its deploy, backup and security-header slices
+shipped there (`phases-18.md` §5 slices 8 and 13) because daily phone use needs
+them. What remains below is genuinely launch-scoped and is deferred until there
+is a launch: the accessibility audit, the CSP, Sentry, the performance budget,
+analytics and the attribution page. The **CSP** in particular is knowingly
+undone rather than shipped permissive (`phases-18.md` §11).
+
 - **Objective:** production readiness.
 - **Scope:** accessibility audit pass (axe across all pages, keyboard/SR
   walkthrough of critical flows, contrast in both themes, touch targets);
@@ -666,5 +727,9 @@ guest→account merge", `docs/DATA_MODEL.md` §4.1/§9.2/§10, and ADR-009.
   parallel; 21 is parallelisable after 15.
 - Never reorder: 3 before 6; 6+7 before any study UI; 15 before 16 before 17;
   18 before 19; 19 before public launch.
+- **Implementation stops after 18.** 19–21 and the remainder of 22 are deferred,
+  each with its reopening condition recorded under "Deliberately deferred after
+  Phase 18". The ordering constraints above still bind if any of them is
+  reopened.
 - After every phase: update `docs/adr/` if a decision changed, and re-run
   `pnpm docs:verify` if any doc containing Arabic placeholders was touched.

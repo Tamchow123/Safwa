@@ -23,7 +23,21 @@ export function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Theme">
+        {/*
+          `min-h-11 min-w-11` is phases-18.md §8's 44px hit area. shadcn's
+          `size="icon"` is 36px, which is fine with a mouse and marginal with a
+          thumb — and this is a header control in an app that installs to a
+          phone home screen. Applied as a minimum on the BUTTON, so the icons
+          inside keep their `size-5`: the target grows, nothing looks different,
+          and a ghost button has no background at rest to make the extra area
+          visible.
+        */}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Theme"
+          className="min-h-11 min-w-11"
+        >
           <Sun
             aria-hidden
             className="size-5 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90"

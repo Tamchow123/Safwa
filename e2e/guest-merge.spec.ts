@@ -7,6 +7,7 @@ import {
   login,
   logout,
   registerAndVerify,
+  registerOnly,
 } from "./helpers/auth-flows";
 import { expectNoSeriousViolations, settleAnimations } from "./helpers/axe";
 import { bookmarksRowCount } from "./helpers/db-probe";
@@ -672,15 +673,10 @@ test.describe("26.9 guest data is never destroyed by a refusal", () => {
     await buildGuestHistory(page, "Unverified list");
     const before = (await guestRows(page, "study_attempts")).length;
 
-    await page.goto("/register");
-    await page.getByLabel("Name").fill("Unverified Learner");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password", { exact: true }).fill(E2E_PASSWORD);
-    await page.getByLabel("Confirm password").fill(E2E_PASSWORD);
-    await page.getByRole("button", { name: "Create account" }).click();
-    await expect(
-      page.getByTestId("register-verification-notice"),
-    ).toBeVisible();
+    // registerOnly, not registerAndVerify: this test needs an account that
+    // exists but was never verified, which is exactly the difference between
+    // the two helpers.
+    await registerOnly(page, email, E2E_PASSWORD, "Unverified Learner");
 
     // Never signed in, so no merge is offered and nothing is touched.
     await page.goto("/");

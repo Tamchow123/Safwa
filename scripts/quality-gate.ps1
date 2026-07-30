@@ -14,31 +14,58 @@
       5.  Generated artifacts fresh  git diff --exit-code -- public/content content-server
       6.  No untracked artifacts     git ls-files --others -- public/content content-server
                                      (no --exclude-standard: even ignored files may not hide there)
-      7.  Documentation Arabic       pnpm docs:verify
-      8.  Disposable Postgres reachable (concise diagnostic if not; see below)
-      9.  Migration chain            pnpm db:migrate
-      10. Content version registration pnpm db:register-content
-      11. Database integration tests  pnpm test:integration  (constraints, content
+      7.  Icon set byte-identical    pnpm icons:verify     (re-renders public/icons from the
+                                     master mark; authoring-platform only, see below)
+      8.  Documentation Arabic       pnpm docs:verify
+      9.  Disposable Postgres reachable (concise diagnostic if not; see below)
+      10. Migration chain            pnpm db:migrate
+      11. Content version registration pnpm db:register-content
+      12. Database integration tests  pnpm test:integration  (constraints, content
                                       registration, Better Auth, manifest loader,
                                       Phase 16 sync ingest/pull/revoke, Phase 17
                                       guest merge — one Vitest config covers all
                                       of these, and every tests/integration/*.test.ts
                                       is picked up by it without a config change)
-      12. Type checking              pnpm typecheck
-      13. Linting                    pnpm lint
-      14. Formatting check           pnpm format:check     (check only, never writes)
-      15. Push-guard hook self-tests scripts/test-guard-git-push.ps1
-      16. Unit tests                 pnpm test
-      17. Production build           pnpm build
-      18. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
-      19. E2E tests (Playwright)     pnpm test:e2e         (skippable with -SkipE2E, which also skips 18)
+      13. Type checking              pnpm typecheck
+      14. Linting                    pnpm lint
+      15. Formatting check           pnpm format:check     (check only, never writes)
+      16. Push-guard hook self-tests scripts/test-guard-git-push.ps1
+      17. Restore-drill guard self-tests scripts/test-backup-restore-drill.ps1
+                                     (asserts the restore script refuses every
+                                     non-disposable database name; touches no
+                                     database, so it runs anywhere)
+      18. Unit tests                 pnpm test
+      19. Production build           pnpm build
+      20. Traced routes in build     pnpm routes:verify    (must follow 19 — reads .next's own
+                                     app-paths manifest; see below)
+      21. Service-worker criteria    pnpm sw:verify        (must follow 19 — reads the emitted
+                                     worker and client bundle; see below)
+      22. Playwright browser         pnpm exec playwright install chromium  (no-op when present)
+      23. E2E tests (Playwright)     pnpm test:e2e         (the four dev-server configs)
+      24. Playwright WebKit          pnpm exec playwright install webkit    (no-op when present)
+      25. Offline / PWA E2E          pnpm test:e2e:offline (the ONLY config that builds and
+                                     starts the app for real — under `next dev` there is no
+                                     service worker to observe)
+                                     Steps 22-25 are all skipped by -SkipE2E.
 
     Notes:
       - No check modifies application source files. Step 4 regenerates the
         DERIVED content artifacts (public/content, content-server) exactly as
         CI does; step 5 then fails if the committed artifacts were stale,
         which means the implementer must commit the regenerated output.
-      - Steps 8-11 are the only ones that touch a database. They require a
+      - Step 7 is deliberately NOT mirrored in .github/workflows/ci.yml, and
+        that asymmetry with steps 4-6 is the point. It re-renders the PNGs
+        through sharp, whose native binary is compiled separately per OS and
+        architecture, so byte equality between a Windows-authored commit and
+        an ubuntu-latest runner is a hope rather than a guarantee — gating CI
+        on it would risk a permanently red check for a reason unrelated to the
+        change under review. This gate runs on the machine the icons are
+        authored on, where the comparison is exact and meaningful. The
+        portable half (master digest, per-file digests, declared set, stray
+        files, brand colours) lives in scripts/icons-lock.ts and runs in the
+        unit suite, so CI still catches every drift that actually occurs; that
+        file's header explains the split.
+      - Steps 9-12 are the only ones that touch a database. They require a
         reachable local Postgres with a `safwa_test` database already
         provisioned (`docker compose up -d db` — see compose.yaml and
         docker/init-test-db.sql) and run with NODE_ENV=test against a
@@ -50,6 +77,18 @@
         `/^safwa_test(_\w+)?$/` AND NODE_ENV=test) refuses to touch
         anything else — this script does not duplicate that check, only
         surfaces its failure clearly if it fires.
+      - Steps 19 and 20 must stay immediately after the build, and both are
+        mirrored in CI. Step 20 checks the four conditions phases-18.md §6
+        makes adopting @serwist/turbopack contingent on; they are invisible
+        until something is built, and a worker that still compiles with an
+        empty precache manifest is the failure that looks most like success.
+      - Step 19's own reason:
+        The unit suite already checks next.config.ts's
+        outputFileTracingIncludes against the route graph that derives it;
+        only .next/server/app-paths-manifest.json can say whether either
+        spelling is one Next actually recognises. A key it does not
+        recognise is not a build error — it silently pins nothing, and the
+        first evidence would be a deployed route answering 503.
       - Every OTHER step (typecheck, lint, unit tests, build, E2E) never
         requires a database — E2E provisions and tears down its own
         disposable state per e2e/global-setup.ts, independent of this
@@ -65,7 +104,7 @@
 .NOTES
     Always invoke as `powershell -File scripts/quality-gate.ps1` (its own
     process). Do not dot-source this script into an interactive session —
-    steps 8-11's temporary NODE_ENV=test/DATABASE_URL overrides are
+    steps 9-12's temporary NODE_ENV=test/DATABASE_URL overrides are
     restored in a `finally` block scoped to this script's own execution,
     which only fully protects an interactive shell's own environment when
     the script runs as a separate process.
@@ -91,7 +130,7 @@ Set-Location $repoRoot.Trim()
 # behaviour), so a green gate always describes THIS tree.
 $env:CI = "1"
 
-# Derives the disposable-test-database DATABASE_URL for steps 8-11: reads
+# Derives the disposable-test-database DATABASE_URL for steps 9-12: reads
 # .env.local's own DATABASE_URL (the same one `pnpm dev` uses, pointing at
 # `safwa_dev`) and swaps ONLY the database name to `safwa_test` — host,
 # port and credentials are reused as-is. This script is plain PowerShell,
@@ -138,6 +177,7 @@ $steps = @(
     @{ Name = "Content release build";                   Exe = "pnpm";   Args = @("content:build") },
     @{ Name = "Generated artifacts current and deterministic"; Exe = "git"; Args = @("diff", "--exit-code", "--", "public/content", "content-server") },
     @{ Name = "No untracked generated artifacts"; Exe = "git"; Args = @("ls-files", "--others", "--", "public/content", "content-server"); FailOnOutput = $true },
+    @{ Name = "Icon set byte-identical to the master mark"; Exe = "pnpm"; Args = @("icons:verify") },
     @{ Name = "Documentation Arabic verification";       Exe = "pnpm";   Args = @("docs:verify") },
     @{ Name = "Disposable Postgres reachable (safwa_test)"; Exe = "node"; Args = @(
         "-e",
@@ -150,13 +190,26 @@ $steps = @(
     @{ Name = "Linting";                                 Exe = "pnpm";   Args = @("lint") },
     @{ Name = "Formatting check";                        Exe = "pnpm";   Args = @("format:check") },
     @{ Name = "Push-guard hook self-tests";              Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-guard-git-push.ps1") },
+    # Next to the push guard because it is the same kind of check: a safety guard
+    # whose whole value is that it refuses, tested by asserting that it does.
+    # Neither needs a database, a build or a browser.
+    @{ Name = "Restore-drill guard self-tests";          Exe = "powershell"; Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/test-backup-restore-drill.ps1") },
     @{ Name = "Unit tests (Vitest)";                     Exe = "pnpm";   Args = @("test") },
-    @{ Name = "Production build";                        Exe = "pnpm";   Args = @("build") }
+    @{ Name = "Production build";                        Exe = "pnpm";   Args = @("build") },
+    @{ Name = "Traced routes exist in the build";        Exe = "pnpm";   Args = @("routes:verify") },
+    @{ Name = "Service worker meets its adoption criteria"; Exe = "pnpm"; Args = @("sw:verify") }
 )
 
 if (-not $SkipE2E) {
     $steps += @{ Name = "Playwright Chromium available (installs if missing)"; Exe = "pnpm"; Args = @("exec", "playwright", "install", "chromium") }
     $steps += @{ Name = "E2E tests (Playwright, desktop + mobile Chromium)"; Exe = "pnpm"; Args = @("test:e2e") }
+    # WebKit is a separate download and a separate step because the offline
+    # config is the only one that needs it — and the only one that pays for a
+    # full production build before its first test. Kept out of `test:e2e` so
+    # that script keeps meaning "the four dev-server configs"; a reader who runs
+    # only that should not be told they have run this.
+    $steps += @{ Name = "Playwright WebKit available (installs if missing)"; Exe = "pnpm"; Args = @("exec", "playwright", "install", "webkit") }
+    $steps += @{ Name = "Offline / PWA E2E (Pixel 7 + iPhone WebKit, real build)"; Exe = "pnpm"; Args = @("test:e2e:offline") }
 } else {
     Write-Host "NOTE: -SkipE2E supplied. The FULL gate (including E2E) must pass before review and commit." -ForegroundColor Yellow
 }
@@ -175,7 +228,7 @@ foreach ($step in $steps) {
     # executable is a PowerShell shim (pnpm.ps1) rather than a native exe.
     $stepArgs = @($step.Args)
 
-    # Steps 8-11 (Env present) run against the disposable test database;
+    # Steps 9-12 (Env present) run against the disposable test database;
     # every other step is unaffected — set only for this step's duration,
     # then restored (in `finally`, so a thrown exception mid-step can never
     # leak NODE_ENV=test/DATABASE_URL into a later, unrelated step).
@@ -217,6 +270,9 @@ foreach ($step in $steps) {
         Write-Host "Command: $($step.Exe) $($step.Args -join ' ')" -ForegroundColor Red
         if ($step.Name -like "Generated artifacts*") {
             Write-Host "The generated artifacts are stale. Review the diff under public/content and content-server, stage the regenerated output (git add public/content content-server) and rerun the gate; it becomes part of the phase commit after review approval." -ForegroundColor Yellow
+        }
+        if ($step.Name -like "Icon set*") {
+            Write-Host "The committed icons no longer match assets/brand/safwa-mark.svg. Run 'pnpm icons:build' and stage public/icons plus assets/brand/icons.lock.json. If the output above says the icons were generated on a DIFFERENT platform, read scripts/icons-lock.ts first: byte equality across sharp's per-platform native builds is not guaranteed, and this step is only authoritative on the authoring machine." -ForegroundColor Yellow
         }
         exit 1
     }

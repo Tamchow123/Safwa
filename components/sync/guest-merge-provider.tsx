@@ -10,10 +10,14 @@
  * `sync-provider.tsx` makes for ordinary sync.
  *
  * THE SESSION IS RESOLVED FIRST, ALWAYS (§19 "appear only after the auth session
- * is resolved", "never misclassify a pending session as a guest"). Better Auth's
- * `useSession` reports `isPending` while it loads; this provider dispatches
- * NOTHING until that clears. The machine starts in `unresolved` and no guest
- * data is read, let alone offered, before it knows who is asking.
+ * is resolved", "never misclassify a pending session as a guest"). Resolution
+ * is decided by `classifySessionIdentity`, not by Better Auth's `isPending`
+ * alone: an offline cold boot leaves `isPending` false with no data, and
+ * treating THAT as a resolved guest would offer a signed-in learner the chance
+ * to merge their own work into their own account. This provider dispatches
+ * NOTHING until the identity is `account` or `guest`. The machine starts in
+ * `unresolved` and no guest data is read, let alone offered, before it knows
+ * who is asking.
  *
  * THE GUEST-DATA CHECK IS A COUNT, NOT A COLLECTION (§9.1, §12). It calls
  * `summarizeGuestData`, which counts guest-owned rows; it does not build a
@@ -35,6 +39,7 @@ import {
 } from "react";
 
 import { useSession } from "@/modules/auth/client";
+import { classifySessionIdentity } from "@/modules/auth/session-identity";
 import { getSafwaDb } from "@/modules/content/db";
 import { getOrCreateDeviceProfile } from "@/modules/profile/device";
 import {
@@ -137,11 +142,16 @@ export function GuestMergeProvider({
     stateRef.current = state;
   }, [state]);
 
-  // `isPending` is Better Auth's "still loading". Resolving it to `null` would
-  // be exactly the pending-session-as-guest misclassification §19 forbids, so
-  // the effect below simply does not fire until it clears.
-  const pending = session.isPending;
-  const userId = session.data?.user?.id ?? null;
+  // "Not resolved yet" is broader than Better Auth's `isPending` (Phase 18 §2).
+  // A cold boot with no network leaves `isPending` FALSE with `data` null —
+  // the fetch rejected rather than staying in flight — and treating that as a
+  // resolved guest is exactly the misclassification §19 forbids, only arriving
+  // by a different route. Here it would be the worst-feeling version of it: an
+  // offline learner offered the chance to merge their own account's work into
+  // itself. `unknown` therefore gates these effects just as `isPending` does.
+  const identity = classifySessionIdentity(session);
+  const unresolved = identity.kind === "unknown";
+  const userId = identity.kind === "account" ? identity.accountId : null;
 
   // Adjusted during render rather than in an effect: React's documented shape
   // for resetting state when an input changes, and the effect form is what
@@ -180,9 +190,9 @@ export function GuestMergeProvider({
   );
 
   useEffect(() => {
-    if (pending) return;
+    if (unresolved) return;
     dispatch({ type: "session-resolved", userId });
-  }, [pending, userId]);
+  }, [unresolved, userId]);
 
   // The guest-data check. Runs once per resolved, signed-in session — a count,
   // never a collection.
@@ -195,7 +205,7 @@ export function GuestMergeProvider({
   // than a bug — but waste at the worst possible moment, and one relaxed guard
   // away from being a bug.
   useEffect(() => {
-    if (pending || userId === null) return;
+    if (unresolved || userId === null) return;
     let cancelled = false;
     void summarizeGuestData(getSafwaDb())
       .then((counts) => {
@@ -214,7 +224,7 @@ export function GuestMergeProvider({
     return () => {
       cancelled = true;
     };
-  }, [pending, userId]);
+  }, [unresolved, userId]);
 
   /**
    * Build the runner's dependencies.

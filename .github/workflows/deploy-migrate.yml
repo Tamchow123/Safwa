@@ -1,0 +1,337 @@
+name: Deploy migrations
+
+# Schema changes are applied here, by hand, BEFORE the app that needs them is
+# deployed — never as a side effect of a build. docs/DEPLOYMENT.md §5 explains
+# the ordering and §6 the rollback direction it implies (app first, schema
+# second), which only works if the two are separate deliberate acts.
+#
+# Manual by design. An automatic migration on push means a schema change ships
+# whenever someone merges, at whatever moment CI happens to finish, with no
+# human deciding that now is a good time to alter a database holding the only
+# copy of a learner's history.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "migrate production" to confirm'
+        required: true
+        type: string
+      register_content:
+        description: "Also register content versions (required before first traffic)"
+        required: false
+        default: true
+        type: boolean
+
+# This is the only workflow in the repository that runs with production
+# database and email credentials, so it gets the narrowest token the job can
+# do its work with. It does not prevent a compromised dependency from reaching
+# the network with the secrets already in its environment — nothing here can —
+# but it stops such a step from using the ambient GITHUB_TOKEN to modify the
+# repository itself.
+permissions:
+  contents: read
+
+concurrency:
+  # Two concurrent migration runs against one database is the one thing this
+  # workflow must never do. No cancel-in-progress: interrupting a migration
+  # mid-transaction is worse than making the second run wait.
+  group: deploy-migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply migrations to production
+    runs-on: ubuntu-latest
+    # This is a whole-job ceiling on cumulative wall-clock time, NOT a budget
+    # that resets per step: a later step's own larger `timeout-minutes` cannot
+    # exceed it, and there is no "remainder" mechanic. So it must comfortably
+    # cover setup + snapshot + the migration step's own 30-minute allowance,
+    # or the job would be cancelled mid-statement — the exact damage
+    # `cancel-in-progress: false` above exists to prevent, arriving through a
+    # different door. Roughly: ~15 for checkout/install/preconditions/snapshot,
+    # 30 for the migration itself, the rest slack for register-content.
+    timeout-minutes: 60
+    # Bind the secrets to a GitHub Environment so required reviewers and
+    # branch restrictions can be configured on it. The secrets are unavailable
+    # to any workflow that does not name it.
+    #
+    # THE CONFIRMATION PHRASE BELOW IS NOT ACCESS CONTROL. Its required text is
+    # printed in its own input description, so it protects against a misclick
+    # and nothing else. Anyone who can run workflows here can type it. The
+    # actual second pair of eyes has to be a "required reviewers" rule on this
+    # environment, which lives in repository settings and cannot be asserted
+    # from this file — docs/DEPLOYMENT.md §5 records it as a standing
+    # obligation rather than leaving it implied.
+    environment: production
+    steps:
+      - name: Check the confirmation phrase
+        if: inputs.confirm != 'migrate production'
+        run: |
+          echo "::error::Confirmation phrase did not match. Nothing was run."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Same check the Vercel build runs, for the same reason, one step
+      # earlier: a migration applied against a database the app cannot then
+      # reach leaves the schema ahead of a deployment that never happens.
+      - name: Verify deploy preconditions
+        run: pnpm deploy:verify
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          BETTER_AUTH_SECRET: ${{ secrets.PRODUCTION_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ vars.PRODUCTION_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          SIGNUP_ALLOWED_EMAILS: ${{ secrets.PRODUCTION_SIGNUP_ALLOWED_EMAILS }}
+          EMAIL_TRANSPORT: resend
+          RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.PRODUCTION_EMAIL_FROM }}
+
+      # A migration is the one operation in this repository that can destroy
+      # data the learner cannot re-create. What makes it survivable is a restore
+      # point taken BEFORE it, so this step is fail-closed on purpose: no
+      # credentials, no migration. Phase 18 review SEC-001 is exactly that
+      # objection — recoverability must not rest on an unenforced note in a
+      # document, and "Neon keeps history for N days" is a plan-level retention
+      # window, not something this workflow arranged.
+      #
+      # A Neon branch rather than a pg_dump uploaded as a workflow artifact.
+      # Branches are copy-on-write, so this takes seconds and moves no data —
+      # and, more to the point, a dump of this database contains verified email
+      # addresses, password hashes and live session tokens, which is not
+      # something to place in artifact storage that every repository reader can
+      # download.
+      # The PARENT is pinned explicitly. Neon's API documents that "by default,
+      # the branch is created from the project's default branch" — which is not
+      # necessarily the branch PRODUCTION_DATABASE_URL_DIRECT addresses. Left
+      # implicit, this step would return 201, print a reassuring restore-point
+      # line, and have forked the wrong database; nothing in the run's output
+      # could tell the difference. So NEON_PRODUCTION_BRANCH_ID is required and
+      # the step fails closed without it, exactly like the credentials above.
+      - name: Snapshot the database before migrating
+        id: snapshot
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_PRODUCTION_BRANCH_ID: ${{ vars.NEON_PRODUCTION_BRANCH_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NEON_API_KEY:-}" ] || [ -z "${NEON_PROJECT_ID:-}" ] || [ -z "${NEON_PRODUCTION_BRANCH_ID:-}" ]; then
+            echo "::error::Snapshot not configured (needs the NEON_API_KEY secret plus the NEON_PROJECT_ID and NEON_PRODUCTION_BRANCH_ID variables). Refusing to migrate production without a restore point — see docs/DEPLOYMENT.md §5."
+            exit 1
+          fi
+          branch="pre-migrate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          # 14 days: long enough that a bad migration discovered a week later is
+          # still recoverable, short enough that copies of password hashes and
+          # live session tokens do not accumulate in the project indefinitely.
+          # Beyond that horizon the scheduled encrypted dump is the backup.
+          expires_at="$(date -u -d '+14 days' +%Y-%m-%dT%H:%M:%SZ)"
+          # Every call is time-bounded. Without --max-time a slow or hung Neon
+          # API makes no progress and produces no diagnostic, silently eating
+          # the job's whole budget and starving the migration step of the time
+          # it was given. Branch creation normally takes seconds; 60s is
+          # generous enough that a slow-but-successful response is not turned
+          # into a false failure.
+          curl_json() { curl --silent --show-error --connect-timeout 15 --max-time 60 "$@"; }
+
+          # Read one field out of a saved response, printing NOTHING on failure.
+          # Node's own JSON.parse errors quote a snippet of the offending input,
+          # and these responses carry connection details — so a malformed body
+          # must never be what produces the log line. Callers turn an empty
+          # result into their own curated message.
+          field() { node -e 'try{const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(String(d.branch[process.argv[2]]))}catch{process.exit(1)}' "$1" "$2" 2>/dev/null; }
+
+          # Cleanup on EVERY exit path, not just the ones that remember. These
+          # files hold the create/poll responses; leaving one behind after an
+          # unexpected abort is the same disclosure risk in slower motion.
+          trap 'rm -f snapshot-response.json snapshot-poll.json' EXIT
+
+          status=$(curl_json --output snapshot-response.json --write-out '%{http_code}' \
+            --request POST "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches" \
+            --header "Authorization: Bearer ${NEON_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "{\"branch\":{\"name\":\"${branch}\",\"parent_id\":\"${NEON_PRODUCTION_BRANCH_ID}\"}}") || status="000"
+          if [ "${status}" != "201" ]; then
+            # The body is never printed. Neon's error payloads can echo the
+            # request that produced them, and its success payloads carry
+            # connection details; the status code is the whole signal here.
+            if [ "${status}" = "000" ]; then
+              # This script's own marker, not a status Neon returned.
+              detail="the request never completed (connect timeout, --max-time, or DNS)"
+            else
+              detail="Neon returned HTTP ${status}"
+            fi
+            echo "::error::Snapshot failed — ${detail}. Nothing was migrated."
+            exit 1
+          fi
+          branch_id="$(field snapshot-response.json id)" || branch_id=""
+          rm -f snapshot-response.json
+          if [ -z "${branch_id}" ]; then
+            echo "::error::Neon accepted the request but its response did not carry a branch id. Nothing was migrated."
+            exit 1
+          fi
+
+          # 201 means the request was ACCEPTED, not that the branch exists yet:
+          # Neon returns `current_state: "init"` with `pending_state: "ready"`
+          # and operations still running. Migrating against an unfinished
+          # restore point would put the assumption this whole step exists to
+          # remove back one layer down, so wait for it and fail closed if it
+          # never arrives.
+          state=""
+          for _ in $(seq 1 30); do
+            # `|| poll_status="000"` on purpose: a single transient failure must
+            # be retried on the next tick, not abort the step under `set -e`.
+            poll_status=$(curl_json --output snapshot-poll.json --write-out '%{http_code}' \
+              --request GET "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${branch_id}" \
+              --header "Authorization: Bearer ${NEON_API_KEY}") || poll_status="000"
+            # A wrong id or a rotated key will never become 'ready'. Retrying it
+            # 30 times spends the whole 150s to arrive at the same answer, at
+            # the one moment — a hand-triggered production migration — when a
+            # specific failure is most useful.
+            case "${poll_status}" in
+              401 | 403 | 404)
+                echo "::error::Polling the snapshot branch returned HTTP ${poll_status}. That is a credential or id problem, not a slow API — check NEON_API_KEY and NEON_PROJECT_ID. Nothing was migrated."
+                exit 1
+                ;;
+            esac
+            state="$(field snapshot-poll.json current_state)" || state=""
+            rm -f snapshot-poll.json
+            if [ "${state}" = "ready" ]; then break; fi
+            sleep 5
+          done
+          if [ "${state}" != "ready" ]; then
+            echo "::error::Snapshot branch ${branch} did not reach state 'ready' within 150s (last state: ${state:-unknown}). Nothing was migrated."
+            exit 1
+          fi
+
+          # Expiry is set in a SEPARATE call, and a failure here is a warning
+          # rather than an error, deliberately: the restore point already
+          # exists, so the safety property this step is for is satisfied. Only
+          # the automatic cleanup is missing, and blocking the migration over
+          # that would trade a real guarantee for a housekeeping one. (Neon
+          # refuses expiry on default, protected and parent branches; a fresh
+          # leaf snapshot is none of those, so a rejection here most likely
+          # means the plan does not offer the feature.)
+          expiry_status=$(curl_json --output /dev/null --write-out '%{http_code}' \
+            --request PATCH "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${branch_id}" \
+            --header "Authorization: Bearer ${NEON_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "{\"branch\":{\"expires_at\":\"${expires_at}\"}}") || expiry_status="000"
+          if [ "${expiry_status}" = "200" ]; then
+            note="expires ${expires_at}"
+          else
+            note="NO EXPIRY SET (HTTP ${expiry_status}) — delete it by hand once this migration is confirmed good"
+            echo "::warning::Could not set an expiry on ${branch}. It holds a full copy of production data and will persist until deleted manually."
+          fi
+
+          # Named in the job summary on BOTH paths below, because the only
+          # reliable prompt to clean this up is the run the operator is already
+          # looking at — not a document they must remember to reopen.
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+          echo "note=${note}" >> "$GITHUB_OUTPUT"
+          echo "Restore point: Neon branch \`${branch}\` (${note})" >> "$GITHUB_STEP_SUMMARY"
+
+      # The DIRECT Neon endpoint, not the pooled one. PgBouncer in transaction
+      # mode does not support everything a migration needs (session-level
+      # state, some DDL, advisory locks), and the failure is partial rather
+      # than clean. docs/DEPLOYMENT.md §2 records which URL goes where.
+      - name: Apply full migration chain
+        run: pnpm db:migrate
+        # Deliberately larger than the job ceiling's remainder: a future
+        # backfill or index build can legitimately take many minutes, and the
+        # right failure for one that runs long is a Postgres error, not a
+        # runner kill part-way through a statement. Raise this when a
+        # migration is expected to move real data; do not discover the wall.
+        timeout-minutes: 30
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          BETTER_AUTH_SECRET: ${{ secrets.PRODUCTION_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ vars.PRODUCTION_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          SIGNUP_ALLOWED_EMAILS: ${{ secrets.PRODUCTION_SIGNUP_ALLOWED_EMAILS }}
+          EMAIL_TRANSPORT: resend
+          RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.PRODUCTION_EMAIL_FROM }}
+
+      # Every session the server stores carries a release_id foreign key into
+      # content_versions. Without this, the first authenticated push fails at
+      # the database rather than in the app, which reads as "sync is broken".
+      - name: Register content versions
+        if: inputs.register_content
+        run: pnpm db:register-content
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          BETTER_AUTH_SECRET: ${{ secrets.PRODUCTION_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ vars.PRODUCTION_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          SIGNUP_ALLOWED_EMAILS: ${{ secrets.PRODUCTION_SIGNUP_ALLOWED_EMAILS }}
+          EMAIL_TRANSPORT: resend
+          RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.PRODUCTION_EMAIL_FROM }}
+
+      # Runs on failure AND on cancellation, and must run then: a step that
+      # stops part-way leaves the schema in a state only the logs describe, and
+      # the logs may be truncated. This is the runbook the person cleaning up
+      # needs, in the place they will already be looking.
+      #
+      # `failure()` alone would NOT cover the worst case. A job stopped by
+      # `timeout-minutes` — or by someone hitting cancel mid-migration — has the
+      # conclusion `cancelled`, not `failure`, so the runbook would be skipped
+      # in precisely the scenario it exists for.
+      - name: What to do if this run failed
+        if: failure() || cancelled()
+        run: |
+          {
+            echo "### Production migration FAILED or was interrupted"
+            echo ""
+            echo "The database may be partially migrated. Before retrying:"
+            echo ""
+            echo "0. There is a restore point, unless the snapshot step itself"
+            echo "   is what failed: the Neon branch"
+            echo "   \`${{ steps.snapshot.outputs.branch }}\` (${{ steps.snapshot.outputs.note }}),"
+            echo "   forked from the production branch immediately before the"
+            echo "   migration ran. Delete it once the schema is known good."
+            echo "1. Check which migrations actually landed — Drizzle records"
+            echo "   them in its own migrations table; compare against"
+            echo "   \`db/migrations/\`."
+            echo "2. If a migration applied only partially, the hand-written"
+            echo "   down-migration for it is \`db/rollback/<n>_*_down.sql\`."
+            echo "   docs/DEPLOYMENT.md §8 records the app-before-schema"
+            echo "   rollback ordering that implies."
+            echo "3. Do NOT deploy the app until the schema state is known."
+            echo "   A partially-migrated database with the new app on top is"
+            echo "   the worst of both."
+            echo ""
+            echo "Connection used: the DIRECT Neon endpoint"
+            echo "(\`PRODUCTION_DATABASE_URL_DIRECT\`), not the pooled one."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Production migration applied"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Content versions registered: \`${{ inputs.register_content }}\`"
+            echo "- Restore point: \`${{ steps.snapshot.outputs.branch }}\` (${{ steps.snapshot.outputs.note }})"
+            echo ""
+            echo "Deploy the app now, then confirm \`GET /api/health\` reports healthy."
+            echo ""
+            echo "**Then delete the restore-point branch.** It is a full copy of"
+            echo "production — including password hashes and live session tokens —"
+            echo "and every migration adds another. It expires on its own only if"
+            echo "the line above says so."
+          } >> "$GITHUB_STEP_SUMMARY"
