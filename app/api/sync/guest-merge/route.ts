@@ -48,6 +48,10 @@ import {
   BODY_TOO_LARGE,
   readBoundedBody,
 } from "@/modules/sync/server/request-body";
+import {
+  consumeRateLimit,
+  RATE_LIMITED_ERROR,
+} from "@/modules/sync/server/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -94,6 +98,25 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
   const { userId } = guard;
+
+  // 1b. Rate limit, keyed by the session-derived account id (Phase 18.1).
+  //     No `reasonCode`: the merge vocabulary describes merge outcomes, and
+  //     being limited is not one — borrowing the nearest code would tell the
+  //     client something untrue about its own import. It does not need one
+  //     either, because `guest-merge-api.ts` already maps a 429 to
+  //     `rate_limited` from the status alone and treats `reasonCode` as
+  //     optional. The ceiling clears a whole legitimate chunked merge with
+  //     room to spare; see RATE_LIMIT_RULES.
+  const limit = await consumeRateLimit("guest-merge", userId);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { protocolVersion: SYNC_PROTOCOL_VERSION, error: RATE_LIMITED_ERROR },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
+  }
 
   // 2. Bound the raw body BEFORE parsing. A merge chunk is exactly as large as
   //    an ordinary push batch (GUEST_MERGE_BOUNDS.maxItemsPerChunk is

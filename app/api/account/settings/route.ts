@@ -20,6 +20,10 @@ import { z } from "zod";
 import { isValidTimezone } from "@/modules/profile/timezone";
 import { getServerSession } from "@/modules/auth/session";
 import {
+  consumeRateLimit,
+  RATE_LIMITED_ERROR,
+} from "@/modules/sync/server/rate-limit";
+import {
   getAccountSettings,
   resetAccountSettings,
   upsertAccountSettings,
@@ -76,17 +80,54 @@ function invalidBody(): NextResponse {
   return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
 }
 
-export async function GET(): Promise<NextResponse> {
+/**
+ * Session, then rate limit, in that order (Phase 18.1).
+ *
+ * All three handlers below are authenticated and all three touch the database,
+ * so all three are limited — including GET. A read is cheaper than a write but
+ * it is not free, and leaving one verb unlimited would just move a loop onto
+ * it.
+ *
+ * The limit is counted AFTER the session check, so it is keyed by an account
+ * id the server derived rather than anything the caller supplied, and an
+ * unauthenticated caller cannot fill the counter table on someone else's
+ * behalf.
+ *
+ * Returns either the authorised user id or the response to send instead.
+ */
+async function authorise(): Promise<
+  { ok: true; userId: string } | { ok: false; response: NextResponse }
+> {
   const session = await getServerSession();
-  if (!session?.user) return unauthorized();
+  if (!session?.user) return { ok: false, response: unauthorized() };
 
-  const settings = await getAccountSettings(session.user.id);
+  const limit = await consumeRateLimit("account-settings", session.user.id);
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: RATE_LIMITED_ERROR },
+        {
+          status: 429,
+          headers: { "Retry-After": String(limit.retryAfterSeconds) },
+        },
+      ),
+    };
+  }
+  return { ok: true, userId: session.user.id };
+}
+
+export async function GET(): Promise<NextResponse> {
+  const auth = await authorise();
+  if (!auth.ok) return auth.response;
+
+  const settings = await getAccountSettings(auth.userId);
   return NextResponse.json({ settings });
 }
 
 export async function PUT(request: Request): Promise<NextResponse> {
-  const session = await getServerSession();
-  if (!session?.user) return unauthorized();
+  const auth = await authorise();
+  if (!auth.ok) return auth.response;
 
   let body: unknown;
   try {
@@ -98,14 +139,14 @@ export async function PUT(request: Request): Promise<NextResponse> {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return invalidBody();
 
-  const settings = await upsertAccountSettings(session.user.id, parsed.data);
+  const settings = await upsertAccountSettings(auth.userId, parsed.data);
   return NextResponse.json({ settings });
 }
 
 export async function DELETE(): Promise<NextResponse> {
-  const session = await getServerSession();
-  if (!session?.user) return unauthorized();
+  const auth = await authorise();
+  if (!auth.ok) return auth.response;
 
-  const settings = await resetAccountSettings(session.user.id);
+  const settings = await resetAccountSettings(auth.userId);
   return NextResponse.json({ settings });
 }

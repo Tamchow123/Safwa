@@ -15,6 +15,10 @@ import {
   type PullResponse,
 } from "@/modules/sync/protocol";
 import { guardSyncRequest } from "@/modules/sync/server/auth-guard";
+import {
+  consumeRateLimit,
+  RATE_LIMITED_ERROR,
+} from "@/modules/sync/server/rate-limit";
 import { pullChanges } from "@/modules/sync/server/pull";
 
 export const runtime = "nodejs";
@@ -34,10 +38,22 @@ function error(status: number, message: string): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }
 
+/** A 429 carrying `Retry-After` — see the note in push/route.ts. */
+function rateLimited(retryAfterSeconds: number): NextResponse {
+  return NextResponse.json(
+    { error: RATE_LIMITED_ERROR },
+    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+  );
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   const guard = await guardSyncRequest();
   if (!guard.ok) return error(guard.status, guard.error);
   const { userId } = guard;
+
+  // Keyed by the session-derived account id, after the guard (Phase 18.1).
+  const limit = await consumeRateLimit("sync-pull", userId);
+  if (!limit.allowed) return rateLimited(limit.retryAfterSeconds);
 
   const url = new URL(request.url);
   const rawQuery = {
