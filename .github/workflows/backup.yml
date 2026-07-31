@@ -309,7 +309,7 @@ jobs:
           ls -l "${DUMP}.age"
 
       - name: Upload the encrypted dump
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: safwa-backup-${{ steps.dump.outputs.stamp }}
           # ONLY the encrypted file. An explicit single path rather than a glob,

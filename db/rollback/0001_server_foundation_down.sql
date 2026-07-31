@@ -1,8 +1,8 @@
 -- Rollback for Safwa's logical migration 0001 (server foundation), which
--- Drizzle generated and committed as db/migrations/0000_*.sql — the
--- 0000-vs-0001 naming mismatch is Drizzle's own journal numbering; see
+-- Drizzle generated and committed as db/migrations/0000_cheerful_yellow_claw.sql
+-- — the 0000-vs-0001 naming mismatch is Drizzle's own journal numbering; see
 -- docs/ARCHITECTURE.md for the mapping. Also covers Drizzle's own
--- 0001_zippy_zarek.sql (a pre-merge correction adding release_id to
+-- db/migrations/0001_zippy_zarek.sql (a pre-merge correction adding release_id to
 -- study_sessions/study_attempts/review_events and tightening
 -- study_attempts' option_count bound) — dropping these tables outright
 -- reverses that correction too, since it only added columns/constraints to

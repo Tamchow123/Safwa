@@ -46,6 +46,33 @@ import { syncSettingsBatch } from "@/modules/sync/server/settings";
 
 export const runtime = "nodejs";
 
+/**
+ * The function's own time budget, in seconds (Phase 18.1).
+ *
+ * Vercel's default for a Node.js function is 10s. That is not enough for the
+ * worst case this route ACCEPTS: `SYNC_BOUNDS.maxEvents` events in one batch,
+ * concentrated on a single component, each costing a sequential round trip
+ * inside one advisory-locked transaction (ingest.ts's payload-conflict and
+ * cross-parent lookups), plus the replay itself.
+ *
+ * The failure mode of getting this wrong is not a slow request. Postgres rolls
+ * the transaction back cleanly, so nothing corrupts — but the client's
+ * orchestrator treats a killed function as a retryable network fault and
+ * resends the IDENTICAL batch, which takes just as long and dies the same way.
+ * That is a poison batch: sync stops permanently, and it looks like bad
+ * connectivity rather than a server limit.
+ *
+ * 60s is the ceiling on every Vercel plan including Hobby, so this value does
+ * not silently become invalid if the deployment target's plan changes. It buys
+ * headroom; it is not a substitute for bounding the per-item query cost, which
+ * `docs/DEPLOYMENT.md` §6 records as the standing follow-up.
+ *
+ * Must be a literal: Next reads route segment config by static analysis, so an
+ * imported constant would be ignored rather than applied. The same value is
+ * spelled out in pull/ and guest-merge/ for that reason.
+ */
+export const maxDuration = 60;
+
 function error(status: number, message: string): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }

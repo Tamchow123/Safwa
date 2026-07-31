@@ -52,6 +52,17 @@ import {
 export const runtime = "nodejs";
 
 /**
+ * See the long note in `app/api/sync/push/route.ts` for why this exists and
+ * why 60 (Phase 18.1). This route carries the LARGEST accepted batch of the
+ * three — `maxItemsPerChunk` is `SYNC_BOUNDS.maxItemsPerBatch`, above push's
+ * own `maxEvents` — so if any of them needed the headroom, it is this one.
+ *
+ * Spelled out rather than imported: Next reads route segment config by static
+ * analysis, so an imported constant would be silently ignored.
+ */
+export const maxDuration = 60;
+
+/**
  * A refusal, in the shape the client can act on: the accurate HTTP status, a
  * fixed generic message, and the protocol's own reason code.
  *
