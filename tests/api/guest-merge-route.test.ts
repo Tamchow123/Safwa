@@ -17,17 +17,23 @@ vi.mock("@/modules/sync/server/auth-guard", () => ({
 }));
 
 const runMergeMock = vi.fn();
-vi.mock("@/modules/sync/server/guest-merge", () => ({
-  runGuestMerge: (...args: unknown[]) => runMergeMock(...args),
-  // The real translation, not a stub: the route's job is to USE it, and a
-  // mocked one would let a wrong mapping pass unnoticed.
-  guestMergeGuardReason: (status: number) =>
-    status === 503
-      ? "merge_disabled"
-      : status === 403
-        ? "email_unverified"
-        : "malformed_request",
-}));
+vi.mock("@/modules/sync/server/guest-merge", async (importOriginal) => {
+  // The REAL translation, genuinely — only `runGuestMerge` is stubbed.
+  //
+  // This used to be a hand-copied reimplementation carrying this same comment,
+  // which is exactly the failure the comment was meant to prevent: when the
+  // real mapping changed from keying on the HTTP status to keying on the
+  // guard's `reason` (Phase 18.1, because 403 means both "unverified email"
+  // and "cross-origin"), the copy kept passing while describing behaviour the
+  // route no longer had. Importing the original means a wrong mapping fails
+  // here instead of shipping.
+  const actual =
+    await importOriginal<typeof import("@/modules/sync/server/guest-merge")>();
+  return {
+    ...actual,
+    runGuestMerge: (...args: unknown[]) => runMergeMock(...args),
+  };
+});
 
 import { GET, POST } from "@/app/api/sync/guest-merge/route";
 
@@ -77,6 +83,7 @@ describe("POST /api/sync/guest-merge — the guard (§9.2, §13)", () => {
       ok: false,
       status: 503,
       error: "Online sync is currently unavailable.",
+      reason: "disabled",
     });
 
     const response = await POST(mergeRequest(VALID_BEGIN));
@@ -93,6 +100,7 @@ describe("POST /api/sync/guest-merge — the guard (§9.2, §13)", () => {
       ok: false,
       status: 403,
       error: "Verify your email to sync.",
+      reason: "unverified",
     });
 
     const response = await POST(mergeRequest(VALID_BEGIN));
@@ -106,6 +114,7 @@ describe("POST /api/sync/guest-merge — the guard (§9.2, §13)", () => {
       ok: false,
       status: 401,
       error: "Sign in to sync.",
+      reason: "unauthenticated",
     });
 
     const response = await POST(mergeRequest(VALID_BEGIN));

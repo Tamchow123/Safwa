@@ -94,7 +94,7 @@ function rateLimited(retryAfterSeconds: number): NextResponse {
 
 export async function POST(request: Request): Promise<NextResponse> {
   // 1. Auth + kill-switch. userId comes only from the session.
-  const guard = await guardSyncRequest();
+  const guard = await guardSyncRequest(request);
   if (!guard.ok) return error(guard.status, guard.error);
   const { userId } = guard;
 

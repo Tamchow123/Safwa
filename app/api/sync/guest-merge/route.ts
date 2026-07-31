@@ -89,12 +89,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 1. The SHARED guard — the same flag, session and verification checks every
   //    other sync endpoint applies, so the merge cannot be reachable under
   //    conditions ordinary sync is not.
-  const guard = await guardSyncRequest();
+  const guard = await guardSyncRequest(request);
   if (!guard.ok) {
     return refuse(
       guard.status,
       guard.error,
-      guestMergeGuardReason(guard.status),
+      guestMergeGuardReason(guard.reason),
     );
   }
   const { userId } = guard;

@@ -18,7 +18,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isValidTimezone } from "@/modules/profile/timezone";
+import {
+  assertSameOrigin,
+  originHeadersOf,
+} from "@/modules/auth/request-origin";
 import { getServerSession } from "@/modules/auth/session";
+import { getServerEnv } from "@/modules/env/server";
 import {
   consumeRateLimit,
   RATE_LIMITED_ERROR,
@@ -81,23 +86,45 @@ function invalidBody(): NextResponse {
 }
 
 /**
- * Session, then rate limit, in that order (Phase 18.1).
+ * Origin, then session, then rate limit, in that order (Phase 18.1).
+ *
+ * The order is the point. The origin check is cheapest and needs no database,
+ * so a request from another site is refused before anything is read. The rate
+ * limit is counted LAST, after the session, so it is keyed by an account id
+ * the server derived rather than anything the caller supplied — and so an
+ * unauthenticated caller cannot fill the counter table on someone else's
+ * behalf.
  *
  * All three handlers below are authenticated and all three touch the database,
  * so all three are limited — including GET. A read is cheaper than a write but
  * it is not free, and leaving one verb unlimited would just move a loop onto
  * it.
  *
- * The limit is counted AFTER the session check, so it is keyed by an account
- * id the server derived rather than anything the caller supplied, and an
- * unauthenticated caller cannot fill the counter table on someone else's
- * behalf.
- *
  * Returns either the authorised user id or the response to send instead.
  */
-async function authorise(): Promise<
+async function authorise(
+  request: Request,
+): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
 > {
+  // Same-origin first, before the session is read (Phase 18.1). The cookie is
+  // SameSite=Lax, so a cross-site PUT/DELETE already arrives without one — but
+  // GET is reachable by a top-level navigation from another origin, and this
+  // refuses that rather than relying on the response being unreadable.
+  const verdict = assertSameOrigin(
+    originHeadersOf(request),
+    new URL(getServerEnv().appUrl).origin,
+  );
+  if (!verdict.sameOrigin) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Request origin not allowed." },
+        { status: 403 },
+      ),
+    };
+  }
+
   const session = await getServerSession();
   if (!session?.user) return { ok: false, response: unauthorized() };
 
@@ -117,8 +144,8 @@ async function authorise(): Promise<
   return { ok: true, userId: session.user.id };
 }
 
-export async function GET(): Promise<NextResponse> {
-  const auth = await authorise();
+export async function GET(request: Request): Promise<NextResponse> {
+  const auth = await authorise(request);
   if (!auth.ok) return auth.response;
 
   const settings = await getAccountSettings(auth.userId);
@@ -126,7 +153,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function PUT(request: Request): Promise<NextResponse> {
-  const auth = await authorise();
+  const auth = await authorise(request);
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -143,8 +170,8 @@ export async function PUT(request: Request): Promise<NextResponse> {
   return NextResponse.json({ settings });
 }
 
-export async function DELETE(): Promise<NextResponse> {
-  const auth = await authorise();
+export async function DELETE(request: Request): Promise<NextResponse> {
+  const auth = await authorise(request);
   if (!auth.ok) return auth.response;
 
   const settings = await resetAccountSettings(auth.userId);
