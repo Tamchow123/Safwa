@@ -698,6 +698,61 @@ in `modules/auth/server.ts` must be updated to name that proxy's real
 egress IPs/CIDR ranges (not a broad range that could also cover clients)
 before that change ships.
 
+### 10a. The app's own API rate limits (Phase 18.1)
+
+Section 10 covers Better Auth's limiter, which guards **only** Better
+Auth's own endpoints. It knows nothing about this app's routes, so
+`/api/sync/push`, `/api/sync/pull`, `/api/sync/guest-merge` and
+`/api/account/settings` had no ceiling until Phase 18.1. They now share a
+second, separate limiter: `modules/sync/server/rate-limit.ts`, counters in
+`api_rate_limits` (migration 0007).
+
+Three operational facts about it:
+
+- **It is keyed by account, not by IP**, so §10's whole `x-forwarded-for`
+  discussion does not apply to it. The subject is the session-derived user
+  id, which cannot be spoofed. The cost of that choice is stated plainly:
+  it does not limit an unauthenticated flood, because these routes reject
+  unauthenticated callers before the limiter runs.
+- **It fails OPEN.** If the counter's statement throws, the request is
+  allowed and a `[rate-limit] counter unavailable` line is logged. A
+  database blip must not become a total outage of study sync. If you see
+  those lines in production, the ceiling is off — the routes are still
+  authenticated, but cost is unbounded until the database recovers.
+- **It does not use Better Auth's `rate_limits` table**, deliberately.
+  Better Auth prunes that table with a background `deleteMany` keyed only
+  on `lastRequest < cutoff`, with no key filter — it deletes every row it
+  finds, including rows it did not write. Sharing it would mean these
+  counters resetting on another component's schedule. Do not "consolidate"
+  the two tables without re-reading `db/schema/rate-limit.ts`.
+
+The limits themselves are constants, not environment variables. That is
+deliberate and is the opposite of the `AUTH_RATE_LIMIT_*` decision in §2:
+those needed production bounds precisely because an E2E-tuned `.env` could
+otherwise reach production. Constants cannot. They are generous ceilings on
+runaway cost, not traffic shaping — no legitimate client should ever meet
+one.
+
+### 10b. Cross-origin posture (Phase 18.1)
+
+**Safwa sets no `Access-Control-Allow-Origin` header on any route, and must
+not start.** This is the control, not an omission: a browser will not let
+foreign script read a response that has not opted in. If a future change
+needs a cross-origin consumer, that is a design decision requiring its own
+review — not a header to add in passing.
+
+Request forgery is handled separately, by the session cookie's
+`SameSite=Lax` (Better Auth's default, unmodified). That is what makes a
+cross-site POST arrive with no cookie, which is why this app has no CSRF
+token. `tests/integration/auth-login-logout.test.ts` asserts the attribute
+so a dependency upgrade cannot change it silently.
+
+`Lax` still sends the cookie on a top-level GET navigation, so the sync
+routes and `/api/account/settings` additionally assert same-origin
+(`modules/auth/request-origin.ts`). Both signals refuse only on positive
+evidence and allow on absence — see that file for why the fail-safe
+direction is correct rather than lax.
+
 ## Online sync (Phase 16, Stage A)
 
 Server-authoritative learning-state sync is gated by the `SYNC_ENABLED`
