@@ -19,6 +19,17 @@ import { pullChanges } from "@/modules/sync/server/pull";
 
 export const runtime = "nodejs";
 
+/**
+ * See the long note in `app/api/sync/push/route.ts` for why this exists and
+ * why 60 (Phase 18.1). Pull's worst case is lighter than push's — it holds no
+ * advisory lock — but it replays every component a page touches, so it is
+ * bounded by the same per-component history cost and gets the same budget.
+ *
+ * Spelled out rather than imported: Next reads route segment config by static
+ * analysis, so an imported constant would be silently ignored.
+ */
+export const maxDuration = 60;
+
 function error(status: number, message: string): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }
