@@ -9,12 +9,17 @@ one feature's routes need them and none of them owns the others:
   session-bearing routes.
 - `rate-limited-response.ts` — the one 429 response shape, so four routes do not
   each invent their own.
+- `request-body.ts` — `readBoundedBody`, which streams a request body against a
+  hard byte cap without trusting `Content-Length`.
 
 ## Why this module exists rather than living in `modules/sync`
 
-Both files started in `modules/sync/server`, and the Phase 18.1 council was
-right to object: `app/api/account/settings` imported them, which is not a sync
-route. `modules/sync/README.md` scopes that module to "the outbound mutation
+These started in `modules/sync/server` (and `request-origin.ts` in
+`modules/auth`), and the Phase 18.1 council was right to object:
+`app/api/account/settings` imported them, which is not a sync route.
+`request-body.ts` joined them a review round later, for exactly the same reason
+and found by exactly the same argument — giving the settings route a byte cap
+made a third sync-namespaced file cross-feature. `modules/sync/README.md` scopes that module to "the outbound mutation
 queue, event push/pull, client rebase handling and sync-status state", and a
 reader trusting that scope would not expect account settings to break when they
 refactored it.
@@ -35,7 +40,7 @@ origin checking qualify. Anything that knows what a study component is does not.
   the email-verification rule, which are sync's own policy. It _consumes_ this
   module; it does not belong to it.
 
-## Things to know before changing either file
+## Things to know before changing these files
 
 - **The limiter fails open, and fails open fast.** Both halves are deliberate
   and both are pinned by tests. See the docblock in `rate-limit.ts` — the "fast"

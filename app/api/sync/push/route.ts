@@ -37,10 +37,7 @@ import {
 import { guardSyncRequest } from "@/modules/sync/server/auth-guard";
 import { consumeRateLimit } from "@/modules/http/rate-limit";
 import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
-import {
-  BODY_TOO_LARGE,
-  readBoundedBody,
-} from "@/modules/sync/server/request-body";
+import { BODY_TOO_LARGE, readBoundedBody } from "@/modules/http/request-body";
 import { syncCollectionsBatch } from "@/modules/sync/server/collections";
 import { ingestSchedulingBatch } from "@/modules/sync/server/ingest";
 import { revokeEventsBatch } from "@/modules/sync/server/revoke";

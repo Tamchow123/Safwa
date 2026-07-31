@@ -18,7 +18,7 @@ import { SYNC_CROSS_ORIGIN_ERROR } from "@/modules/sync/server/guard-decision";
 /**
  * The shared sync guard's same-origin check (Phase 18.1).
  *
- * `modules/auth/request-origin.test.ts` proves the DECISION. This proves the
+ * `modules/http/request-origin.test.ts` proves the DECISION. This proves the
  * guard actually applies it, in the right order, on the real code path every
  * sync route takes — which is the part a pure test cannot reach, and the part
  * that silently disappears if someone stops threading the request through.

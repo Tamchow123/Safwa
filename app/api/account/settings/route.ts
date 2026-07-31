@@ -26,10 +26,7 @@ import { getServerSession } from "@/modules/auth/session";
 import { getServerEnv } from "@/modules/env/server";
 import { consumeRateLimit } from "@/modules/http/rate-limit";
 import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
-import {
-  BODY_TOO_LARGE,
-  readBoundedBody,
-} from "@/modules/sync/server/request-body";
+import { BODY_TOO_LARGE, readBoundedBody } from "@/modules/http/request-body";
 import {
   getAccountSettings,
   resetAccountSettings,
