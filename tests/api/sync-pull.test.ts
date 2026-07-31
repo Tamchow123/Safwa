@@ -11,7 +11,7 @@ const guardMock = vi.fn();
 // mass failure the day the fail-open decision was revisited. The limiter's own
 // behaviour is proved in tests/integration/rate-limit.test.ts.
 const consumeRateLimitMock = vi.fn();
-vi.mock("@/modules/sync/server/rate-limit", () => ({
+vi.mock("@/modules/http/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
   RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
 }));
@@ -144,5 +144,26 @@ describe("GET /api/sync/pull", () => {
     const response = await GET(pullRequest("?since=0"));
     expect(response.status).toBe(503);
     expect(pullChangesMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a rate-limited caller with 429 before touching the database", async () => {
+    // Without this, deleting the `if (!limit.allowed)` line from the route
+    // would leave every test here green: the mock allows by default, so the
+    // wiring is only proved by a test that makes it deny.
+    consumeRateLimitMock.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 23,
+    });
+
+    const response = await GET(pullRequest("?since=0"));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("23");
+    expect(pullChangesMock).not.toHaveBeenCalled();
+  });
+
+  it("counts the limit against the session's account id", async () => {
+    await GET(pullRequest("?since=0"));
+    expect(consumeRateLimitMock).toHaveBeenCalledWith("sync-pull", "user-1");
   });
 });

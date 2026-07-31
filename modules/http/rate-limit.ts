@@ -27,9 +27,11 @@
 import "server-only";
 
 import { sql } from "drizzle-orm";
+import { after } from "next/server";
 
 import { getDb } from "@/db/client";
 import { apiRateLimits } from "@/db/schema/rate-limit";
+import { withTimeout } from "@/lib/with-timeout";
 
 /**
  * The refusal a limited caller sees. Fixed and generic, like every other error
@@ -86,6 +88,20 @@ const PRUNE_AFTER_SECONDS = 3600;
 const PRUNE_PROBABILITY = 0.01;
 
 /**
+ * How long the counter's own query may take before it is treated as
+ * unavailable.
+ *
+ * Deliberately far below the pool's 10s `statement_timeout` (db/client.ts).
+ * This bound exists for the SLOW database, not the dead one: the pool's
+ * timeout already covers the latter, and waiting it out on every request is
+ * the failure this number prevents. A few hundred milliseconds is generous for
+ * a single-row upsert on an indexed primary key; anything slower means the
+ * database is in trouble, and in that state the right move is to stop asking it
+ * for a cost ceiling and get on with the request.
+ */
+const RATE_LIMIT_TIMEOUT_MS = 500;
+
+/**
  * Count one request against `bucket` for `subject`, and say whether it may
  * proceed.
  *
@@ -98,14 +114,24 @@ const PRUNE_PROBABILITY = 0.01;
  * the current one. `now()` is the database's clock throughout; no timestamp
  * from the client or from this process is trusted.
  *
- * FAILS OPEN, deliberately. If the database is unreachable the request is
- * allowed rather than refused. The alternative — failing closed — would turn a
- * transient database blip into a total outage of study sync, which is a
- * bigger, more likely harm than the burst that gets through while the limiter
- * is unavailable. The routes this guards are already authenticated, so an
- * open failure does not expose anything; it only forgoes a cost ceiling. This
- * is a deliberate trade-off and is asserted by a test so it cannot be quietly
- * inverted.
+ * FAILS OPEN, deliberately, AND FAILS OPEN FAST. If the database is
+ * unreachable the request is allowed rather than refused: failing closed would
+ * turn a transient database blip into a total outage of study sync, which is a
+ * bigger and likelier harm than the burst that gets through while the limiter
+ * is unavailable. The routes this guards are already authenticated, so an open
+ * failure does not expose anything; it only forgoes a cost ceiling.
+ *
+ * "Fast" is the half the first version of this file got wrong, and the phase
+ * council caught. The pool's `statement_timeout` is 10s (db/client.ts), so a
+ * database that is SLOW rather than DOWN would have stalled every request on
+ * all four routes for up to ten seconds before failing open — adding a latency
+ * tax precisely during the degradation where the app most needs to stay
+ * responsive, and eating a sixth of the 60s budget the routes were given for
+ * their real work. The limiter therefore races its own short deadline: a
+ * counter that cannot answer promptly is treated exactly like one that cannot
+ * answer at all.
+ *
+ * Both behaviours are asserted by tests so neither can be quietly inverted.
  */
 export async function consumeRateLimit(
   bucket: RateLimitBucket,
@@ -116,7 +142,7 @@ export async function consumeRateLimit(
   const windowInterval = sql`make_interval(secs => ${rule.windowSeconds})`;
 
   try {
-    const rows = await getDb()
+    const counted = getDb()
       .insert(apiRateLimits)
       .values({ key, count: 1 })
       .onConflictDoUpdate({
@@ -146,6 +172,19 @@ export async function consumeRateLimit(
         )::int`,
       });
 
+    // `withTimeout` cannot cancel the query — the statement may still land
+    // afterwards. That is harmless here, and is the reason this counter is
+    // shaped as an idempotent single-statement upsert rather than a
+    // read-then-write: a late increment against a key that owns its own row
+    // either counts once or resets its own window, and nothing else in the
+    // system reads this table. (Contrast lib/with-timeout.ts's own warning
+    // about appending to an authoritative log — this is not that.)
+    const rows = await withTimeout(
+      counted,
+      RATE_LIMIT_TIMEOUT_MS,
+      "rate limit",
+    );
+
     const row = rows[0];
     if (row === undefined) return { allowed: true };
 
@@ -170,18 +209,44 @@ export async function consumeRateLimit(
  *
  * Probabilistic rather than scheduled because this app has no cron surface a
  * serverless function can rely on, and rather than every-request because the
- * delete would then cost more than the counter it maintains. Fire-and-forget:
- * a prune failure must never affect the request that triggered it, which is
- * why the rejection is swallowed here rather than propagated.
+ * delete would then cost more than the counter it maintains.
+ *
+ * Registered with `after()` rather than left as a bare fire-and-forget
+ * promise. Work that is on no await chain and unregistered can be frozen or
+ * killed the moment the response is sent, so the first version of this would
+ * mostly not have run at all — a prune that silently never prunes. This repo
+ * already had the right pattern for exactly this situation in
+ * `modules/email/dispatch.ts`; this now matches it, including tolerating a
+ * call outside a request scope.
+ *
+ * Still best-effort by design: a prune failure must never affect the request
+ * that triggered it, and nothing depends on it succeeding. The table is
+ * bounded by (bucket × account) regardless, and an unpruned expired row is
+ * reset by its own next writer through the CASE above.
+ *
+ * Exported for tests: the 1% probability makes it unreachable from
+ * `consumeRateLimit` in a deterministic test, and a prune whose predicate is
+ * wrong fails silently by construction.
  */
-function maybePrune(): void {
-  if (Math.random() >= PRUNE_PROBABILITY) return;
-  void getDb()
+export function pruneExpiredRateLimits(): Promise<void> {
+  return getDb()
     .delete(apiRateLimits)
     .where(
       sql`${apiRateLimits.windowStartedAt} < now() - make_interval(secs => ${PRUNE_AFTER_SECONDS})`,
     )
+    .then(() => undefined)
     .catch(() => {
       // Best effort. The table is tiny and the next writer will try again.
     });
+}
+
+function maybePrune(): void {
+  if (Math.random() >= PRUNE_PROBABILITY) return;
+  const pruned = pruneExpiredRateLimits();
+  try {
+    after(() => pruned);
+  } catch {
+    // Called outside a request scope (a test, a script). The promise is
+    // already running and already swallows its own rejection.
+  }
 }

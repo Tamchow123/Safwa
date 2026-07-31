@@ -19,15 +19,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isValidTimezone } from "@/modules/profile/timezone";
 import {
-  assertSameOrigin,
+  verifySameOrigin,
   originHeadersOf,
-} from "@/modules/auth/request-origin";
+} from "@/modules/http/request-origin";
 import { getServerSession } from "@/modules/auth/session";
 import { getServerEnv } from "@/modules/env/server";
+import { consumeRateLimit } from "@/modules/http/rate-limit";
+import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
 import {
-  consumeRateLimit,
-  RATE_LIMITED_ERROR,
-} from "@/modules/sync/server/rate-limit";
+  BODY_TOO_LARGE,
+  readBoundedBody,
+} from "@/modules/sync/server/request-body";
 import {
   getAccountSettings,
   resetAccountSettings,
@@ -36,6 +38,15 @@ import {
 import { SESSION_DEFAULTS_BOUNDS } from "@/modules/profile/session-defaults";
 
 export const runtime = "nodejs";
+
+/**
+ * The byte cap for a settings patch (Phase 18.1).
+ *
+ * Deliberately much smaller than `SYNC_BOUNDS.maxRequestBytes`: that limit
+ * sizes a batch of learner events, and this body is at most four small fields.
+ * Borrowing the sync number would have been a cap in name only.
+ */
+const MAX_SETTINGS_BODY_BYTES = 16_384;
 
 const timezoneSchema = z.strictObject({ mode: z.literal("browser") }).or(
   z.strictObject({
@@ -111,7 +122,7 @@ async function authorise(
   // SameSite=Lax, so a cross-site PUT/DELETE already arrives without one — but
   // GET is reachable by a top-level navigation from another origin, and this
   // refuses that rather than relying on the response being unreadable.
-  const verdict = assertSameOrigin(
+  const verdict = verifySameOrigin(
     originHeadersOf(request),
     new URL(getServerEnv().appUrl).origin,
   );
@@ -132,13 +143,7 @@ async function authorise(
   if (!limit.allowed) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: RATE_LIMITED_ERROR },
-        {
-          status: 429,
-          headers: { "Retry-After": String(limit.retryAfterSeconds) },
-        },
-      ),
+      response: rateLimitedResponse(limit.retryAfterSeconds),
     };
   }
   return { ok: true, userId: session.user.id };
@@ -156,9 +161,20 @@ export async function PUT(request: Request): Promise<NextResponse> {
   const auth = await authorise(request);
   if (!auth.ok) return auth.response;
 
+  // Bound the body before parsing it (Phase 18.1), the same way the three sync
+  // routes do. The strict schema below would reject anything oversized anyway,
+  // but only AFTER `JSON.parse` had already buffered and walked it — which is
+  // the cost this route was just given a rate limit to bound. A settings patch
+  // is four small fields; the cap is orders of magnitude above any legitimate
+  // one, so it can only ever catch something that was never going to be valid.
+  const text = await readBoundedBody(request, MAX_SETTINGS_BODY_BYTES);
+  if (text === BODY_TOO_LARGE) {
+    return NextResponse.json({ error: "Request too large." }, { status: 413 });
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(text);
   } catch {
     return invalidBody();
   }

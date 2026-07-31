@@ -297,6 +297,33 @@ minimum_supported_event_schema)` — manifests retained **indefinitely**;
   constraint enforces **exactly one** `active` row at a time alongside any
   number of `supported`/`revoked` rows.
 
+## 7a. `api_rate_limits` (request counters, Phase 18.1, migration 0007)
+
+One row per `<bucket>:<account-id>` key, holding a `count` and the
+`window_started_at` instant its current fixed window opened. Written by
+`modules/http/rate-limit.ts` on every request to `/api/sync/push`,
+`/api/sync/pull`, `/api/sync/guest-merge` and `/api/account/settings`.
+
+Three properties are deliberate and worth not "tidying" later:
+
+- **No `user_id` foreign key**, unlike every other table in this document. The
+  subject of a limit is a KEY, not necessarily an account — keeping it an opaque
+  string means an unauthenticated bucket could be added without a migration, and
+  it avoids a cascade delete racing a counter update. This is safe ONLY because
+  the rows are ephemeral (at most one window, minutes) and hold no learner data.
+  **Do not copy this pattern for a table whose rows outlive a request**; an
+  account-owned table without an FK is an orphaned-row problem waiting to
+  happen.
+- **Not Better Auth's `rate_limits` table** (§2a), despite the near-identical
+  shape. Better Auth prunes its own table with a background `deleteMany` whose
+  only predicate is `last_request < cutoff` — no key filter — so it deletes rows
+  it did not write. Sharing the table would mean these counters silently
+  resetting on another component's schedule.
+- **Pruned by age, opportunistically**, not by cascade or cron: whoever writes
+  next occasionally drops rows older than an hour. A prune that never runs costs
+  nothing, because the table is bounded by (buckets × accounts) and an expired
+  row is reset by its own next writer.
+
 ## 8. FSRS representation and replay
 
 - One ts-fsrs card per study component; card fields live on

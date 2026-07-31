@@ -11,7 +11,7 @@ const guardMock = vi.fn();
 // mass failure the day the fail-open decision was revisited. The limiter's own
 // behaviour is proved in tests/integration/rate-limit.test.ts.
 const consumeRateLimitMock = vi.fn();
-vi.mock("@/modules/sync/server/rate-limit", () => ({
+vi.mock("@/modules/http/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
   RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
 }));

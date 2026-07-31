@@ -21,7 +21,7 @@ import {
   consumeRateLimit,
   RATE_LIMIT_RULES,
   RATE_LIMITED_ERROR,
-} from "@/modules/sync/server/rate-limit";
+} from "@/modules/http/rate-limit";
 
 describe("consumeRateLimit when the counter is unavailable", () => {
   it("fails OPEN, allowing the request", async () => {

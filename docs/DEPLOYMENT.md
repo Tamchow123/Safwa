@@ -704,7 +704,7 @@ Section 10 covers Better Auth's limiter, which guards **only** Better
 Auth's own endpoints. It knows nothing about this app's routes, so
 `/api/sync/push`, `/api/sync/pull`, `/api/sync/guest-merge` and
 `/api/account/settings` had no ceiling until Phase 18.1. They now share a
-second, separate limiter: `modules/sync/server/rate-limit.ts`, counters in
+second, separate limiter: `modules/http/rate-limit.ts`, counters in
 `api_rate_limits` (migration 0007).
 
 Three operational facts about it:
@@ -714,8 +714,12 @@ Three operational facts about it:
   id, which cannot be spoofed. The cost of that choice is stated plainly:
   it does not limit an unauthenticated flood, because these routes reject
   unauthenticated callers before the limiter runs.
-- **It fails OPEN.** If the counter's statement throws, the request is
-  allowed and a `[rate-limit] counter unavailable` line is logged. A
+- **It fails OPEN, and fails open FAST.** If the counter's statement throws
+  OR takes longer than 500ms, the request is allowed and a `[rate-limit]
+counter unavailable` line is logged. The short deadline is deliberate and
+  separate from the outage case: the pool's `statement_timeout` is 10s, so
+  without it a merely-SLOW database would have added ten seconds to every
+  request on all four routes. A
   database blip must not become a total outage of study sync. If you see
   those lines in production, the ceiling is off — the routes are still
   authenticated, but cost is unbounded until the database recovers.
@@ -749,7 +753,7 @@ so a dependency upgrade cannot change it silently.
 
 `Lax` still sends the cookie on a top-level GET navigation, so the sync
 routes and `/api/account/settings` additionally assert same-origin
-(`modules/auth/request-origin.ts`). Both signals refuse only on positive
+(`modules/http/request-origin.ts`). Both signals refuse only on positive
 evidence and allow on absence — see that file for why the fail-safe
 direction is correct rather than lax.
 

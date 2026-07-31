@@ -5,6 +5,16 @@ push/pull, client rebase handling and sync-status state. The server-side
 ingestion pipeline shares validation logic with this module — see
 `docs/OFFLINE_AND_SYNC.md`.
 
+**What is deliberately NOT here (Phase 18.1).** Rate limiting and the
+same-origin assertion live in `modules/http`, not in `sync/server`, even
+though the sync routes are their heaviest users. They were briefly here and
+the phase council was right to object: `app/api/account/settings` consumes
+both, and a reader trusting this file's stated scope would not expect
+account settings to break when they refactored sync. `sync/server/auth-guard.ts`
+consumes `modules/http`; it does not own it, because it also enforces the
+`SYNC_ENABLED` kill switch and the email-verification rule, which are sync's
+own policy.
+
 ## Layout
 
 - `protocol/` — **pure, isomorphic** wire contract (Zod schemas, reason/status

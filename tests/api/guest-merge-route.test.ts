@@ -20,7 +20,7 @@ const guardMock = vi.fn();
 // mass failure the day the fail-open decision was revisited. The limiter's own
 // behaviour is proved in tests/integration/rate-limit.test.ts.
 const consumeRateLimitMock = vi.fn();
-vi.mock("@/modules/sync/server/rate-limit", () => ({
+vi.mock("@/modules/http/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
   RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
 }));
@@ -264,5 +264,40 @@ describe("POST /api/sync/guest-merge — handing off and reporting", () => {
     const response = await GET();
     expect(response.status).toBe(405);
     expect(runMergeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/sync/guest-merge — rate limiting (Phase 18.1)", () => {
+  it("refuses a limited caller with 429 before the coordinator runs", async () => {
+    consumeRateLimitMock.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 31,
+    });
+
+    const response = await POST(mergeRequest(VALID_BEGIN));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("31");
+    expect(runMergeMock).not.toHaveBeenCalled();
+  });
+
+  it("sends no reasonCode, because being limited is not a merge outcome", async () => {
+    // The merge vocabulary describes what happened to an IMPORT. Borrowing the
+    // nearest code would tell the client something untrue about its own data.
+    // The client maps 429 to `rate_limited` from the status alone.
+    consumeRateLimitMock.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 31,
+    });
+
+    const body = await (await POST(mergeRequest(VALID_BEGIN))).json();
+
+    expect(body.reasonCode).toBeUndefined();
+    expect(body.protocolVersion).toBe(1);
+  });
+
+  it("counts the limit against the session's account id", async () => {
+    await POST(mergeRequest(VALID_BEGIN));
+    expect(consumeRateLimitMock).toHaveBeenCalledWith("guest-merge", "user-1");
   });
 });

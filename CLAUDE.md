@@ -88,10 +88,17 @@ device reopens Phase 19**.
   service worker at build time) and `~offline` (Phase 18 — the offline
   fallback page, deliberately outside `(shell)` so it depends on no provider).
 - `modules/` — feature modules: `analytics`, `auth`, `collections`, `content`,
-  `email`, `env`, `profile`, `pwa`, `scheduler`, `study-engine`,
+  `email`, `env`, `http`, `profile`, `pwa`, `scheduler`, `study-engine`,
   `study-session`, `sync` (`sync/client`, `sync/server`, `sync/protocol`).
+  `http` (Phase 18.1) is the exception to "feature module": it holds
+  request-shaping infrastructure used by routes across several features —
+  the per-account rate limiter (`api_rate_limits`, migration 0007), the
+  same-origin assertion, and the one 429 response shape. Something belongs
+  there only if it shapes an HTTP request/response for more than one
+  feature's routes AND carries no domain knowledge; see its `README.md`.
   Modules with non-obvious boundaries carry a `README.md` (`analytics`,
-  `content`, `pwa`, `scheduler`, `study-engine`, `sync`, plus `shared/arabic`)
+  `content`, `http`, `pwa`, `scheduler`, `study-engine`, `sync`, plus
+  `shared/arabic`)
   — read it before changing that module, and update it in the same phase.
   `modules/pwa/sw.ts` is the one file compiled for a **worker** global scope:
   it is excluded from the root `tsconfig.json` and checked by
