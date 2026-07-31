@@ -18,7 +18,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isValidTimezone } from "@/modules/profile/timezone";
+import {
+  verifySameOrigin,
+  originHeadersOf,
+} from "@/modules/http/request-origin";
 import { getServerSession } from "@/modules/auth/session";
+import { getServerEnv } from "@/modules/env/server";
+import { consumeRateLimit } from "@/modules/http/rate-limit";
+import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
+import { BODY_TOO_LARGE, readBoundedBody } from "@/modules/http/request-body";
 import {
   getAccountSettings,
   resetAccountSettings,
@@ -27,6 +35,15 @@ import {
 import { SESSION_DEFAULTS_BOUNDS } from "@/modules/profile/session-defaults";
 
 export const runtime = "nodejs";
+
+/**
+ * The byte cap for a settings patch (Phase 18.1).
+ *
+ * Deliberately much smaller than `SYNC_BOUNDS.maxRequestBytes`: that limit
+ * sizes a batch of learner events, and this body is at most four small fields.
+ * Borrowing the sync number would have been a cap in name only.
+ */
+const MAX_SETTINGS_BODY_BYTES = 16_384;
 
 const timezoneSchema = z.strictObject({ mode: z.literal("browser") }).or(
   z.strictObject({
@@ -76,21 +93,85 @@ function invalidBody(): NextResponse {
   return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
 }
 
-export async function GET(): Promise<NextResponse> {
-  const session = await getServerSession();
-  if (!session?.user) return unauthorized();
+/**
+ * Origin, then session, then rate limit, in that order (Phase 18.1).
+ *
+ * The order is the point. The origin check is cheapest and needs no database,
+ * so a request from another site is refused before anything is read. The rate
+ * limit is counted LAST, after the session, so it is keyed by an account id
+ * the server derived rather than anything the caller supplied — and so an
+ * unauthenticated caller cannot fill the counter table on someone else's
+ * behalf.
+ *
+ * All three handlers below are authenticated and all three touch the database,
+ * so all three are limited — including GET. A read is cheaper than a write but
+ * it is not free, and leaving one verb unlimited would just move a loop onto
+ * it.
+ *
+ * Returns either the authorised user id or the response to send instead.
+ */
+async function authorise(
+  request: Request,
+): Promise<
+  { ok: true; userId: string } | { ok: false; response: NextResponse }
+> {
+  // Same-origin first, before the session is read (Phase 18.1). The cookie is
+  // SameSite=Lax, so a cross-site PUT/DELETE already arrives without one — but
+  // GET is reachable by a top-level navigation from another origin, and this
+  // refuses that rather than relying on the response being unreadable.
+  const verdict = verifySameOrigin(
+    originHeadersOf(request),
+    new URL(getServerEnv().appUrl).origin,
+  );
+  if (!verdict.sameOrigin) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Request origin not allowed." },
+        { status: 403 },
+      ),
+    };
+  }
 
-  const settings = await getAccountSettings(session.user.id);
+  const session = await getServerSession();
+  if (!session?.user) return { ok: false, response: unauthorized() };
+
+  const limit = await consumeRateLimit("account-settings", session.user.id);
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      response: rateLimitedResponse(limit.retryAfterSeconds),
+    };
+  }
+  return { ok: true, userId: session.user.id };
+}
+
+export async function GET(request: Request): Promise<NextResponse> {
+  const auth = await authorise(request);
+  if (!auth.ok) return auth.response;
+
+  const settings = await getAccountSettings(auth.userId);
   return NextResponse.json({ settings });
 }
 
 export async function PUT(request: Request): Promise<NextResponse> {
-  const session = await getServerSession();
-  if (!session?.user) return unauthorized();
+  const auth = await authorise(request);
+  if (!auth.ok) return auth.response;
+
+  // Bound the body before parsing it (Phase 18.1), the same way the three sync
+  // routes do. The strict schema below would reject anything oversized anyway,
+  // but only AFTER `JSON.parse` had already buffered and walked it — which is
+  // the cost this route was just given a rate limit to bound. A settings patch
+  // is four small fields; the cap is orders of magnitude above any legitimate
+  // one, so it can only ever catch something that was never going to be valid.
+  const text = await readBoundedBody(request, MAX_SETTINGS_BODY_BYTES);
+  if (text === BODY_TOO_LARGE) {
+    return NextResponse.json({ error: "Request too large." }, { status: 413 });
+  }
 
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(text);
   } catch {
     return invalidBody();
   }
@@ -98,14 +179,14 @@ export async function PUT(request: Request): Promise<NextResponse> {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return invalidBody();
 
-  const settings = await upsertAccountSettings(session.user.id, parsed.data);
+  const settings = await upsertAccountSettings(auth.userId, parsed.data);
   return NextResponse.json({ settings });
 }
 
-export async function DELETE(): Promise<NextResponse> {
-  const session = await getServerSession();
-  if (!session?.user) return unauthorized();
+export async function DELETE(request: Request): Promise<NextResponse> {
+  const auth = await authorise(request);
+  if (!auth.ok) return auth.response;
 
-  const settings = await resetAccountSettings(session.user.id);
+  const settings = await resetAccountSettings(auth.userId);
   return NextResponse.json({ settings });
 }

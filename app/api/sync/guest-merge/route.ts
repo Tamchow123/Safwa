@@ -44,12 +44,22 @@ import {
   guestMergeGuardReason,
   runGuestMerge,
 } from "@/modules/sync/server/guest-merge";
-import {
-  BODY_TOO_LARGE,
-  readBoundedBody,
-} from "@/modules/sync/server/request-body";
+import { BODY_TOO_LARGE, readBoundedBody } from "@/modules/http/request-body";
+import { consumeRateLimit } from "@/modules/http/rate-limit";
+import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
 
 export const runtime = "nodejs";
+
+/**
+ * See the long note in `app/api/sync/push/route.ts` for why this exists and
+ * why 60 (Phase 18.1). This route carries the LARGEST accepted batch of the
+ * three — `maxItemsPerChunk` is `SYNC_BOUNDS.maxItemsPerBatch`, above push's
+ * own `maxEvents` — so if any of them needed the headroom, it is this one.
+ *
+ * Spelled out rather than imported: Next reads route segment config by static
+ * analysis, so an imported constant would be silently ignored.
+ */
+export const maxDuration = 60;
 
 /**
  * A refusal, in the shape the client can act on: the accurate HTTP status, a
@@ -74,15 +84,30 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 1. The SHARED guard — the same flag, session and verification checks every
   //    other sync endpoint applies, so the merge cannot be reachable under
   //    conditions ordinary sync is not.
-  const guard = await guardSyncRequest();
+  const guard = await guardSyncRequest(request);
   if (!guard.ok) {
     return refuse(
       guard.status,
       guard.error,
-      guestMergeGuardReason(guard.status),
+      guestMergeGuardReason(guard.reason),
     );
   }
   const { userId } = guard;
+
+  // 1b. Rate limit, keyed by the session-derived account id (Phase 18.1).
+  //     No `reasonCode`: the merge vocabulary describes merge outcomes, and
+  //     being limited is not one — borrowing the nearest code would tell the
+  //     client something untrue about its own import. It does not need one
+  //     either, because `guest-merge-api.ts` already maps a 429 to
+  //     `rate_limited` from the status alone and treats `reasonCode` as
+  //     optional. The ceiling clears a whole legitimate chunked merge with
+  //     room to spare; see RATE_LIMIT_RULES.
+  const limit = await consumeRateLimit("guest-merge", userId);
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.retryAfterSeconds, {
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+    });
+  }
 
   // 2. Bound the raw body BEFORE parsing. A merge chunk is exactly as large as
   //    an ordinary push batch (GUEST_MERGE_BOUNDS.maxItemsPerChunk is

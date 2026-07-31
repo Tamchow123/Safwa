@@ -35,10 +35,9 @@ import {
   type SyncItemResult,
 } from "@/modules/sync/protocol";
 import { guardSyncRequest } from "@/modules/sync/server/auth-guard";
-import {
-  BODY_TOO_LARGE,
-  readBoundedBody,
-} from "@/modules/sync/server/request-body";
+import { consumeRateLimit } from "@/modules/http/rate-limit";
+import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
+import { BODY_TOO_LARGE, readBoundedBody } from "@/modules/http/request-body";
 import { syncCollectionsBatch } from "@/modules/sync/server/collections";
 import { ingestSchedulingBatch } from "@/modules/sync/server/ingest";
 import { revokeEventsBatch } from "@/modules/sync/server/revoke";
@@ -46,15 +45,51 @@ import { syncSettingsBatch } from "@/modules/sync/server/settings";
 
 export const runtime = "nodejs";
 
+/**
+ * The function's own time budget, in seconds (Phase 18.1).
+ *
+ * Vercel's default for a Node.js function is 10s. That is not enough for the
+ * worst case this route ACCEPTS: `SYNC_BOUNDS.maxEvents` events in one batch,
+ * concentrated on a single component, each costing a sequential round trip
+ * inside one advisory-locked transaction (ingest.ts's payload-conflict and
+ * cross-parent lookups), plus the replay itself.
+ *
+ * The failure mode of getting this wrong is not a slow request. Postgres rolls
+ * the transaction back cleanly, so nothing corrupts — but the client's
+ * orchestrator treats a killed function as a retryable network fault and
+ * resends the IDENTICAL batch, which takes just as long and dies the same way.
+ * That is a poison batch: sync stops permanently, and it looks like bad
+ * connectivity rather than a server limit.
+ *
+ * 60s is the ceiling on every Vercel plan including Hobby, so this value does
+ * not silently become invalid if the deployment target's plan changes. It buys
+ * headroom; it is not a substitute for bounding the per-item query cost, which
+ * `docs/DEPLOYMENT.md` §6 records as the standing follow-up.
+ *
+ * Must be a literal: Next reads route segment config by static analysis, so an
+ * imported constant would be ignored rather than applied. The same value is
+ * spelled out in pull/ and guest-merge/ for that reason.
+ */
+export const maxDuration = 60;
+
 function error(status: number, message: string): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
   // 1. Auth + kill-switch. userId comes only from the session.
-  const guard = await guardSyncRequest();
+  const guard = await guardSyncRequest(request);
   if (!guard.ok) return error(guard.status, guard.error);
   const { userId } = guard;
+
+  // 1b. Rate limit, keyed by the SESSION-derived account id (Phase 18.1).
+  //     Placed after the guard on purpose: an unauthenticated caller is
+  //     already refused above, so counting it here would let anyone fill the
+  //     counter table, and the account id does not exist until the guard has
+  //     produced it. Before the body is read, so an oversized payload from a
+  //     limited caller is never buffered.
+  const limit = await consumeRateLimit("sync-push", userId);
+  if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
 
   // 2. Bound the raw body BEFORE parsing (§9.1, §30) — streamed with a hard
   //    byte cap, never trusting the client Content-Length header.

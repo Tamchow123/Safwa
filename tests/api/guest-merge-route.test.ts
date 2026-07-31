@@ -12,22 +12,41 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const guardMock = vi.fn();
+// Phase 18.1: the route consumes a rate limit before doing any work. Stubbed
+// to ALLOW here so these tests stay about the route's own behaviour. Without
+// it the real limiter runs, finds no database in the unit environment, and
+// fails open — which happens to let these tests pass, but for a reason that
+// has nothing to do with what they assert, and would turn into a confusing
+// mass failure the day the fail-open decision was revisited. The limiter's own
+// behaviour is proved in tests/integration/rate-limit.test.ts.
+const consumeRateLimitMock = vi.fn();
+vi.mock("@/modules/http/rate-limit", () => ({
+  consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
+  RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
+}));
+
 vi.mock("@/modules/sync/server/auth-guard", () => ({
   guardSyncRequest: () => guardMock(),
 }));
 
 const runMergeMock = vi.fn();
-vi.mock("@/modules/sync/server/guest-merge", () => ({
-  runGuestMerge: (...args: unknown[]) => runMergeMock(...args),
-  // The real translation, not a stub: the route's job is to USE it, and a
-  // mocked one would let a wrong mapping pass unnoticed.
-  guestMergeGuardReason: (status: number) =>
-    status === 503
-      ? "merge_disabled"
-      : status === 403
-        ? "email_unverified"
-        : "malformed_request",
-}));
+vi.mock("@/modules/sync/server/guest-merge", async (importOriginal) => {
+  // The REAL translation, genuinely — only `runGuestMerge` is stubbed.
+  //
+  // This used to be a hand-copied reimplementation carrying this same comment,
+  // which is exactly the failure the comment was meant to prevent: when the
+  // real mapping changed from keying on the HTTP status to keying on the
+  // guard's `reason` (Phase 18.1, because 403 means both "unverified email"
+  // and "cross-origin"), the copy kept passing while describing behaviour the
+  // route no longer had. Importing the original means a wrong mapping fails
+  // here instead of shipping.
+  const actual =
+    await importOriginal<typeof import("@/modules/sync/server/guest-merge")>();
+  return {
+    ...actual,
+    runGuestMerge: (...args: unknown[]) => runMergeMock(...args),
+  };
+});
 
 import { GET, POST } from "@/app/api/sync/guest-merge/route";
 
@@ -65,6 +84,8 @@ const BEGIN_RESPONSE = {
 beforeEach(() => {
   guardMock.mockReset();
   runMergeMock.mockReset();
+  consumeRateLimitMock.mockReset();
+  consumeRateLimitMock.mockResolvedValue({ allowed: true });
   guardMock.mockResolvedValue({ ok: true, userId: "user-1" });
   runMergeMock.mockResolvedValue(BEGIN_RESPONSE);
 });
@@ -77,6 +98,7 @@ describe("POST /api/sync/guest-merge — the guard (§9.2, §13)", () => {
       ok: false,
       status: 503,
       error: "Online sync is currently unavailable.",
+      reason: "disabled",
     });
 
     const response = await POST(mergeRequest(VALID_BEGIN));
@@ -93,6 +115,7 @@ describe("POST /api/sync/guest-merge — the guard (§9.2, §13)", () => {
       ok: false,
       status: 403,
       error: "Verify your email to sync.",
+      reason: "unverified",
     });
 
     const response = await POST(mergeRequest(VALID_BEGIN));
@@ -106,6 +129,7 @@ describe("POST /api/sync/guest-merge — the guard (§9.2, §13)", () => {
       ok: false,
       status: 401,
       error: "Sign in to sync.",
+      reason: "unauthenticated",
     });
 
     const response = await POST(mergeRequest(VALID_BEGIN));
@@ -240,5 +264,40 @@ describe("POST /api/sync/guest-merge — handing off and reporting", () => {
     const response = await GET();
     expect(response.status).toBe(405);
     expect(runMergeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/sync/guest-merge — rate limiting (Phase 18.1)", () => {
+  it("refuses a limited caller with 429 before the coordinator runs", async () => {
+    consumeRateLimitMock.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 31,
+    });
+
+    const response = await POST(mergeRequest(VALID_BEGIN));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("31");
+    expect(runMergeMock).not.toHaveBeenCalled();
+  });
+
+  it("sends no reasonCode, because being limited is not a merge outcome", async () => {
+    // The merge vocabulary describes what happened to an IMPORT. Borrowing the
+    // nearest code would tell the client something untrue about its own data.
+    // The client maps 429 to `rate_limited` from the status alone.
+    consumeRateLimitMock.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 31,
+    });
+
+    const body = await (await POST(mergeRequest(VALID_BEGIN))).json();
+
+    expect(body.reasonCode).toBeUndefined();
+    expect(body.protocolVersion).toBe(1);
+  });
+
+  it("counts the limit against the session's account id", async () => {
+    await POST(mergeRequest(VALID_BEGIN));
+    expect(consumeRateLimitMock).toHaveBeenCalledWith("guest-merge", "user-1");
   });
 });

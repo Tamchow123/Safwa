@@ -15,18 +15,35 @@ import {
   type PullResponse,
 } from "@/modules/sync/protocol";
 import { guardSyncRequest } from "@/modules/sync/server/auth-guard";
+import { consumeRateLimit } from "@/modules/http/rate-limit";
+import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
 import { pullChanges } from "@/modules/sync/server/pull";
 
 export const runtime = "nodejs";
+
+/**
+ * See the long note in `app/api/sync/push/route.ts` for why this exists and
+ * why 60 (Phase 18.1). Pull's worst case is lighter than push's — it holds no
+ * advisory lock — but it replays every component a page touches, so it is
+ * bounded by the same per-component history cost and gets the same budget.
+ *
+ * Spelled out rather than imported: Next reads route segment config by static
+ * analysis, so an imported constant would be silently ignored.
+ */
+export const maxDuration = 60;
 
 function error(status: number, message: string): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  const guard = await guardSyncRequest();
+  const guard = await guardSyncRequest(request);
   if (!guard.ok) return error(guard.status, guard.error);
   const { userId } = guard;
+
+  // Keyed by the session-derived account id, after the guard (Phase 18.1).
+  const limit = await consumeRateLimit("sync-pull", userId);
+  if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
 
   const url = new URL(request.url);
   const rawQuery = {

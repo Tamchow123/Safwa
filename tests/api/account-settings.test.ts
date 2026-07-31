@@ -18,7 +18,34 @@ vi.mock("@/modules/auth/account-settings", () => ({
     resetAccountSettingsMock(...args),
 }));
 
+// Phase 18.1: the route now asserts same-origin and consumes a rate limit
+// before doing any work. Both need stubbing here — this is a unit test of the
+// handler's own logic, and neither the app URL nor a Postgres counter is part
+// of what it is asserting. Their own behaviour is covered by
+// modules/http/request-origin.test.ts and tests/integration/rate-limit.test.ts.
+vi.mock("@/modules/env/server", () => ({
+  getServerEnv: () => ({ appUrl: "http://localhost" }),
+}));
+
+const consumeRateLimitMock = vi.fn();
+vi.mock("@/modules/http/rate-limit", () => ({
+  consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
+  RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
+}));
+
 import { DELETE, GET, PUT } from "@/app/api/account/settings/route";
+
+/** A request as the app's own pages make it: same origin, same site. */
+function sameOriginRequest(init?: RequestInit): Request {
+  return new Request("http://localhost/api/account/settings", {
+    ...init,
+    headers: {
+      origin: "http://localhost",
+      "sec-fetch-site": "same-origin",
+      ...(init?.headers ?? {}),
+    },
+  });
+}
 
 const SETTINGS = {
   theme: "system",
@@ -37,6 +64,8 @@ beforeEach(() => {
   getAccountSettingsMock.mockReset();
   upsertAccountSettingsMock.mockReset();
   resetAccountSettingsMock.mockReset();
+  consumeRateLimitMock.mockReset();
+  consumeRateLimitMock.mockResolvedValue({ allowed: true });
 });
 
 afterEach(() => {
@@ -48,7 +77,7 @@ describe("/api/account/settings", () => {
     it("returns 401 without a session, never reading settings", async () => {
       getServerSessionMock.mockResolvedValue(null);
 
-      const response = await GET();
+      const response = await GET(sameOriginRequest());
 
       expect(response.status).toBe(401);
       expect(getAccountSettingsMock).not.toHaveBeenCalled();
@@ -58,7 +87,7 @@ describe("/api/account/settings", () => {
       getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
       getAccountSettingsMock.mockResolvedValue(SETTINGS);
 
-      const response = await GET();
+      const response = await GET(sameOriginRequest());
 
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ settings: SETTINGS });
@@ -224,7 +253,7 @@ describe("/api/account/settings", () => {
     it("returns 401 without a session, never resetting settings", async () => {
       getServerSessionMock.mockResolvedValue(null);
 
-      const response = await DELETE();
+      const response = await DELETE(sameOriginRequest({ method: "DELETE" }));
 
       expect(response.status).toBe(401);
       expect(resetAccountSettingsMock).not.toHaveBeenCalled();
@@ -234,11 +263,81 @@ describe("/api/account/settings", () => {
       getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
       resetAccountSettingsMock.mockResolvedValue(SETTINGS);
 
-      const response = await DELETE();
+      const response = await DELETE(sameOriginRequest({ method: "DELETE" }));
 
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ settings: SETTINGS });
       expect(resetAccountSettingsMock).toHaveBeenCalledWith("user-1");
+    });
+  });
+
+  describe("cross-origin requests (Phase 18.1)", () => {
+    it("refuses a foreign Origin before reading the session", async () => {
+      // Before the session, deliberately: the refusal must not depend on
+      // whether the caller happened to be signed in, or its presence would
+      // itself answer that question for an attacker.
+      const response = await GET(
+        sameOriginRequest({ headers: { origin: "https://evil.example" } }),
+      );
+
+      expect(response.status).toBe(403);
+      expect(getServerSessionMock).not.toHaveBeenCalled();
+      expect(getAccountSettingsMock).not.toHaveBeenCalled();
+    });
+
+    it("refuses a cross-site navigation, which SameSite=Lax would still cookie", async () => {
+      // The specific gap this check closes. A top-level GET navigation from
+      // another origin sends no Origin header AND carries the session cookie,
+      // so nothing else in the stack would have stopped it.
+      const request = new Request("http://localhost/api/account/settings", {
+        headers: { "sec-fetch-site": "cross-site" },
+      });
+
+      const response = await GET(request);
+
+      expect(response.status).toBe(403);
+      expect(getServerSessionMock).not.toHaveBeenCalled();
+    });
+
+    it("still serves a request carrying neither header", async () => {
+      // The fail-safe direction. Older browsers send no Sec-Fetch-* and omit
+      // Origin on same-origin GETs; refusing those would break real clients.
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      getAccountSettingsMock.mockResolvedValue(SETTINGS);
+
+      const response = await GET(
+        new Request("http://localhost/api/account/settings"),
+      );
+
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe("rate limiting (Phase 18.1)", () => {
+    it("refuses a limited caller with 429 and a Retry-After, doing no work", async () => {
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      consumeRateLimitMock.mockResolvedValue({
+        allowed: false,
+        retryAfterSeconds: 42,
+      });
+
+      const response = await GET(sameOriginRequest());
+
+      expect(response.status).toBe(429);
+      expect(response.headers.get("Retry-After")).toBe("42");
+      expect(getAccountSettingsMock).not.toHaveBeenCalled();
+    });
+
+    it("counts against the session's account id, never a client-supplied one", async () => {
+      getServerSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+      resetAccountSettingsMock.mockResolvedValue(SETTINGS);
+
+      await DELETE(sameOriginRequest({ method: "DELETE" }));
+
+      expect(consumeRateLimitMock).toHaveBeenCalledWith(
+        "account-settings",
+        "user-1",
+      );
     });
   });
 });

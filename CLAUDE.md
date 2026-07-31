@@ -7,16 +7,19 @@ by phase from `docs/phases/IMPLEMENTATION_PHASES.md` (23 phases, 0–22). Read
 the phase you are implementing, its prerequisites, and its testing checkpoint
 before writing code.
 
-**Current state:** Phases 0–17 are implemented and merged to `main` (most
-recently Phase 17 — Guest→account merge, PR #23); the Core MVP is complete.
-**Phase 18 — PWA, offline & first production deploy** is in progress and is
-the **last** implementation phase: it delivers the Offline-capable Beta
-milestone (Serwist service worker, offline study, queued sync) and absorbs
-Phase 22's deploy, backup and security-header slices. Phases 19–21 and the
-rest of 22 are deferred, each with the condition that reopens it recorded in
-`docs/phases/IMPLEMENTATION_PHASES.md` ("Deliberately deferred after Phase
-18") and `docs/phases/phases-18.md` §3 — notably, **acquiring a second study
-device reopens Phase 19**.
+**Current state:** Phases 0–18 are implemented and merged to `main` (most
+recently **Phase 18 — PWA, offline & first production deploy**, PR #24), so
+both the Core MVP and the Offline-capable Beta milestone are complete. Phase 18
+was the **last** implementation phase; **Phase 18.1 — pre-deployment
+hardening** (rate limiting for the app's own API routes, the same-origin
+assertion, supply-chain pinning; PR #25) is the post-merge correction that
+follows it. **Nothing is deployed yet** — the first production deploy is the
+open action, and migration 0007 must run before the app that reads it. Phases
+19–21 and the rest of 22 are deferred, each with the condition that reopens it
+recorded in `docs/phases/IMPLEMENTATION_PHASES.md` ("Deliberately deferred
+after Phase 18", plus "Follow-ups deferred out of 18.1") and
+`docs/phases/phases-18.md` §3 — notably, **acquiring a second study device
+reopens Phase 19**.
 
 ## Hard rules
 
@@ -88,10 +91,17 @@ device reopens Phase 19**.
   service worker at build time) and `~offline` (Phase 18 — the offline
   fallback page, deliberately outside `(shell)` so it depends on no provider).
 - `modules/` — feature modules: `analytics`, `auth`, `collections`, `content`,
-  `email`, `env`, `profile`, `pwa`, `scheduler`, `study-engine`,
+  `email`, `env`, `http`, `profile`, `pwa`, `scheduler`, `study-engine`,
   `study-session`, `sync` (`sync/client`, `sync/server`, `sync/protocol`).
+  `http` (Phase 18.1) is the exception to "feature module": it holds
+  request-shaping infrastructure used by routes across several features —
+  the per-account rate limiter (`api_rate_limits`, migration 0007), the
+  same-origin assertion, and the one 429 response shape. Something belongs
+  there only if it shapes an HTTP request/response for more than one
+  feature's routes AND carries no domain knowledge; see its `README.md`.
   Modules with non-obvious boundaries carry a `README.md` (`analytics`,
-  `content`, `pwa`, `scheduler`, `study-engine`, `sync`, plus `shared/arabic`)
+  `content`, `http`, `pwa`, `scheduler`, `study-engine`, `sync`, plus
+  `shared/arabic`)
   — read it before changing that module, and update it in the same phase.
   `modules/pwa/sw.ts` is the one file compiled for a **worker** global scope:
   it is excluded from the root `tsconfig.json` and checked by

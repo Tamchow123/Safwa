@@ -3,6 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const guardMock = vi.fn();
+// Phase 18.1: the route consumes a rate limit before doing any work. Stubbed
+// to ALLOW here so these tests stay about the route's own behaviour. Without
+// it the real limiter runs, finds no database in the unit environment, and
+// fails open — which happens to let these tests pass, but for a reason that
+// has nothing to do with what they assert, and would turn into a confusing
+// mass failure the day the fail-open decision was revisited. The limiter's own
+// behaviour is proved in tests/integration/rate-limit.test.ts.
+const consumeRateLimitMock = vi.fn();
+vi.mock("@/modules/http/rate-limit", () => ({
+  consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
+  RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
+}));
+
 vi.mock("@/modules/sync/server/auth-guard", () => ({
   guardSyncRequest: () => guardMock(),
 }));
@@ -55,6 +68,8 @@ function result(itemId: string, itemKind: string) {
 beforeEach(() => {
   guardMock.mockReset();
   activeReleaseMock.mockReset();
+  consumeRateLimitMock.mockReset();
+  consumeRateLimitMock.mockResolvedValue({ allowed: true });
   ingestMock.mockReset();
   revokeMock.mockReset();
   collectionsMock.mockReset();
@@ -223,5 +238,29 @@ describe("POST /api/sync/push", () => {
     const json = await response.json();
     expect(json.error).toBe("Sync failed. Please retry.");
     expect(JSON.stringify(json)).not.toContain("secret detail");
+  });
+
+  it("refuses a rate-limited caller with 429 before any pipeline runs", async () => {
+    // Phase 18.1. The ceiling exists to bound cost, so it has to be applied
+    // before the expensive part — a 429 that still ran ingest would have
+    // spent exactly what it was meant to save.
+    consumeRateLimitMock.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 17,
+    });
+
+    const response = await POST(pushRequest(VALID_BODY));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("17");
+    expect(ingestMock).not.toHaveBeenCalled();
+    expect(revokeMock).not.toHaveBeenCalled();
+    expect(collectionsMock).not.toHaveBeenCalled();
+    expect(settingsMock).not.toHaveBeenCalled();
+  });
+
+  it("counts the limit against the session's account id", async () => {
+    await POST(pushRequest(VALID_BODY));
+    expect(consumeRateLimitMock).toHaveBeenCalledWith("sync-push", "user-1");
   });
 });

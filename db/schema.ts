@@ -9,3 +9,4 @@ export * from "@/db/schema/collections";
 export * from "@/db/schema/settings";
 export * from "@/db/schema/content";
 export * from "@/db/schema/sync";
+export * from "@/db/schema/rate-limit";

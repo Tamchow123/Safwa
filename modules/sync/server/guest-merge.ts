@@ -65,6 +65,7 @@ import {
 } from "@/modules/sync/protocol";
 
 import { currentAccountCursor, type SyncTx } from "./cursor";
+import type { SyncGuardRefusal } from "./guard-decision";
 import {
   mergeGuestBookmarks,
   mergeGuestLists,
@@ -859,9 +860,28 @@ export async function runGuestMerge(
  * The merge's name for a sync-guard refusal. The guard itself is shared with
  * every other sync endpoint (`./auth-guard`); only the vocabulary differs, and
  * keeping the translation here means the route cannot spell it differently.
+ *
+ * Branches on the guard's own `reason`, NOT on the HTTP status, because the
+ * status is ambiguous: a cross-origin refusal and an unverified email are both
+ * 403. Reading the number would have told a learner whose browser followed a
+ * link from another site to go and verify an email that is already verified —
+ * an instruction that cannot be followed and does not describe what happened.
  */
-export function guestMergeGuardReason(status: number): GuestMergeReasonCode {
-  if (status === 503) return "merge_disabled";
-  if (status === 403) return "email_unverified";
-  return "malformed_request";
+export function guestMergeGuardReason(
+  reason: SyncGuardRefusal,
+): GuestMergeReasonCode {
+  switch (reason) {
+    case "disabled":
+      return "merge_disabled";
+    case "unverified":
+      return "email_unverified";
+    // A cross-origin request and an unparseable one are the same thing from
+    // the learner's side: the client sent something the server would not
+    // accept, and there is nothing for them to act on. `unauthenticated`
+    // joins them because the merge's vocabulary has no "signed out" code —
+    // the session is the client's to re-establish, not the learner's.
+    case "cross-origin":
+    case "unauthenticated":
+      return "malformed_request";
+  }
 }
