@@ -17,7 +17,8 @@ Milestones:
 | 🏁 **Multi-device offline Beta** | 19          | concurrent offline reconciliation proven                         |
 | 🏁 **Production launch**         | 22          | hardened, monitored, deployed                                    |
 
-**Phase 18 is the last implemented phase.** It widened to absorb Phase 22's
+**Phase 18 is the last implemented phase**, followed by the correction phase
+**18.1** (pre-deployment hardening). Phase 18 widened to absorb Phase 22's
 deploy, backup and security-header slices, and 19–21 plus the rest of 22 are
 deferred with the condition that reopens each recorded under "Deliberately
 deferred after Phase 18". Personal daily use on a phone, not a public launch,
@@ -597,6 +598,57 @@ for what reopens each. The expanded detail doc is `docs/phases/phases-18.md`.
   its caches** — app still works online.
 - **Demonstrate:** airplane-mode study session on an installed PWA, then
   reconnect and show synced state.
+
+## Phase 18.1 — Pre-deployment hardening (post-merge correction)
+
+Not a feature phase: a security-first review of the whole repository — every
+file, not only the recently changed ones — carried out before the first deploy,
+with the phase council splitting the sweep. It ran the same workflow as any
+phase (branch, reviewed slices, quality gate, full council, draft PR #25).
+
+- **Objective:** find and close what a penetration tester would reach for on
+  day one of a public hostname, and record what was examined and deliberately
+  left alone.
+- **Shipped:**
+  - **Rate limiting for the routes Better Auth never saw.** Its limiter covers
+    only its own endpoints, so `/api/sync/{push,pull,guest-merge}` and
+    `/api/account/settings` had no ceiling at all. They now share a per-account
+    fixed-window counter (`modules/http/rate-limit.ts`, the `api_rate_limits`
+    table, migration 0007) whose increment is a single atomic upsert, so
+    concurrent requests cannot lose a count. `DEPLOYMENT.md` §10a.
+  - **A same-origin assertion** (`modules/http/request-origin.ts`) closing
+    `SameSite=Lax`'s one deliberate gap: a top-level GET navigation still
+    carries the cookie, and `/api/sync/pull` is a GET. Not an exfiltration
+    path — without CORS headers no foreign script can read the response — but
+    an authenticated request a stranger's page caused.
+  - **Proof that sign-out expires the cookie**, not merely the session row.
+    The assertions also pin `SameSite=Lax` itself, which nothing in this repo
+    sets: it is a Better Auth default a minor upgrade could flip silently.
+  - **`maxDuration` on the sync routes** (a literal, since route segment config
+    is read by static analysis), SHA-pinned GitHub Actions with least-privilege
+    `permissions:`, a test asserting every migration has a rollback, and
+    `connectionTimeoutMillis` on the pool — the one wait no other timeout in
+    `db/client.ts` bounded.
+- **Deliberately NOT changed:** CORS stays absent. No route sets
+  `Access-Control-Allow-Origin`, and for an app with no cross-origin consumers
+  that absence **is** the control — adding permissive headers is what would be
+  the vulnerability (`DEPLOYMENT.md` §10b). The rate limiter **fails open**, by
+  the reasoning in `RISK_REGISTER.md` risk 31.
+- **Prerequisites:** Phase 18.
+- **Deploy note:** migration 0007 must run before the app that reads it — the
+  app-before-schema ordering in `DEPLOYMENT.md` applies as always.
+
+### Follow-ups deferred out of 18.1
+
+Each was found by the review, judged real, and left undone on purpose rather
+than dropped — a hardening branch is the wrong place for a change that alters
+behaviour it does not test.
+
+| Deferred                                         | Reopened by                                                                                                                                                                                                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Client backoff from `Retry-After`**            | Any client actually meeting a 429. The header is sent; no client in this repository reads it (both map 429 to "retryable" from the status alone and retry on the next ordinary trigger). Wiring it changes sync retry **timing**, which needs its own tests. |
+| **E2E: a real-browser 429 journey, and a sync-enabled origin smoke test** | Either becoming cheap — each needs its own Playwright config today, since every existing config is shaped around a different flag combination.                                                                                                        |
+| **Batching `ingest.ts`'s per-event queries**     | A sync batch approaching the route's time budget. `maxDuration` bought ~6× headroom; the per-item cost is untouched, and reducing it means changing code inside the trust boundary that replay depends on.                                            |
 
 ### Deliberately deferred after Phase 18
 
