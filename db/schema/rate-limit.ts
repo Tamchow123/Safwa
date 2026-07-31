@@ -7,7 +7,12 @@
  * Better Auth prunes that table itself. Its rate limiter runs a background
  * `deleteMany` whose only predicate is `lastRequest < cutoff`, where the cutoff
  * derives from ITS OWN configured windows — there is no key filter, so it
- * deletes every row it finds, including rows it did not write. Borrowing the
+ * deletes every row it finds, including rows it did not write. Verified by
+ * reading the installed package rather than inferred from docs:
+ * `node_modules/better-auth/dist/api/rate-limiter/index.mjs` (v1.6.23),
+ * `deleteExpiredRows` — `db.deleteMany({ model, where: [{ field: "lastRequest",
+ * operator: "lt", value: cutoff }] })`. Re-check this on a major upgrade; if it
+ * ever gains a key filter, sharing one table becomes an option again. Borrowing the
  * table would therefore mean this limiter's counters silently reset on a
  * schedule set by a different component's configuration. A rate limit that
  * quietly stops counting is worse than none, because it still reads as a
@@ -17,7 +22,7 @@
  * burst of up to 2x the limit across a boundary, which is a real and accepted
  * imprecision: the purpose here is to bound sustained cost from an
  * authenticated client, not to smooth traffic. The whole counter is one atomic
- * INSERT ... ON CONFLICT DO UPDATE (see modules/sync/server/rate-limit.ts), so
+ * INSERT ... ON CONFLICT DO UPDATE (see modules/http/rate-limit.ts), so
  * concurrent requests from two devices cannot lose an increment between a read
  * and a write — which a sliding window over a request log would have made
  * considerably harder to guarantee.

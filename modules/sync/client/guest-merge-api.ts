@@ -34,7 +34,10 @@ export type GuestMergeApiFailure =
   | "network" // fetch threw / offline
   | "bad_request" // 4xx the client should not have produced
   | "unauthorized" // 401 — session lost mid-merge
-  | "forbidden" // 403 — email not verified
+  // 403 is ambiguous by design: an unverified email, OR a refused origin
+  // (Phase 18.1). What the learner is told comes from `reasonCode`, never from
+  // this status — see `guestMergeGuardReason`.
+  | "forbidden"
   | "too_large" // 413 — a chunk over the byte cap
   | "rate_limited" // 429
   | "disabled" // 503 — SYNC_ENABLED=false / dependency unavailable

@@ -48,10 +48,8 @@ import {
   BODY_TOO_LARGE,
   readBoundedBody,
 } from "@/modules/sync/server/request-body";
-import {
-  consumeRateLimit,
-  RATE_LIMITED_ERROR,
-} from "@/modules/sync/server/rate-limit";
+import { consumeRateLimit } from "@/modules/http/rate-limit";
+import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
 
 export const runtime = "nodejs";
 
@@ -109,13 +107,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   //     room to spare; see RATE_LIMIT_RULES.
   const limit = await consumeRateLimit("guest-merge", userId);
   if (!limit.allowed) {
-    return NextResponse.json(
-      { protocolVersion: SYNC_PROTOCOL_VERSION, error: RATE_LIMITED_ERROR },
-      {
-        status: 429,
-        headers: { "Retry-After": String(limit.retryAfterSeconds) },
-      },
-    );
+    return rateLimitedResponse(limit.retryAfterSeconds, {
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+    });
   }
 
   // 2. Bound the raw body BEFORE parsing. A merge chunk is exactly as large as

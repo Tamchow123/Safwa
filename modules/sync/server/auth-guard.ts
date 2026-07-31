@@ -14,9 +14,9 @@
 import "server-only";
 
 import {
-  assertSameOrigin,
+  verifySameOrigin,
   originHeadersOf,
-} from "@/modules/auth/request-origin";
+} from "@/modules/http/request-origin";
 import { getServerSession } from "@/modules/auth/session";
 import { getServerEnv } from "@/modules/env/server";
 
@@ -68,7 +68,7 @@ export async function guardSyncRequest(
   // Optional parameter so a caller with no Request in hand keeps the previous
   // behaviour rather than silently losing the check — every route passes one.
   if (request !== undefined) {
-    const verdict = assertSameOrigin(
+    const verdict = verifySameOrigin(
       originHeadersOf(request),
       new URL(env.appUrl).origin,
     );

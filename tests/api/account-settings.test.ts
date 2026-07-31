@@ -22,13 +22,13 @@ vi.mock("@/modules/auth/account-settings", () => ({
 // before doing any work. Both need stubbing here — this is a unit test of the
 // handler's own logic, and neither the app URL nor a Postgres counter is part
 // of what it is asserting. Their own behaviour is covered by
-// modules/auth/request-origin.test.ts and tests/integration/rate-limit.test.ts.
+// modules/http/request-origin.test.ts and tests/integration/rate-limit.test.ts.
 vi.mock("@/modules/env/server", () => ({
   getServerEnv: () => ({ appUrl: "http://localhost" }),
 }));
 
 const consumeRateLimitMock = vi.fn();
-vi.mock("@/modules/sync/server/rate-limit", () => ({
+vi.mock("@/modules/http/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
   RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
 }));

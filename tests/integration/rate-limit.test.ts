@@ -5,8 +5,9 @@ import { getDb } from "@/db/client";
 import { apiRateLimits } from "@/db/schema/rate-limit";
 import {
   consumeRateLimit,
+  pruneExpiredRateLimits,
   RATE_LIMIT_RULES,
-} from "@/modules/sync/server/rate-limit";
+} from "@/modules/http/rate-limit";
 
 /**
  * The API rate limiter, against real Postgres (Phase 18.1).
@@ -154,5 +155,55 @@ describe("consumeRateLimit", () => {
       allowed,
       `exactly ${max} of ${attempts} concurrent requests should be allowed`,
     ).toBe(max);
+  });
+});
+
+describe("pruneExpiredRateLimits", () => {
+  it("removes a long-expired row and leaves a live one alone", async () => {
+    // Exported and called directly rather than driven through
+    // consumeRateLimit's 1% probability: a prune whose predicate is wrong
+    // fails SILENTLY by construction (the delete swallows its own rejection
+    // and nothing reads the table), so a probabilistic test would have been
+    // both flaky and unable to see the failure it was looking for.
+    const stale = uniqueSubject("stale");
+    const live = uniqueSubject("live");
+    await consumeRateLimit("account-settings", stale);
+    await consumeRateLimit("account-settings", live);
+
+    // Older than PRUNE_AFTER_SECONDS (3600), which is itself far longer than
+    // the longest window — so a row this old cannot still be counting.
+    await ageWindow(`account-settings:${stale}`, 7200);
+
+    await pruneExpiredRateLimits();
+
+    const remaining = await getDb()
+      .select({ key: apiRateLimits.key })
+      .from(apiRateLimits);
+    const keys = remaining.map((r) => r.key);
+    expect(keys).not.toContain(`account-settings:${stale}`);
+    expect(
+      keys,
+      "a row inside its retention window must survive the prune",
+    ).toContain(`account-settings:${live}`);
+  });
+
+  it("never deletes a row whose window is still open", async () => {
+    // The failure that would matter: pruning a live counter silently resets
+    // someone's ceiling, which is indistinguishable from no limit at all.
+    const subject = uniqueSubject("still-counting");
+    const { max } = RATE_LIMIT_RULES["account-settings"];
+    for (let i = 0; i <= max; i += 1) {
+      await consumeRateLimit("account-settings", subject);
+    }
+    expect((await consumeRateLimit("account-settings", subject)).allowed).toBe(
+      false,
+    );
+
+    await pruneExpiredRateLimits();
+
+    expect(
+      (await consumeRateLimit("account-settings", subject)).allowed,
+      "the caller was over its ceiling before the prune and must still be",
+    ).toBe(false);
   });
 });

@@ -35,10 +35,8 @@ import {
   type SyncItemResult,
 } from "@/modules/sync/protocol";
 import { guardSyncRequest } from "@/modules/sync/server/auth-guard";
-import {
-  consumeRateLimit,
-  RATE_LIMITED_ERROR,
-} from "@/modules/sync/server/rate-limit";
+import { consumeRateLimit } from "@/modules/http/rate-limit";
+import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
 import {
   BODY_TOO_LARGE,
   readBoundedBody,
@@ -81,17 +79,6 @@ function error(status: number, message: string): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }
 
-/**
- * A 429 carrying `Retry-After`, so a client that honours it backs off by the
- * remaining window rather than guessing (or hammering).
- */
-function rateLimited(retryAfterSeconds: number): NextResponse {
-  return NextResponse.json(
-    { error: RATE_LIMITED_ERROR },
-    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
-  );
-}
-
 export async function POST(request: Request): Promise<NextResponse> {
   // 1. Auth + kill-switch. userId comes only from the session.
   const guard = await guardSyncRequest(request);
@@ -105,7 +92,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   //     produced it. Before the body is read, so an oversized payload from a
   //     limited caller is never buffered.
   const limit = await consumeRateLimit("sync-push", userId);
-  if (!limit.allowed) return rateLimited(limit.retryAfterSeconds);
+  if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
 
   // 2. Bound the raw body BEFORE parsing (§9.1, §30) — streamed with a hard
   //    byte cap, never trusting the client Content-Length header.

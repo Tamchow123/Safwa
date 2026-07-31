@@ -5,6 +5,7 @@ import {
   SYNC_UNAUTHORIZED_ERROR,
   SYNC_UNAVAILABLE_ERROR,
   SYNC_UNVERIFIED_ERROR,
+  type SyncGuardRefusal,
 } from "./guard-decision";
 
 describe("evaluateSyncGuard", () => {
@@ -85,5 +86,26 @@ describe("evaluateSyncGuard", () => {
     // The unauthorized message must not vary by whether a user exists.
     expect(messages.size).toBe(3);
     expect(SYNC_UNAUTHORIZED_ERROR).not.toContain("exist");
+  });
+
+  it("has a reason vocabulary every translator must handle exhaustively", () => {
+    // Phase 18.1 / council TEST-004. The risk this guards is not a wrong
+    // mapping — it is a SILENT one: `guestMergeGuardReason` switches over
+    // SyncGuardRefusal with no `default`, so adding a member without adding a
+    // case makes it return undefined at runtime while still compiling if the
+    // return type is ever widened. Naming the full set here means adding a
+    // member forces a decision about what the learner is told.
+    const every: Record<SyncGuardRefusal, true> = {
+      disabled: true,
+      unauthenticated: true,
+      unverified: true,
+      "cross-origin": true,
+    };
+    expect(Object.keys(every).sort()).toEqual([
+      "cross-origin",
+      "disabled",
+      "unauthenticated",
+      "unverified",
+    ]);
   });
 });
