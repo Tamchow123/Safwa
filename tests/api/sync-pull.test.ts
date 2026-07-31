@@ -3,6 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const guardMock = vi.fn();
+// Phase 18.1: the route consumes a rate limit before doing any work. Stubbed
+// to ALLOW here so these tests stay about the route's own behaviour. Without
+// it the real limiter runs, finds no database in the unit environment, and
+// fails open — which happens to let these tests pass, but for a reason that
+// has nothing to do with what they assert, and would turn into a confusing
+// mass failure the day the fail-open decision was revisited. The limiter's own
+// behaviour is proved in tests/integration/rate-limit.test.ts.
+const consumeRateLimitMock = vi.fn();
+vi.mock("@/modules/sync/server/rate-limit", () => ({
+  consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
+  RATE_LIMITED_ERROR: "Too many requests. Please retry shortly.",
+}));
+
 vi.mock("@/modules/sync/server/auth-guard", () => ({
   guardSyncRequest: () => guardMock(),
 }));
@@ -39,6 +52,8 @@ const EMPTY_CHANGES = {
 beforeEach(() => {
   guardMock.mockReset();
   activeReleaseMock.mockReset();
+  consumeRateLimitMock.mockReset();
+  consumeRateLimitMock.mockResolvedValue({ allowed: true });
   pullChangesMock.mockReset();
   guardMock.mockResolvedValue({ ok: true, userId: "user-1" });
   activeReleaseMock.mockResolvedValue({ releaseId: "rel-1" });
