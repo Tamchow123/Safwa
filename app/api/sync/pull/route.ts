@@ -47,7 +47,7 @@ function rateLimited(retryAfterSeconds: number): NextResponse {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  const guard = await guardSyncRequest();
+  const guard = await guardSyncRequest(request);
   if (!guard.ok) return error(guard.status, guard.error);
   const { userId } = guard;
 

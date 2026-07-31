@@ -16,6 +16,7 @@ describe("evaluateSyncGuard", () => {
       ok: false,
       status: 503,
       error: SYNC_UNAVAILABLE_ERROR,
+      reason: "disabled",
     });
   });
 
@@ -28,6 +29,7 @@ describe("evaluateSyncGuard", () => {
       ok: false,
       status: 401,
       error: SYNC_UNAUTHORIZED_ERROR,
+      reason: "unauthenticated",
     });
   });
 
@@ -40,7 +42,12 @@ describe("evaluateSyncGuard", () => {
   it("rejects with 403 when the account is unverified", () => {
     expect(
       evaluateSyncGuard(true, { user: { id: "u1", emailVerified: false } }),
-    ).toEqual({ ok: false, status: 403, error: SYNC_UNVERIFIED_ERROR });
+    ).toEqual({
+      ok: false,
+      status: 403,
+      error: SYNC_UNVERIFIED_ERROR,
+      reason: "unverified",
+    });
   });
 
   it("authorises a verified user and returns the session user id", () => {
@@ -49,6 +56,24 @@ describe("evaluateSyncGuard", () => {
         user: { id: "user-123", emailVerified: true },
       }),
     ).toEqual({ ok: true, userId: "user-123" });
+  });
+
+  it("names its reason, because the status alone is ambiguous", () => {
+    // Phase 18.1. Two different refusals are both 403 — an unverified email
+    // and a cross-origin request (added in auth-guard.ts, which cannot be
+    // reached from this pure module). Only one of them is something a learner
+    // can act on. Callers that translate a refusal into learner-facing
+    // language must branch on `reason`; a caller reading the number would tell
+    // someone arriving from another site to verify an email that is already
+    // verified. This asserts the field a translator depends on is present and
+    // distinct.
+    const unverified = evaluateSyncGuard(true, {
+      user: { id: "u1", emailVerified: false },
+    });
+    expect(unverified.ok).toBe(false);
+    if (unverified.ok) return;
+    expect(unverified.reason).toBe("unverified");
+    expect(unverified.status).toBe(403);
   });
 
   it("never surfaces an enumeration signal (all rejections are fixed strings)", () => {
