@@ -23,6 +23,22 @@ const STATEMENT_TIMEOUT_MS = 10_000;
 // per-instance ceiling this low keeps aggregate connections against Neon's
 // pooled endpoint bounded even under many concurrent warm instances.
 const MAX_POOL_CONNECTIONS = 5;
+/**
+ * How long a caller may wait to ACQUIRE a connection before failing (Phase
+ * 18.1, council REL-101).
+ *
+ * `statement_timeout` and `query_timeout` bound a query that is RUNNING. They
+ * say nothing about one still queued for a free connection, and `pg`'s default
+ * is to wait forever — so under pool saturation a request could hang past every
+ * other timeout in this file, unbounded. That is the one failure mode none of
+ * the other limits covered.
+ *
+ * Set slightly above the 10s statement timeout: a slot should become free
+ * within one worst-case query, so anything longer than that means the pool is
+ * genuinely saturated rather than merely busy, and failing fast is better than
+ * a request that never answers.
+ */
+const CONNECTION_ACQUISITION_TIMEOUT_MS = 12_000;
 
 type GlobalDbStash = {
   safwaPool?: Pool;
@@ -64,6 +80,7 @@ function createPool(): Pool {
     statement_timeout: STATEMENT_TIMEOUT_MS,
     query_timeout: QUERY_TIMEOUT_MS,
     max: MAX_POOL_CONNECTIONS,
+    connectionTimeoutMillis: CONNECTION_ACQUISITION_TIMEOUT_MS,
   });
 }
 

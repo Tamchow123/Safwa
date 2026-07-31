@@ -173,12 +173,26 @@ export async function consumeRateLimit(
       });
 
     // `withTimeout` cannot cancel the query — the statement may still land
-    // afterwards. That is harmless here, and is the reason this counter is
-    // shaped as an idempotent single-statement upsert rather than a
-    // read-then-write: a late increment against a key that owns its own row
-    // either counts once or resets its own window, and nothing else in the
+    // afterwards. That is harmless for CORRECTNESS here, and is the reason
+    // this counter is shaped as an idempotent single-statement upsert rather
+    // than a read-then-write: a late increment against a key that owns its own
+    // row either counts once or resets its own window, and nothing else in the
     // system reads this table. (Contrast lib/with-timeout.ts's own warning
     // about appending to an authoritative log — this is not that.)
+    //
+    // WHAT ABANDONING IT DOES COST, stated rather than glossed (council
+    // REL-101): the query keeps its pool connection until the pool's own
+    // `statement_timeout` fires, while this request goes on to ask the same
+    // 5-slot pool for a second connection to do its real work. So under a
+    // sustained slow database, peak per-request connection demand is higher
+    // than it was when the limiter simply blocked. Accepted for this
+    // deployment: it is a single-learner instance whose real concurrency is
+    // one or two requests, so doubling a small number stays well inside the
+    // pool — and the unbounded part of that hazard, waiting forever to acquire
+    // a connection, is now bounded by `connectionTimeoutMillis` (db/client.ts).
+    // REVISIT if Safwa ever serves real concurrent traffic: the fix is either
+    // true cancellation or a small dedicated pool for this counter, both of
+    // which cost more than they are worth at one user.
     const rows = await withTimeout(
       counted,
       RATE_LIMIT_TIMEOUT_MS,

@@ -42,6 +42,17 @@
  * all — they are speaking HTTP directly, where they have their own session or
  * none, and where this check was never the defence.
  *
+ * THE TOPOLOGY THIS ASSUMES. Trusting `X-Forwarded-Host`/`X-Forwarded-Proto`
+ * is safe under the deployment described in `docs/DEPLOYMENT.md` §3: Vercel
+ * functions sit directly behind Vercel's own edge, with no CDN or WAF in
+ * front, so those headers are set by the platform rather than passed through
+ * from a client. This is the same assumption §10 already records for
+ * `x-forwarded-for` and Better Auth's rate limiter, written here too because
+ * the next person to change the topology will grep for one of them, not both.
+ * If a CDN is ever added in front of Vercel, re-verify that it strips or
+ * rewrites client-supplied `X-Forwarded-Host` before this derivation keeps
+ * being trusted.
+ *
  * FAIL-SAFE BY CONSTRUCTION. Both signals refuse only on POSITIVE evidence of a
  * cross-origin request, and allow when the evidence is absent. That direction is
  * deliberate: browsers omit `Origin` on ordinary same-origin GETs and older ones

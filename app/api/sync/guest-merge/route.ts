@@ -44,10 +44,7 @@ import {
   guestMergeGuardReason,
   runGuestMerge,
 } from "@/modules/sync/server/guest-merge";
-import {
-  BODY_TOO_LARGE,
-  readBoundedBody,
-} from "@/modules/sync/server/request-body";
+import { BODY_TOO_LARGE, readBoundedBody } from "@/modules/http/request-body";
 import { consumeRateLimit } from "@/modules/http/rate-limit";
 import { rateLimitedResponse } from "@/modules/http/rate-limited-response";
 

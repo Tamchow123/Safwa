@@ -32,7 +32,7 @@
  * `<bucket>:<subject>`. Keeping it an opaque string means an unauthenticated
  * bucket could be added later without a migration, and it avoids a cascade
  * delete racing a counter update. Rows are pruned by age instead, by whoever
- * writes next — see the module's `pruneExpired`.
+ * writes next — see the module's `pruneExpiredRateLimits`.
  */
 import { sql } from "drizzle-orm";
 import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
