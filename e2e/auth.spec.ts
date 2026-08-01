@@ -1,3 +1,5 @@
+import { ACCOUNT_DELETED_PARAM } from "@/components/account/deleted-account-cleanup";
+
 import { expect, test } from "./fixtures";
 import { expectNoSeriousViolations } from "./helpers/axe";
 import { errorAlert } from "./helpers/auth-ui";
@@ -459,6 +461,17 @@ test.describe("60.10 delete account", () => {
 
     const message = await waitForOutboxMessage(email, "delete-account");
     await page.goto(extractUrlFromMessage(message));
+    // DeletedAccountCleanup's sweep is async (a Dexie transaction) and only
+    // starts once its effect fires after this landing page hydrates; it does
+    // not block the navigation that lands here. Without waiting for it, the
+    // very next `page.goto` below unloads the document mid-sweep and races
+    // it, which is why this assertion was flaky rather than deterministic.
+    // `router.replace(pathname)` strips the nonce from the URL only once the
+    // sweep has actually finished (success) or been declined (unrecognised
+    // nonce), so its absence is the completion signal.
+    await page.waitForURL(
+      (url) => !url.searchParams.has(ACCOUNT_DELETED_PARAM),
+    );
 
     // Session invalid: /account now redirects to /login.
     await page.goto("/account");
