@@ -1,8 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+// Scoped to this file: the SMTP transport is imported only for its exported
+// send bound, and it carries `server-only`, which throws outside react-server.
+vi.mock("server-only", () => ({}));
+
+import { SMTP_SEND_TIMEOUT_MS } from "@/modules/email/transports/smtp";
 import { SYNC_BOUNDS } from "@/modules/sync/protocol";
 
 /**
@@ -75,5 +80,38 @@ describe("the sync routes' time budgets", () => {
     expect(SYNC_BOUNDS.maxItemsPerBatch).toBeLessThanOrEqual(
       EXPECTED_MAX_DURATION * 1000,
     );
+  });
+});
+
+/**
+ * The auth route's budget (Phase 18.2) exists for a different reason: email is
+ * delivered in `after()`, inside this function's lifetime, once the response
+ * is out. A budget that ran out first would kill the send mid-exchange, and a
+ * verification email that never arrives reports nothing anywhere.
+ */
+describe("the auth route's time budget", () => {
+  const AUTH_ROUTE = "app/api/auth/[...all]/route.ts";
+
+  function declaredSeconds(): number | undefined {
+    const match = /^export const maxDuration = (\d+);$/m.exec(
+      sourceOf(AUTH_ROUTE),
+    );
+    return match ? Number(match[1]) : undefined;
+  }
+
+  it("declares maxDuration as a static literal", () => {
+    expect(declaredSeconds()).toBeDefined();
+  });
+
+  it("leaves room for the request itself AND a send that uses its whole bound", () => {
+    // A floor, not a model: at least as much again for the request's own work
+    // as for the SMTP exchange that follows it.
+    expect((declaredSeconds() ?? 0) * 1000).toBeGreaterThanOrEqual(
+      2 * SMTP_SEND_TIMEOUT_MS,
+    );
+  });
+
+  it("stays valid on every Vercel plan", () => {
+    expect(declaredSeconds()).toBeLessThanOrEqual(EXPECTED_MAX_DURATION);
   });
 });
