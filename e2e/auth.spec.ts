@@ -20,6 +20,7 @@ import {
 } from "./helpers/db-probe";
 import {
   extractUrlFromMessage,
+  waitForNewOutboxMessage,
   waitForOutboxMessage,
 } from "./helpers/email-outbox";
 import {
@@ -118,7 +119,7 @@ test.describe("60.4 unverified login", () => {
   // class this fixture's opt-in exists for.
   test.use({ allowExpectedNetworkErrors: true });
 
-  test("rejected safely, resend path available, no token leaked", async ({
+  test("rejected safely, resend offered on the sign-in and verify pages, no token leaked", async ({
     page,
   }) => {
     const email = freshEmail("unverified");
@@ -147,6 +148,19 @@ test.describe("60.4 unverified login", () => {
     }));
     expect(JSON.stringify(storageDump)).not.toMatch(/token/i);
 
+    // Phase 18.3: the sign-in page itself offers a new link. Before, an
+    // unverified learner whose first email never came had nowhere to ask.
+    const signUpMessage = await waitForOutboxMessage(email, "verify-email");
+    await page
+      .getByRole("button", { name: "Resend verification email" })
+      .click();
+    await expect(page.getByText(/a new link is on its way/i)).toBeVisible();
+    const fromSignIn = await waitForNewOutboxMessage(
+      email,
+      "verify-email",
+      signUpMessage,
+    );
+
     // Resend path: the real shape Better Auth's own GET redirect produces
     // for an expired/invalid link. Never displays a token.
     await page.goto("/verify-email?error=INVALID_TOKEN");
@@ -158,9 +172,12 @@ test.describe("60.4 unverified login", () => {
       .getByRole("button", { name: "Resend verification email" })
       .click();
     await expect(page.getByText(/a new link is on its way/i)).toBeVisible();
+    await waitForNewOutboxMessage(email, "verify-email", fromSignIn);
 
-    const resent = await waitForOutboxMessage(email, "verify-email");
-    expect(resent).toBeTruthy();
+    // The link the sign-in page asked for is a working one.
+    await page.goto(extractUrlFromMessage(fromSignIn));
+    await expect(page.getByTestId("verify-email-success")).toBeVisible();
+    await login(page, email);
   });
 });
 

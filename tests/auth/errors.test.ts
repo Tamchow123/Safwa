@@ -1,6 +1,7 @@
 import { BASE_ERROR_CODES } from "better-auth";
 import { describe, expect, it } from "vitest";
 import {
+  authErrorCode,
   ERROR_CODE_MESSAGES,
   toLearnerSafeMessage,
 } from "@/modules/auth/errors";
@@ -132,5 +133,37 @@ describe("toLearnerSafeMessage", () => {
     for (const key of Object.keys(ERROR_CODE_MESSAGES)) {
       expect(BASE_ERROR_CODES).toHaveProperty(key);
     }
+  });
+});
+
+describe("authErrorCode", () => {
+  it("reads a direct code", () => {
+    expect(authErrorCode({ code: "EMAIL_NOT_VERIFIED" })).toBe(
+      "EMAIL_NOT_VERIFIED",
+    );
+  });
+
+  it("reads a code nested under error.error.code (BetterFetchError shape)", () => {
+    expect(
+      authErrorCode({ status: 403, error: { code: "EMAIL_NOT_VERIFIED" } }),
+    ).toBe("EMAIL_NOT_VERIFIED");
+  });
+
+  it("is undefined when there is no code — a bare 429 included", () => {
+    expect(authErrorCode({ status: 429 })).toBeUndefined();
+    expect(authErrorCode({ code: 403 })).toBeUndefined();
+    expect(authErrorCode({})).toBeUndefined();
+  });
+
+  it("is undefined for null, undefined or a non-object", () => {
+    for (const value of [null, undefined, "EMAIL_NOT_VERIFIED", 403]) {
+      expect(authErrorCode(value), String(value)).toBeUndefined();
+    }
+  });
+
+  it("never returns the error's message", () => {
+    expect(
+      authErrorCode({ message: 'relation "user" does not exist' }),
+    ).toBeUndefined();
   });
 });

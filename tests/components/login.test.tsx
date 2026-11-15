@@ -1,10 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const signInEmailMock = vi.fn();
+const sendVerificationEmailMock = vi.fn();
 vi.mock("@/modules/auth/client", () => ({
   signIn: { email: (...args: unknown[]) => signInEmailMock(...args) },
+  sendVerificationEmail: (...args: unknown[]) =>
+    sendVerificationEmailMock(...args),
 }));
 
 const routerPush = vi.fn();
@@ -23,6 +26,7 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
 
 beforeEach(() => {
   signInEmailMock.mockReset();
+  sendVerificationEmailMock.mockReset();
   routerPush.mockReset();
   currentSearchParams = new URLSearchParams();
 });
@@ -121,6 +125,130 @@ describe("LoginForm", () => {
 
     resolveSignIn!({ error: null, data: {} });
     await waitFor(() => expect(routerPush).toHaveBeenCalled());
+  });
+
+  describe("resend for an unverified account (Phase 18.3)", () => {
+    const NOT_VERIFIED = {
+      error: { status: 403, code: "EMAIL_NOT_VERIFIED" },
+      data: null,
+    };
+
+    function resendButton() {
+      return screen.queryByRole("button", {
+        name: "Resend verification email",
+      });
+    }
+
+    it("offers a resend after EMAIL_NOT_VERIFIED, sent to the address that was refused", async () => {
+      signInEmailMock.mockResolvedValue(NOT_VERIFIED);
+      sendVerificationEmailMock.mockResolvedValue({ error: null, data: {} });
+      const user = userEvent.setup();
+      render(<LoginForm />);
+      await fillValidForm(user);
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Verify your email address before signing in.",
+      );
+      // Edited after the refusal: the resend still goes to the refused address.
+      await user.clear(screen.getByLabelText("Email"));
+      await user.type(screen.getByLabelText("Email"), "someone@else.test");
+      await user.click(resendButton()!);
+
+      await waitFor(() =>
+        expect(sendVerificationEmailMock).toHaveBeenCalledWith({
+          email: "amina@example.com",
+          callbackURL: "/verify-email?verified=1",
+        }),
+      );
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        "If an account exists for that email and isn't verified yet, a new link is on its way.",
+      );
+      // A learner whose email still has not arrived can ask again.
+      expect(resendButton()).toBeEnabled();
+    });
+
+    it.each([
+      ["wrong credentials", { error: { code: "INVALID_EMAIL_OR_PASSWORD" } }],
+      ["a rate-limited sign-in", { error: { status: 429 } }],
+      ["an unrecognised failure", { error: { code: "SOMETHING_ELSE" } }],
+    ])("offers no resend after %s", async (_label, result) => {
+      signInEmailMock.mockResolvedValue({ ...result, data: null });
+      const user = userEvent.setup();
+      render(<LoginForm />);
+      await fillValidForm(user);
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+      await screen.findByRole("alert");
+      expect(resendButton()).not.toBeInTheDocument();
+      expect(sendVerificationEmailMock).not.toHaveBeenCalled();
+    });
+
+    it("offers no resend when sign-in throws", async () => {
+      signInEmailMock.mockRejectedValue(new Error("network down"));
+      const user = userEvent.setup();
+      render(<LoginForm />);
+      await fillValidForm(user);
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+      await screen.findByRole("alert");
+      expect(resendButton()).not.toBeInTheDocument();
+    });
+
+    it("maps a 429 on resend to the rate-limit message", async () => {
+      signInEmailMock.mockResolvedValue(NOT_VERIFIED);
+      sendVerificationEmailMock.mockResolvedValue({
+        error: { status: 429 },
+        data: null,
+      });
+      const user = userEvent.setup();
+      render(<LoginForm />);
+      await fillValidForm(user);
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+      await user.click(
+        await screen.findByRole("button", {
+          name: "Resend verification email",
+        }),
+      );
+
+      const offer = screen.getByTestId("login-resend-verification");
+      await waitFor(() =>
+        expect(within(offer).getByRole("alert")).toHaveTextContent(
+          "Too many attempts. Please wait a moment and try again.",
+        ),
+      );
+      expect(within(offer).queryByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("starts afresh on the next sign-in attempt, and goes away when it is not needed", async () => {
+      signInEmailMock.mockResolvedValue(NOT_VERIFIED);
+      sendVerificationEmailMock.mockResolvedValue({ error: null, data: {} });
+      const user = userEvent.setup();
+      render(<LoginForm />);
+      await fillValidForm(user);
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+      await user.click(
+        await screen.findByRole("button", {
+          name: "Resend verification email",
+        }),
+      );
+      expect(await screen.findByRole("status")).toBeInTheDocument();
+
+      // Refused again: the offer is back, without the previous "sent" note.
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+      await waitFor(() =>
+        expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+      );
+      expect(resendButton()).toBeInTheDocument();
+
+      // A different failure: no offer at all.
+      signInEmailMock.mockResolvedValue({
+        error: { code: "INVALID_EMAIL_OR_PASSWORD" },
+        data: null,
+      });
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+      await waitFor(() => expect(resendButton()).not.toBeInTheDocument());
+    });
   });
 
   it("links to register and forgot-password", () => {

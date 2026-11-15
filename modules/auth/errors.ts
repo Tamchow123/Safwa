@@ -78,6 +78,17 @@ function extractErrorCode(error: Record<string, unknown>): string | undefined {
 }
 
 /**
+ * The code a Better Auth client error carries, if any (Phase 18.3), for a
+ * caller that must act on WHICH failure happened — the sign-in form offers a
+ * new verification email only for `EMAIL_NOT_VERIFIED`. A code and never a
+ * message, by the same rule as {@link toLearnerSafeMessage}.
+ */
+export function authErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  return extractErrorCode(error as Record<string, unknown>);
+}
+
+/**
  * Maps any Better Auth client error (or `null`/`undefined`, for callers
  * that pass a result's `error` field directly) to one fixed, learner-safe
  * message. Never returns anything derived from the input's `.message`.
