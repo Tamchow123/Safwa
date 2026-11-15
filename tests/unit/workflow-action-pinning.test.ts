@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  * that account can repoint it too. The workflows this repository runs are not
  * a good place to accept that. `deploy-migrate.yml` runs with
  * PRODUCTION_DATABASE_URL_DIRECT, PRODUCTION_BETTER_AUTH_SECRET,
- * PRODUCTION_RESEND_API_KEY and NEON_API_KEY already exported into the job
+ * PRODUCTION_SMTP_PASSWORD and NEON_API_KEY already exported into the job
  * environment; `backup.yml` handles the production dump. In both, "the action's
  * code silently changed" and "an attacker ran code next to the production
  * credentials" are the same sentence.
