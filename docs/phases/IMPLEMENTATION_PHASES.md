@@ -17,8 +17,9 @@ Milestones:
 | 🏁 **Multi-device offline Beta** | 19          | concurrent offline reconciliation proven                         |
 | 🏁 **Production launch**         | 22          | hardened, monitored, deployed                                    |
 
-**Phase 18 is the last implemented phase**, followed by the correction phase
-**18.1** (pre-deployment hardening). Phase 18 widened to absorb Phase 22's
+**Phase 18 is the last implemented phase**, followed by two correction phases:
+**18.1** (pre-deployment hardening) and **18.2** (SMTP email replaces Resend).
+Phase 18 widened to absorb Phase 22's
 deploy, backup and security-header slices, and 19–21 plus the rest of 22 are
 deferred with the condition that reopens each recorded under "Deliberately
 deferred after Phase 18". Personal daily use on a phone, not a public launch,
@@ -416,7 +417,8 @@ chain.ts,states.ts,due.ts}` + tests.
   `bookmarks`, `custom_lists(_entries)`, `user_settings`, `guest_imports`,
   `content_versions` — **no vocabulary tables**; manifest loading (validation
   - assessment) with checksum verification; Better Auth (register, verify,
-    login, logout, reset) + Resend adapter (console/file transport in dev);
+    login, logout, reset) + Resend adapter (console/file transport in dev;
+    Resend replaced by SMTP in 18.2);
     enumeration-safe responses; rate limiting; account settings CRUD;
     account-deletion endpoint.
 - **Non-goals:** sync (16); merge (17); any content in Postgres.
@@ -662,6 +664,42 @@ records the condition that reopens it.
 | **Phase 20** — settings & reset controls          | Sharing the app with anyone who needs a partial reset. ~70% already shipped across 12–17, and the remainder has a working substitute (delete the account and start again).    |
 | **Phase 21** — admin & content management         | A second content editor, or content editing from a device without the repository checked out. The JSON → `content:build` → `db:register-content` pipeline already works.      |
 | **Phase 22** (except deploy/backup/headers)       | Any public launch. Accessibility audit, CSP, Sentry, performance budget, analytics and the attribution page are all launch concerns for an app with more than one user.       |
+
+## Phase 18.2 — SMTP email replaces Resend (post-merge correction)
+
+Not a feature phase: the first production deploy stopped at its email
+prerequisite (`phases-18.md` §12 H2), because Resend delivers to arbitrary
+recipients only from a domain of one's own, which this personal instance does
+not have. It ran the same workflow as any phase (branch, reviewed slices,
+quality gate, full council, draft PR).
+
+- **Objective:** make email — a hard dependency for verification, password
+  reset, account deletion and the sync guard — deliverable without a domain.
+- **Shipped:**
+  - **An SMTP transport** (`modules/email/transports/smtp.ts`, nodemailer)
+    behind the existing adapter, documented for Gmail with an app password on
+    a dedicated sending-only account (`DEPLOYMENT.md` §2a, ADR-011). TLS is
+    mandatory and verified; `SMTP_PORT` is 465 or 587 in every environment.
+  - **Resend removed** — transport, dependency and `RESEND_API_KEY`. A leftover
+    `EMAIL_TRANSPORT=resend` now fails both `pnpm deploy:verify` and the
+    runtime validator rather than deploying an instance that cannot send.
+  - **A gap in the pre-deploy check closed:** a blank or unknown
+    `EMAIL_TRANSPORT` used to be downgraded to a warning by the dev escape
+    hatch, while the runtime refused it outright.
+  - **`deploy-migrate.yml`** moved to the `PRODUCTION_SMTP_*` names, with a test
+    that fails if its production steps drift from what the validators require
+    or read the password from anything but a secret.
+  - **`maxDuration` on the auth route**, because email is delivered in
+    `after()`, inside that function's lifetime.
+- **Deliberately NOT changed:** the verification policy, the sync guard,
+  enumeration-safe dispatch and the sign-up allowlist.
+- **Prerequisites:** Phase 18.1.
+- **Deploy note:** no migration. The Gmail account and app password
+  (`DEPLOYMENT.md` §2a) replace H2's Resend step.
+
+| Deferred out of 18.2                                 | Reopened by                                                                                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **OAuth2 (XOAUTH2) instead of a Gmail app password** | Google withdrawing app passwords for the account, or the mailbox scope of an app password (`RISK_REGISTER.md` risk 32) being judged too broad. |
 
 ## Phase 19 — Multi-device offline reconciliation 🏁 Multi-device offline Beta
 
