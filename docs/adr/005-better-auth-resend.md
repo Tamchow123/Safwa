@@ -1,6 +1,8 @@
 # ADR-005: Better Auth with a provider-neutral Resend email adapter
 
-- Status: Accepted
+- Status: Accepted; **superseded in part by ADR-011** (2026-11-15) — Resend
+  was replaced by SMTP submission. Better Auth and the provider-neutral email
+  adapter stand.
 - Date: 2026-07-14
 
 ## Context

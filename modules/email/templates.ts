@@ -2,7 +2,7 @@
  * Centralised email copy (Phase 15, phases-15.md §39). Pure and
  * server-agnostic — no `server-only` marker, no env access — so it stays
  * trivially unit-testable and reusable by both the console/file transport
- * (T9) and the Resend transport (T10). Every template interpolates only
+ * and the SMTP transport (Phase 18.2). Every template interpolates only
  * the caller-supplied `url`, HTML-escaped, into the HTML variant. Rendering
  * only — outbound link safety validation lives in
  * modules/email/link-safety.ts, a separate concern from template copy.

@@ -37,10 +37,11 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 | `AUTH_ENABLED`                                                           | auth feature-flag kill-switch (default `true`)                                                                 | all                                       |
 | `AUTH_RATE_LIMIT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_MAX`                 | sensitive-endpoint rate-limit tuning (default 60s/5)                                                           | all — see caveat below                    |
 | `AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_DEFAULT_MAX` | default rate-limit bucket tuning (default 10s/100, matches Better Auth's own built-in default)                 | all — see caveat below                    |
-| `EMAIL_TRANSPORT`                                                        | `console-file` (dev/test) \| `resend` (preview/prod)                                                           | all                                       |
+| `EMAIL_TRANSPORT`                                                        | `console-file` (dev/test) \| `smtp` (preview/prod)                                                             | all                                       |
 | `EMAIL_OUTBOX_DIR`                                                       | console-file transport's output dir (default `.local/email-outbox`)                                            | dev/test only                             |
-| `RESEND_API_KEY`                                                         | transactional email                                                                                            | preview/prod (dev uses console transport) |
-| `EMAIL_FROM`                                                             | verified sender                                                                                                | preview/prod                              |
+| `SMTP_HOST` / `SMTP_PORT`                                                | SMTP submission server; the port must be `465` (TLS) or `587` (STARTTLS) in every environment (§2a)            | preview/prod (dev uses console transport) |
+| `SMTP_USER` / `SMTP_PASSWORD`                                            | the sending account and its credential — for Gmail, an app password on a dedicated account (§2a)               | preview/prod                              |
+| `EMAIL_FROM`                                                             | sender address; for Gmail, the sending account itself (§2a)                                                    | preview/prod                              |
 | `ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION`                                | explicit escape hatch for `console-file` in production (default `false`)                                       | prod only, exceptional                    |
 | `SIGNUP_ALLOWED_EMAILS`                                                  | comma-separated addresses permitted to register — **required in production**                                   | all (unset outside prod = sign-up open)   |
 | `SENTRY_DSN`                                                             | error monitoring                                                                                               | preview/prod                              |
@@ -121,7 +122,7 @@ and the first request that touches auth/db/email throws. Two consequences:
 `NODE_ENV=production`; an unset or blank value is refused by the same
 validation. Safwa is a personal instance whose production URL is reachable by
 anyone who finds it, so an unset allowlist would mean "anyone may create an
-account", and every account costs metered Neon rows and Resend sends. The
+account", and every account costs metered Neon rows and outbound email. The
 requirement holds even with `AUTH_ENABLED=false` — that kill-switch is a
 temporary rollback position, and flipping it back on must not be the moment
 sign-up silently opens.
@@ -143,6 +144,86 @@ answer is "you already have one, sign in" — and it is narrower than the
 pre-Phase-18 behaviour, where the same signal was available for every address
 rather than only the listed ones.
 
+### 2a. Email: SMTP submission, documented for Gmail (Phase 18.2)
+
+Email is a hard dependency, not an optional integration: sign-up requires a
+verified address, the sync guard refuses an unverified account, and password
+reset and account deletion are confirmed by emailed links. Phase 18.2 replaced
+Resend with plain SMTP submission (ADR-011) because Resend delivers to
+arbitrary recipients only from a domain of one's own. Any SMTP submission
+server works with the variables below; Gmail is documented because it needs no
+domain.
+
+**Set-up, once:**
+
+1. Create a **new Gmail account used only for sending Safwa's email** — never
+   the owner's personal mailbox (see "Why a dedicated account" below).
+2. On that account, turn on **2-Step Verification** (Google Account →
+   Security). App passwords do not exist without it.
+3. Google Account → Security → **App passwords** → create one named `Safwa`.
+   Google shows its 16 characters once; store them in the password manager.
+   The spaces Google displays between groups are not part of it.
+4. Set the production environment — in Vercel (Production) and, under the
+   `PRODUCTION_` names, in the GitHub `production` environment (§5):
+
+   | Variable          | Value                                                                 |
+   | ----------------- | --------------------------------------------------------------------- |
+   | `EMAIL_TRANSPORT` | `smtp`                                                                |
+   | `SMTP_HOST`       | `smtp.gmail.com`                                                      |
+   | `SMTP_PORT`       | `465`                                                                 |
+   | `SMTP_USER`       | the sending account's address                                         |
+   | `SMTP_PASSWORD`   | the app password                                                      |
+   | `EMAIL_FROM`      | `Safwa <the same address>` — Gmail sends as the authenticated account |
+
+5. The first message may land in spam; mark it "not spam" once.
+
+**TLS is not optional.** `SMTP_PORT` must be `465` (TLS from the first byte)
+or `587` (STARTTLS, which the transport requires rather than attempts). Both
+`pnpm deploy:verify` and the runtime validator refuse any other value, in every
+environment, because the port is what selects the TLS mode. The server
+certificate is always verified.
+
+**Why a dedicated account.** A Gmail app password is not send-only: it also
+signs in over IMAP, so whoever holds `SMTP_PASSWORD` can read, and delete, the
+whole mailbox. An account that holds nothing else limits a leak to "send as, or
+read the sent mail of, the Safwa mailer" (`RISK_REGISTER.md` risk 32). The
+learner's own address — the one on the sign-up allowlist — stays separate and
+is only ever a recipient.
+
+**Limits.** Consumer Gmail allows roughly 500 recipients a day (an assumption
+as of 2026-11; check current terms); a personal instance sends a handful. With
+no domain of one's own there is no SPF/DKIM alignment to tune, which is why the
+first message may be filtered.
+
+**Rotation.** Google Account → Security → App passwords → revoke `Safwa` and
+create a new one, then update `SMTP_PASSWORD` in Vercel (and redeploy) and
+`PRODUCTION_SMTP_PASSWORD` in the GitHub `production` environment. Changing the
+account's Google password revokes every app password, so rotate the same way
+afterwards.
+
+**When an email does not arrive.** Delivery runs after the response is sent
+(`after()`, so response timing cannot reveal whether an account exists), which
+means a failed send never reaches the user — it appears only in the function
+logs, under one of two prefixes, so search for both:
+
+- `[email:smtp] …` — the transport itself failed. The usual line is
+  `[email:smtp] send failed for template … code=… smtp=…`; the others say the
+  server accepted no recipient, the template could not be rendered, or too many
+  sends were already in flight. Codes only: the transport never logs an
+  address, a link, a token or the password. `EAUTH` / `535` means the app
+  password was revoked or mistyped.
+- `[email:dispatch] delivery failed` — the send failed before reaching the
+  transport: an SMTP setting is missing (production's environment validation
+  and `pnpm deploy:verify` both reject that outright, so this is a preview or
+  local symptom; the error names the settings, never a value), or the email's
+  link is not on the app's own origin — the
+  link is built from `BETTER_AUTH_URL` and checked against
+  `NEXT_PUBLIC_APP_URL`, so the two must name the same origin (the logged link
+  has its query redacted).
+
+The auth route's `maxDuration` (60s) exists so that a send is not cut off
+mid-exchange.
+
 ## 3. Hosting recommendation
 
 | Component               | Choice                                                                                    | Assumption / note                                                                                                                 |
@@ -151,18 +232,20 @@ rather than only the listed ones.
 | Database                | **Neon Postgres**                                                                         | free tier assumed adequate at low usage; **`pg` Pool over TCP, not the Neon serverless driver** (see below); PITR window per plan |
 | Static content releases | shipped with the app (`public/content/`) or Vercel Blob later                             | releases are small (hundreds of KB)                                                                                               |
 | Server manifests        | bundled server-side at build (Stage 1); DB/Blob after Phase 21                            | must never be publicly served from `public/`                                                                                      |
-| Email                   | **Resend**                                                                                | free tier assumed ~100 emails/day — enough for verification/reset at launch scale                                                 |
+| Email                   | **SMTP submission — Gmail with an app password** (§2a, ADR-011)                           | no domain needed; consumer Gmail allows roughly 500 recipients/day; a dedicated sending-only account                              |
 | Scheduled tasks         | none required for MVP; Vercel Cron if needed (pending-parent TTL sweep, activity rollups) |                                                                                                                                   |
 | Push notifications      | deferred post-MVP; web-push via a small worker + VAPID when added                         | iOS constraints documented in `OFFLINE_AND_SYNC.md`                                                                               |
 
 **Expected low-usage cost: ~~$0–5/month** (assumption). Upgrade points:
 Vercel Pro (~$20/mo) for limits/analytics; Neon paid (~~$19/mo) for more
-storage/compute/PITR; Resend paid at volume.
+storage/compute/PITR; a paid SMTP provider only if Gmail's limits are ever
+reached.
 
 **Lock-in assessment:** standard Next.js + Postgres + SQL migrations —
 portable to any Node host + managed Postgres. Vercel-specific surface is
 limited to config and (if adopted) Cron/Blob; Better Auth and Drizzle are
-self-hosted libraries; Resend sits behind the email adapter.
+self-hosted libraries; email goes through a provider-neutral adapter to any
+SMTP submission server, so changing provider is configuration, not code.
 
 **Database driver — corrected in Phase 18.** This table claimed the app talks
 to Neon through its serverless (HTTP/WebSocket) driver. It does not, and never
@@ -189,8 +272,9 @@ round trip to every query. Record the chosen region here once it exists.
 
 - **development** — local; console email; local/branch DB.
 - **preview** — per-PR Vercel deployments; Neon branch per preview (or a
-  shared preview DB with migration gating); dev email transport or Resend
-  test mode; noindex.
+  shared preview DB with migration gating); the dev email transport (via the
+  escape hatch) or SMTP with its own credentials — every address real SMTP
+  reaches is a real inbox; noindex.
 - **production** — protected branch deploys only; migrations applied before
   traffic (see §5).
 
@@ -276,16 +360,24 @@ round trip to every query. Record the chosen region here once it exists.
   | secret   | `PRODUCTION_DATABASE_URL_DIRECT`   | Neon **direct** endpoint (§3)                                  |
   | secret   | `PRODUCTION_BETTER_AUTH_SECRET`    | the production signing secret                                  |
   | secret   | `PRODUCTION_SIGNUP_ALLOWED_EMAILS` | comma-separated allowlist (§2)                                 |
-  | secret   | `PRODUCTION_RESEND_API_KEY`        | Resend API key                                                 |
+  | secret   | `PRODUCTION_SMTP_PASSWORD`         | the SMTP credential — for Gmail, the app password (§2a)        |
   | secret   | `NEON_API_KEY`                     | Neon personal/project API key, for the restore point           |
   | variable | `NEON_PROJECT_ID`                  | Neon project id the branch is created in                       |
   | variable | `NEON_PRODUCTION_BRANCH_ID`        | `br-…`, the branch the snapshot forks FROM (see above)         |
   | variable | `PRODUCTION_APP_URL`               | `https://…` — both `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` |
-  | variable | `PRODUCTION_EMAIL_FROM`            | e.g. `Safwa <noreply@…>`                                       |
+  | variable | `PRODUCTION_EMAIL_FROM`            | e.g. `Safwa <safwa.mailer@gmail.com>` — the sending account    |
+  | variable | `PRODUCTION_SMTP_HOST`             | e.g. `smtp.gmail.com`                                          |
+  | variable | `PRODUCTION_SMTP_PORT`             | `465` (TLS) or `587` (STARTTLS) — nothing else is accepted     |
+  | variable | `PRODUCTION_SMTP_USER`             | the sending account's address                                  |
 
   The allowlist is a secret rather than a variable because it is a list of
   personal email addresses, and repository variables are readable by anyone
-  with read access.
+  with read access. The SMTP user is a variable for the opposite reason: it is
+  the sending account, whose address `PRODUCTION_EMAIL_FROM` already publishes
+  in every message header (Gmail requires the two to match), so hiding one copy
+  would protect nothing. Only its password is secret, and
+  `tests/unit/deploy-migrate-env.test.ts` fails if the workflow ever reads that
+  password from anywhere but a secret.
 
 - **The guardrail this workflow cannot give itself.** The typed confirmation
   phrase protects against a misclick and nothing else: its required text is

@@ -12,21 +12,23 @@ vi.mock("@/modules/email/transports/console-file", () => ({
   createConsoleFileTransport: vi.fn(() => ({ send: sendMock })),
 }));
 
-const resendSendMock = vi.fn<
-  (input: SendEmailInput) => Promise<SendEmailResult>
->(async () => ({
-  success: true,
-  messageId: "resend-mock-id",
-}));
-const createResendTransportMock = vi.fn<
-  (options: { apiKey: string; from: string }) => { send: typeof resendSendMock }
->(() => ({ send: resendSendMock }));
-vi.mock("@/modules/email/transports/resend", () => ({
-  createResendTransport: (options: { apiKey: string; from: string }) =>
-    createResendTransportMock(options),
+const smtpSendMock = vi.fn<(input: SendEmailInput) => Promise<SendEmailResult>>(
+  async () => ({
+    success: true,
+    messageId: "smtp-mock-id",
+  }),
+);
+const createSmtpTransportMock = vi.fn<
+  (options: SmtpTransportOptions) => { send: typeof smtpSendMock }
+>(() => ({ send: smtpSendMock }));
+vi.mock("@/modules/email/transports/smtp", () => ({
+  createSmtpTransport: (options: SmtpTransportOptions) =>
+    createSmtpTransportMock(options),
 }));
 
 import { UnsafeEmailLinkError } from "@/modules/email/link-safety";
+import type { SmtpTransportOptions } from "@/modules/email/transports/smtp";
+import { SMTP_REQUIRED_ENV } from "@/modules/env/rules";
 import type { SendEmailInput, SendEmailResult } from "@/modules/email/types";
 import {
   resetEmailTransportCacheForTests,
@@ -51,9 +53,28 @@ beforeEach(() => {
   resetServerEnvCacheForTests();
   resetEmailTransportCacheForTests();
   sendMock.mockClear();
-  resendSendMock.mockClear();
-  createResendTransportMock.mockClear();
+  smtpSendMock.mockClear();
+  createSmtpTransportMock.mockClear();
 });
+
+/** Points the next sendEmail() at EMAIL_TRANSPORT=smtp with these settings. */
+function useSmtp(settings: Record<string, string | undefined>) {
+  process.env.EMAIL_TRANSPORT = "smtp";
+  for (const [key, value] of Object.entries(settings)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  resetServerEnvCacheForTests();
+  resetEmailTransportCacheForTests();
+}
+
+const SMTP_SETTINGS = {
+  SMTP_HOST: "smtp.example.com",
+  SMTP_PORT: "587",
+  SMTP_USER: "mailer@example.com",
+  SMTP_PASSWORD: "app-password-not-real",
+  EMAIL_FROM: "Safwa <mailer@example.com>",
+};
 
 afterEach(() => {
   process.env = originalEnv;
@@ -159,12 +180,8 @@ describe("sendEmail", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("dispatches to the Resend transport, constructed with the configured API key and sender, when EMAIL_TRANSPORT=resend", async () => {
-    process.env.EMAIL_TRANSPORT = "resend";
-    process.env.RESEND_API_KEY = "re_test_key";
-    process.env.EMAIL_FROM = "noreply@safwa.example.com";
-    resetServerEnvCacheForTests();
-    resetEmailTransportCacheForTests();
+  it("dispatches to the SMTP transport, built from the configured server, account and sender, when EMAIL_TRANSPORT=smtp", async () => {
+    useSmtp(SMTP_SETTINGS);
 
     const result = await sendEmail({
       template: "verify-email",
@@ -173,35 +190,65 @@ describe("sendEmail", () => {
       token: "abc",
     });
 
-    expect(result).toEqual({ success: true, messageId: "resend-mock-id" });
-    expect(createResendTransportMock).toHaveBeenCalledWith({
-      apiKey: "re_test_key",
-      from: "noreply@safwa.example.com",
+    expect(result).toEqual({ success: true, messageId: "smtp-mock-id" });
+    expect(createSmtpTransportMock).toHaveBeenCalledWith({
+      host: "smtp.example.com",
+      port: 587,
+      user: "mailer@example.com",
+      password: "app-password-not-real",
+      from: "Safwa <mailer@example.com>",
     });
-    expect(resendSendMock).toHaveBeenCalledTimes(1);
+    expect(smtpSendMock).toHaveBeenCalledTimes(1);
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("throws a clear config error for EMAIL_TRANSPORT=resend with no RESEND_API_KEY", async () => {
-    process.env.EMAIL_TRANSPORT = "resend";
-    process.env.EMAIL_FROM = "noreply@safwa.example.com";
-    resetServerEnvCacheForTests();
-    resetEmailTransportCacheForTests();
+  it("names every missing SMTP setting, and never a configured value, before building the transport", async () => {
+    useSmtp({
+      ...SMTP_SETTINGS,
+      SMTP_PORT: undefined,
+      SMTP_USER: undefined,
+      EMAIL_FROM: undefined,
+    });
 
-    await expect(
-      sendEmail({
-        template: "verify-email",
-        to: "learner@example.com",
-        url: "https://safwa.example.com/verify-email?token=abc",
-        token: "abc",
-      }),
-    ).rejects.toThrow(/RESEND_API_KEY is required/);
-    expect(createResendTransportMock).not.toHaveBeenCalled();
+    const attempt = sendEmail({
+      template: "verify-email",
+      to: "learner@example.com",
+      url: "https://safwa.example.com/verify-email?token=abc",
+      token: "abc",
+    });
+
+    await expect(attempt).rejects.toThrow(
+      /EMAIL_TRANSPORT=smtp requires SMTP_PORT, SMTP_USER, EMAIL_FROM/,
+    );
+    const message = String(await attempt.catch((error: unknown) => error));
+    expect(message).not.toContain(SMTP_SETTINGS.SMTP_PASSWORD);
+    expect(message).not.toContain(SMTP_SETTINGS.SMTP_HOST);
+    expect(createSmtpTransportMock).not.toHaveBeenCalled();
   });
 
-  it("throws a clear config error for EMAIL_TRANSPORT=resend with no EMAIL_FROM", async () => {
+  it("names every setting in the shared SMTP_REQUIRED_ENV list when none is configured", async () => {
+    // The runtime and pre-deploy validators read the same list; this pins the
+    // third reader, so the three cannot disagree about what SMTP needs.
+    useSmtp(
+      Object.fromEntries(SMTP_REQUIRED_ENV.map((name) => [name, undefined])),
+    );
+
+    await expect(
+      sendEmail({
+        template: "verify-email",
+        to: "learner@example.com",
+        url: "https://safwa.example.com/verify-email?token=abc",
+        token: "abc",
+      }),
+    ).rejects.toThrow(
+      `EMAIL_TRANSPORT=smtp requires ${SMTP_REQUIRED_ENV.join(", ")} to be set`,
+    );
+  });
+
+  it("refuses EMAIL_TRANSPORT=resend, which no longer exists, before sending anything", async () => {
+    // Phase 18.2 removed the Resend transport. An environment still naming it
+    // must fail at validation, not fall through to some other transport.
     process.env.EMAIL_TRANSPORT = "resend";
-    process.env.RESEND_API_KEY = "re_test_key";
     resetServerEnvCacheForTests();
     resetEmailTransportCacheForTests();
 
@@ -212,7 +259,8 @@ describe("sendEmail", () => {
         url: "https://safwa.example.com/verify-email?token=abc",
         token: "abc",
       }),
-    ).rejects.toThrow(/EMAIL_FROM is required/);
-    expect(createResendTransportMock).not.toHaveBeenCalled();
+    ).rejects.toThrow(/EMAIL_TRANSPORT/);
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(createSmtpTransportMock).not.toHaveBeenCalled();
   });
 });

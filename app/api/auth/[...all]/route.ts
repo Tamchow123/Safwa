@@ -21,6 +21,22 @@ import { getServerEnv } from "@/modules/env/server";
 
 export const runtime = "nodejs";
 
+/**
+ * Time budget (Phase 18.2). Email delivery is scheduled with `after()`
+ * (modules/email/dispatch.ts), which runs inside THIS function's lifetime once
+ * the response has been sent — so a verification, reset or delete-account
+ * email gets only what is left of this route's budget to finish its SMTP
+ * exchange (`SMTP_SEND_TIMEOUT_MS`). Left to the platform default (Phase 18.1
+ * recorded Vercel's as 10s, no more than the send bound itself), a slow request
+ * followed by a slow handshake would be killed mid-send, and the learner would
+ * simply never receive the email: nothing reports it.
+ *
+ * 60s, the same as the sync routes and valid on every Vercel plan. Must be a
+ * literal for the same reason as theirs: Next reads route segment config by
+ * static analysis, so an imported constant would be ignored.
+ */
+export const maxDuration = 60;
+
 function authUnavailableResponse(): Response {
   return NextResponse.json(
     { error: "Authentication is currently unavailable." },

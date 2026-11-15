@@ -4,7 +4,7 @@
  *
  * Safwa is a personal instance. Its production deployment is reachable by
  * anyone who finds the URL, and every account it creates costs real money on
- * metered services (Neon rows, Resend sends) and real trust (a verified email
+ * metered services (Neon rows, outbound email) and real trust (a verified email
  * address, a sync-enabled device). Open sign-up is therefore the bug, not the
  * safeguard — so `SIGNUP_ALLOWED_EMAILS` is REQUIRED in production
  * (`modules/env/server.ts` refuses to start without it) and the deployment

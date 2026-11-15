@@ -9,12 +9,13 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { assertSameOrigin } from "@/modules/email/link-safety";
 import { createConsoleFileTransport } from "@/modules/email/transports/console-file";
-import { createResendTransport } from "@/modules/email/transports/resend";
+import { createSmtpTransport } from "@/modules/email/transports/smtp";
 import type {
   EmailTemplate,
   EmailTransport,
   SendEmailResult,
 } from "@/modules/email/types";
+import { SMTP_REQUIRED_ENV } from "@/modules/env/rules";
 import { getServerEnv } from "@/modules/env/server";
 
 export type SendEmailParams = {
@@ -44,23 +45,40 @@ function getTransport(): EmailTransport {
         outboxDir: env.emailOutboxDir,
       });
       return cachedTransport;
-    case "resend": {
+    case "smtp": {
       // modules/env/server.ts only REQUIRES these in production (its
       // assertProductionInvariants check) — a non-production environment
-      // that sets EMAIL_TRANSPORT=resend without them must still fail
-      // closed here with a clear config error, not a confusing downstream
-      // Resend client error.
-      if (!env.resendApiKey) {
+      // that selects smtp without them must still fail closed here, with a
+      // clear config error rather than a confusing downstream connection
+      // failure. Names only — never a value, since one of them is a password.
+      const {
+        smtpHost: host,
+        smtpPort: port,
+        smtpUser: user,
+        smtpPassword: password,
+        emailFrom: from,
+      } = env;
+      // Keyed by the shared list, so a setting added to SMTP_REQUIRED_ENV
+      // fails to compile here until this error can name it too.
+      const settings: Record<(typeof SMTP_REQUIRED_ENV)[number], unknown> = {
+        SMTP_HOST: host,
+        SMTP_PORT: port,
+        SMTP_USER: user,
+        SMTP_PASSWORD: password,
+        EMAIL_FROM: from,
+      };
+      if (!host || !port || !user || !password || !from) {
+        const missing = SMTP_REQUIRED_ENV.filter((name) => !settings[name]);
         throw new Error(
-          "RESEND_API_KEY is required when EMAIL_TRANSPORT=resend",
+          `EMAIL_TRANSPORT=smtp requires ${missing.join(", ")} to be set`,
         );
       }
-      if (!env.emailFrom) {
-        throw new Error("EMAIL_FROM is required when EMAIL_TRANSPORT=resend");
-      }
-      cachedTransport = createResendTransport({
-        apiKey: env.resendApiKey,
-        from: env.emailFrom,
+      cachedTransport = createSmtpTransport({
+        host,
+        port,
+        user,
+        password,
+        from,
       });
       return cachedTransport;
     }

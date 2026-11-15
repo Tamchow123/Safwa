@@ -37,10 +37,13 @@
  */
 import { parseSignupAllowlist } from "../modules/auth/signup-allowlist";
 import {
+  EMAIL_TRANSPORTS,
   looksLikePostgresUrl,
   MIN_PRODUCTION_SECRET_LENGTH,
   normaliseBooleanFlag,
+  parseSmtpPort,
   PRODUCTION_RATE_LIMIT_BOUNDS,
+  SMTP_REQUIRED_ENV,
 } from "../modules/env/rules";
 
 export type PreconditionFailure = {
@@ -168,7 +171,10 @@ export function checkDeployPreconditions(
   // requireEmailVerification, and an unverified account cannot sync. A
   // production deploy on the console-file transport writes verification links
   // to a directory nobody reads, which looks like "sign-up is broken".
-  const transport = env.EMAIL_TRANSPORT;
+  // Unset means the runtime's default. A blank or unknown value is not that —
+  // the runtime's enum rejects it — so it must not slip into the console-file
+  // branch below, where the escape hatch would downgrade it to a warning.
+  const transport = env.EMAIL_TRANSPORT ?? "console-file";
   const devTransportAllowed = normaliseBooleanFlag(
     env.ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION,
   );
@@ -178,7 +184,12 @@ export function checkDeployPreconditions(
       'must be "true" or "false"',
     );
   }
-  if (transport !== "resend") {
+  if (!(EMAIL_TRANSPORTS as readonly string[]).includes(transport)) {
+    fail(
+      "EMAIL_TRANSPORT",
+      `must be one of ${EMAIL_TRANSPORTS.map((name) => `"${name}"`).join(", ")}`,
+    );
+  } else if (transport === "console-file") {
     if (devTransportAllowed === true) {
       // A warning, not a failure — the runtime permits exactly this, and a
       // gate stricter than the thing it gates is a gate nobody can satisfy.
@@ -189,16 +200,20 @@ export function checkDeployPreconditions(
     } else {
       fail(
         "EMAIL_TRANSPORT",
-        `must be "resend" in production, got ${JSON.stringify(transport ?? "(unset)")}`,
+        `must be "smtp" in production, got "console-file"${env.EMAIL_TRANSPORT === undefined ? " (the default when unset)" : ""}`,
       );
     }
   } else {
-    if (!env.RESEND_API_KEY?.trim()) {
-      fail("RESEND_API_KEY", 'is required when EMAIL_TRANSPORT is "resend"');
+    for (const variable of SMTP_REQUIRED_ENV) {
+      if (!env[variable]?.trim()) {
+        fail(variable, 'is required when EMAIL_TRANSPORT is "smtp"');
+      }
     }
-    if (!env.EMAIL_FROM?.trim()) {
-      fail("EMAIL_FROM", 'is required when EMAIL_TRANSPORT is "resend"');
-    }
+  }
+  // Checked whatever the transport, because the runtime schema refuses a
+  // malformed port in every environment, not only when SMTP is selected.
+  if (env.SMTP_PORT?.trim() && parseSmtpPort(env.SMTP_PORT) === undefined) {
+    fail("SMTP_PORT", "must be 465 (TLS) or 587 (STARTTLS)");
   }
 
   // Rejected by assertProductionInvariants too, but the whole point of this

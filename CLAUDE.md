@@ -12,8 +12,10 @@ recently **Phase 18 — PWA, offline & first production deploy**, PR #24), so
 both the Core MVP and the Offline-capable Beta milestone are complete. Phase 18
 was the **last** implementation phase; **Phase 18.1 — pre-deployment
 hardening** (rate limiting for the app's own API routes, the same-origin
-assertion, supply-chain pinning; PR #25) is the post-merge correction that
-follows it. **Nothing is deployed yet** — the first production deploy is the
+assertion, supply-chain pinning; PR #25) and **Phase 18.2 — SMTP email**
+(Resend replaced by SMTP submission, documented for Gmail with an app password
+on a dedicated sending account; ADR-011) are the post-merge corrections that
+follow it. **Nothing is deployed yet** — the first production deploy is the
 open action, and migration 0007 must run before the app that reads it. Phases
 19–21 and the rest of 22 are deferred, each with the condition that reopens it
 recorded in `docs/phases/IMPLEMENTATION_PHASES.md` ("Deliberately deferred
@@ -235,7 +237,8 @@ full gate (E2E included) must still pass before review.
 
 - `docs/PRODUCT_REQUIREMENTS.md` — what to build, learning/quiz rules, acceptance criteria
 - `docs/ARCHITECTURE.md` — stack, module boundaries; the numbered decision
-  records themselves live in `docs/adr/` (001–009). §5's "As built (Phase 18)"
+  records themselves live in `docs/adr/` (001–009 and 011; 010 is reserved for
+  the service-worker fallback phases-18.md names). §5's "As built (Phase 18)"
   is the map of the PWA/service-worker layer and the offline identity contract
 - `docs/DATA_MODEL.md` — Postgres + Dexie schemas, component identity, event model
 - `docs/OFFLINE_AND_SYNC.md` — causal sync design, conflict policy, staged

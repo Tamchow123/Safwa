@@ -12,7 +12,7 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 | Spaced repetition  | **ts-fsrs**                                            | Maintained FSRS implementation; runs client-side for guests/offline and server-side for deterministic replay                                                                                                                                                       |
 | Database / ORM     | **PostgreSQL (Neon) + Drizzle ORM**                    | Relational integrity (composite FKs, partial unique indexes, CHECKs are load-bearing in this design); typed schema; SQL migrations in-repo                                                                                                                         |
 | Auth               | **Better Auth**                                        | TypeScript-native email/password, verification, reset, rate limiting; sessions via secure cookies; guests never blocked                                                                                                                                            |
-| Email              | **Resend behind a provider-neutral adapter**           | Better Auth provides flows, not delivery; adapter (`sendEmail(template, to, data)`) keeps Postmark/SES swappable; local dev uses a console/file transport                                                                                                          |
+| Email              | **SMTP submission behind a provider-neutral adapter**  | Better Auth provides flows, not delivery; adapter (`sendEmail(template, to, data)`) keeps the provider swappable — Resend until Phase 18.2, now any SMTP server, Gmail in production (ADR-011); local dev uses a console/file transport                            |
 | Validation         | **Zod**                                                | Shared schemas across client, server and content pipeline                                                                                                                                                                                                          |
 | PWA / offline      | **Serwist**                                            | Next.js supplies the framework; **Serwist supplies the service worker, caching and offline integration**                                                                                                                                                           |
 | Testing            | **Vitest + Testing Library + Playwright**              | See `TEST_STRATEGY.md`                                                                                                                                                                                                                                             |
@@ -35,7 +35,7 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 - ADR-002 Client-side FSRS with causal event-log sync and server replay
 - ADR-003 Versioned immutable content releases; staged vocabulary persistence
 - ADR-004 Study-component granularity `(entry, skill, source_field, direction)`
-- ADR-005 Better Auth + Resend adapter
+- ADR-005 Better Auth + Resend adapter (provider superseded by ADR-011)
 - ADR-006 Server-side canonical answer validation via assessment manifest +
   deterministic question regeneration
 - ADR-007 No Postgres enums for evolving concepts; lookup tables + composite FK
@@ -46,6 +46,10 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
   The owner is part of the local primary key (Dexie schema v7), and a
   multi-rooted component is legitimate only where a recorded merge says so
   (Phase 17)
+- ADR-010 reserved — the departure from Serwist that Phase 18's slice-9
+  decision point would have recorded; not written, since Serwist was adopted
+- [ADR-011](adr/011-smtp-email-transport.md) SMTP submission replaces Resend
+  for transactional email (Phase 18.2)
 
 ## 2. Application architecture
 
@@ -82,7 +86,8 @@ apps (single Next.js app)
 ├── modules/auth           Better Auth config
 ├── modules/email          (Phase 15) provider-neutral email contract:
 │                          types/templates/send-email dispatch + transports
-│                          (console-file for dev/test, Resend for prod)
+│                          (console-file for dev/test, SMTP for prod —
+│                          Phase 18.2, ADR-011)
 ├── modules/env            (Phase 15) strict Zod validation of server and
 │                          client environment variables; server.ts is
 │                          server-only and lazy-memoised (validated on first

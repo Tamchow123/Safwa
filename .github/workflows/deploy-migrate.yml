@@ -94,8 +94,16 @@ jobs:
           BETTER_AUTH_URL: ${{ vars.PRODUCTION_APP_URL }}
           NEXT_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
           SIGNUP_ALLOWED_EMAILS: ${{ secrets.PRODUCTION_SIGNUP_ALLOWED_EMAILS }}
-          EMAIL_TRANSPORT: resend
-          RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+          # Email (Phase 18.2). Only the password is a secret. The SMTP user is
+          # the sending account, whose address PRODUCTION_EMAIL_FROM already
+          # publishes in every message header — Gmail requires the two to
+          # match — so hiding one copy while publishing the other would
+          # protect nothing. The steps below repeat this block unchanged.
+          EMAIL_TRANSPORT: smtp
+          SMTP_HOST: ${{ vars.PRODUCTION_SMTP_HOST }}
+          SMTP_PORT: ${{ vars.PRODUCTION_SMTP_PORT }}
+          SMTP_USER: ${{ vars.PRODUCTION_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.PRODUCTION_SMTP_PASSWORD }}
           EMAIL_FROM: ${{ vars.PRODUCTION_EMAIL_FROM }}
 
       # A migration is the one operation in this repository that can destroy
@@ -261,8 +269,11 @@ jobs:
           BETTER_AUTH_URL: ${{ vars.PRODUCTION_APP_URL }}
           NEXT_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
           SIGNUP_ALLOWED_EMAILS: ${{ secrets.PRODUCTION_SIGNUP_ALLOWED_EMAILS }}
-          EMAIL_TRANSPORT: resend
-          RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+          EMAIL_TRANSPORT: smtp
+          SMTP_HOST: ${{ vars.PRODUCTION_SMTP_HOST }}
+          SMTP_PORT: ${{ vars.PRODUCTION_SMTP_PORT }}
+          SMTP_USER: ${{ vars.PRODUCTION_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.PRODUCTION_SMTP_PASSWORD }}
           EMAIL_FROM: ${{ vars.PRODUCTION_EMAIL_FROM }}
 
       # Every session the server stores carries a release_id foreign key into
@@ -278,8 +289,11 @@ jobs:
           BETTER_AUTH_URL: ${{ vars.PRODUCTION_APP_URL }}
           NEXT_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
           SIGNUP_ALLOWED_EMAILS: ${{ secrets.PRODUCTION_SIGNUP_ALLOWED_EMAILS }}
-          EMAIL_TRANSPORT: resend
-          RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+          EMAIL_TRANSPORT: smtp
+          SMTP_HOST: ${{ vars.PRODUCTION_SMTP_HOST }}
+          SMTP_PORT: ${{ vars.PRODUCTION_SMTP_PORT }}
+          SMTP_USER: ${{ vars.PRODUCTION_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.PRODUCTION_SMTP_PASSWORD }}
           EMAIL_FROM: ${{ vars.PRODUCTION_EMAIL_FROM }}
 
       # Runs on failure AND on cancellation, and must run then: a step that

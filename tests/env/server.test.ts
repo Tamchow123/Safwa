@@ -8,10 +8,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // client-reachable file accidentally importing a server-only module.
 vi.mock("server-only", () => ({}));
 
+import { SMTP_REQUIRED_ENV } from "@/modules/env/rules";
 import {
   getServerEnv,
   resetServerEnvCacheForTests,
 } from "@/modules/env/server";
+
+/** A complete SMTP configuration (Phase 18.2). */
+const SMTP_ENV = {
+  EMAIL_TRANSPORT: "smtp",
+  SMTP_HOST: "smtp.example.com",
+  SMTP_PORT: "465",
+  SMTP_USER: "mailer@example.com",
+  SMTP_PASSWORD: "app-password-not-real",
+  EMAIL_FROM: "Safwa <mailer@example.com>",
+} as const;
 
 const BASE_ENV = {
   NODE_ENV: "development",
@@ -180,9 +191,7 @@ describe("getServerEnv", () => {
       BETTER_AUTH_SECRET: shortProductionSecret,
       BETTER_AUTH_URL: "https://safwa.example.com",
       NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-      EMAIL_TRANSPORT: "resend",
-      RESEND_API_KEY: "re_test",
-      EMAIL_FROM: "noreply@safwa.example.com",
+      ...SMTP_ENV,
     });
     try {
       getServerEnv();
@@ -207,9 +216,7 @@ describe("getServerEnv", () => {
         BETTER_AUTH_SECRET: "a".repeat(32),
         BETTER_AUTH_URL: "https://safwa.example.com",
         NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-        EMAIL_TRANSPORT: "resend",
-        RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "noreply@safwa.example.com",
+        ...SMTP_ENV,
         SIGNUP_ALLOWED_EMAILS: "owner@safwa.example.com",
         ...overrides,
       });
@@ -226,34 +233,66 @@ describe("getServerEnv", () => {
     });
 
     it("rejects console-file transport in production without the escape hatch", () => {
-      setProductionEnv({
-        EMAIL_TRANSPORT: "console-file",
-        RESEND_API_KEY: undefined,
-        EMAIL_FROM: undefined,
-      });
+      setProductionEnv({ EMAIL_TRANSPORT: "console-file" });
       expect(() => getServerEnv()).toThrow(/console-file/);
     });
 
     it("allows console-file transport in production with the explicit escape hatch", () => {
       setProductionEnv({
         EMAIL_TRANSPORT: "console-file",
-        RESEND_API_KEY: undefined,
-        EMAIL_FROM: undefined,
         ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION: "true",
       });
       expect(getServerEnv().emailTransport).toBe("console-file");
     });
 
-    it("requires RESEND_API_KEY and EMAIL_FROM when EMAIL_TRANSPORT=resend in production", () => {
-      setProductionEnv({ RESEND_API_KEY: undefined, EMAIL_FROM: undefined });
-      expect(() => getServerEnv()).toThrow(/RESEND_API_KEY/);
+    it("refuses EMAIL_TRANSPORT=resend, which Phase 18.2 removed", () => {
+      // A production environment still configured for the old provider must
+      // fail at start-up, not fall through to some other transport.
+      setProductionEnv({ EMAIL_TRANSPORT: "resend" });
+      expect(() => getServerEnv()).toThrow(/EMAIL_TRANSPORT/);
+    });
+
+    it("accepts a complete SMTP configuration in production", () => {
+      setProductionEnv();
+      const env = getServerEnv();
+      expect(env.emailTransport).toBe("smtp");
+      expect(env.smtpHost).toBe("smtp.example.com");
+      expect(env.smtpPort).toBe(465);
+      expect(env.smtpUser).toBe("mailer@example.com");
+      expect(env.smtpPassword).toBe(SMTP_ENV.SMTP_PASSWORD);
+      expect(env.emailFrom).toBe("Safwa <mailer@example.com>");
+    });
+
+    it.each(SMTP_REQUIRED_ENV)(
+      "requires %s when EMAIL_TRANSPORT=smtp in production",
+      (name) => {
+        setProductionEnv({ [name]: undefined });
+        expect(() => getServerEnv()).toThrow(
+          new RegExp(`${name} is required when EMAIL_TRANSPORT=smtp`),
+        );
+      },
+    );
+
+    it("treats a blank SMTP setting as missing in production", () => {
+      setProductionEnv({ SMTP_HOST: "" });
+      expect(() => getServerEnv()).toThrow(/SMTP_HOST is required/);
+    });
+
+    it("never echoes the SMTP password in a production configuration error", () => {
+      setProductionEnv({ SMTP_HOST: undefined });
+      try {
+        getServerEnv();
+        expect.unreachable("expected getServerEnv to throw");
+      } catch (error) {
+        expect(String(error)).not.toContain(SMTP_ENV.SMTP_PASSWORD);
+      }
     });
 
     it("accepts a fully valid production configuration", () => {
       setProductionEnv();
       const env = getServerEnv();
       expect(env.nodeEnv).toBe("production");
-      expect(env.emailTransport).toBe("resend");
+      expect(env.emailTransport).toBe("smtp");
       expect(env.syncEnabled).toBe(true);
       expect(env.signupAllowedEmails).toEqual(["owner@safwa.example.com"]);
     });
@@ -385,6 +424,41 @@ describe("getServerEnv", () => {
         expect(env.authRateLimitMax).toBe(1000);
         expect(env.authRateLimitDefaultMax).toBe(100000);
       });
+    });
+  });
+
+  describe("SMTP settings", () => {
+    it("reads both submission ports as numbers, tolerating surrounding spaces", () => {
+      setEnv({ SMTP_PORT: "465" });
+      expect(getServerEnv().smtpPort).toBe(465);
+      resetServerEnvCacheForTests();
+      setEnv({ SMTP_PORT: " 587 " });
+      expect(getServerEnv().smtpPort).toBe(587);
+    });
+
+    it("treats an absent or blank SMTP_PORT as unset", () => {
+      // A .env.local copied from .env.example carries `SMTP_PORT=`, which must
+      // not stop local development from starting.
+      for (const port of [undefined, "", "   "]) {
+        resetServerEnvCacheForTests();
+        setEnv({ SMTP_PORT: port });
+        expect(getServerEnv().smtpPort, JSON.stringify(port)).toBeUndefined();
+      }
+    });
+
+    it.each(["25", "2525", "4650", "465.0", "0x1D1", "smtp"])(
+      "rejects SMTP_PORT=%s in any environment, since the port selects the TLS mode",
+      (port) => {
+        setEnv({ SMTP_PORT: port });
+        expect(() => getServerEnv()).toThrow(/SMTP_PORT must be 465/);
+      },
+    );
+
+    it("leaves the SMTP settings optional outside production", () => {
+      // sendEmail's own config check names what is missing on first send;
+      // refusing to start would take guest-only pages down with it.
+      setEnv({ EMAIL_TRANSPORT: "smtp" });
+      expect(getServerEnv().emailTransport).toBe("smtp");
     });
   });
 

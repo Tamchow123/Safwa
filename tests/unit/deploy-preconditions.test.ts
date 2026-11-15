@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // against a client-reachable file importing a server-only module.
 vi.mock("server-only", () => ({}));
 
-import { PRODUCTION_RATE_LIMIT_BOUNDS } from "@/modules/env/rules";
+import {
+  PRODUCTION_RATE_LIMIT_BOUNDS,
+  SMTP_REQUIRED_ENV,
+} from "@/modules/env/rules";
 import {
   getServerEnv,
   requiredServerEnvKeys,
@@ -39,16 +42,22 @@ const VALID: Record<string, string> = {
   BETTER_AUTH_URL: "https://safwa.example.com",
   NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
   SIGNUP_ALLOWED_EMAILS: "owner@example.com",
-  EMAIL_TRANSPORT: "resend",
-  RESEND_API_KEY: "re_test_key",
-  EMAIL_FROM: "Safwa <noreply@safwa.example.com>",
+  EMAIL_TRANSPORT: "smtp",
+  SMTP_HOST: "smtp.example.com",
+  SMTP_PORT: "465",
+  SMTP_USER: "mailer@example.com",
+  SMTP_PASSWORD: "app-password-not-real",
+  EMAIL_FROM: "Safwa <mailer@example.com>",
 };
 
 /** The documented escape hatch: console email transport, explicitly permitted. */
 const DEV_EMAIL_HATCH: Record<string, string | undefined> = {
   EMAIL_TRANSPORT: "console-file",
   ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION: "true",
-  RESEND_API_KEY: undefined,
+  SMTP_HOST: undefined,
+  SMTP_PORT: undefined,
+  SMTP_USER: undefined,
+  SMTP_PASSWORD: undefined,
   EMAIL_FROM: undefined,
 };
 
@@ -220,18 +229,66 @@ describe("what it refuses", () => {
   });
 
   it("refuses the console email transport, because email is a hard dependency", () => {
-    expect(
-      failed({
-        EMAIL_TRANSPORT: "console-file",
-        RESEND_API_KEY: undefined,
-        EMAIL_FROM: undefined,
-      }),
-    ).toContain("EMAIL_TRANSPORT");
+    expect(failed({ EMAIL_TRANSPORT: "console-file" })).toContain(
+      "EMAIL_TRANSPORT",
+    );
+    // Unset means the runtime's default, which is the console transport.
+    expect(failed({ EMAIL_TRANSPORT: undefined })).toContain("EMAIL_TRANSPORT");
   });
 
-  it("requires the Resend credentials when Resend is selected", () => {
-    expect(failed({ RESEND_API_KEY: undefined })).toContain("RESEND_API_KEY");
-    expect(failed({ EMAIL_FROM: undefined })).toContain("EMAIL_FROM");
+  it("requires every SMTP setting when SMTP is selected, blank or absent", () => {
+    for (const variable of SMTP_REQUIRED_ENV) {
+      expect(failed({ [variable]: undefined }), variable).toContain(variable);
+      expect(failed({ [variable]: "  " }), `${variable} blank`).toContain(
+        variable,
+      );
+    }
+  });
+
+  it("names every missing SMTP setting at once", () => {
+    expect(failed({ SMTP_HOST: undefined, SMTP_PASSWORD: undefined })).toEqual(
+      expect.arrayContaining(["SMTP_HOST", "SMTP_PASSWORD"]),
+    );
+  });
+
+  it("accepts both submission ports and nothing else", () => {
+    expect(failed({ SMTP_PORT: "587" })).not.toContain("SMTP_PORT");
+    for (const port of ["25", "2525", "465.0", "0x1D1"]) {
+      expect(failed({ SMTP_PORT: port }), port).toContain("SMTP_PORT");
+    }
+  });
+
+  it("rejects a malformed SMTP port whatever the transport, as the runtime does", () => {
+    expect(failed({ ...DEV_EMAIL_HATCH, SMTP_PORT: "25" })).toContain(
+      "SMTP_PORT",
+    );
+  });
+
+  it("rejects an EMAIL_TRANSPORT the runtime does not know, even with the dev hatch on", () => {
+    // Before Phase 18.2 a blank or unknown value fell into the console-file
+    // branch, where the hatch downgraded it to a warning — while the runtime's
+    // enum refuses it outright.
+    for (const transport of ["sendgrid", ""]) {
+      expect(
+        failed({ ...DEV_EMAIL_HATCH, EMAIL_TRANSPORT: transport }),
+        JSON.stringify(transport),
+      ).toContain("EMAIL_TRANSPORT");
+    }
+  });
+
+  it("never prints the SMTP password", () => {
+    const report = check({ SMTP_HOST: undefined, SMTP_PORT: "25" });
+    expect(report.failures.length).toBeGreaterThan(0);
+    expect(formatFailures(report.failures)).not.toContain(VALID.SMTP_PASSWORD);
+  });
+
+  it("refuses EMAIL_TRANSPORT=resend, which Phase 18.2 removed", () => {
+    // An environment carried over from before the switch, credentials and
+    // all, must fail the build rather than deploy an instance that cannot
+    // send a verification email.
+    expect(
+      failed({ EMAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_test_key" }),
+    ).toContain("EMAIL_TRANSPORT");
   });
 
   it("rejects sync enabled without auth, however the booleans are spelled", () => {
@@ -324,6 +381,8 @@ describe("parity with the runtime validator", () => {
       { ...VALID, BETTER_AUTH_SECRET: "y".repeat(64) },
       { ...VALID, SYNC_ENABLED: "false", AUTH_ENABLED: "false" },
       { ...VALID, AUTH_RATE_LIMIT_MAX: "20", AUTH_RATE_LIMIT_DEFAULT_MAX: "1" },
+      { ...VALID, SMTP_PORT: "587" },
+      { ...VALID, SMTP_PORT: " 465 " },
     ];
     for (const [index, env] of accepted.entries()) {
       expect(checkDeployPreconditions(env).failures, `case ${index}`).toEqual(
@@ -354,8 +413,20 @@ describe("parity with the runtime validator", () => {
       { ...VALID, SYNC_ENABLED: "true", AUTH_ENABLED: "false" },
       { ...VALID, SYNC_ENABLED: "TRUE", AUTH_ENABLED: "False" },
       { ...VALID, EMAIL_TRANSPORT: "console-file" },
-      { ...VALID, RESEND_API_KEY: undefined },
-      { ...VALID, EMAIL_FROM: undefined },
+      { ...VALID, EMAIL_TRANSPORT: undefined },
+      { ...VALID, EMAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_test_key" },
+      { ...VALID, ...DEV_EMAIL_HATCH, EMAIL_TRANSPORT: "resend" },
+      ...SMTP_REQUIRED_ENV.map((variable) => ({
+        ...VALID,
+        [variable]: undefined,
+      })),
+      ...SMTP_REQUIRED_ENV.map((variable) => ({ ...VALID, [variable]: "" })),
+      { ...VALID, SMTP_HOST: " " },
+      { ...VALID, SMTP_PORT: "25" },
+      { ...VALID, SMTP_PORT: "465.0" },
+      { ...VALID, ...DEV_EMAIL_HATCH, SMTP_PORT: "25" },
+      { ...VALID, ...DEV_EMAIL_HATCH, EMAIL_TRANSPORT: "sendgrid" },
+      { ...VALID, ...DEV_EMAIL_HATCH, EMAIL_TRANSPORT: "" },
     ];
 
     for (const [index, env] of cases.entries()) {

@@ -1,7 +1,7 @@
 /**
  * Provider-neutral email contract (Phase 15, phases-15.md §39). Better
  * Auth callbacks (T11) depend on this interface, never on a specific
- * provider — auth configuration never directly instantiates Resend.
+ * provider — auth configuration never directly instantiates a transport.
  * Deliberately has no `server-only` marker: it is pure types, safe to
  * import from anywhere (though only server code ever will in practice).
  */
