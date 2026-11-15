@@ -39,7 +39,7 @@ Status: planning baseline (Architecture Plan v4, approved 2026-07-14).
 | `AUTH_RATE_LIMIT_DEFAULT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_DEFAULT_MAX` | default rate-limit bucket tuning (default 10s/100, matches Better Auth's own built-in default)                 | all — see caveat below                    |
 | `EMAIL_TRANSPORT`                                                        | `console-file` (dev/test) \| `smtp` (preview/prod)                                                             | all                                       |
 | `EMAIL_OUTBOX_DIR`                                                       | console-file transport's output dir (default `.local/email-outbox`)                                            | dev/test only                             |
-| `SMTP_HOST` / `SMTP_PORT`                                                | SMTP submission server; the port must be `465` (TLS) or `587` (STARTTLS) in every environment (§2a)            | preview/prod (dev uses console transport) |
+| `SMTP_HOST` / `SMTP_PORT`                                                | SMTP server: a bare host name or IPv4, port `465` (TLS) or `587` (STARTTLS), in every environment (§2a)        | preview/prod (dev uses console transport) |
 | `SMTP_USER` / `SMTP_PASSWORD`                                            | the sending account and its credential — for Gmail, an app password on a dedicated account (§2a)               | preview/prod                              |
 | `EMAIL_FROM`                                                             | sender address; for Gmail, the sending account itself (§2a)                                                    | preview/prod                              |
 | `ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION`                                | explicit escape hatch for `console-file` in production (default `false`)                                       | prod only, exceptional                    |
@@ -183,6 +183,16 @@ or `587` (STARTTLS, which the transport requires rather than attempts). Both
 environment, because the port is what selects the TLS mode. The server
 certificate is always verified.
 
+**The host is checked too (Phase 18.3).** `SMTP_HOST` is a bare host name such
+as `smtp.gmail.com`, or an IPv4 address, and nothing more: no `https://` or
+`smtp://`, no `:465` (the port is `SMTP_PORT`'s job), no path, no quotes, no
+whitespace inside it. An IPv6 literal and a trailing dot are refused as well.
+Both `pnpm deploy:verify` and the runtime validator reject a malformed host in
+every environment, naming the defect and never the value. Whitespace around a
+value — what pasting into a dashboard tends to leave — is trimmed instead, for
+`SMTP_HOST`, `SMTP_USER` and `EMAIL_FROM`. `SMTP_PASSWORD` is used exactly as
+entered.
+
 **Why a dedicated account.** A Gmail app password is not send-only: it also
 signs in over IMAP, so whoever holds `SMTP_PASSWORD` can read, and delete, the
 whole mailbox. An account that holds nothing else limits a leak to "send as, or
@@ -211,7 +221,11 @@ logs, under one of two prefixes, so search for both:
   server accepted no recipient, the template could not be rendered, or too many
   sends were already in flight. Codes only: the transport never logs an
   address, a link, a token or the password. `EAUTH` / `535` means the app
-  password was revoked or mistyped.
+  password was revoked or mistyped. `EDNS` means the host name did not
+  resolve; a correct host does not fail that way quickly, because the transport
+  falls back to the system resolver, so suspect the value of `SMTP_HOST`. The
+  first production email failed exactly so (2026-11-15), which is why the host
+  is now checked before deploy.
 - `[email:dispatch] delivery failed` — the send failed before reaching the
   transport: an SMTP setting is missing (production's environment validation
   and `pnpm deploy:verify` both reject that outright, so this is a preview or
@@ -223,6 +237,10 @@ logs, under one of two prefixes, so search for both:
 
 The auth route's `maxDuration` (60s) exists so that a send is not cut off
 mid-exchange.
+
+Once the cause is fixed, the learner needs no help: a sign-in refused because
+the address is unverified offers "Resend verification email" for that address,
+and so does `/verify-email` (Phase 18.3). Both share the endpoint's rate limit.
 
 ## 3. Hosting recommendation
 

@@ -17,8 +17,9 @@ Milestones:
 | 🏁 **Multi-device offline Beta** | 19          | concurrent offline reconciliation proven                         |
 | 🏁 **Production launch**         | 22          | hardened, monitored, deployed                                    |
 
-**Phase 18 is the last implemented phase**, followed by two correction phases:
-**18.1** (pre-deployment hardening) and **18.2** (SMTP email replaces Resend).
+**Phase 18 is the last implemented phase**, followed by three correction phases:
+**18.1** (pre-deployment hardening), **18.2** (SMTP email replaces Resend) and
+**18.3** (verification-email recovery and the fixes the first sign-up found).
 Phase 18 widened to absorb Phase 22's
 deploy, backup and security-header slices, and 19–21 plus the rest of 22 are
 deferred with the condition that reopens each recorded under "Deliberately
@@ -700,6 +701,58 @@ quality gate, full council, draft PR).
 | Deferred out of 18.2                                 | Reopened by                                                                                                              |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | **OAuth2 (XOAUTH2) instead of a Gmail app password** | Google withdrawing app passwords for the account, or the mailbox scope of an app password (`RISK_REGISTER.md` risk 32) being judged too broad. |
+
+## Phase 18.3 — Verification-email recovery, signed-in prompt fix, SMTP setting hardening (post-merge correction)
+
+Not a feature phase: four defects the first production sign-up hit on
+2026-11-15, fixed through the same workflow as any phase (branch, reviewed
+slices, quality gate, full council, draft PR).
+
+- **Objective:** an unverified learner can always get a new verification link,
+  no page claims something that did not happen, and a mistyped SMTP host fails
+  the deploy instead of the first email.
+- **Shipped:**
+  - **Resend from the sign-in page.** A sign-in refused with
+    `EMAIL_NOT_VERIFIED` now offers "Resend verification email" for the address
+    that was refused. Better Auth returns that code only after the password
+    verified, so the offer reveals nothing the password did not; it reuses
+    `/send-verification-email`'s existing rate limit and generic reply. Before,
+    the only resend form sat behind an `?error=` redirect on `/verify-email`.
+    Better Auth's `sendOnSignIn` was rejected: it sends on every refused
+    sign-in, not on request.
+  - **An honest `/verify-email`.** Every verification email now carries the
+    callback `/verify-email?verified=1`
+    (`modules/auth/verification-links.ts`), and the page shows "Email verified"
+    only for that marker. A direct visit used to say so; it now gets a neutral
+    state with the resend form and a sign-in link.
+  - **The guest note is for guests.** "Your progress stays on this device"
+    showed to signed-in learners on any device with earlier guest activity. It
+    now renders only when the session classifies as `guest`; `unknown`
+    (loading, offline, `AUTH_ENABLED=false`) hides it too, so it never flashes
+    at a signed-in learner.
+  - **SMTP settings read the way they are pasted.** `SMTP_HOST`, `SMTP_USER`
+    and `EMAIL_FROM` are trimmed; `SMTP_HOST` must be a bare host name or IPv4
+    address in every environment, checked by one shared rule in both validators
+    (`DEPLOYMENT.md` §2a). The first production email failed with `code=EDNS`
+    from exactly such a host.
+- **Deliberately NOT changed:** the verification policy, session handling, the
+  sign-up allowlist and enumeration-safe dispatch. `SMTP_PASSWORD` is never
+  trimmed — a credential's characters belong to its provider, and a wrong one
+  already fails loudly with `EAUTH`.
+- **What it does not claim:** `verified=1` is an unsigned marker, so a
+  hand-typed `/verify-email?verified=1` still shows the success card. It grants
+  nothing — sign-in enforces verification on the server, and a refused sign-in
+  now offers a new link — and making it unforgeable would need a server round
+  trip out of proportion to a status page. A link sent before 18.3 carries the
+  old bare callback and lands on the neutral state, which says "Already
+  verified? Sign in".
+- **Prerequisites:** Phase 18.2.
+- **Deploy note:** no migration, no new variable. An `SMTP_HOST` that 18.2
+  accepted can now fail `pnpm deploy:verify`; the message names the defect.
+
+| Deferred out of 18.3                                      | Reopened by                                                                                                                                                         |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A per-recipient cooldown on verification-email resends** | Widening `SIGNUP_ALLOWED_EMAILS` beyond the owner. Until then an unverified account exists only during the owner's own sign-up, so there is no one else to send to (`RISK_REGISTER.md` risk 33). |
 
 ## Phase 19 — Multi-device offline reconciliation 🏁 Multi-device offline Beta
 
