@@ -23,7 +23,9 @@ import {
   normaliseBooleanFlag,
   parseSmtpPort,
   PRODUCTION_RATE_LIMIT_BOUNDS,
+  readSetting,
   SMTP_REQUIRED_ENV,
+  smtpHostProblem,
   type SmtpSubmissionPort,
 } from "@/modules/env/rules";
 
@@ -40,6 +42,11 @@ function booleanFlag(defaultValue: boolean) {
     // it rather than this silently deciding.
     return normaliseBooleanFlag(value) ?? value;
   }, z.boolean());
+}
+
+/** An optional text setting, trimmed, with blank read as unset. */
+function trimmedSetting() {
+  return z.string().optional().transform(readSetting);
 }
 
 const rawServerEnvSchema = z.object({
@@ -64,12 +71,24 @@ const rawServerEnvSchema = z.object({
   // AUTH_ENABLED (sync is meaningless without an authenticated account).
   SYNC_ENABLED: booleanFlag(true),
   EMAIL_TRANSPORT: z.enum(EMAIL_TRANSPORTS).default("console-file"),
-  EMAIL_FROM: z.string().optional(),
+  EMAIL_FROM: trimmedSetting(),
   // SMTP submission (Phase 18.2). Required only when EMAIL_TRANSPORT=smtp —
   // in production by assertProductionInvariants, elsewhere by sendEmail's own
   // config check — but a malformed port is refused in every environment: the
-  // port selects the TLS mode, so there is no harmless wrong value.
-  SMTP_HOST: z.string().optional(),
+  // port selects the TLS mode, so there is no harmless wrong value. The host
+  // is the same (Phase 18.3): a malformed one only ever fails at send time.
+  SMTP_HOST: z
+    .string()
+    .optional()
+    .transform((raw, ctx): string | undefined => {
+      const host = readSetting(raw);
+      const problem = host === undefined ? undefined : smtpHostProblem(host);
+      if (problem !== undefined) {
+        ctx.addIssue({ code: "custom", message: `SMTP_HOST ${problem}` });
+        return z.NEVER;
+      }
+      return host;
+    }),
   SMTP_PORT: z
     .string()
     .optional()
@@ -85,7 +104,10 @@ const rawServerEnvSchema = z.object({
       }
       return port;
     }),
-  SMTP_USER: z.string().optional(),
+  SMTP_USER: trimmedSetting(),
+  // Never trimmed, unlike the settings around it: a credential's characters
+  // belong to its provider, so the app does not edit them, and a mistyped one
+  // already fails loudly at send time with EAUTH (DEPLOYMENT.md §2a).
   SMTP_PASSWORD: z.string().optional(),
   EMAIL_OUTBOX_DIR: z.string().default(".local/email-outbox"),
   CONTENT_SERVER_DIR: z.string().default("content-server"),

@@ -61,6 +61,33 @@ const DEV_EMAIL_HATCH: Record<string, string | undefined> = {
   EMAIL_FROM: undefined,
 };
 
+/**
+ * `SMTP_HOST` values that are not a bare host (Phase 18.3). The first four are
+ * the shapes acceptance criterion 3 names; the rest cover each remaining
+ * defect the shared rule reports.
+ */
+const MALFORMED_SMTP_HOSTS = [
+  "https://smtp.gmail.com",
+  "smtp.gmail.com:465",
+  "smtp.gmail.com/",
+  '"smtp.gmail.com"',
+  "smtp://smtp.gmail.com",
+  "smtp .gmail.com",
+  "smtp.gmail.com.",
+  "smtp_relay.gmail.com",
+  "mailer@smtp.gmail.com",
+  "999.0.2.10",
+  "192.0.2.1x",
+  "::1",
+];
+
+/** Defective only by surrounding whitespace, which both validators repair. */
+const PADDED_SMTP_HOSTS = [
+  " smtp.gmail.com",
+  "smtp.gmail.com\n",
+  "\tsmtp.gmail.com \r\n",
+];
+
 function check(overrides: Record<string, string | undefined> = {}) {
   return checkDeployPreconditions({ ...VALID, ...overrides });
 }
@@ -264,6 +291,39 @@ describe("what it refuses", () => {
     );
   });
 
+  it("rejects a malformed SMTP host whatever the transport, as the runtime does", () => {
+    for (const host of MALFORMED_SMTP_HOSTS) {
+      expect(failed({ SMTP_HOST: host }), JSON.stringify(host)).toContain(
+        "SMTP_HOST",
+      );
+      expect(
+        failed({ ...DEV_EMAIL_HATCH, SMTP_HOST: host }),
+        `${JSON.stringify(host)} with the dev hatch`,
+      ).toContain("SMTP_HOST");
+    }
+  });
+
+  it("accepts a host padded with whitespace, and an IPv4 address", () => {
+    for (const host of [...PADDED_SMTP_HOSTS, "192.0.2.10", "smtp.gmail.com"]) {
+      expect(failed({ SMTP_HOST: host }), JSON.stringify(host)).not.toContain(
+        "SMTP_HOST",
+      );
+    }
+  });
+
+  it("says what is wrong with a host without printing it", () => {
+    const problems = MALFORMED_SMTP_HOSTS.map((host) =>
+      formatFailures(check({ SMTP_HOST: host }).failures),
+    );
+    expect(problems[0]).toMatch(/SMTP_HOST must be a bare host name/);
+    expect(problems[1]).toMatch(/SMTP_HOST must not contain a colon/);
+    expect(problems[2]).toMatch(/SMTP_HOST must not contain a path/);
+    expect(problems[3]).toMatch(/SMTP_HOST must not be quoted/);
+    for (const [index, problem] of problems.entries()) {
+      expect(problem, String(index)).not.toContain("gmail");
+    }
+  });
+
   it("rejects an EMAIL_TRANSPORT the runtime does not know, even with the dev hatch on", () => {
     // Before Phase 18.2 a blank or unknown value fell into the console-file
     // branch, where the hatch downgraded it to a warning — while the runtime's
@@ -383,6 +443,13 @@ describe("parity with the runtime validator", () => {
       { ...VALID, AUTH_RATE_LIMIT_MAX: "20", AUTH_RATE_LIMIT_DEFAULT_MAX: "1" },
       { ...VALID, SMTP_PORT: "587" },
       { ...VALID, SMTP_PORT: " 465 " },
+      ...PADDED_SMTP_HOSTS.map((host) => ({ ...VALID, SMTP_HOST: host })),
+      { ...VALID, SMTP_HOST: "192.0.2.10" },
+      {
+        ...VALID,
+        SMTP_USER: " mailer@example.com\n",
+        EMAIL_FROM: "\tSafwa <mailer@example.com> ",
+      },
     ];
     for (const [index, env] of accepted.entries()) {
       expect(checkDeployPreconditions(env).failures, `case ${index}`).toEqual(
@@ -427,6 +494,14 @@ describe("parity with the runtime validator", () => {
       { ...VALID, ...DEV_EMAIL_HATCH, SMTP_PORT: "25" },
       { ...VALID, ...DEV_EMAIL_HATCH, EMAIL_TRANSPORT: "sendgrid" },
       { ...VALID, ...DEV_EMAIL_HATCH, EMAIL_TRANSPORT: "" },
+      ...MALFORMED_SMTP_HOSTS.map((host) => ({ ...VALID, SMTP_HOST: host })),
+      ...MALFORMED_SMTP_HOSTS.map((host) => ({
+        ...VALID,
+        ...DEV_EMAIL_HATCH,
+        SMTP_HOST: host,
+      })),
+      { ...VALID, SMTP_USER: " \n" },
+      { ...VALID, EMAIL_FROM: "\t" },
     ];
 
     for (const [index, env] of cases.entries()) {
@@ -435,6 +510,25 @@ describe("parity with the runtime validator", () => {
         runtimeAccepts(env),
         `case ${index}: the pre-deploy check accepted an environment the runtime rejects`,
       ).toBe(true);
+    }
+  });
+
+  it("refuses every malformed SMTP host in both validators, not just one", () => {
+    // "Never more permissive" alone would pass if both accepted these. The
+    // host check exists because both once did, so hold each one to a refusal.
+    for (const host of MALFORMED_SMTP_HOSTS) {
+      const envs: Record<string, string | undefined>[] = [
+        { ...VALID, SMTP_HOST: host },
+        { ...VALID, ...DEV_EMAIL_HATCH, SMTP_HOST: host },
+      ];
+      for (const env of envs) {
+        const label = `${JSON.stringify(host)} via ${env.EMAIL_TRANSPORT}`;
+        expect(
+          checkDeployPreconditions(env).failures.map((f) => f.variable),
+          label,
+        ).toContain("SMTP_HOST");
+        expect(runtimeAccepts(env), label).toBe(false);
+      }
     }
   });
 });

@@ -278,6 +278,16 @@ describe("getServerEnv", () => {
       expect(() => getServerEnv()).toThrow(/SMTP_HOST is required/);
     });
 
+    it.each(["SMTP_HOST", "SMTP_USER", "EMAIL_FROM"])(
+      "treats a whitespace-only %s as missing in production",
+      (name) => {
+        setProductionEnv({ [name]: " \n" });
+        expect(() => getServerEnv()).toThrow(
+          new RegExp(`${name} is required when EMAIL_TRANSPORT=smtp`),
+        );
+      },
+    );
+
     it("never echoes the SMTP password in a production configuration error", () => {
       setProductionEnv({ SMTP_HOST: undefined });
       try {
@@ -453,6 +463,91 @@ describe("getServerEnv", () => {
         expect(() => getServerEnv()).toThrow(/SMTP_PORT must be 465/);
       },
     );
+
+    it("trims SMTP_HOST, SMTP_USER and EMAIL_FROM", () => {
+      // Surrounding whitespace is the one defect a pasted value commonly
+      // carries that is safe to repair (Phase 18.3).
+      setEnv({
+        SMTP_HOST: " smtp.gmail.com\n",
+        SMTP_USER: "\tmailer@example.com ",
+        EMAIL_FROM: " Safwa <mailer@example.com>\r\n",
+      });
+      const env = getServerEnv();
+      expect(env.smtpHost).toBe("smtp.gmail.com");
+      expect(env.smtpUser).toBe("mailer@example.com");
+      expect(env.emailFrom).toBe("Safwa <mailer@example.com>");
+    });
+
+    it("never trims SMTP_PASSWORD", () => {
+      // A credential's characters belong to its provider; a wrong one fails
+      // at send time with EAUTH rather than being silently edited here.
+      setEnv({ SMTP_PASSWORD: " pass word " });
+      expect(getServerEnv().smtpPassword).toBe(" pass word ");
+    });
+
+    it("reads a blank SMTP_HOST, SMTP_USER or EMAIL_FROM as unset outside production", () => {
+      setEnv({ SMTP_HOST: "  ", SMTP_USER: "", EMAIL_FROM: "\n" });
+      const env = getServerEnv();
+      expect(env.smtpHost).toBeUndefined();
+      expect(env.smtpUser).toBeUndefined();
+      expect(env.emailFrom).toBeUndefined();
+    });
+
+    it.each([
+      "smtp.gmail.com",
+      "SMTP.Example.COM",
+      "mail-1.example.co.uk",
+      "192.0.2.10",
+      "localhost",
+      "mail.example.xn--p1ai",
+    ])("accepts SMTP_HOST=%j", (host) => {
+      setEnv({ SMTP_HOST: host });
+      expect(getServerEnv().smtpHost).toBe(host);
+    });
+
+    it.each([
+      [
+        "https://smtp.gmail.com",
+        /SMTP_HOST must be a bare host name, without a scheme/,
+      ],
+      [
+        "smtp://smtp.gmail.com",
+        /SMTP_HOST must be a bare host name, without a scheme/,
+      ],
+      ["smtp.gmail.com:465", /SMTP_HOST must not contain a colon/],
+      ["::1", /SMTP_HOST must not contain a colon/],
+      ["smtp.gmail.com/", /SMTP_HOST must not contain a path/],
+      ['"smtp.gmail.com"', /SMTP_HOST must not be quoted/],
+      ["'smtp.gmail.com'", /SMTP_HOST must not be quoted/],
+      ["smtp .gmail.com", /SMTP_HOST must not contain whitespace/],
+      ["smtp.gmail\n.com", /SMTP_HOST must not contain whitespace/],
+      ["smtp.gmail.com.", /SMTP_HOST must be a host name/],
+      ["smtp..gmail.com", /SMTP_HOST must be a host name/],
+      ["-smtp.gmail.com", /SMTP_HOST must be a host name/],
+      ["smtp_relay.gmail.com", /SMTP_HOST must be a host name/],
+      ["mailer@smtp.gmail.com", /SMTP_HOST must be a host name/],
+      ["999.0.2.10", /SMTP_HOST must be a host name/],
+      ["192.0.2.1x", /SMTP_HOST must be a host name/],
+      ["smtp.example.1com", /SMTP_HOST must be a host name/],
+      ["192.0.2", /SMTP_HOST must be a host name/],
+      [`${"a".repeat(64)}.example.com`, /SMTP_HOST must be a host name/],
+    ])(
+      "rejects SMTP_HOST=%j in any environment, naming the defect",
+      (host, defect) => {
+        setEnv({ SMTP_HOST: host });
+        expect(() => getServerEnv()).toThrow(defect);
+      },
+    );
+
+    it("never echoes a rejected SMTP_HOST", () => {
+      setEnv({ SMTP_HOST: "https://smtp.gmail.com:465/" });
+      try {
+        getServerEnv();
+        expect.unreachable("expected getServerEnv to throw");
+      } catch (error) {
+        expect(String(error)).not.toContain("gmail");
+      }
+    });
 
     it("leaves the SMTP settings optional outside production", () => {
       // sendEmail's own config check names what is missing on first send;
