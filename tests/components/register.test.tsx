@@ -71,7 +71,7 @@ describe("RegisterForm", () => {
     expect(signUpEmailMock).not.toHaveBeenCalled();
   });
 
-  it("normalises the email (trim + lowercase) and sets callbackURL to /verify-email on submit", async () => {
+  it("normalises the email (trim + lowercase) and sends the verified-marker callbackURL on submit", async () => {
     signUpEmailMock.mockResolvedValue({ error: null, data: {} });
     const user = userEvent.setup();
     render(<RegisterForm />);
@@ -83,7 +83,7 @@ describe("RegisterForm", () => {
       name: "Amina Yusuf",
       email: "amina@example.com",
       password: "correct-horse-battery",
-      callbackURL: "/verify-email",
+      callbackURL: "/verify-email?verified=1",
     });
   });
 

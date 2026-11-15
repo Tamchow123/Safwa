@@ -409,6 +409,49 @@ test.describe("18.3 the guest prompt is for guests only", () => {
   });
 });
 
+test.describe("18.3 the verify-email page only claims what happened", () => {
+  test("a direct visit claims nothing and offers a new link", async ({
+    page,
+  }) => {
+    // Before 18.3 this exact visit said "Email verified".
+    await page.goto("/verify-email");
+    await expect(page.getByTestId("verify-email-unconfirmed")).toBeVisible();
+    await expect(page.getByText("Email verified")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Resend verification email" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    await expectNoSeriousViolations(page);
+  });
+
+  test("a broken link lands on the invalid state through the real redirect, and the real link still verifies", async ({
+    page,
+  }) => {
+    const email = freshEmail("verify-marker");
+    await registerOnly(page, email);
+    const link = new URL(
+      extractUrlFromMessage(await waitForOutboxMessage(email, "verify-email")),
+    );
+
+    // Every link carries the marker callback, so Better Auth's failure
+    // redirect appends `&error=` to it: the page must let the error win.
+    const broken = new URL(link);
+    broken.searchParams.set("token", "not-a-real-token");
+    await page.goto(broken.toString());
+    await expect(page.getByTestId("verify-email-invalid")).toBeVisible();
+    expect(page.url()).toContain("verified=1");
+    expect(page.url()).toContain("error=INVALID_TOKEN");
+
+    await page.goto(link.toString());
+    await expect(page.getByTestId("verify-email-success")).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("verified")).toBe("1");
+    expect(page.url()).not.toContain("error=");
+  });
+});
+
 test.describe("60.10 delete account", () => {
   // The deliberate post-deletion login attempt below triggers an expected
   // 401 (the account no longer exists).

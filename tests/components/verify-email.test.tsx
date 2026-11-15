@@ -21,7 +21,8 @@ beforeEach(() => {
 });
 
 describe("VerifyEmailStatus", () => {
-  it("shows a success state when there is no error query param (covers both just-verified and already-verified)", () => {
+  it("shows a success state for Better Auth's success redirect, verified=1 (covers both just-verified and already-verified)", () => {
+    currentSearchParams = new URLSearchParams({ verified: "1" });
     render(<VerifyEmailStatus />);
     expect(screen.getByTestId("verify-email-success")).toBeInTheDocument();
     expect(screen.getByText("Email verified")).toBeInTheDocument();
@@ -30,6 +31,56 @@ describe("VerifyEmailStatus", () => {
       "/login",
     );
   });
+
+  it("never claims a verification on a direct visit with no query params (Phase 18.3)", () => {
+    // Better Auth only ever redirects here with verified=1 or an error, so a
+    // bare visit is a bookmark, a typed URL or a pre-18.3 link — evidence of
+    // nothing. It gets a neutral state that offers a new link and sign-in.
+    render(<VerifyEmailStatus />);
+    expect(screen.getByTestId("verify-email-unconfirmed")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("verify-email-success"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Email verified")).not.toBeInTheDocument();
+    expect(screen.getByText("Verify your email")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Resend verification email" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/already verified\?/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+  });
+
+  it.each(["0", "true", "", "1x"])(
+    "treats verified=%j as no evidence: only the exact marker means success",
+    (value) => {
+      currentSearchParams = new URLSearchParams({ verified: value });
+      render(<VerifyEmailStatus />);
+      expect(
+        screen.getByTestId("verify-email-unconfirmed"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    ["TOKEN_EXPIRED", "verify-email-expired"],
+    ["INVALID_TOKEN", "verify-email-invalid"],
+    ["USER_NOT_FOUND", "verify-email-invalid"],
+  ])(
+    "lets error=%s win over the marker, since a failed link carries both",
+    (code, testId) => {
+      // The real failure redirect for a link sent with the marker callback:
+      // Better Auth appends `&error=` to a callbackURL that has a query.
+      currentSearchParams = new URLSearchParams(`verified=1&error=${code}`);
+      render(<VerifyEmailStatus />);
+      expect(screen.getByTestId(testId)).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("verify-email-success"),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("shows an expired state for error=TOKEN_EXPIRED", () => {
     currentSearchParams = new URLSearchParams({ error: "TOKEN_EXPIRED" });
@@ -75,7 +126,7 @@ describe("VerifyEmailStatus", () => {
     await waitFor(() =>
       expect(sendVerificationEmailMock).toHaveBeenCalledWith({
         email: "learner@example.com",
-        callbackURL: "/verify-email",
+        callbackURL: "/verify-email?verified=1",
       }),
     );
     expect(
@@ -103,6 +154,27 @@ describe("VerifyEmailStatus", () => {
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Too many attempts. Please wait a moment and try again.",
       ),
+    );
+  });
+
+  it("offers a resend from the neutral state too", async () => {
+    sendVerificationEmailMock.mockResolvedValue({ error: null, data: {} });
+    const user = userEvent.setup();
+    render(<VerifyEmailStatus />);
+
+    await user.type(screen.getByLabelText("Email"), "learner@example.com");
+    await user.click(
+      screen.getByRole("button", { name: "Resend verification email" }),
+    );
+
+    await waitFor(() =>
+      expect(sendVerificationEmailMock).toHaveBeenCalledWith({
+        email: "learner@example.com",
+        callbackURL: "/verify-email?verified=1",
+      }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /a new link is on its way/,
     );
   });
 
