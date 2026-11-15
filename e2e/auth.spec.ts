@@ -375,6 +375,40 @@ test.describe("60.9 login does not merge/upload guest data; sign-out removes onl
   });
 });
 
+test.describe("18.3 the guest prompt is for guests only", () => {
+  test("a device with guest progress shows it to the guest and never to the signed-in account", async ({
+    page,
+  }) => {
+    // First guest progress mints the device profile. The profile outlives
+    // sign-in, which is what used to show a signed-in learner the guest note.
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "Large" }).click();
+    await expect
+      .poll(async () => (await idbAll(page, "profile")).length)
+      .toBe(1);
+    await page.goto("/");
+    await expect(page.getByTestId("register-prompt")).toBeVisible();
+
+    const email = freshEmail("guest-prompt");
+    await registerAndVerify(page, email);
+    await login(page, email);
+    await declineMergePrompt(page);
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Dashboard",
+    );
+    // The account menu only renders once the session has named the account,
+    // and the prompt's own local read finishes long before the network
+    // settles, so by then a prompt that was going to show would be showing.
+    await expect(
+      page.getByRole("button", { name: "Account menu" }),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("register-prompt")).toHaveCount(0);
+  });
+});
+
 test.describe("60.10 delete account", () => {
   // The deliberate post-deletion login attempt below triggers an expected
   // 401 (the account no longer exists).

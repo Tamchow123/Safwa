@@ -15,6 +15,8 @@ import {
   useLocalOwner,
   useResolveOwner,
 } from "@/components/sync/use-local-owner";
+import { useSession } from "@/modules/auth/client";
+import { classifySessionIdentity } from "@/modules/auth/session-identity";
 import { getSafwaDb } from "@/modules/content/db";
 import { peekDeviceProfile } from "@/modules/profile/device";
 import { GUEST_STATE_CHANGED_EVENT } from "@/modules/profile/persistence";
@@ -27,8 +29,15 @@ import {
  * Gentle, dismissible note for guests whose progress lives only on this
  * device (PRODUCT_REQUIREMENTS §4.7). Shown once a device profile exists
  * (i.e. the guest has durable local state) and until dismissed; the
- * dismissal itself is durable. Accounts arrive in a later phase, so the
- * prompt points at the export safety valve rather than a sign-up flow.
+ * dismissal itself is durable. It offers both an account and the export
+ * safety valve.
+ *
+ * Guests only (Phase 18.3). A device profile outlives sign-in, so without
+ * this check a signed-in learner was told their progress stays on this
+ * device. Only a session that has resolved to `guest` shows it: `unknown` —
+ * still loading, offline, or `AUTH_ENABLED=false`, where no account can be
+ * created anyway — hides it too, so it never flashes at a signed-in learner
+ * while the session loads. A guest loses only a reminder in those cases.
  *
  * First progress can happen while the prompt is already mounted (e.g. a
  * theme change from the header on the dashboard), so besides the mount
@@ -37,6 +46,7 @@ import {
  * navigation or reload needed.
  */
 export function RegisterPrompt() {
+  const isGuest = classifySessionIdentity(useSession()).kind === "guest";
   const owner = useLocalOwner();
   const resolveOwner = useResolveOwner();
   const [visible, setVisible] = useState(false);
@@ -46,7 +56,7 @@ export function RegisterPrompt() {
   const dismissedThisSession = useRef(false);
 
   useEffect(() => {
-    if (typeof indexedDB === "undefined") return;
+    if (!isGuest || typeof indexedDB === "undefined") return;
     let cancelled = false;
     const check = () => {
       void (async () => {
@@ -75,9 +85,9 @@ export function RegisterPrompt() {
       cancelled = true;
       window.removeEventListener(GUEST_STATE_CHANGED_EVENT, check);
     };
-  }, [owner]);
+  }, [owner, isGuest]);
 
-  if (!visible) return null;
+  if (!isGuest || !visible) return null;
 
   async function dismiss() {
     dismissedThisSession.current = true;
