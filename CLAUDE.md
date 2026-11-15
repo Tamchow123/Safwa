@@ -265,7 +265,8 @@ full gate (E2E included) must still pass before review.
 
 ## Phase implementation workflow (permanent rules)
 
-- **`/run-phase` is the standard implementation workflow** for every phase:
+- **`/run-phase` is the standard implementation workflow** for every phase,
+  and for every change that does not qualify for the small-change lane below:
   branch → implement in reviewed slices → per-commit review → quality gate →
   full-phase council → draft PR. It is a user-level skill
   (`~/.claude/skills/run-phase/`), as are its reviewer agents
@@ -287,30 +288,62 @@ full gate (E2E included) must still pass before review.
   fixed or explicitly rebutted with a technical rationale — never silently
   ignored. External/human review findings outrank a prior council approval:
   Phase 16 reached `PR_READY` twice and was reopened both times.
-- **No PR until the review approves.** A pull request may be created only
-  after the quality gate passes AND the final council returns an approval.
-  PRs are always created as drafts.
+- **No PR until the review approves.** A `/run-phase` pull request may be
+  created only after the quality gate passes AND the final council returns
+  an approval. Phase PRs are always created as drafts.
 - **Any code change invalidates the prior approval.** Re-run the quality gate
   and the review after every correction.
-- **Never merge a pull request or deploy automatically.** The human reviews
-  and merges every PR manually.
+- **Never deploy automatically, and never merge a phase PR.** The owner
+  reviews and merges every `/run-phase` PR. A small-change-lane PR may be
+  merged by Claude once every required check on it is green, where the
+  permission settings allow it (otherwise the owner merges it), and never
+  with `--admin`, which bypasses those checks.
 - **Never weaken tests.** Never delete, skip, hollow out or loosen a test to
   make a check or review pass.
 - **Never hide review failures.** Failed gates, reviewer rejections and
   unresolved findings are reported verbatim, not smoothed over.
 - **Never claim success without evidence.** "Done" requires quality-gate
-  output showing every check passed (`scripts/quality-gate.ps1` exit 0).
-- **No force-push, `reset --hard`, `clean`, branch deletion, or `gh pr
-merge`.** Also enforced mechanically by the `scripts/guard-git-push.ps1`
-  PreToolUse hook (self-tested by `scripts/test-guard-git-push.ps1`, gate
-  step 15), which blocks these in any argument position; the
+  output showing every check passed (`scripts/quality-gate.ps1` exit 0) —
+  or, for a small-change-lane PR, every required check on it green.
+- **No force-push, `reset --hard`, `clean`, branch deletion, `gh pr merge
+--admin`, or a push to any branch outside `phase/` and `fix/`.** Also
+  enforced mechanically by the `scripts/guard-git-push.ps1` PreToolUse hook
+  (self-tested by `scripts/test-guard-git-push.ps1`, gate step 16), which
+  blocks these in any argument position — including `--delete-branch` on a
+  merge; the
   `.claude/settings.json` deny list matches only command prefixes, so it is
   a first-position backstop only. The guard parses every token after `git
 push` as a ref, so run pushes bare — no `2>&1`/`| tail` redirection.
 - **Branch protection on `main`:** required checks "Quality & build" and
   "E2E (Chromium)"; force pushes and deletions blocked. Phase branches are
   `phase/<n>-<kebab-description>`; post-merge corrections use
-  `phase/<n>.<x>-…` and go through the same full workflow.
+  `phase/<n>.<x>-…` and go through the same full workflow, unless they
+  qualify for the small-change lane, whose branches are
+  `fix/<kebab-description>`.
+
+### Small-change lane (owner-approved exception to `/run-phase`)
+
+A change may skip `/run-phase` only if **all** of these hold:
+
+- it changes at most about 20 lines (not counting `pnpm-lock.yaml`) in at
+  most 3 files;
+- it is one of: a version-pin or tool-config bump, a config value, docs,
+  comments or typos, or a CI setting that touches no secrets or
+  permissions;
+- it touches none of: auth, sync, database schema or migrations, quiz
+  eligibility, `data/` or Arabic content, security headers, the git guard,
+  or env-validation rules;
+- it adds no dependency, and deletes or loosens no test.
+
+**Process:** branch `fix/<kebab-description>` from an up-to-date `main`;
+make the change; run the checks that cover it — at least `pnpm install
+--frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and
+`pnpm test`, plus `pnpm build` if it touches build or tooling; open a
+ready-for-review PR (not a draft) that says it used this lane and lists the
+checks run; wait for every required check to pass; then merge as above.
+**If in doubt, it is not small — use `/run-phase`.** The other rules in this
+section still apply in full: never weaken tests, never hide a failure, never
+claim success without evidence.
 
 # Compact instructions
 
