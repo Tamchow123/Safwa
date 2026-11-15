@@ -64,7 +64,6 @@ const rawServerEnvSchema = z.object({
   // AUTH_ENABLED (sync is meaningless without an authenticated account).
   SYNC_ENABLED: booleanFlag(true),
   EMAIL_TRANSPORT: z.enum(EMAIL_TRANSPORTS).default("console-file"),
-  RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
   // SMTP submission (Phase 18.2). Required only when EMAIL_TRANSPORT=smtp —
   // in production by assertProductionInvariants, elsewhere by sendEmail's own
@@ -148,7 +147,6 @@ export type ServerEnv = {
   authEnabled: boolean;
   syncEnabled: boolean;
   emailTransport: EmailTransportKind;
-  resendApiKey: string | undefined;
   emailFrom: string | undefined;
   smtpHost: string | undefined;
   smtpPort: SmtpSubmissionPort | undefined;
@@ -212,14 +210,6 @@ function assertProductionInvariants(
     problems.push(
       "EMAIL_TRANSPORT=console-file is rejected in production unless ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION=true is explicitly set (preview-only escape hatch)",
     );
-  }
-  if (raw.EMAIL_TRANSPORT === "resend") {
-    if (!raw.RESEND_API_KEY) {
-      problems.push("RESEND_API_KEY is required when EMAIL_TRANSPORT=resend");
-    }
-    if (!raw.EMAIL_FROM) {
-      problems.push("EMAIL_FROM is required when EMAIL_TRANSPORT=resend");
-    }
   }
   if (raw.EMAIL_TRANSPORT === "smtp") {
     for (const name of SMTP_REQUIRED_ENV) {
@@ -292,7 +282,6 @@ export function getServerEnv(): ServerEnv {
     authEnabled: parsed.data.AUTH_ENABLED,
     syncEnabled: parsed.data.SYNC_ENABLED,
     emailTransport: parsed.data.EMAIL_TRANSPORT,
-    resendApiKey: parsed.data.RESEND_API_KEY,
     emailFrom: parsed.data.EMAIL_FROM,
     smtpHost: parsed.data.SMTP_HOST,
     smtpPort: parsed.data.SMTP_PORT,

@@ -191,9 +191,7 @@ describe("getServerEnv", () => {
       BETTER_AUTH_SECRET: shortProductionSecret,
       BETTER_AUTH_URL: "https://safwa.example.com",
       NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-      EMAIL_TRANSPORT: "resend",
-      RESEND_API_KEY: "re_test",
-      EMAIL_FROM: "noreply@safwa.example.com",
+      ...SMTP_ENV,
     });
     try {
       getServerEnv();
@@ -218,9 +216,7 @@ describe("getServerEnv", () => {
         BETTER_AUTH_SECRET: "a".repeat(32),
         BETTER_AUTH_URL: "https://safwa.example.com",
         NEXT_PUBLIC_APP_URL: "https://safwa.example.com",
-        EMAIL_TRANSPORT: "resend",
-        RESEND_API_KEY: "re_test",
-        EMAIL_FROM: "noreply@safwa.example.com",
+        ...SMTP_ENV,
         SIGNUP_ALLOWED_EMAILS: "owner@safwa.example.com",
         ...overrides,
       });
@@ -237,31 +233,27 @@ describe("getServerEnv", () => {
     });
 
     it("rejects console-file transport in production without the escape hatch", () => {
-      setProductionEnv({
-        EMAIL_TRANSPORT: "console-file",
-        RESEND_API_KEY: undefined,
-        EMAIL_FROM: undefined,
-      });
+      setProductionEnv({ EMAIL_TRANSPORT: "console-file" });
       expect(() => getServerEnv()).toThrow(/console-file/);
     });
 
     it("allows console-file transport in production with the explicit escape hatch", () => {
       setProductionEnv({
         EMAIL_TRANSPORT: "console-file",
-        RESEND_API_KEY: undefined,
-        EMAIL_FROM: undefined,
         ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION: "true",
       });
       expect(getServerEnv().emailTransport).toBe("console-file");
     });
 
-    it("requires RESEND_API_KEY and EMAIL_FROM when EMAIL_TRANSPORT=resend in production", () => {
-      setProductionEnv({ RESEND_API_KEY: undefined, EMAIL_FROM: undefined });
-      expect(() => getServerEnv()).toThrow(/RESEND_API_KEY/);
+    it("refuses EMAIL_TRANSPORT=resend, which Phase 18.2 removed", () => {
+      // A production environment still configured for the old provider must
+      // fail at start-up, not fall through to some other transport.
+      setProductionEnv({ EMAIL_TRANSPORT: "resend" });
+      expect(() => getServerEnv()).toThrow(/EMAIL_TRANSPORT/);
     });
 
     it("accepts a complete SMTP configuration in production", () => {
-      setProductionEnv({ ...SMTP_ENV, RESEND_API_KEY: undefined });
+      setProductionEnv();
       const env = getServerEnv();
       expect(env.emailTransport).toBe("smtp");
       expect(env.smtpHost).toBe("smtp.example.com");
@@ -274,7 +266,7 @@ describe("getServerEnv", () => {
     it.each(SMTP_REQUIRED_ENV)(
       "requires %s when EMAIL_TRANSPORT=smtp in production",
       (name) => {
-        setProductionEnv({ ...SMTP_ENV, [name]: undefined });
+        setProductionEnv({ [name]: undefined });
         expect(() => getServerEnv()).toThrow(
           new RegExp(`${name} is required when EMAIL_TRANSPORT=smtp`),
         );
@@ -282,12 +274,12 @@ describe("getServerEnv", () => {
     );
 
     it("treats a blank SMTP setting as missing in production", () => {
-      setProductionEnv({ ...SMTP_ENV, SMTP_HOST: "" });
+      setProductionEnv({ SMTP_HOST: "" });
       expect(() => getServerEnv()).toThrow(/SMTP_HOST is required/);
     });
 
     it("never echoes the SMTP password in a production configuration error", () => {
-      setProductionEnv({ ...SMTP_ENV, SMTP_HOST: undefined });
+      setProductionEnv({ SMTP_HOST: undefined });
       try {
         getServerEnv();
         expect.unreachable("expected getServerEnv to throw");
@@ -300,7 +292,7 @@ describe("getServerEnv", () => {
       setProductionEnv();
       const env = getServerEnv();
       expect(env.nodeEnv).toBe("production");
-      expect(env.emailTransport).toBe("resend");
+      expect(env.emailTransport).toBe("smtp");
       expect(env.syncEnabled).toBe(true);
       expect(env.signupAllowedEmails).toEqual(["owner@safwa.example.com"]);
     });

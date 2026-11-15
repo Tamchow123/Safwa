@@ -200,15 +200,8 @@ export function checkDeployPreconditions(
     } else {
       fail(
         "EMAIL_TRANSPORT",
-        `must be "smtp" or "resend" in production, got "console-file"${env.EMAIL_TRANSPORT === undefined ? " (the default when unset)" : ""}`,
+        `must be "smtp" in production, got "console-file"${env.EMAIL_TRANSPORT === undefined ? " (the default when unset)" : ""}`,
       );
-    }
-  } else if (transport === "resend") {
-    if (!env.RESEND_API_KEY?.trim()) {
-      fail("RESEND_API_KEY", 'is required when EMAIL_TRANSPORT is "resend"');
-    }
-    if (!env.EMAIL_FROM?.trim()) {
-      fail("EMAIL_FROM", 'is required when EMAIL_TRANSPORT is "resend"');
     }
   } else {
     for (const variable of SMTP_REQUIRED_ENV) {

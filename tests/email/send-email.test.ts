@@ -12,20 +12,6 @@ vi.mock("@/modules/email/transports/console-file", () => ({
   createConsoleFileTransport: vi.fn(() => ({ send: sendMock })),
 }));
 
-const resendSendMock = vi.fn<
-  (input: SendEmailInput) => Promise<SendEmailResult>
->(async () => ({
-  success: true,
-  messageId: "resend-mock-id",
-}));
-const createResendTransportMock = vi.fn<
-  (options: { apiKey: string; from: string }) => { send: typeof resendSendMock }
->(() => ({ send: resendSendMock }));
-vi.mock("@/modules/email/transports/resend", () => ({
-  createResendTransport: (options: { apiKey: string; from: string }) =>
-    createResendTransportMock(options),
-}));
-
 const smtpSendMock = vi.fn<(input: SendEmailInput) => Promise<SendEmailResult>>(
   async () => ({
     success: true,
@@ -67,8 +53,6 @@ beforeEach(() => {
   resetServerEnvCacheForTests();
   resetEmailTransportCacheForTests();
   sendMock.mockClear();
-  resendSendMock.mockClear();
-  createResendTransportMock.mockClear();
   smtpSendMock.mockClear();
   createSmtpTransportMock.mockClear();
 });
@@ -216,7 +200,6 @@ describe("sendEmail", () => {
     });
     expect(smtpSendMock).toHaveBeenCalledTimes(1);
     expect(sendMock).not.toHaveBeenCalled();
-    expect(resendSendMock).not.toHaveBeenCalled();
   });
 
   it("names every missing SMTP setting, and never a configured value, before building the transport", async () => {
@@ -262,60 +245,22 @@ describe("sendEmail", () => {
     );
   });
 
-  it("dispatches to the Resend transport, constructed with the configured API key and sender, when EMAIL_TRANSPORT=resend", async () => {
+  it("refuses EMAIL_TRANSPORT=resend, which no longer exists, before sending anything", async () => {
+    // Phase 18.2 removed the Resend transport. An environment still naming it
+    // must fail at validation, not fall through to some other transport.
     process.env.EMAIL_TRANSPORT = "resend";
-    process.env.RESEND_API_KEY = "re_test_key";
-    process.env.EMAIL_FROM = "noreply@safwa.example.com";
     resetServerEnvCacheForTests();
     resetEmailTransportCacheForTests();
 
-    const result = await sendEmail({
-      template: "verify-email",
-      to: "learner@example.com",
-      url: "https://safwa.example.com/verify-email?token=abc",
-      token: "abc",
-    });
-
-    expect(result).toEqual({ success: true, messageId: "resend-mock-id" });
-    expect(createResendTransportMock).toHaveBeenCalledWith({
-      apiKey: "re_test_key",
-      from: "noreply@safwa.example.com",
-    });
-    expect(resendSendMock).toHaveBeenCalledTimes(1);
+    await expect(
+      sendEmail({
+        template: "verify-email",
+        to: "learner@example.com",
+        url: "https://safwa.example.com/verify-email?token=abc",
+        token: "abc",
+      }),
+    ).rejects.toThrow(/EMAIL_TRANSPORT/);
     expect(sendMock).not.toHaveBeenCalled();
-  });
-
-  it("throws a clear config error for EMAIL_TRANSPORT=resend with no RESEND_API_KEY", async () => {
-    process.env.EMAIL_TRANSPORT = "resend";
-    process.env.EMAIL_FROM = "noreply@safwa.example.com";
-    resetServerEnvCacheForTests();
-    resetEmailTransportCacheForTests();
-
-    await expect(
-      sendEmail({
-        template: "verify-email",
-        to: "learner@example.com",
-        url: "https://safwa.example.com/verify-email?token=abc",
-        token: "abc",
-      }),
-    ).rejects.toThrow(/RESEND_API_KEY is required/);
-    expect(createResendTransportMock).not.toHaveBeenCalled();
-  });
-
-  it("throws a clear config error for EMAIL_TRANSPORT=resend with no EMAIL_FROM", async () => {
-    process.env.EMAIL_TRANSPORT = "resend";
-    process.env.RESEND_API_KEY = "re_test_key";
-    resetServerEnvCacheForTests();
-    resetEmailTransportCacheForTests();
-
-    await expect(
-      sendEmail({
-        template: "verify-email",
-        to: "learner@example.com",
-        url: "https://safwa.example.com/verify-email?token=abc",
-        token: "abc",
-      }),
-    ).rejects.toThrow(/EMAIL_FROM is required/);
-    expect(createResendTransportMock).not.toHaveBeenCalled();
+    expect(createSmtpTransportMock).not.toHaveBeenCalled();
   });
 });

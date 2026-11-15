@@ -12,7 +12,7 @@
  * verified. There is no plaintext path, in any environment.
  *
  * Retry policy: exactly one attempt, bounded by `SMTP_SEND_TIMEOUT_MS` — the
- * same policy the Resend transport this replaces had. A caller that wants a
+ * same policy as the Resend transport it replaced. A caller that wants a
  * retry makes that its own explicit decision.
  *
  * The timeout bounds how long the CALLER waits. nodemailer has no per-send

@@ -73,7 +73,7 @@ export function parseSmtpPort(
 }
 
 /** The values `EMAIL_TRANSPORT` may take. */
-export const EMAIL_TRANSPORTS = ["console-file", "resend", "smtp"] as const;
+export const EMAIL_TRANSPORTS = ["console-file", "smtp"] as const;
 
 export type EmailTransportKind = (typeof EMAIL_TRANSPORTS)[number];
 

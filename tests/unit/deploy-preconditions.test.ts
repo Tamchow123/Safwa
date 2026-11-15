@@ -282,14 +282,13 @@ describe("what it refuses", () => {
     expect(formatFailures(report.failures)).not.toContain(VALID.SMTP_PASSWORD);
   });
 
-  it("requires the Resend credentials when Resend is selected", () => {
-    const resend = { EMAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_test_key" };
-    expect(failed({ ...resend, RESEND_API_KEY: undefined })).toContain(
-      "RESEND_API_KEY",
-    );
-    expect(failed({ ...resend, EMAIL_FROM: undefined })).toContain(
-      "EMAIL_FROM",
-    );
+  it("refuses EMAIL_TRANSPORT=resend, which Phase 18.2 removed", () => {
+    // An environment carried over from before the switch, credentials and
+    // all, must fail the build rather than deploy an instance that cannot
+    // send a verification email.
+    expect(
+      failed({ EMAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_test_key" }),
+    ).toContain("EMAIL_TRANSPORT");
   });
 
   it("rejects sync enabled without auth, however the booleans are spelled", () => {
@@ -384,7 +383,6 @@ describe("parity with the runtime validator", () => {
       { ...VALID, AUTH_RATE_LIMIT_MAX: "20", AUTH_RATE_LIMIT_DEFAULT_MAX: "1" },
       { ...VALID, SMTP_PORT: "587" },
       { ...VALID, SMTP_PORT: " 465 " },
-      { ...VALID, EMAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_test_key" },
     ];
     for (const [index, env] of accepted.entries()) {
       expect(checkDeployPreconditions(env).failures, `case ${index}`).toEqual(
@@ -416,13 +414,8 @@ describe("parity with the runtime validator", () => {
       { ...VALID, SYNC_ENABLED: "TRUE", AUTH_ENABLED: "False" },
       { ...VALID, EMAIL_TRANSPORT: "console-file" },
       { ...VALID, EMAIL_TRANSPORT: undefined },
-      { ...VALID, EMAIL_TRANSPORT: "resend" },
-      {
-        ...VALID,
-        EMAIL_TRANSPORT: "resend",
-        RESEND_API_KEY: "re_test_key",
-        EMAIL_FROM: undefined,
-      },
+      { ...VALID, EMAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_test_key" },
+      { ...VALID, ...DEV_EMAIL_HATCH, EMAIL_TRANSPORT: "resend" },
       ...SMTP_REQUIRED_ENV.map((variable) => ({
         ...VALID,
         [variable]: undefined,

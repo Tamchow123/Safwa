@@ -9,7 +9,6 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { assertSameOrigin } from "@/modules/email/link-safety";
 import { createConsoleFileTransport } from "@/modules/email/transports/console-file";
-import { createResendTransport } from "@/modules/email/transports/resend";
 import { createSmtpTransport } from "@/modules/email/transports/smtp";
 import type {
   EmailTemplate,
@@ -46,30 +45,12 @@ function getTransport(): EmailTransport {
         outboxDir: env.emailOutboxDir,
       });
       return cachedTransport;
-    case "resend": {
+    case "smtp": {
       // modules/env/server.ts only REQUIRES these in production (its
       // assertProductionInvariants check) — a non-production environment
-      // that sets EMAIL_TRANSPORT=resend without them must still fail
-      // closed here with a clear config error, not a confusing downstream
-      // Resend client error.
-      if (!env.resendApiKey) {
-        throw new Error(
-          "RESEND_API_KEY is required when EMAIL_TRANSPORT=resend",
-        );
-      }
-      if (!env.emailFrom) {
-        throw new Error("EMAIL_FROM is required when EMAIL_TRANSPORT=resend");
-      }
-      cachedTransport = createResendTransport({
-        apiKey: env.resendApiKey,
-        from: env.emailFrom,
-      });
-      return cachedTransport;
-    }
-    case "smtp": {
-      // Same reasoning as above: production refuses to start without these,
-      // so this is the clear error for any other environment. Names only —
-      // never a value, since one of them is a password.
+      // that selects smtp without them must still fail closed here, with a
+      // clear config error rather than a confusing downstream connection
+      // failure. Names only — never a value, since one of them is a password.
       const {
         smtpHost: host,
         smtpPort: port,
