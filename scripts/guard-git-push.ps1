@@ -16,7 +16,15 @@
       - git reset --hard
       - git clean
       - git branch -d / -D / --delete
-      - git push to a deleted ref, gh pr merge, gh repo delete
+      - git push of any branch outside phase/ or fix/
+      - gh pr merge with --admin (bypasses the required checks) or
+        --delete-branch / -d; gh repo delete
+
+    A plain `gh pr merge` is allowed: CLAUDE.md's small-change lane lets
+    Claude merge a fix/ PR once its required checks are green, and branch
+    protection on main refuses the merge until they are. The hook cannot
+    see which branch a PR number belongs to, so "small-lane PRs only" is
+    CLAUDE.md's rule, not this hook's.
 
     Exit 0 allows the call; exit 2 blocks it and feeds stderr back to the
     agent. Any parsing problem fails open (exit 0) so the hook can never
@@ -80,8 +88,8 @@ foreach ($segment in $segments) {
                 # src:dest refspec: the destination decides which remote branch
                 # moves, so `git push origin phase/5:main` is a push to main.
                 $dest = $Matches[1]
-                if ($dest -notmatch "^(refs/heads/)?phase/") {
-                    $violations += "push refspec targeting a non-phase branch ($dest)"
+                if ($dest -notmatch "^(refs/heads/)?(phase|fix)/") {
+                    $violations += "push refspec targeting a branch outside phase/ or fix/ ($dest)"
                 }
                 continue
             }
@@ -89,8 +97,8 @@ foreach ($segment in $segments) {
             # is a bare ref pushed to the same-named remote branch, so
             # `git push origin phase/5 main` also pushes main directly.
             $positional++
-            if ($positional -ge 2 -and $t -notmatch "^(refs/heads/)?phase/") {
-                $violations += "bare push ref outside phase/ ($t)"
+            if ($positional -ge 2 -and $t -notmatch "^(refs/heads/)?(phase|fix)/") {
+                $violations += "bare push ref outside phase/ or fix/ ($t)"
             }
         }
     }
@@ -115,7 +123,14 @@ foreach ($segment in $segments) {
     }
     if ($s -match "\sgit(\.exe)?\s+reset\s+(\S+\s+)*--hard\b") { $violations += "git reset --hard" }
     if ($s -match "\sgit(\.exe)?\s+clean\b") { $violations += "git clean" }
-    if ($s -match "\sgh(\.exe)?\s+pr\s+merge\b") { $violations += "pull request merge" }
+    if ($s -match "\sgh(\.exe)?\s+pr\s+merge\b") {
+        foreach ($t in $tokens) {
+            if ($t -eq "--admin") { $violations += "merge bypassing the required checks (--admin)"; continue }
+            if ($t -eq "--delete-branch") { $violations += "branch deletion on merge (--delete-branch)"; continue }
+            # gh's short options cluster too: -d is --delete-branch.
+            if ($t -cmatch "^-[A-Za-z]*d[A-Za-z]*$") { $violations += "branch deletion on merge (-d)" }
+        }
+    }
     if ($s -match "\sgh(\.exe)?\s+repo\s+delete\b") { $violations += "repository deletion" }
 }
 
@@ -125,7 +140,7 @@ if ($violations.Count -gt 0) {
     foreach ($v in ($violations | Select-Object -Unique)) {
         $err.WriteLine("  - $v")
     }
-    $err.WriteLine("Force pushes, remote/local branch deletion, hard resets, git clean, and merging are never permitted. Push normally, or stop and escalate to the user.")
+    $err.WriteLine("Force pushes, remote/local branch deletion, hard resets, git clean, and admin merges are never permitted. Push normally, or stop and escalate to the user.")
     exit 2
 }
 

@@ -51,6 +51,12 @@ $cases = @(
     @{ Cmd = "git push --tags origin"; Expect = 2; Name = "push --tags blocked" },
     @{ Cmd = "git push origin phase/5 phase/6"; Expect = 0; Name = "multiple phase refs allowed" },
     @{ Cmd = "git push --set-upstream origin phase/5"; Expect = 0; Name = "--set-upstream allowed" },
+    # Small-change lane branches (fix/*) push like phase/*; main stays off limits.
+    @{ Cmd = "git push -u origin fix/pnpm-pin"; Expect = 0; Name = "fix/ push allowed" },
+    @{ Cmd = "git push origin HEAD:fix/pnpm-pin"; Expect = 0; Name = "HEAD:fix refspec allowed" },
+    @{ Cmd = "git push origin fix/pnpm-pin:main"; Expect = 2; Name = "fix refspec to main blocked" },
+    @{ Cmd = "git push origin fix/pnpm-pin main"; Expect = 2; Name = "extra bare main ref after fix/ blocked" },
+    @{ Cmd = "git push origin fixes/pnpm-pin"; Expect = 2; Name = "lookalike fixes/ prefix blocked" },
     # git switch: force/discard variants are blocked, normal use is not.
     @{ Cmd = "git switch phase/5 --discard-changes"; Expect = 2; Name = "switch --discard-changes blocked" },
     @{ Cmd = "git switch phase/5 -f"; Expect = 2; Name = "switch -f blocked" },
@@ -72,7 +78,15 @@ $cases = @(
     # Other prohibited operations, incl. inside compound commands.
     @{ Cmd = "git fetch origin; git reset --hard origin/main"; Expect = 2; Name = "reset --hard in compound" },
     @{ Cmd = "git clean -fd"; Expect = 2; Name = "git clean" },
-    @{ Cmd = "gh pr merge 4 --squash"; Expect = 2; Name = "gh pr merge" },
+    # A plain merge is allowed (branch protection still demands green checks);
+    # bypassing those checks or deleting the branch on the way is not.
+    @{ Cmd = "gh pr merge 4 --merge"; Expect = 0; Name = "plain gh pr merge allowed" },
+    @{ Cmd = "gh pr merge 4 --squash"; Expect = 0; Name = "squash gh pr merge allowed" },
+    @{ Cmd = "gh pr merge 4 --merge --admin"; Expect = 2; Name = "gh pr merge --admin blocked" },
+    @{ Cmd = "gh pr merge 4 --merge --delete-branch"; Expect = 2; Name = "gh pr merge --delete-branch blocked" },
+    @{ Cmd = "gh pr merge 4 -d"; Expect = 2; Name = "gh pr merge -d blocked" },
+    @{ Cmd = "gh pr merge 4 -md"; Expect = 2; Name = "gh pr merge -md clustered blocked" },
+    @{ Cmd = "gh pr ready 4 && gh pr merge 4 --merge --admin"; Expect = 2; Name = "admin merge in compound blocked" },
     @{ Cmd = "gh repo delete owner/repo"; Expect = 2; Name = "gh repo delete" },
     # Malformed input must fail open (permission rules stay as backstop).
     @{ Raw = "not json at all"; Expect = 0; Name = "malformed payload fails open" },
