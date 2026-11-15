@@ -50,6 +50,16 @@ export const PRODUCTION_RATE_LIMIT_BOUNDS = {
 
 export type RateLimitVariable = keyof typeof PRODUCTION_RATE_LIMIT_BOUNDS;
 
+/**
+ * The SMTP submission ports this app will speak (Phase 18.2), and therefore the
+ * only values `SMTP_PORT` may take. The port is what selects the TLS mode — 465
+ * is TLS from the first byte, 587 is STARTTLS that the transport refuses to
+ * skip — so any other port would leave no safe mode to select.
+ */
+export const SMTP_SUBMISSION_PORTS = [465, 587] as const;
+
+export type SmtpSubmissionPort = (typeof SMTP_SUBMISSION_PORTS)[number];
+
 /** Below this a signing secret is guessable enough to matter. */
 export const MIN_PRODUCTION_SECRET_LENGTH = 32;
 
