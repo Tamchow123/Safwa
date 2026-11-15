@@ -16,14 +16,18 @@ import {
   type SignupAllowlist,
 } from "@/modules/auth/signup-allowlist";
 import {
+  EMAIL_TRANSPORTS,
+  type EmailTransportKind,
   looksLikePostgresUrl,
   MIN_PRODUCTION_SECRET_LENGTH,
   normaliseBooleanFlag,
+  parseSmtpPort,
   PRODUCTION_RATE_LIMIT_BOUNDS,
+  SMTP_REQUIRED_ENV,
+  type SmtpSubmissionPort,
 } from "@/modules/env/rules";
 
 export type NodeEnvironment = "development" | "test" | "production";
-export type EmailTransportKind = "console-file" | "resend";
 
 function booleanFlag(defaultValue: boolean) {
   return z.preprocess((value) => {
@@ -59,9 +63,31 @@ const rawServerEnvSchema = z.object({
   // continue local-only study; auth and guests are unaffected. Requires
   // AUTH_ENABLED (sync is meaningless without an authenticated account).
   SYNC_ENABLED: booleanFlag(true),
-  EMAIL_TRANSPORT: z.enum(["console-file", "resend"]).default("console-file"),
+  EMAIL_TRANSPORT: z.enum(EMAIL_TRANSPORTS).default("console-file"),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  // SMTP submission (Phase 18.2). Required only when EMAIL_TRANSPORT=smtp —
+  // in production by assertProductionInvariants, elsewhere by sendEmail's own
+  // config check — but a malformed port is refused in every environment: the
+  // port selects the TLS mode, so there is no harmless wrong value.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z
+    .string()
+    .optional()
+    .transform((raw, ctx): SmtpSubmissionPort | undefined => {
+      if (raw === undefined || raw.trim() === "") return undefined;
+      const port = parseSmtpPort(raw);
+      if (port === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          message: "SMTP_PORT must be 465 (TLS) or 587 (STARTTLS)",
+        });
+        return z.NEVER;
+      }
+      return port;
+    }),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
   EMAIL_OUTBOX_DIR: z.string().default(".local/email-outbox"),
   CONTENT_SERVER_DIR: z.string().default("content-server"),
   ALLOW_DEV_EMAIL_TRANSPORT_IN_PRODUCTION: booleanFlag(false),
@@ -124,6 +150,10 @@ export type ServerEnv = {
   emailTransport: EmailTransportKind;
   resendApiKey: string | undefined;
   emailFrom: string | undefined;
+  smtpHost: string | undefined;
+  smtpPort: SmtpSubmissionPort | undefined;
+  smtpUser: string | undefined;
+  smtpPassword: string | undefined;
   emailOutboxDir: string;
   contentServerDir: string;
   authRateLimitWindowSeconds: number;
@@ -189,6 +219,13 @@ function assertProductionInvariants(
     }
     if (!raw.EMAIL_FROM) {
       problems.push("EMAIL_FROM is required when EMAIL_TRANSPORT=resend");
+    }
+  }
+  if (raw.EMAIL_TRANSPORT === "smtp") {
+    for (const name of SMTP_REQUIRED_ENV) {
+      if (!raw[name]) {
+        problems.push(`${name} is required when EMAIL_TRANSPORT=smtp`);
+      }
     }
   }
   // Online sync is authenticated-only: a signed-in account is derived from the
@@ -257,6 +294,10 @@ export function getServerEnv(): ServerEnv {
     emailTransport: parsed.data.EMAIL_TRANSPORT,
     resendApiKey: parsed.data.RESEND_API_KEY,
     emailFrom: parsed.data.EMAIL_FROM,
+    smtpHost: parsed.data.SMTP_HOST,
+    smtpPort: parsed.data.SMTP_PORT,
+    smtpUser: parsed.data.SMTP_USER,
+    smtpPassword: parsed.data.SMTP_PASSWORD,
     emailOutboxDir: parsed.data.EMAIL_OUTBOX_DIR,
     contentServerDir: parsed.data.CONTENT_SERVER_DIR,
     authRateLimitWindowSeconds: parsed.data.AUTH_RATE_LIMIT_WINDOW_SECONDS,

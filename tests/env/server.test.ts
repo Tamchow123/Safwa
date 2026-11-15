@@ -8,10 +8,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // client-reachable file accidentally importing a server-only module.
 vi.mock("server-only", () => ({}));
 
+import { SMTP_REQUIRED_ENV } from "@/modules/env/rules";
 import {
   getServerEnv,
   resetServerEnvCacheForTests,
 } from "@/modules/env/server";
+
+/** A complete SMTP configuration (Phase 18.2). */
+const SMTP_ENV = {
+  EMAIL_TRANSPORT: "smtp",
+  SMTP_HOST: "smtp.example.com",
+  SMTP_PORT: "465",
+  SMTP_USER: "mailer@example.com",
+  SMTP_PASSWORD: "app-password-not-real",
+  EMAIL_FROM: "Safwa <mailer@example.com>",
+} as const;
 
 const BASE_ENV = {
   NODE_ENV: "development",
@@ -249,6 +260,42 @@ describe("getServerEnv", () => {
       expect(() => getServerEnv()).toThrow(/RESEND_API_KEY/);
     });
 
+    it("accepts a complete SMTP configuration in production", () => {
+      setProductionEnv({ ...SMTP_ENV, RESEND_API_KEY: undefined });
+      const env = getServerEnv();
+      expect(env.emailTransport).toBe("smtp");
+      expect(env.smtpHost).toBe("smtp.example.com");
+      expect(env.smtpPort).toBe(465);
+      expect(env.smtpUser).toBe("mailer@example.com");
+      expect(env.smtpPassword).toBe(SMTP_ENV.SMTP_PASSWORD);
+      expect(env.emailFrom).toBe("Safwa <mailer@example.com>");
+    });
+
+    it.each(SMTP_REQUIRED_ENV)(
+      "requires %s when EMAIL_TRANSPORT=smtp in production",
+      (name) => {
+        setProductionEnv({ ...SMTP_ENV, [name]: undefined });
+        expect(() => getServerEnv()).toThrow(
+          new RegExp(`${name} is required when EMAIL_TRANSPORT=smtp`),
+        );
+      },
+    );
+
+    it("treats a blank SMTP setting as missing in production", () => {
+      setProductionEnv({ ...SMTP_ENV, SMTP_HOST: "" });
+      expect(() => getServerEnv()).toThrow(/SMTP_HOST is required/);
+    });
+
+    it("never echoes the SMTP password in a production configuration error", () => {
+      setProductionEnv({ ...SMTP_ENV, SMTP_HOST: undefined });
+      try {
+        getServerEnv();
+        expect.unreachable("expected getServerEnv to throw");
+      } catch (error) {
+        expect(String(error)).not.toContain(SMTP_ENV.SMTP_PASSWORD);
+      }
+    });
+
     it("accepts a fully valid production configuration", () => {
       setProductionEnv();
       const env = getServerEnv();
@@ -385,6 +432,41 @@ describe("getServerEnv", () => {
         expect(env.authRateLimitMax).toBe(1000);
         expect(env.authRateLimitDefaultMax).toBe(100000);
       });
+    });
+  });
+
+  describe("SMTP settings", () => {
+    it("reads both submission ports as numbers, tolerating surrounding spaces", () => {
+      setEnv({ SMTP_PORT: "465" });
+      expect(getServerEnv().smtpPort).toBe(465);
+      resetServerEnvCacheForTests();
+      setEnv({ SMTP_PORT: " 587 " });
+      expect(getServerEnv().smtpPort).toBe(587);
+    });
+
+    it("treats an absent or blank SMTP_PORT as unset", () => {
+      // A .env.local copied from .env.example carries `SMTP_PORT=`, which must
+      // not stop local development from starting.
+      for (const port of [undefined, "", "   "]) {
+        resetServerEnvCacheForTests();
+        setEnv({ SMTP_PORT: port });
+        expect(getServerEnv().smtpPort, JSON.stringify(port)).toBeUndefined();
+      }
+    });
+
+    it.each(["25", "2525", "4650", "465.0", "0x1D1", "smtp"])(
+      "rejects SMTP_PORT=%s in any environment, since the port selects the TLS mode",
+      (port) => {
+        setEnv({ SMTP_PORT: port });
+        expect(() => getServerEnv()).toThrow(/SMTP_PORT must be 465/);
+      },
+    );
+
+    it("leaves the SMTP settings optional outside production", () => {
+      // sendEmail's own config check names what is missing on first send;
+      // refusing to start would take guest-only pages down with it.
+      setEnv({ EMAIL_TRANSPORT: "smtp" });
+      expect(getServerEnv().emailTransport).toBe("smtp");
     });
   });
 

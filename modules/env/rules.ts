@@ -60,6 +60,32 @@ export const SMTP_SUBMISSION_PORTS = [465, 587] as const;
 
 export type SmtpSubmissionPort = (typeof SMTP_SUBMISSION_PORTS)[number];
 
+/**
+ * `SMTP_PORT` read as a submission port, or `undefined` when it is not one.
+ * Exact after trimming — `0x1D1` and `465.0` are not ports anyone means — and
+ * shared, so the runtime and the pre-deploy check cannot disagree about it.
+ */
+export function parseSmtpPort(
+  raw: string | undefined,
+): SmtpSubmissionPort | undefined {
+  const value = raw?.trim();
+  return SMTP_SUBMISSION_PORTS.find((port) => String(port) === value);
+}
+
+/** The values `EMAIL_TRANSPORT` may take. */
+export const EMAIL_TRANSPORTS = ["console-file", "resend", "smtp"] as const;
+
+export type EmailTransportKind = (typeof EMAIL_TRANSPORTS)[number];
+
+/** What `EMAIL_TRANSPORT=smtp` cannot send without (Phase 18.2). */
+export const SMTP_REQUIRED_ENV = [
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+  "EMAIL_FROM",
+] as const;
+
 /** Below this a signing secret is guessable enough to matter. */
 export const MIN_PRODUCTION_SECRET_LENGTH = 32;
 

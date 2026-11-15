@@ -10,11 +10,13 @@ import { createHash } from "node:crypto";
 import { assertSameOrigin } from "@/modules/email/link-safety";
 import { createConsoleFileTransport } from "@/modules/email/transports/console-file";
 import { createResendTransport } from "@/modules/email/transports/resend";
+import { createSmtpTransport } from "@/modules/email/transports/smtp";
 import type {
   EmailTemplate,
   EmailTransport,
   SendEmailResult,
 } from "@/modules/email/types";
+import { SMTP_REQUIRED_ENV } from "@/modules/env/rules";
 import { getServerEnv } from "@/modules/env/server";
 
 export type SendEmailParams = {
@@ -61,6 +63,41 @@ function getTransport(): EmailTransport {
       cachedTransport = createResendTransport({
         apiKey: env.resendApiKey,
         from: env.emailFrom,
+      });
+      return cachedTransport;
+    }
+    case "smtp": {
+      // Same reasoning as above: production refuses to start without these,
+      // so this is the clear error for any other environment. Names only —
+      // never a value, since one of them is a password.
+      const {
+        smtpHost: host,
+        smtpPort: port,
+        smtpUser: user,
+        smtpPassword: password,
+        emailFrom: from,
+      } = env;
+      // Keyed by the shared list, so a setting added to SMTP_REQUIRED_ENV
+      // fails to compile here until this error can name it too.
+      const settings: Record<(typeof SMTP_REQUIRED_ENV)[number], unknown> = {
+        SMTP_HOST: host,
+        SMTP_PORT: port,
+        SMTP_USER: user,
+        SMTP_PASSWORD: password,
+        EMAIL_FROM: from,
+      };
+      if (!host || !port || !user || !password || !from) {
+        const missing = SMTP_REQUIRED_ENV.filter((name) => !settings[name]);
+        throw new Error(
+          `EMAIL_TRANSPORT=smtp requires ${missing.join(", ")} to be set`,
+        );
+      }
+      cachedTransport = createSmtpTransport({
+        host,
+        port,
+        user,
+        password,
+        from,
       });
       return cachedTransport;
     }
