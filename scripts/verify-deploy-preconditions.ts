@@ -43,7 +43,9 @@ import {
   normaliseBooleanFlag,
   parseSmtpPort,
   PRODUCTION_RATE_LIMIT_BOUNDS,
+  readSetting,
   SMTP_REQUIRED_ENV,
+  smtpHostProblem,
 } from "../modules/env/rules";
 
 export type PreconditionFailure = {
@@ -211,10 +213,15 @@ export function checkDeployPreconditions(
     }
   }
   // Checked whatever the transport, because the runtime schema refuses a
-  // malformed port in every environment, not only when SMTP is selected.
+  // malformed port or host in every environment, not only when SMTP is
+  // selected. The host is read through the same trim the runtime applies.
   if (env.SMTP_PORT?.trim() && parseSmtpPort(env.SMTP_PORT) === undefined) {
     fail("SMTP_PORT", "must be 465 (TLS) or 587 (STARTTLS)");
   }
+  const smtpHost = readSetting(env.SMTP_HOST);
+  const hostProblem =
+    smtpHost === undefined ? undefined : smtpHostProblem(smtpHost);
+  if (hostProblem !== undefined) fail("SMTP_HOST", hostProblem);
 
   // Rejected by assertProductionInvariants too, but the whole point of this
   // script is to say so before the deploy rather than on first request. Both

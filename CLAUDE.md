@@ -12,11 +12,14 @@ recently **Phase 18 — PWA, offline & first production deploy**, PR #24), so
 both the Core MVP and the Offline-capable Beta milestone are complete. Phase 18
 was the **last** implementation phase; **Phase 18.1 — pre-deployment
 hardening** (rate limiting for the app's own API routes, the same-origin
-assertion, supply-chain pinning; PR #25) and **Phase 18.2 — SMTP email**
+assertion, supply-chain pinning; PR #25), **Phase 18.2 — SMTP email**
 (Resend replaced by SMTP submission, documented for Gmail with an app password
-on a dedicated sending account; ADR-011) are the post-merge corrections that
-follow it. **Nothing is deployed yet** — the first production deploy is the
-open action, and migration 0007 must run before the app that reads it. Phases
+on a dedicated sending account; ADR-011) and **Phase 18.3** (resend from the
+sign-in page, an honest `/verify-email`, the guest prompt for guests only, and
+`SMTP_HOST` trimmed and shape-checked — the defects the first sign-up found)
+are the post-merge corrections that follow it. **The first production deploy
+is live** (2026-11-15: Vercel + Neon + Gmail SMTP); `deploy-migrate` runs the
+migrations, which must still precede the app that reads them. Phases
 19–21 and the rest of 22 are deferred, each with the condition that reopens it
 recorded in `docs/phases/IMPLEMENTATION_PHASES.md` ("Deliberately deferred
 after Phase 18", plus "Follow-ups deferred out of 18.1") and

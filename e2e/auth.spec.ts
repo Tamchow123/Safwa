@@ -20,6 +20,7 @@ import {
 } from "./helpers/db-probe";
 import {
   extractUrlFromMessage,
+  waitForNewOutboxMessage,
   waitForOutboxMessage,
 } from "./helpers/email-outbox";
 import {
@@ -118,7 +119,7 @@ test.describe("60.4 unverified login", () => {
   // class this fixture's opt-in exists for.
   test.use({ allowExpectedNetworkErrors: true });
 
-  test("rejected safely, resend path available, no token leaked", async ({
+  test("rejected safely, resend offered on the sign-in and verify pages, no token leaked", async ({
     page,
   }) => {
     const email = freshEmail("unverified");
@@ -147,6 +148,19 @@ test.describe("60.4 unverified login", () => {
     }));
     expect(JSON.stringify(storageDump)).not.toMatch(/token/i);
 
+    // Phase 18.3: the sign-in page itself offers a new link. Before, an
+    // unverified learner whose first email never came had nowhere to ask.
+    const signUpMessage = await waitForOutboxMessage(email, "verify-email");
+    await page
+      .getByRole("button", { name: "Resend verification email" })
+      .click();
+    await expect(page.getByText(/a new link is on its way/i)).toBeVisible();
+    const fromSignIn = await waitForNewOutboxMessage(
+      email,
+      "verify-email",
+      signUpMessage,
+    );
+
     // Resend path: the real shape Better Auth's own GET redirect produces
     // for an expired/invalid link. Never displays a token.
     await page.goto("/verify-email?error=INVALID_TOKEN");
@@ -158,9 +172,12 @@ test.describe("60.4 unverified login", () => {
       .getByRole("button", { name: "Resend verification email" })
       .click();
     await expect(page.getByText(/a new link is on its way/i)).toBeVisible();
+    await waitForNewOutboxMessage(email, "verify-email", fromSignIn);
 
-    const resent = await waitForOutboxMessage(email, "verify-email");
-    expect(resent).toBeTruthy();
+    // The link the sign-in page asked for is a working one.
+    await page.goto(extractUrlFromMessage(fromSignIn));
+    await expect(page.getByTestId("verify-email-success")).toBeVisible();
+    await login(page, email);
   });
 });
 
@@ -372,6 +389,83 @@ test.describe("60.9 login does not merge/upload guest data; sign-out removes onl
     // account's server-side bookmark count is unchanged.
     const afterCount = await bookmarksRowCount();
     expect(afterCount).toBe(beforeCount);
+  });
+});
+
+test.describe("18.3 the guest prompt is for guests only", () => {
+  test("a device with guest progress shows it to the guest and never to the signed-in account", async ({
+    page,
+  }) => {
+    // First guest progress mints the device profile. The profile outlives
+    // sign-in, which is what used to show a signed-in learner the guest note.
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "Large" }).click();
+    await expect
+      .poll(async () => (await idbAll(page, "profile")).length)
+      .toBe(1);
+    await page.goto("/");
+    await expect(page.getByTestId("register-prompt")).toBeVisible();
+
+    const email = freshEmail("guest-prompt");
+    await registerAndVerify(page, email);
+    await login(page, email);
+    await declineMergePrompt(page);
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Dashboard",
+    );
+    // The account menu only renders once the session has named the account,
+    // and the prompt's own local read finishes long before the network
+    // settles, so by then a prompt that was going to show would be showing.
+    await expect(
+      page.getByRole("button", { name: "Account menu" }),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("register-prompt")).toHaveCount(0);
+  });
+});
+
+test.describe("18.3 the verify-email page only claims what happened", () => {
+  test("a direct visit claims nothing and offers a new link", async ({
+    page,
+  }) => {
+    // Before 18.3 this exact visit said "Email verified".
+    await page.goto("/verify-email");
+    await expect(page.getByTestId("verify-email-unconfirmed")).toBeVisible();
+    await expect(page.getByText("Email verified")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Resend verification email" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    await expectNoSeriousViolations(page);
+  });
+
+  test("a broken link lands on the invalid state through the real redirect, and the real link still verifies", async ({
+    page,
+  }) => {
+    const email = freshEmail("verify-marker");
+    await registerOnly(page, email);
+    const link = new URL(
+      extractUrlFromMessage(await waitForOutboxMessage(email, "verify-email")),
+    );
+
+    // Every link carries the marker callback, so Better Auth's failure
+    // redirect appends `&error=` to it: the page must let the error win.
+    const broken = new URL(link);
+    broken.searchParams.set("token", "not-a-real-token");
+    await page.goto(broken.toString());
+    await expect(page.getByTestId("verify-email-invalid")).toBeVisible();
+    expect(page.url()).toContain("verified=1");
+    expect(page.url()).toContain("error=INVALID_TOKEN");
+
+    await page.goto(link.toString());
+    await expect(page.getByTestId("verify-email-success")).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("verified")).toBe("1");
+    expect(page.url()).not.toContain("error=");
   });
 });
 

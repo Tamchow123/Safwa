@@ -19,6 +19,7 @@ import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
 } from "@/modules/auth/password-policy";
+import { VERIFY_EMAIL_CALLBACK_URL } from "@/modules/auth/verification-links";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -72,7 +73,7 @@ export function RegisterForm() {
           name: name.trim(),
           email: normalizedEmail,
           password,
-          callbackURL: "/verify-email",
+          callbackURL: VERIFY_EMAIL_CALLBACK_URL,
         }),
       () => setRegisteredEmail(normalizedEmail),
     );

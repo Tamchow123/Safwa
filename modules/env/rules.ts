@@ -72,6 +72,63 @@ export function parseSmtpPort(
   return SMTP_SUBMISSION_PORTS.find((port) => String(port) === value);
 }
 
+/**
+ * A text setting as both validators read it (Phase 18.3): surrounding
+ * whitespace removed, and blank meaning unset. Whitespace at either end is the
+ * one defect a pasted value commonly carries that is safe to repair — no host,
+ * login or sender address ends in a space or a newline.
+ *
+ * Not for `SMTP_PASSWORD`: a credential's characters belong to its provider,
+ * and a mistyped one already fails loudly at send time (`EAUTH`).
+ */
+export function readSetting(raw: string | undefined): string | undefined {
+  const value = raw?.trim();
+  return value === "" ? undefined : value;
+}
+
+const HOST_LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
+const IPV4_OCTET = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+
+/**
+ * Why `SMTP_HOST` is not a bare host name, or `undefined` when it is one
+ * (Phase 18.3). Expects a value already read through {@link readSetting}.
+ *
+ * The first production email failed with `code=EDNS` from a malformed host
+ * that every check had passed, because they only asked whether it was blank.
+ * A host is a DNS name or an IPv4 address and nothing more: a scheme, a port
+ * (that is `SMTP_PORT`'s job), a path, quotes or inner whitespace mean the
+ * value was pasted with decoration. Each defect gets its own message so the
+ * fix is obvious, and no message echoes the value.
+ *
+ * Deliberately narrower than everything a resolver accepts. An IPv6 literal is
+ * refused because its colons cannot be told apart from a port by shape alone,
+ * and a trailing dot because it would reach TLS as the server name, which
+ * must not carry one; neither is how a mail provider documents its host.
+ */
+export function smtpHostProblem(host: string): string | undefined {
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(host)) {
+    return "must be a bare host name, without a scheme such as smtp:// or https://";
+  }
+  if (/["'`]/.test(host)) return "must not be quoted";
+  if (/\s/.test(host)) return "must not contain whitespace";
+  if (host.includes("/")) return "must not contain a path";
+  if (host.includes(":")) {
+    return "must not contain a colon — the port belongs in SMTP_PORT, and an IPv6 address is not supported";
+  }
+  const labels = host.split(".");
+  const isHostName =
+    host.length <= 253 && labels.every((label) => HOST_LABEL.test(label));
+  // Every top-level domain starts with a letter (`xn--` ones included), so a
+  // last label that does not can only belong to an IPv4 address — and then it
+  // must be a well-formed one. This is what refuses `192.0.2.1x` and `999.0.2.1`.
+  const isIpv4 = labels.length === 4 && labels.every((l) => IPV4_OCTET.test(l));
+  const endsLikeName = /^[A-Za-z]/.test(labels[labels.length - 1]);
+  if (!isHostName || (!endsLikeName && !isIpv4)) {
+    return "must be a host name such as smtp.example.com, or an IPv4 address";
+  }
+  return undefined;
+}
+
 /** The values `EMAIL_TRANSPORT` may take. */
 export const EMAIL_TRANSPORTS = ["console-file", "smtp"] as const;
 

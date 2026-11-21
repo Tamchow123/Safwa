@@ -169,6 +169,18 @@ account links extracted from the email outbox disables Playwright tracing
 for itself (`test.use({ trace: "off" })`) — a CI retry's trace would
 otherwise bundle that token-bearing URL into the uploaded HTML report.
 
+Phase 18.3 extends it with the defects the first production sign-up found:
+the unverified-login scenario now resends from the sign-in page itself and
+proves a **new** message arrived (`waitForNewOutboxMessage`, which orders the
+outbox by the sender's `createdAt`, not file mtime — pinned by
+`tests/e2e-helpers/email-outbox.test.ts`); `/verify-email` claims nothing on a
+direct visit, a tampered link lands on the invalid state through Better Auth's
+real `&error=` redirect, and the genuine link still verifies; a device with
+guest progress shows the guest prompt to the guest and never to the signed-in
+account. The rate-limit config gains a resend journey (three sends, then a 429
+shown in the offer) that runs on its own `x-forwarded-for` client IP, so it
+shares no Better Auth bucket with 60.7 whichever order they run in.
+
 **CI and local quality-gate parity** (Phase 15, T21/T22): CI
 (`.github/workflows/ci.yml`) runs a pinned `postgres:17-alpine` service
 container (health-checked, test-only disposable credentials never reused
