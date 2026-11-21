@@ -681,6 +681,10 @@ def apply_corrections(entries: list[dict[str, Any]],
         if rid in seen_notes:
             raise CorrectionError(f"note_corrections: id {rid} recorded twice")
         seen_notes.add(rid)
+        # A note correction replaces a note; it can never add one, so the
+        # recorded original must be text (a missing note reads as None).
+        _check_text(f"note_corrections: id {rid} original_note",
+                    rec["original_note"])
         if entry.get("transcription_note") != rec["original_note"]:
             raise CorrectionError(
                 f"note_corrections: id {rid}: the recorded original note no "

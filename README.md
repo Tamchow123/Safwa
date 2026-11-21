@@ -24,7 +24,7 @@ optional accounts add cross-device synchronisation.
 | `data/mazid-fih-candidates.json`       | 21 unverified mazīd fīh seed candidates — **not** production-ready, quiz-ineligible.                                                   |
 | `data/.review-rows.json`               | Machine-readable manual-review queue (64 rows).                                                                                        |
 | `scripts/enrich-vocabulary.py`         | Regenerates the enriched dataset from the original and its book corrections (deterministic, idempotent).                               |
-| `scripts/validate-vocabulary.py`       | Validates preservation, corrections, provenance, eligibility and review integrity (35,424 checks).                                     |
+| `scripts/validate-vocabulary.py`       | Validates preservation, corrections, provenance, eligibility and review integrity (35,425 checks).                                     |
 | `docs/vocabulary-schema.md`            | Field-by-field data schema and safety rules.                                                                                           |
 | `docs/vocabulary-audit.md`             | Audit of the data foundation.                                                                                                          |
 | `docs/manual-review-required.md`       | Human-readable review queue (byte-synced with `.review-rows.json`).                                                                    |
@@ -65,7 +65,7 @@ optional accounts add cross-device synchronisation.
 
 ```bash
 python scripts/enrich-vocabulary.py    # regenerate enriched dataset (never touches the original)
-python scripts/validate-vocabulary.py  # must exit 0 — 35,424 checks
+python scripts/validate-vocabulary.py  # must exit 0 — 35,425 checks
 pnpm content:build                     # regenerate the immutable content-release artifacts
 pnpm docs:verify                       # verify documentation Arabic against the datasets
 ```

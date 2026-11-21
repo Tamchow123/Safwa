@@ -218,6 +218,8 @@ def correction_layer_self_tests() -> None:
             doc(note_corrections=[note(original_note="stale")]))
     refused("a note correction on an entry without a note",
             doc(note_corrections=[note(id=1)]))
+    refused("a note correction that would add a note where there is none",
+            doc(note_corrections=[note(id=1, original_note=None)]))
     refused("a file without one of the four sections",
             {"field_corrections": [], "print_variants": [],
              "heading_variants": []})

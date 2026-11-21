@@ -22,7 +22,7 @@ integration; the E2E matrix runs on main and before releases.
 
 - Source preservation: 455 entries; enriched == original with the recorded
   book corrections applied, for all 12 source fields (Phase 18.4 — before it,
-  plain enriched == original). The Python validator's 35,424 checks stay
+  plain enriched == original). The Python validator's 35,425 checks stay
   authoritative: it recomputes the corrected entries from
   `data/safwa-mujarrad.corrections.json` and compares every source field, the
   transcription note and the `source_corrections` provenance against them,
