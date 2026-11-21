@@ -1,7 +1,12 @@
 {
- "active_release_id": "safwa-2.2.0-2b053aa72340a9d3",
+ "active_release_id": "safwa-2.2.0-5c6d0fb42b2590c6",
  "releases": {
   "safwa-2.2.0-2b053aa72340a9d3": {
+   "minimum_supported_client_version": "0.1.0",
+   "minimum_supported_event_schema": 1,
+   "status": "supported"
+  },
+  "safwa-2.2.0-5c6d0fb42b2590c6": {
    "minimum_supported_client_version": "0.1.0",
    "minimum_supported_event_schema": 1,
    "status": "active"

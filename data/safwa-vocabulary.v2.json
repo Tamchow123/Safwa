@@ -1,6 +1,6 @@
 {
   "schema_version": "2.2.0",
-  "generated_at": "2026-11-21T18:37:30+00:00",
+  "generated_at": "2026-11-21T18:39:21+00:00",
   "source": {
     "title": "Safwa-tul-Masaadir (صفوة المصادر) — Arabic-English edition",
     "author": "Maulana Mushtaaq Ahmed Charthawali",
@@ -7956,7 +7956,7 @@
       "id": 89,
       "madi": "غَمَزَ",
       "mudari": "يَغْمِزُ",
-      "masdar": "اَلْغَمْزُ",
+      "masdar": "اَلْغمْزُ",
       "meaning": "to make a sign",
       "ism_fail": "غَامِزٌ",
       "amr": "اِغْمِزْ",
@@ -7966,6 +7966,18 @@
       "verb_type": "sahih",
       "verb_type_arabic": "اَلصَّحِيْحُ",
       "book_page": 5,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْغَمْزُ",
+          "corrected": "اَلْغمْزُ",
+          "printed": "اَلْغمْزُ",
+          "book_page": 5,
+          "pdf_page": 16,
+          "description": "letter 3 (غ): the book has no mark, the transcription had fatha"
+        }
+      ],
       "root": "غ م ز",
       "root_compact": "غمز",
       "root_letters": [
@@ -12317,14 +12329,43 @@
       "masdar": "اَللَّبْثُ",
       "meaning": "to wait, to stay",
       "ism_fail": "لَابِثٌ",
-      "amr": "اِلْبَثُ",
-      "nahi": "لَا تَلْبَثُ",
+      "amr": "اِلْبَثْ",
+      "nahi": "لَا تَلْبَثْ",
       "bab": "samia",
       "bab_arabic": "سَمِعَ يَسْمَعُ",
       "verb_type": "sahih",
       "verb_type_arabic": "اَلصَّحِيْحُ",
       "book_page": 7,
-      "transcription_note": "amr and nahi printed with final damma (sic; paradigm expects sukun اِلْبَثْ / لَا تَلْبَثْ); verified at high zoom against sukun glyphs elsewhere",
+      "transcription_note": "amr and nahi printed with a final sukun (اِلْبَثْ / لَا تَلْبَثْ), as the paradigm expects. The sukun sits on the three dots of ث, and an earlier transcription read it as a damma.",
+      "source_corrections": [
+        {
+          "field": "amr",
+          "kind": "misreading",
+          "original": "اِلْبَثُ",
+          "corrected": "اِلْبَثْ",
+          "printed": "اِلْبَثْ",
+          "book_page": 7,
+          "pdf_page": 18,
+          "description": "letter 4 (ث): the book has sukun, the transcription had damma"
+        },
+        {
+          "field": "nahi",
+          "kind": "misreading",
+          "original": "لَا تَلْبَثُ",
+          "corrected": "لَا تَلْبَثْ",
+          "printed": "لَاتَلْبَثْ",
+          "book_page": 7,
+          "pdf_page": 18,
+          "description": "letter 6 (ث): the book has sukun, the transcription had damma"
+        },
+        {
+          "field": "transcription_note",
+          "kind": "note_correction",
+          "original": "amr and nahi printed with final damma (sic; paradigm expects sukun اِلْبَثْ / لَا تَلْبَثْ); verified at high zoom against sukun glyphs elsewhere",
+          "corrected": "amr and nahi printed with a final sukun (اِلْبَثْ / لَا تَلْبَثْ), as the paradigm expects. The sukun sits on the three dots of ث, and an earlier transcription read it as a damma.",
+          "description": "the existing note said the print has a final damma; the glyph is a sukun"
+        }
+      ],
       "root": "ل ب ث",
       "root_compact": "لبث",
       "root_letters": [
@@ -22597,7 +22638,7 @@
       "id": 254,
       "madi": "مَرَّ",
       "mudari": "يَمُرُّ",
-      "masdar": "اَلْمُرُورُ",
+      "masdar": "اَلْمُرُوْرُ",
       "meaning": "to pass by",
       "ism_fail": "مَارٌّ",
       "amr": "مُرَّ",
@@ -22607,6 +22648,18 @@
       "verb_type": "mudaaf",
       "verb_type_arabic": "اَلْمُضَاعَفُ",
       "book_page": 13,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "misreading",
+          "original": "اَلْمُرُورُ",
+          "corrected": "اَلْمُرُوْرُ",
+          "printed": "اَلْمُرُوْرُ",
+          "book_page": 13,
+          "pdf_page": 24,
+          "description": "letter 5 (و): the book has sukun, the transcription had no mark"
+        }
+      ],
       "root": "م ر ر",
       "root_compact": "مرر",
       "root_letters": [
@@ -22864,7 +22917,7 @@
       "id": 257,
       "madi": "بَتَّ",
       "mudari": "يَبِتُّ",
-      "masdar": "اَلْبُتُوتُ",
+      "masdar": "اَلْبُتُوْتُ",
       "meaning": "to cut off",
       "ism_fail": "بَاتٌّ",
       "amr": "بِتَّ",
@@ -22874,6 +22927,18 @@
       "verb_type": "mudaaf",
       "verb_type_arabic": "اَلْمُضَاعَفُ",
       "book_page": 14,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "misreading",
+          "original": "اَلْبُتُوتُ",
+          "corrected": "اَلْبُتُوْتُ",
+          "printed": "اَلْبُتُوْتُ",
+          "book_page": 14,
+          "pdf_page": 25,
+          "description": "letter 5 (و): the book has sukun, the transcription had no mark"
+        }
+      ],
       "root": "ب ت ت",
       "root_compact": "بتت",
       "root_letters": [
@@ -24345,7 +24410,7 @@
       "id": 274,
       "madi": "وَدَّ",
       "mudari": "يَوَدُّ",
-      "masdar": "اَلْوُدُّ",
+      "masdar": "اَلْوَدُّ",
       "meaning": "to befriend",
       "ism_fail": "وَادٌّ",
       "amr": "وَدَّ",
@@ -24355,6 +24420,18 @@
       "verb_type": "mudaaf",
       "verb_type_arabic": "اَلْمُضَاعَفُ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "misreading",
+          "original": "اَلْوُدُّ",
+          "corrected": "اَلْوَدُّ",
+          "printed": "اَلْوَدُّ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 3 (و): the book has fatha, the transcription had damma"
+        }
+      ],
       "root": "و د د",
       "root_compact": "ودد",
       "root_letters": [
@@ -24436,7 +24513,7 @@
       "id": 275,
       "madi": "حَبَّ",
       "mudari": "يَحُبُّ",
-      "masdar": "اَلْحُبُّ",
+      "masdar": "الحُبُّ",
       "meaning": "to love",
       "ism_fail": "حَبِيْبٌ",
       "amr": "حُبَّ",
@@ -24446,6 +24523,18 @@
       "verb_type": "mudaaf",
       "verb_type_arabic": "اَلْمُضَاعَفُ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْحُبُّ",
+          "corrected": "الحُبُّ",
+          "printed": "الحُبُّ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 1 (ا): the book has no mark, the transcription had fatha; letter 2 (ل): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ح ب ب",
       "root_compact": "حبب",
       "root_letters": [
@@ -24520,17 +24609,39 @@
     {
       "id": 276,
       "madi": "أَجَرَ",
-      "mudari": "يَأْجُرُ",
+      "mudari": "يَأجُرُ",
       "masdar": "اَلْأَجْرُ",
       "meaning": "to lease",
       "ism_fail": "اٰجِرٌ",
       "amr": "اُوْجُرْ",
-      "nahi": "لَا تَأْجُرْ",
+      "nahi": "لَا تَأجُرْ",
       "bab": "nasara",
       "bab_arabic": "نَصَرَ يَنْصُرُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْجُرُ",
+          "corrected": "يَأجُرُ",
+          "printed": "يَأجُرُ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْجُرْ",
+          "corrected": "لَا تَأجُرْ",
+          "printed": "لَاتَأجُرْ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ج ر",
       "root_compact": "ءجر",
       "root_letters": [
@@ -24611,17 +24722,39 @@
     {
       "id": 277,
       "madi": "أَخَذَ",
-      "mudari": "يَأْخُذُ",
+      "mudari": "يَأخُذُ",
       "masdar": "اَلْأَخْذُ",
       "meaning": "to hold, to take",
       "ism_fail": "اٰخِذٌ",
       "amr": "خُذْ",
-      "nahi": "لَا تَأْخُذْ",
+      "nahi": "لَا تَأخُذْ",
       "bab": "nasara",
       "bab_arabic": "نَصَرَ يَنْصُرُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْخُذُ",
+          "corrected": "يَأخُذُ",
+          "printed": "يَأخُذُ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْخُذْ",
+          "corrected": "لَا تَأخُذْ",
+          "printed": "لَاتَأخُذْ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء خ ذ",
       "root_compact": "ءخذ",
       "root_letters": [
@@ -24702,17 +24835,39 @@
     {
       "id": 278,
       "madi": "أَكَلَ",
-      "mudari": "يَأْكُلُ",
+      "mudari": "يَأكُلُ",
       "masdar": "اَلْأَكْلُ",
       "meaning": "to eat",
       "ism_fail": "اٰكِلٌ",
       "amr": "كُلْ",
-      "nahi": "لَا تَأْكُلْ",
+      "nahi": "لَا تَأكُلْ",
       "bab": "nasara",
       "bab_arabic": "نَصَرَ يَنْصُرُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْكُلُ",
+          "corrected": "يَأكُلُ",
+          "printed": "يَأكُلُ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْكُلْ",
+          "corrected": "لَا تَأكُلْ",
+          "printed": "لَاتَأكُلْ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ك ل",
       "root_compact": "ءكل",
       "root_letters": [
@@ -24793,17 +24948,39 @@
     {
       "id": 279,
       "madi": "أَمَرَ",
-      "mudari": "يَأْمُرُ",
+      "mudari": "يَأمُرُ",
       "masdar": "اَلْأَمْرُ",
       "meaning": "to command",
       "ism_fail": "اٰمِرٌ",
       "amr": "مُرْ",
-      "nahi": "لَا تَأْمُرْ",
+      "nahi": "لَا تَأمُرْ",
       "bab": "nasara",
       "bab_arabic": "نَصَرَ يَنْصُرُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْمُرُ",
+          "corrected": "يَأمُرُ",
+          "printed": "يَأمُرُ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْمُرْ",
+          "corrected": "لَا تَأمُرْ",
+          "printed": "لَاتَأمُرْ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء م ر",
       "root_compact": "ءمر",
       "root_letters": [
@@ -24884,17 +25061,39 @@
     {
       "id": 280,
       "madi": "أَدَبَ",
-      "mudari": "يَأْدِبُ",
+      "mudari": "يَأدِبُ",
       "masdar": "اَلْأَدْبُ",
       "meaning": "to host",
       "ism_fail": "اٰدِبٌ",
       "amr": "اِيْدِبْ",
-      "nahi": "لَا تَأْدِبْ",
+      "nahi": "لَا تَأدِبْ",
       "bab": "daraba",
       "bab_arabic": "ضَرَبَ يَضْرِبُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْدِبُ",
+          "corrected": "يَأدِبُ",
+          "printed": "يَأدِبُ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْدِبْ",
+          "corrected": "لَا تَأدِبْ",
+          "printed": "لَاتَأدِبْ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء د ب",
       "root_compact": "ءدب",
       "root_letters": [
@@ -24975,17 +25174,39 @@
     {
       "id": 281,
       "madi": "أَسَرَ",
-      "mudari": "يَأْسِرُ",
+      "mudari": "يَأسِرُ",
       "masdar": "اَلْأَسْرُ",
       "meaning": "to jail",
       "ism_fail": "اٰسِرٌ",
       "amr": "اِيْسِرْ",
-      "nahi": "لَا تَأْسِرْ",
+      "nahi": "لَا تَأسِرْ",
       "bab": "daraba",
       "bab_arabic": "ضَرَبَ يَضْرِبُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 15,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْسِرُ",
+          "corrected": "يَأسِرُ",
+          "printed": "يَأسِرُ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْسِرْ",
+          "corrected": "لَا تَأسِرْ",
+          "printed": "لَاتَأسِرْ",
+          "book_page": 15,
+          "pdf_page": 26,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء س ر",
       "root_compact": "ءسر",
       "root_letters": [
@@ -25066,17 +25287,49 @@
     {
       "id": 282,
       "madi": "أَفَكَ",
-      "mudari": "يَأْفِكُ",
-      "masdar": "اَلْإِفْكُ",
+      "mudari": "يَأفِكُ",
+      "masdar": "اَلإِفْكُ",
       "meaning": "to lie",
       "ism_fail": "اٰفِكٌ",
       "amr": "اِيْفِكْ",
-      "nahi": "لَا تَأْفِكْ",
+      "nahi": "لَا تَأفِكْ",
       "bab": "daraba",
       "bab_arabic": "ضَرَبَ يَضْرِبُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْفِكُ",
+          "corrected": "يَأفِكُ",
+          "printed": "يَأفِكُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْإِفْكُ",
+          "corrected": "اَلإِفْكُ",
+          "printed": "اَلإِفْكُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْفِكْ",
+          "corrected": "لَا تَأفِكْ",
+          "printed": "لَاتَأفِكْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ف ك",
       "root_compact": "ءفك",
       "root_letters": [
@@ -25151,17 +25404,49 @@
     {
       "id": 283,
       "madi": "أَثِمَ",
-      "mudari": "يَأْثَمُ",
-      "masdar": "اَلْإِثْمُ",
+      "mudari": "يَأثَمُ",
+      "masdar": "اَلإِثْمُ",
       "meaning": "to be sinful",
       "ism_fail": "اٰثِمٌ",
       "amr": "اِيْثَمْ",
-      "nahi": "لَا تَأْثَمْ",
+      "nahi": "لَا تَأثَمْ",
       "bab": "samia",
       "bab_arabic": "سَمِعَ يَسْمَعُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْثَمُ",
+          "corrected": "يَأثَمُ",
+          "printed": "يَأثَمُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْإِثْمُ",
+          "corrected": "اَلإِثْمُ",
+          "printed": "اَلإِثْمُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْثَمْ",
+          "corrected": "لَا تَأثَمْ",
+          "printed": "لَاتَأثَمْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ث م",
       "root_compact": "ءثم",
       "root_letters": [
@@ -25236,17 +25521,49 @@
     {
       "id": 284,
       "madi": "أَذِنَ",
-      "mudari": "يَأْذَنُ",
-      "masdar": "اَلْإِذْنُ",
+      "mudari": "يَأذَنُ",
+      "masdar": "اَلإِذْنُ",
       "meaning": "to permit",
       "ism_fail": "اٰذِنٌ",
       "amr": "اِيْذَنْ",
-      "nahi": "لَا تَأْذَنْ",
+      "nahi": "لَا تَأذَنْ",
       "bab": "samia",
       "bab_arabic": "سَمِعَ يَسْمَعُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْذَنُ",
+          "corrected": "يَأذَنُ",
+          "printed": "يَأذَنُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْإِذْنُ",
+          "corrected": "اَلإِذْنُ",
+          "printed": "اَلإِذْنُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْذَنْ",
+          "corrected": "لَا تَأذَنْ",
+          "printed": "لَاتَأذَنْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ذ ن",
       "root_compact": "ءذن",
       "root_letters": [
@@ -25327,17 +25644,49 @@
     {
       "id": 285,
       "madi": "أَمِنَ",
-      "mudari": "يَأْمَنُ",
-      "masdar": "اَلْأَمْنُ",
+      "mudari": "يَأمَنُ",
+      "masdar": "اَلأَمْنُ",
       "meaning": "to be safe",
       "ism_fail": "اٰمِنٌ",
       "amr": "اِيْمَنْ",
-      "nahi": "لَا تَأْمَنْ",
+      "nahi": "لَا تَأمَنْ",
       "bab": "samia",
       "bab_arabic": "سَمِعَ يَسْمَعُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْمَنُ",
+          "corrected": "يَأمَنُ",
+          "printed": "يَأمَنُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْأَمْنُ",
+          "corrected": "اَلأَمْنُ",
+          "printed": "اَلأَمْنُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْمَنْ",
+          "corrected": "لَا تَأمَنْ",
+          "printed": "لَاتَأمَنْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء م ن",
       "root_compact": "ءمن",
       "root_letters": [
@@ -25412,17 +25761,49 @@
     {
       "id": 286,
       "madi": "أَبُلَ",
-      "mudari": "يَأْبُلُ",
-      "masdar": "اَلْأَبَالَةُ",
+      "mudari": "يَأبُلُ",
+      "masdar": "اَلأَبَالَةُ",
       "meaning": "to become a monk",
       "ism_fail": "أَبِيْلٌ",
       "amr": "اُوْبُلْ",
-      "nahi": "لَا تَأْبُلْ",
+      "nahi": "لَا تَأبُلْ",
       "bab": "karuma",
       "bab_arabic": "كَرُمَ يَكْرُمُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْبُلُ",
+          "corrected": "يَأبُلُ",
+          "printed": "يَأبُلُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْأَبَالَةُ",
+          "corrected": "اَلأَبَالَةُ",
+          "printed": "اَلأَبَالَةُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْبُلْ",
+          "corrected": "لَا تَأبُلْ",
+          "printed": "لَاتَأبُلْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ب ل",
       "root_compact": "ءبل",
       "root_letters": [
@@ -25497,17 +25878,49 @@
     {
       "id": 287,
       "madi": "أَثُلَ",
-      "mudari": "يَأْثُلُ",
-      "masdar": "اَلْأَثَالَةُ",
+      "mudari": "يَأثُلُ",
+      "masdar": "اَلأَثَالَةُ",
       "meaning": "to be old",
       "ism_fail": "أَثِيْلٌ",
       "amr": "اُوْثُلْ",
-      "nahi": "لَا تَأْثُلْ",
+      "nahi": "لَا تَأثُلْ",
       "bab": "karuma",
       "bab_arabic": "كَرُمَ يَكْرُمُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْثُلُ",
+          "corrected": "يَأثُلُ",
+          "printed": "يَأثُلُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْأَثَالَةُ",
+          "corrected": "اَلأَثَالَةُ",
+          "printed": "اَلأَثَالَةُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْثُلْ",
+          "corrected": "لَا تَأثُلْ",
+          "printed": "لَاتَأثُلْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ث ل",
       "root_compact": "ءثل",
       "root_letters": [
@@ -25582,17 +25995,49 @@
     {
       "id": 288,
       "madi": "أَدُبَ",
-      "mudari": "يَأْدُبُ",
-      "masdar": "اَلْأَدَبُ",
+      "mudari": "يَأدُبُ",
+      "masdar": "اَلأَدَبُ",
       "meaning": "to be well-mannered",
       "ism_fail": "أَدِيْبٌ",
       "amr": "اُوْدُبْ",
-      "nahi": "لَا تَأْدُبْ",
+      "nahi": "لَا تَأدُبْ",
       "bab": "karuma",
       "bab_arabic": "كَرُمَ يَكْرُمُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْدُبُ",
+          "corrected": "يَأدُبُ",
+          "printed": "يَأدُبُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْأَدَبُ",
+          "corrected": "اَلأَدَبُ",
+          "printed": "اَلأَدَبُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْدُبْ",
+          "corrected": "لَا تَأدُبْ",
+          "printed": "لَاتَأدُبْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء د ب",
       "root_compact": "ءدب",
       "root_letters": [
@@ -25667,17 +26112,49 @@
     {
       "id": 289,
       "madi": "أَرُبَ",
-      "mudari": "يَأْرُبُ",
-      "masdar": "اَلْأَرَابَةُ",
+      "mudari": "يَأرُبُ",
+      "masdar": "اَلأَرَابَةُ",
       "meaning": "to be wise, to be proficient",
       "ism_fail": "أَرِيْبٌ",
       "amr": "اُوْرُبْ",
-      "nahi": "لَا تَأْرُبْ",
+      "nahi": "لَا تَأرُبْ",
       "bab": "karuma",
       "bab_arabic": "كَرُمَ يَكْرُمُ",
       "verb_type": "mahmuz_fa",
       "verb_type_arabic": "مَهْمُوْزُ الْفَاءِ",
       "book_page": 16,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَأْرُبُ",
+          "corrected": "يَأرُبُ",
+          "printed": "يَأرُبُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْأَرَابَةُ",
+          "corrected": "اَلأَرَابَةُ",
+          "printed": "اَلأَرَابَةُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَأْرُبْ",
+          "corrected": "لَا تَأرُبْ",
+          "printed": "لَاتَأرُبْ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ء ر ب",
       "root_compact": "ءرب",
       "root_letters": [
@@ -25844,7 +26321,7 @@
       "id": 291,
       "madi": "سَئِمَ",
       "mudari": "يَسْأَمُ",
-      "masdar": "اَلسَّأَمُ",
+      "masdar": "اَلسَّأمُ",
       "meaning": "to be bored",
       "ism_fail": "سَائِمٌ",
       "amr": "اِسْأَمْ",
@@ -25854,7 +26331,26 @@
       "verb_type": "mahmuz_ain",
       "verb_type_arabic": "مَهْمُوْزُ الْعَيْنِ",
       "book_page": 16,
-      "transcription_note": "masdar hamza vowel small in print; read as fatha (اَلسَّأَمُ)",
+      "transcription_note": "masdar printed with no vowel on the hamza (اَلسَّأمُ). An earlier transcription recorded a small fatha that the print does not have.",
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلسَّأَمُ",
+          "corrected": "اَلسَّأمُ",
+          "printed": "اَلسَّأمُ",
+          "book_page": 16,
+          "pdf_page": 27,
+          "description": "letter 4 (أ): the book has no mark, the transcription had fatha"
+        },
+        {
+          "field": "transcription_note",
+          "kind": "note_correction",
+          "original": "masdar hamza vowel small in print; read as fatha (اَلسَّأَمُ)",
+          "corrected": "masdar printed with no vowel on the hamza (اَلسَّأمُ). An earlier transcription recorded a small fatha that the print does not have.",
+          "description": "the existing note said a small fatha sits on the hamza; there is no vowel glyph"
+        }
+      ],
       "root": "س ء م",
       "root_compact": "سءم",
       "root_letters": [
@@ -26197,7 +26693,7 @@
       "id": 295,
       "madi": "بَؤُسَ",
       "mudari": "يَبْؤُسُ",
-      "masdar": "اَلْبَأْسُ",
+      "masdar": "اَلْبَأسُ",
       "meaning": "to be brave",
       "ism_fail": "بَئِيْسٌ",
       "amr": "اُبْؤُسْ",
@@ -26207,6 +26703,18 @@
       "verb_type": "mahmuz_ain",
       "verb_type_arabic": "مَهْمُوْزُ الْعَيْنِ",
       "book_page": 17,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْبَأْسُ",
+          "corrected": "اَلْبَأسُ",
+          "printed": "اَلْبَأسُ",
+          "book_page": 17,
+          "pdf_page": 28,
+          "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ب ء س",
       "root_compact": "بءس",
       "root_letters": [
@@ -27093,12 +27601,24 @@
       "meaning": "to grow, to originate",
       "ism_fail": "نَاشِئٌ",
       "amr": "اِنْشَأْ",
-      "nahi": "لَا تَنْشَأْ",
+      "nahi": "لَا تَنْشَأ",
       "bab": "fataha",
       "bab_arabic": "فَتَحَ يَفْتَحُ",
       "verb_type": "mahmuz_lam",
       "verb_type_arabic": "مَهْمُوْزُ اللَّامِ",
       "book_page": 17,
+      "source_corrections": [
+        {
+          "field": "nahi",
+          "kind": "print_omission",
+          "original": "لَا تَنْشَأْ",
+          "corrected": "لَا تَنْشَأ",
+          "printed": "لَاتَنْشَأ",
+          "book_page": 17,
+          "pdf_page": 28,
+          "description": "letter 6 (أ): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ن ش ء",
       "root_compact": "نشء",
       "root_letters": [
@@ -27176,7 +27696,7 @@
       "mudari": "يَبْرُؤُ",
       "masdar": "اَلْبُرْءُ",
       "meaning": "to retire",
-      "ism_fail": "بَرِيْئٌ",
+      "ism_fail": "بَرِيئٌ",
       "amr": "اُبْرُؤْ",
       "nahi": "لَا تَبْرُؤْ",
       "bab": "karuma",
@@ -27184,6 +27704,18 @@
       "verb_type": "mahmuz_lam",
       "verb_type_arabic": "مَهْمُوْزُ اللَّامِ",
       "book_page": 18,
+      "source_corrections": [
+        {
+          "field": "ism_fail",
+          "kind": "print_omission",
+          "original": "بَرِيْئٌ",
+          "corrected": "بَرِيئٌ",
+          "printed": "بَرِيئٌ",
+          "book_page": 18,
+          "pdf_page": 29,
+          "description": "letter 3 (ي): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ب ر ء",
       "root_compact": "برء",
       "root_letters": [
@@ -27261,7 +27793,7 @@
       "mudari": "يَبْطُؤُ",
       "masdar": "اَلْبُطْءُ",
       "meaning": "to be slow",
-      "ism_fail": "بَطِيْئٌ",
+      "ism_fail": "بَطِيئٌ",
       "amr": "اُبْطُؤْ",
       "nahi": "لَا تَبْطُؤْ",
       "bab": "karuma",
@@ -27269,7 +27801,26 @@
       "verb_type": "mahmuz_lam",
       "verb_type_arabic": "مَهْمُوْزُ اللَّامِ",
       "book_page": 18,
-      "transcription_note": "hamza seat after طْ read as line hamza, matching اَلْبُرْءُ pattern",
+      "transcription_note": "masdar printed with the hamza on an alif after the sukun (اَلْبُطْأُ). Standard spelling writes it on the line, and Safwa keeps that form (اَلْبُطْءُ).",
+      "source_corrections": [
+        {
+          "field": "ism_fail",
+          "kind": "print_omission",
+          "original": "بَطِيْئٌ",
+          "corrected": "بَطِيئٌ",
+          "printed": "بَطِيئٌ",
+          "book_page": 18,
+          "pdf_page": 29,
+          "description": "letter 3 (ي): the book has no mark, the transcription had sukun"
+        },
+        {
+          "field": "transcription_note",
+          "kind": "note_correction",
+          "original": "hamza seat after طْ read as line hamza, matching اَلْبُرْءُ pattern",
+          "corrected": "masdar printed with the hamza on an alif after the sukun (اَلْبُطْأُ). Standard spelling writes it on the line, and Safwa keeps that form (اَلْبُطْءُ).",
+          "description": "the existing note said the hamza was read as a line hamza; the print has an alif seat"
+        }
+      ],
       "root": "ب ط ء",
       "root_compact": "بطء",
       "root_letters": [
@@ -27347,7 +27898,7 @@
       "mudari": "يَجْرُؤُ",
       "masdar": "اَلْجُرْأَةُ",
       "meaning": "to have courage",
-      "ism_fail": "جَرِيْئٌ",
+      "ism_fail": "جَرِيئٌ",
       "amr": "اُجْرُؤْ",
       "nahi": "لَا تَجْرُؤْ",
       "bab": "karuma",
@@ -27355,6 +27906,18 @@
       "verb_type": "mahmuz_lam",
       "verb_type_arabic": "مَهْمُوْزُ اللَّامِ",
       "book_page": 18,
+      "source_corrections": [
+        {
+          "field": "ism_fail",
+          "kind": "print_omission",
+          "original": "جَرِيْئٌ",
+          "corrected": "جَرِيئٌ",
+          "printed": "جَرِيئٌ",
+          "book_page": 18,
+          "pdf_page": 29,
+          "description": "letter 3 (ي): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ج ر ء",
       "root_compact": "جرء",
       "root_letters": [
@@ -33287,7 +33850,7 @@
       "id": 376,
       "madi": "تَاهَ",
       "mudari": "يَتِيْهُ",
-      "masdar": "اَلتِّيْهُ",
+      "masdar": "اَلتَّيْهُ",
       "meaning": "to get lost",
       "ism_fail": "تَائِهٌ",
       "amr": "تِهْ",
@@ -33297,7 +33860,26 @@
       "verb_type": "ajwaf_yai",
       "verb_type_arabic": "اَلْأَجْوَفُ الْيَائِيُّ",
       "book_page": 23,
-      "transcription_note": "masdar shadda vowel on ت ambiguous at print size; transcribed as kasra (اَلتِّيْهُ)",
+      "transcription_note": "masdar printed with a fatha on the shadda of ت (اَلتَّيْهُ); the print uses its shadda-with-fatha glyph, not shadda-with-kasra.",
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "misreading",
+          "original": "اَلتِّيْهُ",
+          "corrected": "اَلتَّيْهُ",
+          "printed": "اَلتَّيْهُ",
+          "book_page": 23,
+          "pdf_page": 34,
+          "description": "letter 3 (ت): the book has fatha + shadda, the transcription had kasra + shadda"
+        },
+        {
+          "field": "transcription_note",
+          "kind": "note_correction",
+          "original": "masdar shadda vowel on ت ambiguous at print size; transcribed as kasra (اَلتِّيْهُ)",
+          "corrected": "masdar printed with a fatha on the shadda of ت (اَلتَّيْهُ); the print uses its shadda-with-fatha glyph, not shadda-with-kasra.",
+          "description": "the existing note called the vowel ambiguous; the glyph is shadda-with-fatha"
+        }
+      ],
       "root": "ت ي ه",
       "root_compact": "تيه",
       "root_letters": [
@@ -34150,7 +34732,7 @@
       "id": 386,
       "madi": "ضَاقَ",
       "mudari": "يَضِيْقُ",
-      "masdar": "اَلضِّيْقُ",
+      "masdar": "اَلضَّيْقُ",
       "meaning": "to become narrow",
       "ism_fail": "ضَائِقٌ",
       "amr": "ضِقْ",
@@ -34160,6 +34742,18 @@
       "verb_type": "ajwaf_yai",
       "verb_type_arabic": "اَلْأَجْوَفُ الْيَائِيُّ",
       "book_page": 23,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "misreading",
+          "original": "اَلضِّيْقُ",
+          "corrected": "اَلضَّيْقُ",
+          "printed": "اَلضَّيْقُ",
+          "book_page": 23,
+          "pdf_page": 34,
+          "description": "letter 3 (ض): the book has fatha + shadda, the transcription had kasra + shadda"
+        }
+      ],
       "root": "ض ي ق",
       "root_compact": "ضيق",
       "root_letters": [
@@ -34581,7 +35175,7 @@
       "id": 391,
       "madi": "لَانَ",
       "mudari": "يَلِيْنُ",
-      "masdar": "اَللِّيْنُ",
+      "masdar": "اَللَّيْنُ",
       "meaning": "to be soft",
       "ism_fail": "لَائِنٌ",
       "amr": "لِنْ",
@@ -34591,6 +35185,18 @@
       "verb_type": "ajwaf_yai",
       "verb_type_arabic": "اَلْأَجْوَفُ الْيَائِيُّ",
       "book_page": 23,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "misreading",
+          "original": "اَللِّيْنُ",
+          "corrected": "اَللَّيْنُ",
+          "printed": "اَللَّيْنُ",
+          "book_page": 23,
+          "pdf_page": 34,
+          "description": "letter 3 (ل): the book has fatha + shadda, the transcription had kasra + shadda"
+        }
+      ],
       "root": "ل ي ن",
       "root_compact": "لين",
       "root_letters": [
@@ -36340,7 +36946,7 @@
     {
       "id": 411,
       "madi": "جَثَا",
-      "mudari": "يَجْثِيْ",
+      "mudari": "يَجْثِي",
       "masdar": "اَلْجُثُوُّ",
       "meaning": "to kneel",
       "ism_fail": "جَاثٍ",
@@ -36351,6 +36957,18 @@
       "verb_type": "naqis_wawi",
       "verb_type_arabic": "اَلنَّاقِصُ الْوَاوِيُّ",
       "book_page": 25,
+      "source_corrections": [
+        {
+          "field": "mudari",
+          "kind": "print_omission",
+          "original": "يَجْثِيْ",
+          "corrected": "يَجْثِي",
+          "printed": "يَجْثِي",
+          "book_page": 25,
+          "pdf_page": 36,
+          "description": "letter 4 (ي): the book has no mark, the transcription had sukun"
+        }
+      ],
       "root": "ج ث و",
       "root_compact": "جثو",
       "root_letters": [
@@ -36687,7 +37305,7 @@
       "id": 415,
       "madi": "كَنٰى",
       "mudari": "يَكْنُوْ",
-      "masdar": "اَلْكِنَايَةُ",
+      "masdar": "الكِنايَةُ",
       "meaning": "to express indirectly",
       "ism_fail": "كَانٍ",
       "amr": "اُكْنُ",
@@ -36697,6 +37315,18 @@
       "verb_type": "naqis_yai",
       "verb_type_arabic": "اَلنَّاقِصُ الْيَائِيُّ",
       "book_page": 25,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلْكِنَايَةُ",
+          "corrected": "الكِنايَةُ",
+          "printed": "الكِنايَةُ",
+          "book_page": 25,
+          "pdf_page": 36,
+          "description": "letter 1 (ا): the book has no mark, the transcription had fatha; letter 2 (ل): the book has no mark, the transcription had sukun; letter 4 (ن): the book has no mark, the transcription had fatha"
+        }
+      ],
       "root": "ك ن ي",
       "root_compact": "كني",
       "root_letters": [
@@ -37403,7 +38033,7 @@
       "id": 423,
       "madi": "دَرٰى",
       "mudari": "يَدْرِيْ",
-      "masdar": "اَلدِّرَايَةُ",
+      "masdar": "الدِّرَايَةُ",
       "meaning": "to know",
       "ism_fail": "دَارٍ",
       "amr": "اِدْرِ",
@@ -37413,6 +38043,18 @@
       "verb_type": "naqis_yai",
       "verb_type_arabic": "اَلنَّاقِصُ الْيَائِيُّ",
       "book_page": 26,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلدِّرَايَةُ",
+          "corrected": "الدِّرَايَةُ",
+          "printed": "الدِّرَايَةُ",
+          "book_page": 26,
+          "pdf_page": 37,
+          "description": "letter 1 (ا): the book has no mark, the transcription had fatha"
+        }
+      ],
       "root": "د ر ي",
       "root_compact": "دري",
       "root_letters": [
@@ -38647,7 +39289,7 @@
       "id": 437,
       "madi": "خَفِيَ",
       "mudari": "يَخْفٰى",
-      "masdar": "اَلْخَفَاءُ",
+      "masdar": "اَلْخِفَاءُ",
       "meaning": "to be hidden",
       "ism_fail": "خَافٍ",
       "amr": "اِخْفَ",
@@ -38657,6 +39299,18 @@
       "verb_type": "naqis_yai",
       "verb_type_arabic": "اَلنَّاقِصُ الْيَائِيُّ",
       "book_page": 27,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "misreading",
+          "original": "اَلْخَفَاءُ",
+          "corrected": "اَلْخِفَاءُ",
+          "printed": "اَلْخِفَاءُ",
+          "book_page": 27,
+          "pdf_page": 38,
+          "description": "letter 3 (خ): the book has kasra, the transcription had fatha"
+        }
+      ],
       "root": "خ ف ي",
       "root_compact": "خفي",
       "root_letters": [
@@ -38742,7 +39396,16 @@
       "verb_type": "naqis_yai",
       "verb_type_arabic": "اَلنَّاقِصُ الْيَائِيُّ",
       "book_page": 27,
-      "transcription_note": "masdar final letter/vowel very small in print; transcribed اَلْعَمٰى",
+      "transcription_note": "masdar printed as اَلْعَمْيُ (sukun on م, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْعَمٰى.",
+      "source_corrections": [
+        {
+          "field": "transcription_note",
+          "kind": "note_correction",
+          "original": "masdar final letter/vowel very small in print; transcribed اَلْعَمٰى",
+          "corrected": "masdar printed as اَلْعَمْيُ (sukun on م, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْعَمٰى.",
+          "description": "the existing note said the last letter was too small to read; the print is clear"
+        }
+      ],
       "root": "ع م ي",
       "root_compact": "عمي",
       "root_letters": [
@@ -39002,7 +39665,7 @@
       "mudari": "يَرْعٰى",
       "masdar": "اَلرِّعَايَةُ",
       "meaning": "to graze, to watch",
-      "ism_fail": "رَاعٍ",
+      "ism_fail": "راعٍ",
       "amr": "اِرْعَ",
       "nahi": "لَا تَرْعَ",
       "bab": "fataha",
@@ -39010,6 +39673,18 @@
       "verb_type": "naqis_yai",
       "verb_type_arabic": "اَلنَّاقِصُ الْيَائِيُّ",
       "book_page": 27,
+      "source_corrections": [
+        {
+          "field": "ism_fail",
+          "kind": "print_omission",
+          "original": "رَاعٍ",
+          "corrected": "راعٍ",
+          "printed": "راعٍ",
+          "book_page": 27,
+          "pdf_page": 38,
+          "description": "letter 1 (ر): the book has no mark, the transcription had fatha"
+        }
+      ],
       "root": "ر ع ي",
       "root_compact": "رعي",
       "root_letters": [
@@ -39091,7 +39766,7 @@
       "id": 442,
       "madi": "سَعٰى",
       "mudari": "يَسْعٰى",
-      "masdar": "اَلسَّعْيُ",
+      "masdar": "السَّعْيُ",
       "meaning": "to run, to strive",
       "ism_fail": "سَاعٍ",
       "amr": "اِسْعَ",
@@ -39101,6 +39776,18 @@
       "verb_type": "naqis_yai",
       "verb_type_arabic": "اَلنَّاقِصُ الْيَائِيُّ",
       "book_page": 27,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلسَّعْيُ",
+          "corrected": "السَّعْيُ",
+          "printed": "السَّعْيُ",
+          "book_page": 27,
+          "pdf_page": 38,
+          "description": "letter 1 (ا): the book has no mark, the transcription had fatha"
+        }
+      ],
       "root": "س ع ي",
       "root_compact": "سعي",
       "root_letters": [
@@ -39352,7 +40039,7 @@
       "id": 445,
       "madi": "نَهُوَ",
       "mudari": "يَنْهُوْ",
-      "masdar": "اَلنِّهَايَةُ",
+      "masdar": "النِّهايَةُ",
       "meaning": "to terminate, to reach completion",
       "ism_fail": "نَاهٍ",
       "amr": "اُنْهُ",
@@ -39362,6 +40049,18 @@
       "verb_type": "naqis_yai",
       "verb_type_arabic": "اَلنَّاقِصُ الْيَائِيُّ",
       "book_page": 27,
+      "source_corrections": [
+        {
+          "field": "masdar",
+          "kind": "print_omission",
+          "original": "اَلنِّهَايَةُ",
+          "corrected": "النِّهايَةُ",
+          "printed": "النِّهايَةُ",
+          "book_page": 27,
+          "pdf_page": 38,
+          "description": "letter 1 (ا): the book has no mark, the transcription had fatha; letter 4 (ه): the book has no mark, the transcription had fatha"
+        }
+      ],
       "root": "ن ه ي",
       "root_compact": "نهي",
       "root_letters": [
@@ -39712,7 +40411,7 @@
       "mudari": "يَوْجٰى",
       "masdar": "اَلْوَجٰى",
       "meaning": "to wear down (hooves)",
-      "ism_fail": "وَاجٍ",
+      "ism_fail": "واجٍ",
       "amr": "اِيْجَ",
       "nahi": "لَا تَوْجَ",
       "bab": "samia",
@@ -39720,7 +40419,26 @@
       "verb_type": "lafif_mafruq",
       "verb_type_arabic": "اَللَّفِيْفُ الْمَفْرُوْقُ",
       "book_page": 28,
-      "transcription_note": "masdar final letter/vowel very small in print; transcribed اَلْوَجٰى",
+      "transcription_note": "masdar printed as الوَجْيُ (bare article, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْوَجٰى.",
+      "source_corrections": [
+        {
+          "field": "ism_fail",
+          "kind": "print_omission",
+          "original": "وَاجٍ",
+          "corrected": "واجٍ",
+          "printed": "واجٍ",
+          "book_page": 28,
+          "pdf_page": 39,
+          "description": "letter 1 (و): the book has no mark, the transcription had fatha"
+        },
+        {
+          "field": "transcription_note",
+          "kind": "note_correction",
+          "original": "masdar final letter/vowel very small in print; transcribed اَلْوَجٰى",
+          "corrected": "masdar printed as الوَجْيُ (bare article, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْوَجٰى.",
+          "description": "the existing note said the last letter was too small to read; the print is clear"
+        }
+      ],
       "root": "و ج ي",
       "root_compact": "وجي",
       "root_letters": [
@@ -39794,7 +40512,7 @@
     },
     {
       "id": 450,
-      "madi": "وَلِيَ",
+      "madi": "ولِيَ",
       "mudari": "يَلِيْ",
       "masdar": "اَلْوَلْيُ",
       "meaning": "to be close",
@@ -39806,6 +40524,18 @@
       "verb_type": "lafif_mafruq",
       "verb_type_arabic": "اَللَّفِيْفُ الْمَفْرُوْقُ",
       "book_page": 28,
+      "source_corrections": [
+        {
+          "field": "madi",
+          "kind": "print_omission",
+          "original": "وَلِيَ",
+          "corrected": "ولِيَ",
+          "printed": "ولِيَ",
+          "book_page": 28,
+          "pdf_page": 39,
+          "description": "letter 1 (و): the book has no mark, the transcription had fatha"
+        }
+      ],
       "root": "و ل ي",
       "root_compact": "ولي",
       "root_letters": [

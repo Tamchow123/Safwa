@@ -134,7 +134,7 @@
     "id": "138",
     "arabic": "لَبِثَ",
     "field": "amr,nahi",
-    "proposed": "اِلْبَثُ / لَا تَلْبَثُ",
+    "proposed": "اِلْبَثْ / لَا تَلْبَثْ",
     "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
     "status": "needs_review",
     "quiz_eligible": false,
@@ -142,7 +142,7 @@
       "amr",
       "nahi"
     ],
-    "source_note": "amr and nahi printed with final damma (sic; paradigm expects sukun اِلْبَثْ / لَا تَلْبَثْ); verified at high zoom against sukun glyphs elsewhere",
+    "source_note": "amr and nahi printed with a final sukun (اِلْبَثْ / لَا تَلْبَثْ), as the paradigm expects. The sukun sits on the three dots of ث, and an earlier transcription read it as a damma.",
     "action": "decide the quiz policy for the affected field(s), then re-enable them"
   },
   {
@@ -282,14 +282,14 @@
     "id": "291",
     "arabic": "سَئِمَ",
     "field": "masdar",
-    "proposed": "اَلسَّأَمُ",
+    "proposed": "اَلسَّأمُ",
     "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
     "status": "needs_review",
     "quiz_eligible": false,
     "affected_quiz_fields": [
       "masdar"
     ],
-    "source_note": "masdar hamza vowel small in print; read as fatha (اَلسَّأَمُ)",
+    "source_note": "masdar printed with no vowel on the hamza (اَلسَّأمُ). An earlier transcription recorded a small fatha that the print does not have.",
     "action": "decide the quiz policy for the affected field(s), then re-enable them"
   },
   {
@@ -304,7 +304,7 @@
     "affected_quiz_fields": [
       "masdar"
     ],
-    "source_note": "hamza seat after طْ read as line hamza, matching اَلْبُرْءُ pattern",
+    "source_note": "masdar printed with the hamza on an alif after the sukun (اَلْبُطْأُ). Standard spelling writes it on the line, and Safwa keeps that form (اَلْبُطْءُ).",
     "action": "decide the quiz policy for the affected field(s), then re-enable them"
   },
   {
@@ -444,14 +444,14 @@
     "id": "376",
     "arabic": "تَاهَ",
     "field": "masdar",
-    "proposed": "اَلتِّيْهُ",
+    "proposed": "اَلتَّيْهُ",
     "reason": "the printed source shows an irregular or ambiguous form for this field; decide whether quizzes should accept the printed or the standard form",
     "status": "needs_review",
     "quiz_eligible": false,
     "affected_quiz_fields": [
       "masdar"
     ],
-    "source_note": "masdar shadda vowel on ت ambiguous at print size; transcribed as kasra (اَلتِّيْهُ)",
+    "source_note": "masdar printed with a fatha on the shadda of ت (اَلتَّيْهُ); the print uses its shadda-with-fatha glyph, not shadda-with-kasra.",
     "action": "decide the quiz policy for the affected field(s), then re-enable them"
   },
   {
@@ -534,7 +534,7 @@
     "affected_quiz_fields": [
       "masdar"
     ],
-    "source_note": "masdar final letter/vowel very small in print; transcribed اَلْعَمٰى",
+    "source_note": "masdar printed as اَلْعَمْيُ (sukun on م, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْعَمٰى.",
     "action": "decide the quiz policy for the affected field(s), then re-enable them"
   },
   {
@@ -634,7 +634,7 @@
     "affected_quiz_fields": [
       "masdar"
     ],
-    "source_note": "masdar final letter/vowel very small in print; transcribed اَلْوَجٰى",
+    "source_note": "masdar printed as الوَجْيُ (bare article, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْوَجٰى.",
     "action": "decide the quiz policy for the affected field(s), then re-enable them"
   },
   {
