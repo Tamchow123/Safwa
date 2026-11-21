@@ -4,7 +4,9 @@
 Usage:  python scripts/validate-vocabulary.py
 
 Exits non-zero when any check fails.  Checks cover:
-  1. original-data preservation (455 entries, every field byte-identical),
+  1. original-data preservation (455 entries; every field byte-identical to
+     the original transcription with the recorded book corrections applied,
+     and every correction carried as provenance),
   2. root well-formedness and verb-type compatibility,
   3. status integrity: no internal reconstruction may claim independent
      verification; no unverified generated value may be quiz-eligible;
@@ -17,7 +19,8 @@ Exits non-zero when any check fails.  Checks cover:
      between the JSON rows and the Markdown report,
   6. mazid fih dataset safety (seed status, disabled quizzes, ID policy),
   7. statistics consistency and duplicate-madi protection,
-  8. named scenario self-tests for the known review entries.
+  8. named scenario self-tests for the known review entries,
+  9. self-tests proving the correction layer fails closed.
 
 Shares configuration (NOTE_AFFECTED_FIELDS, SOURCE_QUIZ_FIELDS, the
 review-markdown builder) with scripts/enrich-vocabulary.py by importing it,
@@ -56,6 +59,11 @@ SOURCE_QUIZ_FIELDS = enrichmod.SOURCE_QUIZ_FIELDS
 ADDITIONAL_FORM_FIELDS = enrichmod.ADDITIONAL_FORM_FIELDS
 ROOT_REVIEW_AFFECTED = enrichmod.ROOT_REVIEW_AFFECTED
 build_review_md = enrichmod.build_review_md
+apply_corrections = enrichmod.apply_corrections
+check_corrections_document = enrichmod.check_corrections_document
+load_corrections = enrichmod.load_corrections
+CorrectionError = enrichmod.CorrectionError
+CORRECTIONS_FILE = enrichmod.CORRECTIONS_FILE
 
 HARAKAT = set("ًٌٍَُِّْٰ")
 INVISIBLE = set("​‌‍‎‏؜﻿⁠")
@@ -103,9 +111,146 @@ def norm(text: str) -> str:
     return "".join(ch for ch in text if ch not in INVISIBLE).strip()
 
 
+def correction_layer_self_tests() -> None:
+    """Synthetic scenarios for apply_corrections: it must apply a matching
+    record exactly once without touching its input, and refuse every record
+    that does not match the data. Values are ASCII stand-ins on purpose."""
+    def entry(eid: int, **extra: Any) -> dict[str, Any]:
+        base = {"id": eid, "madi": f"m{eid}", "mudari": f"u{eid}",
+                "masdar": f"s{eid}", "ism_fail": f"f{eid}", "amr": f"a{eid}",
+                "nahi": f"n{eid}", "meaning": "to test", "book_page": 3,
+                "verb_type": "sahih", "verb_type_arabic": "vt"}
+        base.update(extra)
+        return base
+
+    def doc(**sections: list[dict[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {"field_corrections": [], "print_variants": [],
+                               "heading_variants": [], "note_corrections": []}
+        out.update(sections)
+        return out
+
+    def fix(eid: int = 1, field: str = "masdar", original: str = "s1",
+            corrected: str = "s1x", **over: Any) -> dict[str, Any]:
+        rec = {"id": eid, "field": field, "kind": "print_omission",
+               "original": original, "corrected": corrected, "printed": "p",
+               "book_page": 3, "pdf_page": 14, "description": "d"}
+        rec.update(over)
+        return rec
+
+    def variant(**over: Any) -> dict[str, Any]:
+        rec = {"id": 1, "field": "masdar",
+               "kind": "print_variant_standard_kept", "value": "s1",
+               "printed": "p", "book_page": 3, "pdf_page": 14,
+               "description": "d"}
+        rec.update(over)
+        return rec
+
+    def note(**over: Any) -> dict[str, Any]:
+        rec = {"id": 2, "kind": "note_correction", "original_note": "old",
+               "corrected_note": "new", "description": "d"}
+        rec.update(over)
+        return rec
+
+    def heading(**over: Any) -> dict[str, Any]:
+        rec = {"verb_type": "sahih", "field": "verb_type_arabic",
+               "kind": "print_variant_standard_kept", "value": "vt",
+               "printed": "p", "book_pages": [3], "description": "d"}
+        rec.update(over)
+        return rec
+
+    def refused(name: str, corrections: dict[str, Any]) -> None:
+        data = [entry(1), entry(2, transcription_note="old")]
+        try:
+            apply_corrections(data, corrections)
+        except CorrectionError:
+            check(True, name)
+            return
+        check(False, f"correction self-test: {name} was accepted")
+
+    data = [entry(1), entry(2, transcription_note="old")]
+    snapshot = json.dumps(data, sort_keys=True)
+    out = apply_corrections(data, doc())
+    check(out == data and all("source_corrections" not in e for e in out),
+          "correction self-test: an empty file must change nothing")
+
+    out = apply_corrections(data, doc(field_corrections=[fix()],
+                                      print_variants=[variant(field="amr",
+                                                              value="a1")],
+                                      heading_variants=[heading()],
+                                      note_corrections=[note()]))
+    check(json.dumps(data, sort_keys=True) == snapshot,
+          "correction self-test: apply_corrections mutated its input")
+    check(out[0]["masdar"] == "s1x" and out[0]["amr"] == "a1",
+          "correction self-test: a matching record was not applied, or a "
+          "kept-standard variant changed its value")
+    check([r["field"] for r in out[0]["source_corrections"]] == ["masdar"]
+          and out[0]["source_corrections"][0]["original"] == "s1",
+          "correction self-test: provenance must record the one change "
+          "with its original value")
+    check(out[1]["transcription_note"] == "new"
+          and out[1]["source_corrections"][0]["field"] == "transcription_note"
+          and out[1]["verb_type_arabic"] == "vt",
+          "correction self-test: note correction not applied, or a heading "
+          "variant changed the value")
+
+    refused("a record whose original no longer matches",
+            doc(field_corrections=[fix(original="stale")]))
+    refused("a record for an unknown id", doc(field_corrections=[fix(eid=9)]))
+    refused("the same field recorded twice",
+            doc(field_corrections=[fix(), fix(corrected="s1y")]))
+    refused("a field that may not be corrected",
+            doc(field_corrections=[fix(field="meaning", original="to test")]))
+    refused("a record that changes nothing",
+            doc(field_corrections=[fix(corrected="s1")]))
+    refused("a corrected value that is not NFC",
+            doc(field_corrections=[fix(corrected="é")]))
+    refused("an unknown kind", doc(field_corrections=[fix(kind="guess")]))
+    refused("a wrong book page", doc(field_corrections=[fix(book_page=4)]))
+    refused("a missing key", doc(field_corrections=[
+        {k: v for k, v in fix().items() if k != "printed"}]))
+    refused("a kept-standard value that no longer matches",
+            doc(print_variants=[variant(value="stale")]))
+    refused("a kept-standard variant on a corrected field",
+            doc(field_corrections=[fix()], print_variants=[variant()]))
+    refused("a heading value some entry does not carry",
+            doc(heading_variants=[heading(value="other")]))
+    refused("a note correction whose original note no longer matches",
+            doc(note_corrections=[note(original_note="stale")]))
+    refused("a note correction on an entry without a note",
+            doc(note_corrections=[note(id=1)]))
+    refused("a file without one of the four sections",
+            {"field_corrections": [], "print_variants": [],
+             "heading_variants": []})
+
+    def document_refused(name: str, document: dict[str, Any]) -> None:
+        try:
+            check_corrections_document(document)
+        except CorrectionError:
+            check(True, name)
+            return
+        check(False, f"correction self-test: {name} was accepted")
+
+    decision = {"date": "2026-01-01", "decided_by": "owner", "question": "q",
+                "answer": "a", "applies_to": "field_corrections"}
+    complete = {"description": "d", "sections": {}, "source": {},
+                "decisions": [decision], **doc()}
+    try:
+        check_corrections_document(complete)
+        check(True, "correction self-test: a complete file is accepted")
+    except CorrectionError as exc:
+        check(False, f"correction self-test: a complete file was refused: {exc}")
+    document_refused("an unknown top-level key", {**complete, "notes": []})
+    document_refused("a missing top-level key",
+                     {k: v for k, v in complete.items() if k != "decisions"})
+    document_refused("a decision missing a key", {**complete, "decisions": [
+        {k: v for k, v in decision.items() if k != "answer"}]})
+    document_refused("a decision with an empty answer", {**complete, "decisions": [
+        {**decision, "answer": " "}]})
+
+
 def main() -> int:
-    for path in (ORIGINAL_FILE, V2_FILE, PATTERNS_FILE, CANDIDATES_FILE,
-                 REVIEW_ROWS_FILE, REVIEW_MD_FILE):
+    for path in (ORIGINAL_FILE, CORRECTIONS_FILE, V2_FILE, PATTERNS_FILE,
+                 CANDIDATES_FILE, REVIEW_ROWS_FILE, REVIEW_MD_FILE):
         if not path.exists():
             print(f"FAIL: missing file {path}")
             return 1
@@ -139,17 +284,36 @@ def main() -> int:
     check(set(orig_by_id) == set(enr_by_id),
           "enriched ids differ from original ids")
 
+    # The only permitted difference from the original transcription is a
+    # recorded book correction; recompute the expected entries from the
+    # corrections file rather than trusting what the v2 file claims.
+    try:
+        corrections = load_corrections()
+        check_corrections_document(corrections)
+        expected_entries = apply_corrections(orig_entries, corrections)
+    except CorrectionError as exc:
+        print(f"FAIL: {CORRECTIONS_FILE.name}: {exc}")
+        return 1
+    exp_by_id = {e["id"]: e for e in expected_entries}
+
     for oid, oe in orig_by_id.items():
         ee = enr_by_id.get(oid)
         if ee is None:
             continue
+        xe = exp_by_id[oid]
         for field in ORIGINAL_FIELDS:
-            check(ee.get(field) == oe.get(field),
-                  f"id {oid}: original field {field!r} changed: "
-                  f"{oe.get(field)!r} -> {ee.get(field)!r}")
+            check(ee.get(field) == xe.get(field),
+                  f"id {oid}: source field {field!r} is neither the original "
+                  f"nor its recorded correction: {xe.get(field)!r} -> "
+                  f"{ee.get(field)!r}")
+        check(("transcription_note" in ee) == ("transcription_note" in oe),
+              f"id {oid}: transcription_note added or lost")
         if "transcription_note" in oe:
-            check(ee.get("transcription_note") == oe["transcription_note"],
-                  f"id {oid}: transcription_note lost or changed")
+            check(ee.get("transcription_note") == xe["transcription_note"],
+                  f"id {oid}: transcription_note is neither the original nor "
+                  "its recorded correction")
+        check(ee.get("source_corrections") == xe.get("source_corrections"),
+              f"id {oid}: source_corrections do not match the corrections file")
 
     note_count = sum(1 for e in entries if "transcription_note" in e)
     check(note_count == 14, f"transcription notes {note_count} != 14")
@@ -608,6 +772,8 @@ def main() -> int:
     check(len(full_138) > 80 and full_138 in review_md.replace("/", "|")
           or full_138.replace("|", "/") in review_md,
           "scenario: id 138 full note must appear untruncated in the report")
+
+    correction_layer_self_tests()
 
     # ------------------------------------------------------------------
     print(f"checks run: {checks}")

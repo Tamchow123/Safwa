@@ -2,6 +2,8 @@
 """Enrich the Safwa-tul-Masaadir mujarrad dataset for Safwa.
 
 Reads  : data/safwa-mujarrad.original.json   (never modified)
+         data/safwa-mujarrad.corrections.json (book corrections, applied
+                                                before enrichment)
 Writes : data/safwa-vocabulary.v2.json
          data/mazid-fih-patterns.json
          data/mazid-fih-candidates.json
@@ -12,7 +14,11 @@ Deterministic and idempotent: running twice produces identical content
 except for the explicitly generated `generated_at` timestamp.
 
 Provenance and safety policy (see docs/vocabulary-schema.md):
-- Original source fields are copied through unchanged, never edited.
+- Original source fields are copied through unchanged, never edited, except
+  where the corrections file records a check against the printed book. A
+  correction is applied only when its recorded original value still matches
+  exactly (anything else stops the run), and the corrected entry carries the
+  record in `source_corrections`.
 - `verified` / `independently_verified` labels are RESERVED for values
   checked against an external authoritative source with recorded
   provenance. Nothing in this dataset currently qualifies.
@@ -44,6 +50,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 DOCS_DIR = ROOT_DIR / "docs"
 ORIGINAL_FILE = DATA_DIR / "safwa-mujarrad.original.json"
+CORRECTIONS_FILE = DATA_DIR / "safwa-mujarrad.corrections.json"
 V2_FILE = DATA_DIR / "safwa-vocabulary.v2.json"
 PATTERNS_FILE = DATA_DIR / "mazid-fih-patterns.json"
 CANDIDATES_FILE = DATA_DIR / "mazid-fih-candidates.json"
@@ -473,10 +480,236 @@ ADDITIONAL_FORM_FIELDS = ["ism_maful", "madi_passive", "mudari_passive"]
 
 
 # --------------------------------------------------------------------------
+# Book corrections (data/safwa-mujarrad.corrections.json)
+# --------------------------------------------------------------------------
+# The original transcription is never edited. A source value changes only
+# through a record in the corrections file, and a record applies only while
+# the value it claims to correct is still exactly what the original holds.
+# Nothing is guessed: a stale, duplicate or malformed record stops the run.
+#
+#   field_corrections : the book prints something else; the value changes
+#   print_variants    : the book prints a non-standard form; the standard
+#                       value is kept and the printed reading recorded
+#   heading_variants  : the same, for a section heading shared by a verb type
+#   note_corrections  : a transcription_note that misdescribes the print
+CORRECTABLE_FIELDS = ("madi", "mudari", "masdar", "ism_fail", "amr", "nahi")
+FIELD_CORRECTION_KINDS = {"misreading", "print_omission"}
+VARIANT_KIND = "print_variant_standard_kept"
+NOTE_KIND = "note_correction"
+# Book page n is page n + 11 of the PDF the corrections were checked against.
+PDF_PAGE_OFFSET = 11
+CORRECTION_SECTIONS = {
+    "field_corrections": {"id", "field", "kind", "original", "corrected",
+                          "printed", "book_page", "pdf_page", "description"},
+    "print_variants": {"id", "field", "kind", "value", "printed",
+                       "book_page", "pdf_page", "description"},
+    "heading_variants": {"verb_type", "field", "kind", "value", "printed",
+                         "book_pages", "description"},
+    "note_corrections": {"id", "kind", "original_note", "corrected_note",
+                         "description"},
+}
+
+
+# The file is closed: prose (description, sections, source), the dated owner
+# decisions the records follow, and the four record sections. `decisions`
+# changes no value; it is checked so it cannot drift into an unread log.
+CORRECTIONS_FILE_KEYS = {"description", "sections", "source", "decisions",
+                         *CORRECTION_SECTIONS}
+DECISION_KEYS = {"date", "decided_by", "question", "answer", "applies_to"}
+
+
+class CorrectionError(Exception):
+    """A correction record does not match the data it claims to correct."""
+
+
+def load_corrections(path: Path = CORRECTIONS_FILE) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def check_corrections_document(doc: dict[str, Any]) -> None:
+    """Refuse a corrections file with unknown or missing top-level keys, or
+    a decision that is not a complete record."""
+    if set(doc) != CORRECTIONS_FILE_KEYS:
+        raise CorrectionError(
+            f"top-level keys {sorted(doc)}, expected "
+            f"{sorted(CORRECTIONS_FILE_KEYS)}")
+    if not isinstance(doc["decisions"], list):
+        raise CorrectionError("decisions must be a list")
+    for i, decision in enumerate(doc["decisions"]):
+        if not isinstance(decision, dict) or set(decision) != DECISION_KEYS:
+            raise CorrectionError(
+                f"decisions[{i}] must have exactly the keys "
+                f"{sorted(DECISION_KEYS)}")
+        for key in sorted(DECISION_KEYS):
+            if not isinstance(decision[key], str) or not decision[key].strip():
+                raise CorrectionError(
+                    f"decisions[{i}].{key} must be a non-empty string")
+
+
+def _check_record_keys(section: str, record: dict[str, Any]) -> None:
+    expected = CORRECTION_SECTIONS[section]
+    if set(record) != expected:
+        raise CorrectionError(
+            f"{section}: record {record.get('id', record.get('verb_type'))!r} "
+            f"has keys {sorted(record)}, expected {sorted(expected)}")
+
+
+def _check_text(where: str, value: Any) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise CorrectionError(f"{where}: must be a non-empty string")
+    if not unicodedata.is_normalized("NFC", value):
+        raise CorrectionError(f"{where}: is not NFC")
+
+
+def apply_corrections(entries: list[dict[str, Any]],
+                      corrections: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return corrected COPIES of `entries`, in order; the input is never
+    mutated. A copy that changed carries `source_corrections`: one record
+    per corrected field (and note), in field order. Raises CorrectionError
+    on any record that does not match the data."""
+    for section in CORRECTION_SECTIONS:
+        if not isinstance(corrections.get(section), list):
+            raise CorrectionError(f"corrections file lacks a {section!r} list")
+    by_id = {e["id"]: e for e in entries}
+    copies = {e["id"]: dict(e) for e in entries}
+    provenance: dict[int, list[dict[str, Any]]] = {}
+    seen: set[tuple[int, str]] = set()
+
+    def entry_for(section: str, rid: Any) -> dict[str, Any]:
+        if rid not in by_id:
+            raise CorrectionError(f"{section}: unknown entry id {rid!r}")
+        return by_id[rid]
+
+    def claim(section: str, rid: int, field: str) -> None:
+        if field not in CORRECTABLE_FIELDS:
+            raise CorrectionError(
+                f"{section}: id {rid} field {field!r} is not correctable "
+                f"(allowed: {', '.join(CORRECTABLE_FIELDS)})")
+        if (rid, field) in seen:
+            raise CorrectionError(
+                f"{section}: id {rid} field {field} is recorded more than once")
+        seen.add((rid, field))
+
+    def check_pages(section: str, rec: dict[str, Any],
+                    entry: dict[str, Any]) -> None:
+        if rec["book_page"] != entry["book_page"]:
+            raise CorrectionError(
+                f"{section}: id {rec['id']} book_page {rec['book_page']} != "
+                f"the entry's {entry['book_page']}")
+        if rec["pdf_page"] != rec["book_page"] + PDF_PAGE_OFFSET:
+            raise CorrectionError(
+                f"{section}: id {rec['id']} pdf_page {rec['pdf_page']} is not "
+                f"book_page + {PDF_PAGE_OFFSET}")
+
+    for rec in corrections["field_corrections"]:
+        _check_record_keys("field_corrections", rec)
+        entry = entry_for("field_corrections", rec["id"])
+        rid, field = rec["id"], rec["field"]
+        claim("field_corrections", rid, field)
+        if rec["kind"] not in FIELD_CORRECTION_KINDS:
+            raise CorrectionError(
+                f"field_corrections: id {rid} {field} kind {rec['kind']!r}")
+        if rec["original"] != entry[field]:
+            raise CorrectionError(
+                f"field_corrections: id {rid} {field}: the recorded original "
+                "no longer matches the original transcription")
+        _check_text(f"field_corrections: id {rid} {field} corrected",
+                    rec["corrected"])
+        _check_text(f"field_corrections: id {rid} {field} printed",
+                    rec["printed"])
+        if rec["corrected"] == rec["original"]:
+            raise CorrectionError(
+                f"field_corrections: id {rid} {field} changes nothing")
+        check_pages("field_corrections", rec, entry)
+        copies[rid][field] = rec["corrected"]
+        provenance.setdefault(rid, []).append({
+            "field": field, "kind": rec["kind"],
+            "original": rec["original"], "corrected": rec["corrected"],
+            "printed": rec["printed"], "book_page": rec["book_page"],
+            "pdf_page": rec["pdf_page"], "description": rec["description"]})
+
+    for rec in corrections["print_variants"]:
+        _check_record_keys("print_variants", rec)
+        entry = entry_for("print_variants", rec["id"])
+        rid, field = rec["id"], rec["field"]
+        claim("print_variants", rid, field)
+        if rec["kind"] != VARIANT_KIND:
+            raise CorrectionError(
+                f"print_variants: id {rid} {field} kind {rec['kind']!r}")
+        if rec["value"] != entry[field]:
+            raise CorrectionError(
+                f"print_variants: id {rid} {field}: the kept value no longer "
+                "matches the original transcription")
+        _check_text(f"print_variants: id {rid} {field} printed",
+                    rec["printed"])
+        if rec["printed"] == rec["value"]:
+            raise CorrectionError(
+                f"print_variants: id {rid} {field}: printed equals the value")
+        check_pages("print_variants", rec, entry)
+
+    seen_headings: set[str] = set()
+    for rec in corrections["heading_variants"]:
+        _check_record_keys("heading_variants", rec)
+        vt = rec["verb_type"]
+        if rec["field"] != "verb_type_arabic" or rec["kind"] != VARIANT_KIND:
+            raise CorrectionError(
+                f"heading_variants: {vt!r} must be a {VARIANT_KIND} of "
+                "verb_type_arabic")
+        if vt in seen_headings:
+            raise CorrectionError(f"heading_variants: {vt!r} recorded twice")
+        seen_headings.add(vt)
+        members = [e for e in entries if e["verb_type"] == vt]
+        if not members:
+            raise CorrectionError(f"heading_variants: no entries of {vt!r}")
+        if any(e["verb_type_arabic"] != rec["value"] for e in members):
+            raise CorrectionError(
+                f"heading_variants: {vt!r}: the kept value no longer matches "
+                "every entry of that verb type")
+        _check_text(f"heading_variants: {vt} printed", rec["printed"])
+        if rec["printed"] == rec["value"]:
+            raise CorrectionError(
+                f"heading_variants: {vt!r}: printed equals the value")
+
+    seen_notes: set[int] = set()
+    for rec in corrections["note_corrections"]:
+        _check_record_keys("note_corrections", rec)
+        entry = entry_for("note_corrections", rec["id"])
+        rid = rec["id"]
+        if rec["kind"] != NOTE_KIND:
+            raise CorrectionError(
+                f"note_corrections: id {rid} kind {rec['kind']!r}")
+        if rid in seen_notes:
+            raise CorrectionError(f"note_corrections: id {rid} recorded twice")
+        seen_notes.add(rid)
+        if entry.get("transcription_note") != rec["original_note"]:
+            raise CorrectionError(
+                f"note_corrections: id {rid}: the recorded original note no "
+                "longer matches the original transcription")
+        _check_text(f"note_corrections: id {rid} corrected_note",
+                    rec["corrected_note"])
+        if rec["corrected_note"] == rec["original_note"]:
+            raise CorrectionError(
+                f"note_corrections: id {rid} changes nothing")
+        copies[rid]["transcription_note"] = rec["corrected_note"]
+        provenance.setdefault(rid, []).append({
+            "field": "transcription_note", "kind": NOTE_KIND,
+            "original": rec["original_note"],
+            "corrected": rec["corrected_note"],
+            "description": rec["description"]})
+
+    order = {f: i for i, f in enumerate(CORRECTABLE_FIELDS + ("transcription_note",))}
+    for rid, records in provenance.items():
+        copies[rid]["source_corrections"] = sorted(
+            records, key=lambda r: order[r["field"]])
+    return [copies[e["id"]] for e in entries]
+
+
+# --------------------------------------------------------------------------
 # Enrichment of one entry
 # --------------------------------------------------------------------------
 def enrich_entry(entry: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Return (enriched_entry, review_rows). Original fields untouched."""
+    """Return (enriched_entry, review_rows). `entry` is already corrected
+    (see apply_corrections); its source fields are copied through as-is."""
     e = dict(entry)  # shallow copy; original values are never rewritten
     review: list[dict[str, Any]] = []
     notes: list[str] = []
@@ -1039,9 +1272,19 @@ def main() -> int:
         print(f"ERROR: missing {ORIGINAL_FILE}", file=sys.stderr)
         return 1
     original = json.loads(ORIGINAL_FILE.read_text(encoding="utf-8"))
-    entries = original["entries"]
-    if len(entries) != 455:
-        print(f"ERROR: expected 455 entries, found {len(entries)}", file=sys.stderr)
+    if len(original["entries"]) != 455:
+        print(f"ERROR: expected 455 entries, found {len(original['entries'])}",
+              file=sys.stderr)
+        return 1
+    if not CORRECTIONS_FILE.exists():
+        print(f"ERROR: missing {CORRECTIONS_FILE}", file=sys.stderr)
+        return 1
+    try:
+        corrections = load_corrections()
+        check_corrections_document(corrections)
+        entries = apply_corrections(original["entries"], corrections)
+    except CorrectionError as exc:
+        print(f"ERROR: {CORRECTIONS_FILE.name}: {exc}", file=sys.stderr)
         return 1
 
     enriched: list[dict[str, Any]] = []
@@ -1086,10 +1329,17 @@ def main() -> int:
         "added_fields": [
             "root", "root_compact", "root_letters", "form_number", "form_type",
             "root_provenance", "transitivity", "additional_forms",
-            "quiz_eligibility", "data_quality"],
+            "quiz_eligibility", "data_quality", "source_corrections"],
         "description": (
             "Fields added by scripts/enrich-vocabulary.py. Original printed "
-            "values were copied through untouched. Roots were reconstructed "
+            "values were copied through untouched, except the corrections "
+            "recorded in data/safwa-mujarrad.corrections.json after a "
+            "check against the printed book: an entry that carries "
+            "source_corrections lists each changed field with its original "
+            "transcription, the corrected value and where in the book it "
+            "was checked. data_quality.source_preserved means every source "
+            "field is the original transcription or such a recorded "
+            "correction. Roots were reconstructed "
             "from the printed forms plus the book's verb-type classification "
             "and cross-checked internally; they are labelled "
             "internally_validated, NOT verified, because no external "

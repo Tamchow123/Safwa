@@ -1,0 +1,20 @@
+{
+  "description": "Corrections to data/safwa-mujarrad.original.json, checked against the printed book. The original transcription is never edited: scripts/enrich-vocabulary.py applies these records to copies of the original entries before enrichment, and each corrected entry in data/safwa-vocabulary.v2.json carries its records in source_corrections. A record applies only while the value it corrects is still exactly what the original transcription holds; a stale, duplicate or malformed record stops the enrichment run, and scripts/validate-vocabulary.py checks the result.",
+  "sections": {
+    "field_corrections": "The book prints something other than the transcription, so the value changes to `corrected`. kind is misreading (a different letter or haraka was transcribed) or print_omission (the book leaves out a mark the transcription added).",
+    "print_variants": "The book prints a non-standard form, most likely a misprint, and the transcription holds the standard one. The value is kept; `printed` records what the book shows.",
+    "heading_variants": "The same for a section heading that every entry of one verb type carries as verb_type_arabic.",
+    "note_corrections": "A transcription_note that misdescribes the print is replaced. Which fields a note disables for quizzes (NOTE_AFFECTED_FIELDS in the enrichment script) does not change.",
+    "decisions": "The owner's dated policy decisions that the records follow (date, decided_by, question, answer, applies_to). They change no value, and the enrichment and validation scripts check their shape."
+  },
+  "source": {
+    "book": "Safwa-tul-Masaadir, Arabic-English edition: al-thulathi al-mujarrad, book pages 1-29",
+    "pdf": "Safwa-tul-Masaadir-Arabic-English.pdf; book page n is PDF page n + 11",
+    "method": "The PDF has no Unicode text layer: its Arabic is drawn with legacy glyph codes in the Ghalib and Ghalib01 fonts. Every table cell was decoded glyph by glyph into Unicode, compared with the transcription after NFC (ignoring only spaces and separators), and every disagreement was confirmed by eye on a high-zoom crop of the page. A record's `printed` value is that decoded cell."
+  },
+  "decisions": [],
+  "field_corrections": [],
+  "print_variants": [],
+  "heading_variants": [],
+  "note_corrections": []
+}

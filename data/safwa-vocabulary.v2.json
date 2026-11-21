@@ -1,6 +1,6 @@
 {
   "schema_version": "2.2.0",
-  "generated_at": "2026-07-14T09:46:55+00:00",
+  "generated_at": "2026-11-21T18:37:30+00:00",
   "source": {
     "title": "Safwa-tul-Masaadir (صفوة المصادر) — Arabic-English edition",
     "author": "Maulana Mushtaaq Ahmed Charthawali",
@@ -39,9 +39,10 @@
         "transitivity",
         "additional_forms",
         "quiz_eligibility",
-        "data_quality"
+        "data_quality",
+        "source_corrections"
       ],
-      "description": "Fields added by scripts/enrich-vocabulary.py. Original printed values were copied through untouched. Roots were reconstructed from the printed forms plus the book's verb-type classification and cross-checked internally; they are labelled internally_validated, NOT verified, because no external authoritative source has been consulted. Quiz eligibility is field-level: a transcription concern disables only the exact field(s) it affects. Passives/ism maf'ul were generated only for verbs heuristically classified transitive, are blocked while transitivity is under review, and are quiz-ineligible until independently verified. Anything uncertain is needs_review (see docs/manual-review-required.md).",
+      "description": "Fields added by scripts/enrich-vocabulary.py. Original printed values were copied through untouched, except the corrections recorded in data/safwa-mujarrad.corrections.json after a check against the printed book: an entry that carries source_corrections lists each changed field with its original transcription, the corrected value and where in the book it was checked. data_quality.source_preserved means every source field is the original transcription or such a recorded correction. Roots were reconstructed from the printed forms plus the book's verb-type classification and cross-checked internally; they are labelled internally_validated, NOT verified, because no external authoritative source has been consulted. Quiz eligibility is field-level: a transcription concern disables only the exact field(s) it affects. Passives/ism maf'ul were generated only for verbs heuristically classified transitive, are blocked while transitivity is under review, and are quiz-ineligible until independently verified. Anything uncertain is needs_review (see docs/manual-review-required.md).",
       "status_definitions": {
         "source_transcribed": "value transcribed from the printed book (all original fields)",
         "internally_validated": "reconstructed value cross-checked only against other printed forms of the same book; no external source consulted",
