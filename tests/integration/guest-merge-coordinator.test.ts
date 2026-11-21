@@ -12,7 +12,6 @@ import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
-import { registerContent } from "@/db/register-content";
 import {
   bookmarks,
   customLists,
@@ -40,6 +39,7 @@ import {
   type GuestMergeResponse,
 } from "@/modules/sync/protocol";
 import { runGuestMerge } from "@/modules/sync/server/guest-merge";
+import { registerActiveRelease } from "@/tests/integration/helpers/content-versions";
 import {
   makeGuestAttempt,
   makeGuestEvent,
@@ -59,8 +59,7 @@ let entryA: number;
 let entryB: number;
 
 beforeAll(async () => {
-  const { registered } = await registerContent(getDb());
-  releaseId = registered[0]!;
+  releaseId = await registerActiveRelease();
   const verified = await loadVerifiedReleaseCached(releaseId);
   context = createQuestionContextFromRelease(verified.learner);
   for (const entry of context.entries) {

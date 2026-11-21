@@ -23,7 +23,6 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
-import { registerContent } from "@/db/register-content";
 import {
   guestImports,
   reviewEvents,
@@ -51,6 +50,7 @@ import {
   type GuestMergeResponse,
 } from "@/modules/sync/protocol";
 import { runGuestMerge } from "@/modules/sync/server/guest-merge";
+import { registerActiveRelease } from "@/tests/integration/helpers/content-versions";
 import {
   aDistractor as pickDistractor,
   makeGuestAttempt,
@@ -83,8 +83,7 @@ let instance: QuestionInstance;
 let revokedRegistryDir: string;
 
 beforeAll(async () => {
-  const { registered } = await registerContent(getDb());
-  releaseId = registered[0]!;
+  releaseId = await registerActiveRelease();
   const verified = await loadVerifiedReleaseCached(releaseId);
   context = createQuestionContextFromRelease(verified.learner);
   for (const entry of context.entries) {

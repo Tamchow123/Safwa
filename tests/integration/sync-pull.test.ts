@@ -4,7 +4,6 @@ import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
-import { registerContent } from "@/db/register-content";
 import { loadVerifiedReleaseCached } from "@/modules/content/server-release-registry";
 import {
   buildComponentKey,
@@ -26,6 +25,7 @@ import {
   syncSettingsBatch,
 } from "@/modules/sync/server/settings";
 import type { WireAttempt, WireEvent } from "@/modules/sync/protocol";
+import { registerActiveRelease } from "@/tests/integration/helpers/content-versions";
 import { createTestUser } from "@/tests/integration/helpers/users";
 
 const SEED = "pull-test-seed";
@@ -39,8 +39,7 @@ let instance: QuestionInstance;
 let entryA: number;
 
 beforeAll(async () => {
-  const { registered } = await registerContent(getDb());
-  releaseId = registered[0]!;
+  releaseId = await registerActiveRelease();
   const verified = await loadVerifiedReleaseCached(releaseId);
   context = createQuestionContextFromRelease(verified.learner);
   for (const entry of context.entries) {
