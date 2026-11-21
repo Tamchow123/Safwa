@@ -15,18 +15,19 @@ optional accounts add cross-device synchronisation.
 
 ## Repository layout
 
-| Path                                | Purpose                                                                                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `data/safwa-mujarrad.original.json` | **Immutable** transcription of the printed source (455 entries). Never modified.                                         |
-| `data/safwa-vocabulary.v2.json`     | Enriched application dataset (schema 2.2.0): roots, provenance, field-level quiz eligibility, derived forms, statistics. |
-| `data/mazid-fih-patterns.json`      | Forms II–X pattern templates (educational patterns, no lexical claims).                                                  |
-| `data/mazid-fih-candidates.json`    | 21 unverified mazīd fīh seed candidates — **not** production-ready, quiz-ineligible.                                     |
-| `data/.review-rows.json`            | Machine-readable manual-review queue (64 rows).                                                                          |
-| `scripts/enrich-vocabulary.py`      | Regenerates the enriched dataset from the original (deterministic, idempotent).                                          |
-| `scripts/validate-vocabulary.py`    | Validates preservation, provenance, eligibility and review integrity (34,489 checks).                                    |
-| `docs/vocabulary-schema.md`         | Field-by-field data schema and safety rules.                                                                             |
-| `docs/vocabulary-audit.md`          | Audit of the data foundation.                                                                                            |
-| `docs/manual-review-required.md`    | Human-readable review queue (byte-synced with `.review-rows.json`).                                                      |
+| Path                                   | Purpose                                                                                                                                |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/safwa-mujarrad.original.json`    | **Immutable** transcription of the printed source (455 entries). Never modified.                                                       |
+| `data/safwa-mujarrad.corrections.json` | Book corrections applied on top of the original: 61 fields and 6 notes that disagreed with the print, each with its page (Phase 18.4). |
+| `data/safwa-vocabulary.v2.json`        | Enriched application dataset (schema 2.2.0): roots, provenance, field-level quiz eligibility, derived forms, statistics.               |
+| `data/mazid-fih-patterns.json`         | Forms II–X pattern templates (educational patterns, no lexical claims).                                                                |
+| `data/mazid-fih-candidates.json`       | 21 unverified mazīd fīh seed candidates — **not** production-ready, quiz-ineligible.                                                   |
+| `data/.review-rows.json`               | Machine-readable manual-review queue (64 rows).                                                                                        |
+| `scripts/enrich-vocabulary.py`         | Regenerates the enriched dataset from the original and its book corrections (deterministic, idempotent).                               |
+| `scripts/validate-vocabulary.py`       | Validates preservation, corrections, provenance, eligibility and review integrity (35,424 checks).                                     |
+| `docs/vocabulary-schema.md`            | Field-by-field data schema and safety rules.                                                                                           |
+| `docs/vocabulary-audit.md`             | Audit of the data foundation.                                                                                                          |
+| `docs/manual-review-required.md`       | Human-readable review queue (byte-synced with `.review-rows.json`).                                                                    |
 
 ## Planning documents
 
@@ -44,7 +45,10 @@ optional accounts add cross-device synchronisation.
 ## Data-safety principles (non-negotiable)
 
 1. **The original source file is immutable.** `data/safwa-mujarrad.original.json`
-   is source evidence; it is never edited or regenerated.
+   is source evidence; it is never edited or regenerated. Where the printed
+   book shows a value was transcribed wrongly, the fix is a record in
+   `data/safwa-mujarrad.corrections.json` that names the page, what the book
+   prints, and the original value it replaces.
 2. **Quiz eligibility is mandatory metadata.** The presence of a value never
    means it may be taught. Application code must check the per-field
    `quiz_eligibility` booleans; generated forms and mazīd candidates are
@@ -61,7 +65,7 @@ optional accounts add cross-device synchronisation.
 
 ```bash
 python scripts/enrich-vocabulary.py    # regenerate enriched dataset (never touches the original)
-python scripts/validate-vocabulary.py  # must exit 0 — 34,489 checks
+python scripts/validate-vocabulary.py  # must exit 0 — 35,424 checks
 pnpm content:build                     # regenerate the immutable content-release artifacts
 pnpm docs:verify                       # verify documentation Arabic against the datasets
 ```

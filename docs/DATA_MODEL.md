@@ -506,6 +506,22 @@ available to a conflict resolver.
   JSON is the authoring authority; the pipeline publishes immutable release
   artifacts; `content_versions` + manifest storage are the server's only
   content knowledge.
+- **Book corrections (Phase 18.4):** where the printed book shows the
+  transcription is wrong, the fix is a record in
+  `data/safwa-mujarrad.corrections.json`, never an edit of the original.
+  `scripts/enrich-vocabulary.py` applies the records to copies of the
+  original entries before enrichment, and refuses to run if any record's
+  `original` no longer equals the original file's value. Four kinds exist:
+  field corrections (one of the six Arabic word fields), print variants and
+  heading variants (the book is non-standard, the transcription holds the
+  standard spelling and keeps it; recorded, nothing changes), and note
+  corrections (replace a `transcription_note`'s text, never add or remove one,
+  so quiz eligibility is unchanged). Every entry a field or note correction
+  changes carries those records in `source_corrections` in the enriched
+  dataset, which the validator recomputes and compares. A correction produces
+  a new `release_id` like any content change; component identity
+  (`entry:<id>:skill:…:field:…`) does not depend on the text, so learning
+  state carries over.
 - **Stage 2 (Phase 21):** operational tables (`vocabulary_entries` with
   structured source fields + provenance columns
   `source_transcribed | internally_validated | algorithmically_derived |

@@ -17,9 +17,10 @@ Milestones:
 | 🏁 **Multi-device offline Beta** | 19          | concurrent offline reconciliation proven                         |
 | 🏁 **Production launch**         | 22          | hardened, monitored, deployed                                    |
 
-**Phase 18 is the last implemented phase**, followed by three correction phases:
-**18.1** (pre-deployment hardening), **18.2** (SMTP email replaces Resend) and
-**18.3** (verification-email recovery and the fixes the first sign-up found).
+**Phase 18 is the last implemented phase**, followed by four correction phases:
+**18.1** (pre-deployment hardening), **18.2** (SMTP email replaces Resend),
+**18.3** (verification-email recovery and the fixes the first sign-up found)
+and **18.4** (the vocabulary checked against the printed book, entry by entry).
 Phase 18 widened to absorb Phase 22's
 deploy, backup and security-header slices, and 19–21 plus the rest of 22 are
 deferred with the condition that reopens each recorded under "Deliberately
@@ -753,6 +754,92 @@ slices, quality gate, full council, draft PR).
 | Deferred out of 18.3                                      | Reopened by                                                                                                                                                         |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A per-recipient cooldown on verification-email resends** | Widening `SIGNUP_ALLOWED_EMAILS` beyond the owner. Until then an unverified account exists only during the owner's own sign-up, so there is no one else to send to (`RISK_REGISTER.md` risk 33). |
+
+## Phase 18.4 — Book corrections: the vocabulary checked against the printed source (post-merge correction)
+
+Not a feature phase: the owner asked for every entry to be checked against the
+printed book, character by character and mark by mark, and for every value
+that disagrees to be corrected. It ran the same workflow as any phase (branch,
+reviewed slices, quality gate, full council, draft PR).
+
+- **Objective:** every Arabic word field and every transcription note says
+  what the book prints, without editing the immutable original (CLAUDE.md hard
+  rule 1), and with each change traceable to a page.
+- **How the book was read:** the PDF has no Unicode text layer; its Arabic is
+  drawn in legacy glyph codes (the Ghalib and Ghalib01 fonts). All 2,730
+  Arabic word fields (455 entries × six) were decoded from the table cells of
+  book pages 1–29 glyph by glyph, marks attached by outline geometry rather
+  than drawing order, compared with the transcription codepoint by codepoint
+  after NFC, and every disagreement confirmed by eye on a high-zoom crop.
+  Neither the decoder nor the PDF is in the repository; each record carries
+  the decoded printed cell (`printed`), its book page and its PDF page, so a
+  record can be re-checked against any copy of the book.
+- **Shipped:**
+  - **A corrections layer** (`data/safwa-mujarrad.corrections.json`), applied
+    by `scripts/enrich-vocabulary.py` to copies of the original entries before
+    enrichment. It fails closed: a record applies only while its `original`
+    still equals the original file's value, and a stale, duplicate, malformed
+    or non-NFC record, an unknown key or a malformed owner decision stops the
+    run before anything is written. Every changed entry carries its records in
+    `source_corrections`; `scripts/validate-vocabulary.py` recomputes them and
+    compares, and its self-tests prove each refusal (`DATA_MODEL.md` §11).
+  - **61 source fields corrected** across 38 entries (maṣdar 23, nahy 16,
+    muḍāriʿ 15, ism fāʿil 5, amr 1, māḍī 1): **9 misreadings** of a printed
+    mark (138 amr and nahy, the maṣdar of 254, 257, 274, 376, 386, 391 and
+    437) and **52 print omissions**, where the transcription adds a mark the
+    book leaves out. A correction changes ḥarakāt only — never a letter, a
+    hamzah seat or a space — and the integrity suite proves it.
+  - **Six transcription notes corrected** (138, 291, 307, 376, 438, 449): each
+    described something the print does not show, and now says what it does.
+    Notes are replaced, never added or removed, so the same 14 notes disable
+    the same fields.
+  - **Seven print variants and one heading recorded, not applied:** the
+    muḍāriʿ and maṣdar of 290 and the maṣdar of 292, 304, 307, 438 and 449,
+    where the book seats a hamzah non-standardly or looks misprinted, and the
+    `mahmuz_lam` heading (book pages 15 and 17), which prints a sukūn on the
+    first lām where the assimilated spelling has a shaddah on the second.
+  - **A new content release** (`safwa-2.2.0-5c6d0fb42b2590c6`); the previous
+    one stays `supported`. `schema_version` stays 2.2.0 — `source_corrections`
+    is additive and never reaches a learner release.
+- **Owner decisions (2026-11-21, recorded in the file's `decisions`):** where
+  the book leaves out a mark the transcription adds, **match the book**;
+  where the book looks misprinted and the transcription holds the standard
+  spelling, **keep the standard spelling**, with notes that say exactly what
+  the book prints. 304, 307 and the heading are not obvious misprints, but
+  fall under the second rule because the transcription holds the standard
+  spelling there; they are the cases to revisit if the owner prefers the
+  book's form.
+- **Deliberately NOT changed:** quiz eligibility (`NOTE_AFFECTED_FIELDS` and
+  the note count). 138 amr/nahy and 376 maṣdar now match both the print and
+  the paradigm yet stay quiz-ineligible behind their (corrected) notes; making
+  them teachable is a separate decision. The original JSON,
+  `docs/vocabulary-schema.md` and `docs/vocabulary-audit.md` are untouched,
+  and component identity does not depend on the text, so learning state
+  carries over.
+- **What it does not claim:** the check covers the mujarrad tables (book pages
+  1–29): the six Arabic word fields, the English meanings (all 455 match), the
+  verb-type headings and the notes. It does not re-check roots or anything
+  derived. It is one careful pass by one reader, not an independent
+  verification, so no value is marked `verified`. Four differences were
+  examined and are the book's typography, not errors: the superscript alif
+  before a final alif maqṣūrah, which the book draws at the junction and the
+  dataset stores on the consonant (40 fields); the overprinted shaddah on the
+  ism fāʿil of 252; the alif with a standing stroke in the ism fāʿil of
+  276–285, a single glyph the dataset encodes as alif plus superscript alif;
+  and the space after the negative particle in the nahy, which the book often
+  prints joined.
+  `pnpm docs:verify` requires a placeholder's value to be identical in the
+  original and the enriched dataset, so a future placeholder for a corrected
+  field fails until that tool learns about corrections.
+- **Prerequisites:** Phase 18.3.
+- **Deploy note:** no migration and no new variable, but a new content
+  release: dispatch **Deploy migrations** with content registration on, from
+  this branch, before merging (`DEPLOYMENT.md` §6).
+
+| Deferred out of 18.4 | Reopened by |
+| --- | --- |
+| **Quiz eligibility for 138 amr/nahy and 376 maṣdar** | The owner deciding the corrected values are teachable; it means retiring their notes' eligibility effect, a quiz-eligibility change in its own right. |
+| **An independent second reading of the book** | Any public launch, or a learner reporting a value that disagrees with the print. Only then could a value be marked `verified`. |
 
 ## Phase 19 — Multi-device offline reconciliation 🏁 Multi-device offline Beta
 
