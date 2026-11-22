@@ -189,6 +189,36 @@ export function seedCard(
   };
 }
 
+/**
+ * A `review_events` row for a SCHEDULING answer (the slice
+ * `readSchedulingSnapshot` reads), answered `occurredAtMs` and dated that
+ * UTC day. Seed a chain root first (`parentEventId: null`) and parent each
+ * later answer on the one before it.
+ */
+export function seedSchedulingEvent(params: {
+  eventId: string;
+  componentKey: string;
+  parentEventId: string | null;
+  rating: "again" | "hard" | "good" | "easy";
+  occurredAtMs: number;
+  clientSequence: number;
+}) {
+  const occurredAt = new Date(params.occurredAtMs);
+  return {
+    eventId: params.eventId,
+    componentKey: params.componentKey,
+    parentEventId: params.parentEventId,
+    clientComponentRevision: params.clientSequence,
+    syncStatus: "local",
+    createdAt: params.occurredAtMs,
+    rating: params.rating,
+    status: "scheduling",
+    clientSequence: params.clientSequence,
+    occurredAtClient: occurredAt.toISOString(),
+    localDateAtEvent: occurredAt.toISOString().slice(0, 10),
+  };
+}
+
 /** A `bookmarks` row (Phase 14). */
 export function seedBookmark(entryId: number, createdAtMs: number) {
   return { entryId, createdAt: createdAtMs };
