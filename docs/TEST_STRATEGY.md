@@ -539,7 +539,9 @@ which is **H4**. A green CI run does not claim either.
   card through a transient refresh failure, and coalesces visibility refreshes.
 - **The in-session dialog** (`entry-detail-dialog.test.tsx`): one h2 title
   with the record and progress under it; keys pressed in the dialog never reach
-  the session; closing returns focus.
+  the session; closing returns focus. A flashcard's recorded response time
+  leaves out the time its entry dialog was open (`flashcard-session.test.tsx`),
+  so reading the entry never inflates the dashboard's study time.
 - **E2E:** a word answered correctly on two separate days gets its English →
   Arabic step and a word answered on one day does not, from seeded scheduling
   answers read back through the app (`bab-root-mixed`); the entry page shows

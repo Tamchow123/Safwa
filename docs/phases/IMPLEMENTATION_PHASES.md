@@ -893,7 +893,8 @@ draft PR).
     `wordStateOf` in analytics) — and it reads only the word's own components.
   - **"View full entry" opens over the session** in a dialog with the same
     record (`EntryRecord`, shared with the entry page) and progress; closing it
-    returns to the same question or card.
+    returns to the same question or card. A flashcard's response time (summed
+    as the dashboard's study time) leaves out the time the dialog was open.
 - **Deliberately NOT changed:** FSRS and its parameters, the focused modes,
   the daily-target defaults, quiz eligibility, and how answers are recorded or
   synced. No migration, no server change, no new content release.

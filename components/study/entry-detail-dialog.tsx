@@ -19,11 +19,18 @@ import type { LearnerEntry } from "@/modules/content/schema";
  * session instead of navigating away from it, so the session — which lives
  * only in its page — carries on where it was when the dialog closes (focus
  * returns to this trigger). The same record and progress card as the entry
- * page.
+ * page. `onOpenChange` lets the session leave reading time out of an answer's
+ * response time.
  */
-export function EntryDetailDialog({ entry }: { entry: LearnerEntry }) {
+export function EntryDetailDialog({
+  entry,
+  onOpenChange,
+}: {
+  entry: LearnerEntry;
+  onOpenChange?: (open: boolean) => void;
+}) {
   return (
-    <Dialog>
+    <Dialog onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button
           type="button"

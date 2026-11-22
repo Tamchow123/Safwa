@@ -102,6 +102,8 @@ vi.mock("@/modules/study-session/persistence", async (importActual) => {
       recordGradedAttempt(...args),
     undoGradedAttempt: (...args: Parameters<typeof undoGradedAttempt>) =>
       undoGradedAttempt(...args),
+    // The in-session entry dialog's progress card: a learner with no history.
+    readComponentsSchedulingState: async () => [],
   };
 });
 
@@ -736,6 +738,32 @@ describe("FlashcardSession", () => {
     });
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText(/Card 2 of/)).toBeInTheDocument();
+  });
+
+  it("leaves time spent reading the full entry out of the card's response time", async () => {
+    // Only the clock is faked; timers stay real so the session loads as usual.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const shownAt = Date.UTC(2026, 10, 22, 9, 0, 0);
+    vi.setSystemTime(shownAt);
+    const user = userEvent.setup();
+    render(<FlashcardSession />);
+    const card = await waitForCard();
+    await user.click(card); // flip to reveal
+
+    vi.setSystemTime(shownAt + 3_000);
+    await user.click(screen.getByTestId("entry-detail-link"));
+    await screen.findByRole("dialog");
+    vi.setSystemTime(shownAt + 3_000 + 90_000); // a minute and a half reading
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    vi.setSystemTime(shownAt + 3_000 + 90_000 + 2_000);
+    await user.click(screen.getByTestId("rate-know"));
+
+    await waitFor(() => expect(recordGradedAttempt).toHaveBeenCalledTimes(1));
+    const [, attempt] = recordGradedAttempt.mock.calls[0];
+    expect(attempt.responseTimeMs).toBe(5_000);
   });
 
   it("bounds a hung session-init read, and a late resolution never revives it (REL-P101)", async () => {

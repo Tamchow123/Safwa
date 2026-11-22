@@ -62,6 +62,7 @@ import { DEFAULT_QUIZ_COUNT } from "@/modules/study-session/quizzes";
 import {
   chainForEntry,
   chainStatus,
+  toChainComponentState,
 } from "@/modules/study-session/skill-chain";
 
 /**
@@ -339,13 +340,9 @@ export function buildMixedPlan(
   const newWords: NewCandidate[] = [];
   for (const entry of entries) {
     const chain = chainForEntry(componentsByEntry.get(entry.id) ?? []);
-    const statuses = chainStatus(chain, (key) => {
-      const record = storedByKey.get(key);
-      return {
-        started: record?.fsrs != null,
-        qualifiesForNextSkill: record?.qualifiesForNextSkill === true,
-      };
-    });
+    const statuses = chainStatus(chain, (key) =>
+      toChainComponentState(storedByKey.get(key)),
+    );
     const chainIndex = statuses.findIndex((skill) => skill.status === "next");
     if (chainIndex < 0) continue;
     const candidate: NewCandidate = {

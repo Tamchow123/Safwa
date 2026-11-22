@@ -625,6 +625,11 @@ function CardView({
   const [revealed, setRevealed] = useState(false);
   // Set when the card mounts (in an effect — Date.now must not run in render).
   const shownAtRef = useRef<number>(0);
+  // Time spent reading the full entry (offered after the flip, before grading)
+  // is not time spent answering, so it is left out of the response time — the
+  // figure the dashboard sums as study time.
+  const entryOpenedAtRef = useRef<number | null>(null);
+  const entryReadingMsRef = useRef(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
   // The tracked swipe: start coordinates + the touch identifier, or null when no
   // single-finger gesture is in progress.
@@ -644,9 +649,18 @@ function CardView({
       return next;
     });
 
+  const onEntryOpenChange = (open: boolean) => {
+    if (open) {
+      entryOpenedAtRef.current = Date.now();
+    } else if (entryOpenedAtRef.current !== null) {
+      entryReadingMsRef.current += Date.now() - entryOpenedAtRef.current;
+      entryOpenedAtRef.current = null;
+    }
+  };
+
   const rate = (grade: FlashcardSelfGrade) => {
     if (!revealed || busy) return;
-    onGrade(grade, Date.now() - shownAtRef.current);
+    onGrade(grade, Date.now() - shownAtRef.current - entryReadingMsRef.current);
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -794,7 +808,7 @@ function CardView({
           Undo
         </Button>
         {revealed ? (
-          <EntryDetailDialog entry={entry} />
+          <EntryDetailDialog entry={entry} onOpenChange={onEntryOpenChange} />
         ) : (
           <span aria-hidden className="text-xs">
             &nbsp;

@@ -94,6 +94,20 @@ export type ChainComponentState = {
   qualifiesForNextSkill: boolean;
 };
 
+/**
+ * The chain's view of one stored record (a `StoredComponentState`, typed
+ * structurally so this module imports nothing from mixed.ts) — the ONE mapping
+ * both the planner and the entry page feed `chainStatus`.
+ */
+export function toChainComponentState(
+  record: { fsrs?: unknown; qualifiesForNextSkill?: boolean } | undefined,
+): ChainComponentState {
+  return {
+    started: record?.fsrs != null,
+    qualifiesForNextSkill: record?.qualifiesForNextSkill === true,
+  };
+}
+
 export type ChainSkillStatus = "started" | "next" | "locked";
 
 export type ChainSkill = {

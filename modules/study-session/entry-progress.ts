@@ -31,6 +31,7 @@ import type { StoredComponentState } from "@/modules/study-session/mixed";
 import {
   chainForEntry,
   chainStatus,
+  toChainComponentState,
   type ChainSkillStatus,
 } from "@/modules/study-session/skill-chain";
 
@@ -79,13 +80,9 @@ export function entryProgress(
 
   const chainComponents = chainForEntry(components);
   const chainKeys = new Set(chainComponents.map((component) => component.key));
-  const chain = chainStatus(chainComponents, (key) => {
-    const record = storedByKey.get(key);
-    return {
-      started: record?.fsrs != null,
-      qualifiesForNextSkill: record?.qualifiesForNextSkill === true,
-    };
-  }).map(({ component, status }) => ({
+  const chain = chainStatus(chainComponents, (key) =>
+    toChainComponentState(storedByKey.get(key)),
+  ).map(({ component, status }) => ({
     component,
     status,
     state: stateOf(component),

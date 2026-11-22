@@ -5,6 +5,7 @@ import { defaultEntryPromptForm } from "@/modules/study-session/mixed";
 import {
   chainForEntry,
   chainStatus,
+  toChainComponentState,
   type ChainComponentState,
 } from "@/modules/study-session/skill-chain";
 
@@ -201,5 +202,25 @@ describe("chainStatus", () => {
       "locked",
     ]);
     expect(result.filter((s) => s === "next")).toHaveLength(1);
+  });
+});
+
+describe("toChainComponentState", () => {
+  it("is started only once the record has a card, and qualifies only when told so", () => {
+    expect(toChainComponentState(undefined)).toEqual({
+      started: false,
+      qualifiesForNextSkill: false,
+    });
+    expect(toChainComponentState({})).toEqual({
+      started: false,
+      qualifiesForNextSkill: false,
+    });
+    expect(toChainComponentState({ fsrs: {} })).toEqual({
+      started: true,
+      qualifiesForNextSkill: false,
+    });
+    expect(
+      toChainComponentState({ fsrs: {}, qualifiesForNextSkill: true }),
+    ).toEqual({ started: true, qualifiesForNextSkill: true });
   });
 });
