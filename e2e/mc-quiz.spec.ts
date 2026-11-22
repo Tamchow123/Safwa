@@ -344,9 +344,13 @@ test.describe("multiple-choice quizzes", () => {
       await expect(page.getByTestId("mc-feedback")).toHaveCount(0);
       await expect(async () => {
         if (await page.getByTestId("mc-results").isVisible()) return;
-        const current = await page
+        // A read that does not wait: if the last answer lands between the
+        // check above and this read, the question line is gone for good, and
+        // an auto-waiting textContent() would hang until the test timeout
+        // instead of letting the next poll find the results screen.
+        const [current] = await page
           .getByText(/Question \d+ of \d+/)
-          .textContent();
+          .allTextContents();
         expect(current).not.toBe(position);
       }).toPass();
     }
