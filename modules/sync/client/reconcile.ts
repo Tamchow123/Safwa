@@ -80,9 +80,10 @@ export async function applyPullResponse(
     ],
     async () => {
       // 1. Authoritative component states (card fields === WireCard === fsrs).
-      //    `masteryDates` is intentionally NOT persisted client-side in Stage A:
-      //    the local mastery view is projected from review_events; only the FSRS
-      //    card + effective learner state are stored authoritatively here.
+      //    `masteryDates` rides along (Phase 18.5): they stand in for answers
+      //    this device does not hold when Start studying decides whether a
+      //    word's next skill unlocks (study-session/persistence.ts
+      //    `qualifiesForNextSkill`).
       for (const component of pull.components) {
         await db.studyComponents.put({
           // The account OWNS this authoritative card (schema v7): it is keyed
@@ -100,6 +101,7 @@ export async function applyPullResponse(
           // older server that omits the field.
           syncedHeadEventId: component.headEventId ?? null,
           syncedHeadClientRevision: component.headClientRevision ?? null,
+          masteryDates: component.masteryDates,
         });
       }
 

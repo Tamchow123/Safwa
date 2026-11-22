@@ -65,6 +65,13 @@ export type StoredComponentState = {
   fsrs?: SchedulerCard;
   /** Projected learner state (present once the component has been reviewed). */
   learnerState?: LearnerState;
+  /**
+   * Whether this skill has been answered correctly on two separate days and
+   * its latest answer was not wrong — so the word's next skill may unlock in
+   * Start studying (Phase 18.5). Resolved by `readSchedulingSnapshot`, the ONE
+   * source of the signal; absent means false.
+   */
+  qualifiesForNextSkill?: boolean;
 };
 
 /**

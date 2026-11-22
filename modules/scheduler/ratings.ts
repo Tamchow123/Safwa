@@ -25,6 +25,15 @@ export type RatableAttempt = {
   hintUsed: boolean;
 };
 
+/**
+ * Whether a rating records a correct answer — Good, Hard (a hinted correct
+ * answer) or Easy. The ONE definition: anything else, including a value that
+ * is not a rating at all (an unreadable stored row), is not correct.
+ */
+export function isCorrectRating(rating: unknown): boolean {
+  return rating === "good" || rating === "hard" || rating === "easy";
+}
+
 /** Map a scheduling-relevant attempt to its FSRS rating. */
 export function ratingForAttempt(attempt: RatableAttempt): SchedulerRating {
   if (!attempt.isCorrect) return "again";

@@ -42,6 +42,7 @@ import {
   createReviewEvent,
   deriveLineage,
   deriveNextLineage,
+  isCorrectRating,
   learnerStateFromReplay,
   replayChain,
   shouldCreateEvent,
@@ -710,11 +711,22 @@ export async function readSchedulingSnapshot(
       // share the store before the logout wipe.
       const componentRecords = await readOwnedRows(db.studyComponents, owner);
       const eventRows = await readOwnedRows(db.reviewEvents, owner);
+      const chains = new Map<string, ReviewEventRecord[]>();
+      for (const record of eventRows) {
+        if (record.status !== "scheduling") continue;
+        const chain = chains.get(record.componentKey);
+        if (chain) chain.push(record);
+        else chains.set(record.componentKey, [record]);
+      }
       const components: StoredComponentState[] = componentRecords.map(
         (record: StudyComponentRecord) => ({
           componentKey: record.componentKey,
           fsrs: record.fsrs,
           learnerState: record.learnerState,
+          qualifiesForNextSkill: qualifiesForNextSkill(
+            record,
+            chains.get(record.componentKey) ?? [],
+          ),
         }),
       );
       const events: SchedulingEventSummary[] = eventRows.map(
@@ -727,6 +739,66 @@ export async function readSchedulingSnapshot(
       );
       return { components, events };
     },
+  );
+}
+
+/** Correct answers on this many separate local days qualify a skill. */
+const NEXT_SKILL_CORRECT_DAYS = 2;
+
+/** Causal-enough order for one owner's answers: occurrence time, then sequence. */
+function answeredAfter(a: ReviewEventRecord, b: ReviewEventRecord): boolean {
+  const at = Date.parse(a.occurredAtClient ?? "");
+  const bt = Date.parse(b.occurredAtClient ?? "");
+  const aTime = Number.isNaN(at) ? -Infinity : at;
+  const bTime = Number.isNaN(bt) ? -Infinity : bt;
+  if (aTime !== bTime) return aTime > bTime;
+  return (a.clientSequence ?? -1) > (b.clientSequence ?? -1);
+}
+
+/**
+ * Whether a skill qualifies its word's next skill in Start studying (Phase 18.5,
+ * the owner's rule): answered correctly on {@link NEXT_SKILL_CORRECT_DAYS}
+ * separate days — learned once, then right again when it came back a day or
+ * more later — and its most recent answer was not wrong. "Correct" is the app's
+ * grading (a hinted correct answer counts; it is still correct). Every consumer
+ * reads it through `readSchedulingSnapshot`, so there is one rule:
+ *
+ *  - this owner's local scheduling answers decide the "latest answer" and
+ *    supply the correct days they cover;
+ *  - history this device does not hold also counts: server mastery dates a pull
+ *    stored (each is a correct review on a later day than the learning answer
+ *    before it, so one already means two correct days), or a stored `mastered`
+ *    / `needs_review` state, which implies more.
+ *
+ * Only ever errs towards keeping a skill locked: a row missing its date, or
+ * whose rating is not a correct one (`isCorrectRating`, the scheduler's one
+ * definition), contributes no correct day.
+ *
+ * It reads the owner's answers directly rather than replaying the chain: the
+ * question is "on which days was this answered correctly, and how was it last
+ * answered", which every genuine answer by this owner bears on whatever shape
+ * its chain has — so even a two-root chain (a guest→account merge union, or a
+ * fork the replay would refuse) counts each answer once, by its own date.
+ * Card state, which does depend on causal order, stays the replay's job.
+ */
+function qualifiesForNextSkill(
+  record: StudyComponentRecord,
+  chain: readonly ReviewEventRecord[],
+): boolean {
+  let latest: ReviewEventRecord | null = null;
+  const correctDays = new Set<string>();
+  for (const event of chain) {
+    if (latest === null || answeredAfter(event, latest)) latest = event;
+    if (isCorrectRating(event.rating) && event.localDateAtEvent) {
+      correctDays.add(event.localDateAtEvent);
+    }
+  }
+  // The latest answer was wrong (or is unreadable): not until it is right again.
+  if (latest !== null && !isCorrectRating(latest.rating)) return false;
+  if (correctDays.size >= NEXT_SKILL_CORRECT_DAYS) return true;
+  if ((record.masteryDates?.length ?? 0) >= 1) return true;
+  return (
+    record.learnerState === "mastered" || record.learnerState === "needs_review"
   );
 }
 
