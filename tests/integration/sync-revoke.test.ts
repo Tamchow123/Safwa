@@ -4,7 +4,6 @@ import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
-import { registerContent } from "@/db/register-content";
 import {
   reviewEvents,
   studyAttempts,
@@ -30,6 +29,7 @@ import type {
   WireEvent,
   WireRevocation,
 } from "@/modules/sync/protocol";
+import { registerActiveRelease } from "@/tests/integration/helpers/content-versions";
 import { createTestUser } from "@/tests/integration/helpers/users";
 
 const SEED = "revoke-test-seed";
@@ -46,8 +46,7 @@ let context: QuestionContext;
 let comp1: Component;
 
 beforeAll(async () => {
-  const { registered } = await registerContent(getDb());
-  releaseId = registered[0]!;
+  releaseId = await registerActiveRelease();
   const verified = await loadVerifiedReleaseCached(releaseId);
   context = createQuestionContextFromRelease(verified.learner);
   for (const entry of context.entries) {

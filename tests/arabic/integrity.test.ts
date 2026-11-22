@@ -23,8 +23,33 @@ const enriched = JSON.parse(
   readFileSync(join(ROOT, "data", "safwa-vocabulary.v2.json"), "utf8"),
 ) as { mujarrad_entries: RawEntry[] };
 
+const corrections = JSON.parse(
+  readFileSync(join(ROOT, "data", "safwa-mujarrad.corrections.json"), "utf8"),
+) as {
+  field_corrections: Array<{
+    id: number;
+    field: string;
+    original: string;
+    corrected: string;
+  }>;
+  print_variants: Array<{ id: number; field: string; value: string }>;
+  heading_variants: Array<{ verb_type: string; value: string }>;
+  note_corrections: Array<{
+    id: number;
+    original_note: string;
+    corrected_note: string;
+  }>;
+};
+
 const originalById = new Map(original.entries.map((e) => [e.id, e]));
 const enrichedById = new Map(enriched.mujarrad_entries.map((e) => [e.id, e]));
+const correctionByField = new Map(
+  corrections.field_corrections.map((c) => [`${c.id}:${c.field}`, c]),
+);
+
+// ḥarakāt, tanwīn, shaddah, sukūn and the superscript alif — the only
+// codepoints a book correction in this file may add, drop or swap.
+const MARKS = /[ً-ْٰ]/gu;
 
 const SOURCE_FIELDS = [
   "madi",
@@ -53,26 +78,89 @@ const ARABIC_FIELDS = [
 ] as const;
 
 describe("original vs enriched source preservation", () => {
-  it("every source field of every entry is byte-identical", () => {
+  it("every source field is byte-identical to the original or to exactly one recorded book correction", () => {
     expect(original.entries).toHaveLength(455);
     expect(enriched.mujarrad_entries).toHaveLength(455);
+    let corrected = 0;
     for (const entry of original.entries) {
       const twin = enrichedById.get(entry.id)!;
       for (const field of SOURCE_FIELDS) {
-        expect(twin[field], `entry ${entry.id} field ${field}`).toEqual(
-          entry[field],
-        );
+        const correction = correctionByField.get(`${entry.id}:${field}`);
+        if (correction) {
+          corrected += 1;
+          expect(correction.original, `entry ${entry.id} ${field}`).toBe(
+            entry[field],
+          );
+          expect(twin[field], `entry ${entry.id} ${field}`).toBe(
+            correction.corrected,
+          );
+        } else {
+          expect(twin[field], `entry ${entry.id} field ${field}`).toEqual(
+            entry[field],
+          );
+        }
+      }
+    }
+    expect(corrected).toBe(corrections.field_corrections.length);
+  });
+
+  it("records the 2026-11-21 book check: 61 fields, 7 kept variants, 1 heading, 6 notes", () => {
+    expect(corrections.field_corrections).toHaveLength(61);
+    expect(new Set(correctionByField.keys()).size).toBe(61);
+    expect(corrections.print_variants).toHaveLength(7);
+    expect(corrections.heading_variants).toHaveLength(1);
+    expect(corrections.note_corrections.map((n) => n.id)).toEqual([
+      138, 291, 307, 376, 438, 449,
+    ]);
+  });
+
+  it("a book correction changes ḥarakāt only, never a letter, hamzah seat or space", () => {
+    for (const c of corrections.field_corrections) {
+      expect(
+        toEscaped(c.corrected.replace(MARKS, "")),
+        `entry ${c.id} ${c.field}`,
+      ).toBe(toEscaped(c.original.replace(MARKS, "")));
+    }
+  });
+
+  it("kept-standard variants and headings leave the value as transcribed", () => {
+    for (const v of corrections.print_variants) {
+      const field = v.field as (typeof SOURCE_FIELDS)[number];
+      expect(originalById.get(v.id)![field]).toBe(v.value);
+      expect(enrichedById.get(v.id)![field]).toBe(v.value);
+    }
+    for (const h of corrections.heading_variants) {
+      for (const entry of enriched.mujarrad_entries) {
+        if (entry.verb_type === h.verb_type) {
+          expect(entry.verb_type_arabic).toBe(h.value);
+        }
       }
     }
   });
 
-  it("every Arabic source field is NFC", () => {
+  it("each corrected note replaces exactly its recorded original, and no note is added or lost", () => {
+    const byId = new Map(corrections.note_corrections.map((n) => [n.id, n]));
     for (const entry of original.entries) {
-      for (const field of ARABIC_FIELDS) {
-        expect(
-          isNfc(entry[field] as string),
-          `entry ${entry.id} field ${field} not NFC`,
-        ).toBe(true);
+      const twin = enrichedById.get(entry.id)!;
+      const fix = byId.get(entry.id);
+      if (fix) {
+        expect(entry.transcription_note).toBe(fix.original_note);
+        expect(twin.transcription_note).toBe(fix.corrected_note);
+      } else {
+        expect(twin.transcription_note).toEqual(entry.transcription_note);
+      }
+    }
+  });
+
+  it("every Arabic source field is NFC in both datasets", () => {
+    for (const dataset of [original.entries, enriched.mujarrad_entries]) {
+      for (const entry of dataset) {
+        for (const field of ARABIC_FIELDS) {
+          expect(
+            isNfc(entry[field] as string),
+            `entry ${entry.id} field ${field} not NFC`,
+          ).toBe(true);
+        }
       }
     }
   });

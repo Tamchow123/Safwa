@@ -17,7 +17,6 @@ import { and, eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
-import { registerContent } from "@/db/register-content";
 import { reviewEvents, studyComponents, syncAuditLog } from "@/db/schema";
 import { loadVerifiedReleaseCached } from "@/modules/content/server-release-registry";
 import {
@@ -34,6 +33,7 @@ import {
 import { ingestSchedulingBatch } from "@/modules/sync/server/ingest";
 import { pullChanges } from "@/modules/sync/server/pull";
 import { revokeEventsBatch } from "@/modules/sync/server/revoke";
+import { registerActiveRelease } from "@/tests/integration/helpers/content-versions";
 import { createTestUser } from "@/tests/integration/helpers/users";
 
 const NOW = Date.parse("2026-07-20T12:00:00.000Z");
@@ -48,8 +48,7 @@ beforeAll(async () => {
   // the identity against the release before it does anything else, so a
   // hand-picked entry id would make these tests fail for a reason that has
   // nothing to do with merging.
-  const { registered } = await registerContent(getDb());
-  releaseId = registered[0]!;
+  releaseId = await registerActiveRelease();
   const verified = await loadVerifiedReleaseCached(releaseId);
   context = createQuestionContextFromRelease(verified.learner);
   for (const entry of context.entries) {

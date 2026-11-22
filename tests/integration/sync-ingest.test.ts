@@ -7,7 +7,6 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb } from "@/db/client";
-import { registerContent } from "@/db/register-content";
 import {
   reviewEvents,
   studyAttempts,
@@ -31,6 +30,7 @@ import {
 import { ingestSchedulingBatch } from "@/modules/sync/server/ingest";
 import { replayComponent } from "@/modules/sync/server/replay";
 import type { WireAttempt, WireEvent } from "@/modules/sync/protocol";
+import { registerActiveRelease } from "@/tests/integration/helpers/content-versions";
 import { createTestUser } from "@/tests/integration/helpers/users";
 
 const SEED = "ingest-test-seed";
@@ -54,8 +54,7 @@ let revokedRegistryDir: string;
 beforeAll(async () => {
   // Register the real active release so review_events.release_id FKs resolve and
   // resolveReleaseForIngestion can load its manifests.
-  const { registered } = await registerContent(getDb());
-  releaseId = registered[0]!;
+  releaseId = await registerActiveRelease();
   const verified = await loadVerifiedReleaseCached(releaseId);
   context = createQuestionContextFromRelease(verified.learner);
   const found: Component[] = [];

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/db/client";
+import { registerContent } from "@/db/register-content";
 import { contentVersions } from "@/db/schema";
+import { readRegistry } from "@/modules/content/server-release-registry";
 
 const VALID_HEX64 = "a".repeat(64);
 
@@ -31,4 +33,20 @@ export async function createTestRelease(
     releaseId,
   });
   return releaseId;
+}
+
+/**
+ * Registers every release in the real registry (as `pnpm db:register-content`
+ * does) and returns the ACTIVE one's `release_id` — the release a learner
+ * studies today. Not the first id registered: once the registry also holds
+ * an older `supported` release (from Phase 18.4 on), that is not the active
+ * one, and a suite built on it would quietly exercise superseded content.
+ */
+export async function registerActiveRelease(): Promise<string> {
+  const { registered } = await registerContent(getDb());
+  const { active_release_id: activeReleaseId } = await readRegistry();
+  if (!registered.includes(activeReleaseId)) {
+    throw new Error(`active release ${activeReleaseId} was not registered`);
+  }
+  return activeReleaseId;
 }

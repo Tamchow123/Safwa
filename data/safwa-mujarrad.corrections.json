@@ -1,0 +1,835 @@
+{
+  "description": "Corrections to data/safwa-mujarrad.original.json, checked against the printed book. The original transcription is never edited: scripts/enrich-vocabulary.py applies these records to copies of the original entries before enrichment, and each corrected entry in data/safwa-vocabulary.v2.json carries its records in source_corrections. A record applies only while the value it corrects is still exactly what the original transcription holds; a stale, duplicate or malformed record stops the enrichment run, and scripts/validate-vocabulary.py checks the result.",
+  "sections": {
+    "field_corrections": "The book prints something other than the transcription, so the value changes to `corrected`. kind is misreading (a different letter or haraka was transcribed) or print_omission (the book leaves out a mark the transcription added).",
+    "print_variants": "The book prints a non-standard form, most likely a misprint, and the transcription holds the standard one. The value is kept; `printed` records what the book shows.",
+    "heading_variants": "The same for a section heading that every entry of one verb type carries as verb_type_arabic.",
+    "note_corrections": "A transcription_note that misdescribes the print is replaced. Which fields a note disables for quizzes (NOTE_AFFECTED_FIELDS in the enrichment script) does not change.",
+    "decisions": "The owner's dated policy decisions that the records follow (date, decided_by, question, answer, applies_to). They change no value, and the enrichment and validation scripts check their shape."
+  },
+  "source": {
+    "book": "Safwa-tul-Masaadir, Arabic-English edition: al-thulathi al-mujarrad, book pages 1-29",
+    "pdf": "Safwa-tul-Masaadir-Arabic-English.pdf; book page n is PDF page n + 11",
+    "method": "The PDF has no Unicode text layer: its Arabic is drawn with legacy glyph codes in the Ghalib and Ghalib01 fonts. Every table cell was decoded glyph by glyph into Unicode, compared with the transcription after NFC (ignoring only spaces and separators), and every disagreement was confirmed by eye on a high-zoom crop of the page. A record's `printed` value is that decoded cell.",
+    "checked_on": "2026-11-21"
+  },
+  "decisions": [
+    {
+      "date": "2026-11-21",
+      "decided_by": "owner",
+      "question": "Where the book leaves out a mark that the transcription adds, what should the data do?",
+      "answer": "Match the book.",
+      "applies_to": "field_corrections of kind print_omission"
+    },
+    {
+      "date": "2026-11-21",
+      "decided_by": "owner",
+      "question": "Where the book looks misprinted and the transcription holds the standard spelling, which should learners see?",
+      "answer": "The standard spelling, with notes that say exactly what the book prints.",
+      "applies_to": "print_variants, heading_variants, and the corrected notes on 307, 438 and 449"
+    }
+  ],
+  "field_corrections": [
+    {
+      "id": 89,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْغَمْزُ",
+      "corrected": "اَلْغمْزُ",
+      "printed": "اَلْغمْزُ",
+      "book_page": 5,
+      "pdf_page": 16,
+      "description": "letter 3 (غ): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 138,
+      "field": "amr",
+      "kind": "misreading",
+      "original": "اِلْبَثُ",
+      "corrected": "اِلْبَثْ",
+      "printed": "اِلْبَثْ",
+      "book_page": 7,
+      "pdf_page": 18,
+      "description": "letter 4 (ث): the book has sukun, the transcription had damma"
+    },
+    {
+      "id": 138,
+      "field": "nahi",
+      "kind": "misreading",
+      "original": "لَا تَلْبَثُ",
+      "corrected": "لَا تَلْبَثْ",
+      "printed": "لَاتَلْبَثْ",
+      "book_page": 7,
+      "pdf_page": 18,
+      "description": "letter 6 (ث): the book has sukun, the transcription had damma"
+    },
+    {
+      "id": 254,
+      "field": "masdar",
+      "kind": "misreading",
+      "original": "اَلْمُرُورُ",
+      "corrected": "اَلْمُرُوْرُ",
+      "printed": "اَلْمُرُوْرُ",
+      "book_page": 13,
+      "pdf_page": 24,
+      "description": "letter 5 (و): the book has sukun, the transcription had no mark"
+    },
+    {
+      "id": 257,
+      "field": "masdar",
+      "kind": "misreading",
+      "original": "اَلْبُتُوتُ",
+      "corrected": "اَلْبُتُوْتُ",
+      "printed": "اَلْبُتُوْتُ",
+      "book_page": 14,
+      "pdf_page": 25,
+      "description": "letter 5 (و): the book has sukun, the transcription had no mark"
+    },
+    {
+      "id": 274,
+      "field": "masdar",
+      "kind": "misreading",
+      "original": "اَلْوُدُّ",
+      "corrected": "اَلْوَدُّ",
+      "printed": "اَلْوَدُّ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 3 (و): the book has fatha, the transcription had damma"
+    },
+    {
+      "id": 275,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْحُبُّ",
+      "corrected": "الحُبُّ",
+      "printed": "الحُبُّ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 1 (ا): the book has no mark, the transcription had fatha; letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 276,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْجُرُ",
+      "corrected": "يَأجُرُ",
+      "printed": "يَأجُرُ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 276,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْجُرْ",
+      "corrected": "لَا تَأجُرْ",
+      "printed": "لَاتَأجُرْ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 277,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْخُذُ",
+      "corrected": "يَأخُذُ",
+      "printed": "يَأخُذُ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 277,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْخُذْ",
+      "corrected": "لَا تَأخُذْ",
+      "printed": "لَاتَأخُذْ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 278,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْكُلُ",
+      "corrected": "يَأكُلُ",
+      "printed": "يَأكُلُ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 278,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْكُلْ",
+      "corrected": "لَا تَأكُلْ",
+      "printed": "لَاتَأكُلْ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 279,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْمُرُ",
+      "corrected": "يَأمُرُ",
+      "printed": "يَأمُرُ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 279,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْمُرْ",
+      "corrected": "لَا تَأمُرْ",
+      "printed": "لَاتَأمُرْ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 280,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْدِبُ",
+      "corrected": "يَأدِبُ",
+      "printed": "يَأدِبُ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 280,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْدِبْ",
+      "corrected": "لَا تَأدِبْ",
+      "printed": "لَاتَأدِبْ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 281,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْسِرُ",
+      "corrected": "يَأسِرُ",
+      "printed": "يَأسِرُ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 281,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْسِرْ",
+      "corrected": "لَا تَأسِرْ",
+      "printed": "لَاتَأسِرْ",
+      "book_page": 15,
+      "pdf_page": 26,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 282,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْفِكُ",
+      "corrected": "يَأفِكُ",
+      "printed": "يَأفِكُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 282,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْإِفْكُ",
+      "corrected": "اَلإِفْكُ",
+      "printed": "اَلإِفْكُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 282,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْفِكْ",
+      "corrected": "لَا تَأفِكْ",
+      "printed": "لَاتَأفِكْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 283,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْثَمُ",
+      "corrected": "يَأثَمُ",
+      "printed": "يَأثَمُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 283,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْإِثْمُ",
+      "corrected": "اَلإِثْمُ",
+      "printed": "اَلإِثْمُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 283,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْثَمْ",
+      "corrected": "لَا تَأثَمْ",
+      "printed": "لَاتَأثَمْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 284,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْذَنُ",
+      "corrected": "يَأذَنُ",
+      "printed": "يَأذَنُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 284,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْإِذْنُ",
+      "corrected": "اَلإِذْنُ",
+      "printed": "اَلإِذْنُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 284,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْذَنْ",
+      "corrected": "لَا تَأذَنْ",
+      "printed": "لَاتَأذَنْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 285,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْمَنُ",
+      "corrected": "يَأمَنُ",
+      "printed": "يَأمَنُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 285,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْأَمْنُ",
+      "corrected": "اَلأَمْنُ",
+      "printed": "اَلأَمْنُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 285,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْمَنْ",
+      "corrected": "لَا تَأمَنْ",
+      "printed": "لَاتَأمَنْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 286,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْبُلُ",
+      "corrected": "يَأبُلُ",
+      "printed": "يَأبُلُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 286,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْأَبَالَةُ",
+      "corrected": "اَلأَبَالَةُ",
+      "printed": "اَلأَبَالَةُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 286,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْبُلْ",
+      "corrected": "لَا تَأبُلْ",
+      "printed": "لَاتَأبُلْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 287,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْثُلُ",
+      "corrected": "يَأثُلُ",
+      "printed": "يَأثُلُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 287,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْأَثَالَةُ",
+      "corrected": "اَلأَثَالَةُ",
+      "printed": "اَلأَثَالَةُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 287,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْثُلْ",
+      "corrected": "لَا تَأثُلْ",
+      "printed": "لَاتَأثُلْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 288,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْدُبُ",
+      "corrected": "يَأدُبُ",
+      "printed": "يَأدُبُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 288,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْأَدَبُ",
+      "corrected": "اَلأَدَبُ",
+      "printed": "اَلأَدَبُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 288,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْدُبْ",
+      "corrected": "لَا تَأدُبْ",
+      "printed": "لَاتَأدُبْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 289,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَأْرُبُ",
+      "corrected": "يَأرُبُ",
+      "printed": "يَأرُبُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 289,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْأَرَابَةُ",
+      "corrected": "اَلأَرَابَةُ",
+      "printed": "اَلأَرَابَةُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 2 (ل): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 289,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَأْرُبْ",
+      "corrected": "لَا تَأرُبْ",
+      "printed": "لَاتَأرُبْ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 291,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلسَّأَمُ",
+      "corrected": "اَلسَّأمُ",
+      "printed": "اَلسَّأمُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "letter 4 (أ): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 295,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْبَأْسُ",
+      "corrected": "اَلْبَأسُ",
+      "printed": "اَلْبَأسُ",
+      "book_page": 17,
+      "pdf_page": 28,
+      "description": "letter 4 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 305,
+      "field": "nahi",
+      "kind": "print_omission",
+      "original": "لَا تَنْشَأْ",
+      "corrected": "لَا تَنْشَأ",
+      "printed": "لَاتَنْشَأ",
+      "book_page": 17,
+      "pdf_page": 28,
+      "description": "letter 6 (أ): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 306,
+      "field": "ism_fail",
+      "kind": "print_omission",
+      "original": "بَرِيْئٌ",
+      "corrected": "بَرِيئٌ",
+      "printed": "بَرِيئٌ",
+      "book_page": 18,
+      "pdf_page": 29,
+      "description": "letter 3 (ي): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 307,
+      "field": "ism_fail",
+      "kind": "print_omission",
+      "original": "بَطِيْئٌ",
+      "corrected": "بَطِيئٌ",
+      "printed": "بَطِيئٌ",
+      "book_page": 18,
+      "pdf_page": 29,
+      "description": "letter 3 (ي): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 308,
+      "field": "ism_fail",
+      "kind": "print_omission",
+      "original": "جَرِيْئٌ",
+      "corrected": "جَرِيئٌ",
+      "printed": "جَرِيئٌ",
+      "book_page": 18,
+      "pdf_page": 29,
+      "description": "letter 3 (ي): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 376,
+      "field": "masdar",
+      "kind": "misreading",
+      "original": "اَلتِّيْهُ",
+      "corrected": "اَلتَّيْهُ",
+      "printed": "اَلتَّيْهُ",
+      "book_page": 23,
+      "pdf_page": 34,
+      "description": "letter 3 (ت): the book has fatha + shadda, the transcription had kasra + shadda"
+    },
+    {
+      "id": 386,
+      "field": "masdar",
+      "kind": "misreading",
+      "original": "اَلضِّيْقُ",
+      "corrected": "اَلضَّيْقُ",
+      "printed": "اَلضَّيْقُ",
+      "book_page": 23,
+      "pdf_page": 34,
+      "description": "letter 3 (ض): the book has fatha + shadda, the transcription had kasra + shadda"
+    },
+    {
+      "id": 391,
+      "field": "masdar",
+      "kind": "misreading",
+      "original": "اَللِّيْنُ",
+      "corrected": "اَللَّيْنُ",
+      "printed": "اَللَّيْنُ",
+      "book_page": 23,
+      "pdf_page": 34,
+      "description": "letter 3 (ل): the book has fatha + shadda, the transcription had kasra + shadda"
+    },
+    {
+      "id": 411,
+      "field": "mudari",
+      "kind": "print_omission",
+      "original": "يَجْثِيْ",
+      "corrected": "يَجْثِي",
+      "printed": "يَجْثِي",
+      "book_page": 25,
+      "pdf_page": 36,
+      "description": "letter 4 (ي): the book has no mark, the transcription had sukun"
+    },
+    {
+      "id": 415,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلْكِنَايَةُ",
+      "corrected": "الكِنايَةُ",
+      "printed": "الكِنايَةُ",
+      "book_page": 25,
+      "pdf_page": 36,
+      "description": "letter 1 (ا): the book has no mark, the transcription had fatha; letter 2 (ل): the book has no mark, the transcription had sukun; letter 4 (ن): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 423,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلدِّرَايَةُ",
+      "corrected": "الدِّرَايَةُ",
+      "printed": "الدِّرَايَةُ",
+      "book_page": 26,
+      "pdf_page": 37,
+      "description": "letter 1 (ا): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 437,
+      "field": "masdar",
+      "kind": "misreading",
+      "original": "اَلْخَفَاءُ",
+      "corrected": "اَلْخِفَاءُ",
+      "printed": "اَلْخِفَاءُ",
+      "book_page": 27,
+      "pdf_page": 38,
+      "description": "letter 3 (خ): the book has kasra, the transcription had fatha"
+    },
+    {
+      "id": 441,
+      "field": "ism_fail",
+      "kind": "print_omission",
+      "original": "رَاعٍ",
+      "corrected": "راعٍ",
+      "printed": "راعٍ",
+      "book_page": 27,
+      "pdf_page": 38,
+      "description": "letter 1 (ر): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 442,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلسَّعْيُ",
+      "corrected": "السَّعْيُ",
+      "printed": "السَّعْيُ",
+      "book_page": 27,
+      "pdf_page": 38,
+      "description": "letter 1 (ا): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 445,
+      "field": "masdar",
+      "kind": "print_omission",
+      "original": "اَلنِّهَايَةُ",
+      "corrected": "النِّهايَةُ",
+      "printed": "النِّهايَةُ",
+      "book_page": 27,
+      "pdf_page": 38,
+      "description": "letter 1 (ا): the book has no mark, the transcription had fatha; letter 4 (ه): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 449,
+      "field": "ism_fail",
+      "kind": "print_omission",
+      "original": "وَاجٍ",
+      "corrected": "واجٍ",
+      "printed": "واجٍ",
+      "book_page": 28,
+      "pdf_page": 39,
+      "description": "letter 1 (و): the book has no mark, the transcription had fatha"
+    },
+    {
+      "id": 450,
+      "field": "madi",
+      "kind": "print_omission",
+      "original": "وَلِيَ",
+      "corrected": "ولِيَ",
+      "printed": "ولِيَ",
+      "book_page": 28,
+      "pdf_page": 39,
+      "description": "letter 1 (و): the book has no mark, the transcription had fatha"
+    }
+  ],
+  "print_variants": [
+    {
+      "id": 290,
+      "field": "mudari",
+      "kind": "print_variant_standard_kept",
+      "value": "يَرْأَمُ",
+      "printed": "يَرْئَمُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "the book seats the hamza on a ya (ئ) after the sukun; standard spelling uses the alif seat (أ), which Safwa keeps"
+    },
+    {
+      "id": 290,
+      "field": "masdar",
+      "kind": "print_variant_standard_kept",
+      "value": "اَلرَّأْمُ",
+      "printed": "اَلرَّئْمُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "the book seats the hamza on a ya (ئ) after the shadda; standard spelling uses the alif seat (أ), which Safwa keeps"
+    },
+    {
+      "id": 292,
+      "field": "masdar",
+      "kind": "print_variant_standard_kept",
+      "value": "اَلدَّأْبُ",
+      "printed": "اَلدَّئْبُ",
+      "book_page": 16,
+      "pdf_page": 27,
+      "description": "the book seats the hamza on a ya (ئ); standard spelling uses the alif seat (أ), which Safwa keeps"
+    },
+    {
+      "id": 304,
+      "field": "masdar",
+      "kind": "print_variant_standard_kept",
+      "value": "اَلْمَلْءُ",
+      "printed": "اَلْمَلْأُ",
+      "book_page": 17,
+      "pdf_page": 28,
+      "description": "the book seats the final hamza on an alif (أ) after a sukun; standard spelling writes it on the line (ء), which Safwa keeps"
+    },
+    {
+      "id": 307,
+      "field": "masdar",
+      "kind": "print_variant_standard_kept",
+      "value": "اَلْبُطْءُ",
+      "printed": "اَلْبُطْأُ",
+      "book_page": 18,
+      "pdf_page": 29,
+      "description": "the book seats the final hamza on an alif (أ) after a sukun; standard spelling writes it on the line (ء), which Safwa keeps"
+    },
+    {
+      "id": 438,
+      "field": "masdar",
+      "kind": "print_variant_standard_kept",
+      "value": "اَلْعَمٰى",
+      "printed": "اَلْعَمْيُ",
+      "book_page": 27,
+      "pdf_page": 38,
+      "description": "the book prints a sukun on the mim and a dotted final ya with damma, most likely a misprint; Safwa keeps the standard form"
+    },
+    {
+      "id": 449,
+      "field": "masdar",
+      "kind": "print_variant_standard_kept",
+      "value": "اَلْوَجٰى",
+      "printed": "الوَجْيُ",
+      "book_page": 28,
+      "pdf_page": 39,
+      "description": "the book prints a bare article and a dotted final ya with damma, most likely a misprint; Safwa keeps the standard form"
+    }
+  ],
+  "heading_variants": [
+    {
+      "verb_type": "mahmuz_lam",
+      "field": "verb_type_arabic",
+      "kind": "print_variant_standard_kept",
+      "value": "مَهْمُوْزُ اللَّامِ",
+      "printed": "مَهْمُوْزُ الْلَامِ",
+      "book_pages": [
+        15,
+        17
+      ],
+      "description": "the section heading (book page 17) and the introduction (book page 15) print a sukun on the first lam and no shadda on the second, although lam is a sun letter; Safwa keeps the standard assimilated spelling"
+    }
+  ],
+  "note_corrections": [
+    {
+      "id": 138,
+      "kind": "note_correction",
+      "original_note": "amr and nahi printed with final damma (sic; paradigm expects sukun اِلْبَثْ / لَا تَلْبَثْ); verified at high zoom against sukun glyphs elsewhere",
+      "corrected_note": "amr and nahi printed with a final sukun (اِلْبَثْ / لَا تَلْبَثْ), as the paradigm expects. The sukun sits on the three dots of ث, and an earlier transcription read it as a damma.",
+      "description": "the existing note said the print has a final damma; the glyph is a sukun"
+    },
+    {
+      "id": 291,
+      "kind": "note_correction",
+      "original_note": "masdar hamza vowel small in print; read as fatha (اَلسَّأَمُ)",
+      "corrected_note": "masdar printed with no vowel on the hamza (اَلسَّأمُ). An earlier transcription recorded a small fatha that the print does not have.",
+      "description": "the existing note said a small fatha sits on the hamza; there is no vowel glyph"
+    },
+    {
+      "id": 307,
+      "kind": "note_correction",
+      "original_note": "hamza seat after طْ read as line hamza, matching اَلْبُرْءُ pattern",
+      "corrected_note": "masdar printed with the hamza on an alif after the sukun (اَلْبُطْأُ). Standard spelling writes it on the line, and Safwa keeps that form (اَلْبُطْءُ).",
+      "description": "the existing note said the hamza was read as a line hamza; the print has an alif seat"
+    },
+    {
+      "id": 376,
+      "kind": "note_correction",
+      "original_note": "masdar shadda vowel on ت ambiguous at print size; transcribed as kasra (اَلتِّيْهُ)",
+      "corrected_note": "masdar printed with a fatha on the shadda of ت (اَلتَّيْهُ); the print uses its shadda-with-fatha glyph, not shadda-with-kasra.",
+      "description": "the existing note called the vowel ambiguous; the glyph is shadda-with-fatha"
+    },
+    {
+      "id": 438,
+      "kind": "note_correction",
+      "original_note": "masdar final letter/vowel very small in print; transcribed اَلْعَمٰى",
+      "corrected_note": "masdar printed as اَلْعَمْيُ (sukun on م, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْعَمٰى.",
+      "description": "the existing note said the last letter was too small to read; the print is clear"
+    },
+    {
+      "id": 449,
+      "kind": "note_correction",
+      "original_note": "masdar final letter/vowel very small in print; transcribed اَلْوَجٰى",
+      "corrected_note": "masdar printed as الوَجْيُ (bare article, a dotted final ي with damma), most likely a misprint. Safwa keeps the standard form اَلْوَجٰى.",
+      "description": "the existing note said the last letter was too small to read; the print is clear"
+    }
+  ]
+}

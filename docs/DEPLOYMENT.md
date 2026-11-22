@@ -544,6 +544,26 @@ storing account markup: treat it as a live incident, not a docs drift.
 - Stage 1: `pnpm content:build` runs in CI/build from the validated JSON;
   artifacts are versioned and immutable; the Python validator gates the
   build.
+- **A new content release is registered before the app that serves it**
+  (first needed by Phase 18.4's book corrections). Any content change produces
+  a new `release_id`; once the build is promoted, `public/content/active.json`
+  points learners at it, and their next synced session carries it as a
+  foreign key into `content_versions` (§5). So dispatch **Deploy migrations**
+  (§5) with "Also register content versions" ticked and the **phase branch**
+  as the workflow's ref, before merging. With no new migration, its
+  `pnpm db:migrate` is a no-op. Registering early is harmless: the running app
+  reads release status from its own bundled
+  `content-server/release-registry.json`, never from the database, and
+  nothing but registration reads `content_versions`. If the merge went
+  first, run the workflow from `main` straight away; until it finishes, a
+  signed-in learner's sync is refused at the database and the device keeps
+  the work queued as a recoverable failure, sending it on a later sync. Each
+  refused push also writes a `critical` row to `sync_audit_log` per rejected
+  event and an `[sync] ingest: component … aborted` server log line per
+  component — the signal `ARCHITECTURE.md` §8 reserves for bugs and
+  tampering. In this window they are expected, and they stop once
+  registration completes. The previous release stays `supported`, so a
+  device that has not yet fetched the new one keeps syncing.
 - Stage 2 (post-Phase 21): admin import CLI seeds Postgres content tables
   idempotently; publishing generates new immutable releases + manifests via
   the same pipeline. Old manifests are retained indefinitely

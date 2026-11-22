@@ -20,9 +20,15 @@ integration; the E2E matrix runs on main and before releases.
 
 ## 2. Data-validation suite (Phase 3, rerun every CI)
 
-- Source preservation: 455 entries; enriched == original for all 12 source
-  fields (the Python validator's 34,489 checks stay authoritative; the TS
-  pipeline re-asserts counts).
+- Source preservation: 455 entries; enriched == original with the recorded
+  book corrections applied, for all 12 source fields (Phase 18.4 — before it,
+  plain enriched == original). The Python validator's 35,425 checks stay
+  authoritative: it recomputes the corrected entries from
+  `data/safwa-mujarrad.corrections.json` and compares every source field, the
+  transcription note and the `source_corrections` provenance against them,
+  and its self-tests prove the corrections layer refuses a stale, duplicate,
+  malformed or non-NFC record and never mutates its input. The TS pipeline
+  re-asserts counts.
 - Eligibility counts equal dataset statistics: madi 455 · mudari 454 ·
   masdar 445 · meaning 455 · ism_fail 454 · amr 454 · nahi 454 · bab 455 ·
   verb_type 453 · root 453 · generated 0 · mazid 0.
@@ -42,9 +48,17 @@ integration; the E2E matrix runs on main and before releases.
 - Entries 369 and 372 match the immutable original exactly (codepoint
   sequences, via the extraction helper — never string literals typed by
   hand).
+- Every source field of the enriched dataset is byte-identical to the
+  original, unless exactly one book correction covers it — then the record's
+  `original` equals the original file and the enriched value equals its
+  `corrected` (Phase 18.4). A correction changes ḥarakāt only: with the marks
+  stripped, both sides are identical, so no letter, hamzah seat or space can
+  change through this path. Kept-standard print variants leave their value as
+  transcribed, and each corrected note replaces exactly its recorded
+  original.
 - All six `bab_arabic` values match the dataset and are uniform per bāb.
 - Duplicate-madi groups match by exact codepoints.
-- NFC status asserted on every Arabic source field.
+- NFC status asserted on every Arabic source field, in both datasets.
 - Normalisation utility: NFC + invisible stripping (U+200B–200F, U+061C,
   U+FEFF, U+2060) + trim only; ḥarakāt/shaddah/hamzah differences preserved
   (table tests with near-miss pairs).
