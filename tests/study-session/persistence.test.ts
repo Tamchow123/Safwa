@@ -6,6 +6,7 @@ import { SafwaDb } from "@/modules/content/db";
 import { newDeviceProfile } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine";
 import {
+  readComponentsSchedulingState,
   readSchedulingSnapshot,
   recordGradedAttempt,
   type PersistedAttempt,
@@ -678,5 +679,80 @@ describe("readSchedulingSnapshot qualifiesForNextSkill (Phase 18.5)", () => {
     });
     expect(await qualifies(null)).toBe(true);
     expect(await qualifies(ACCOUNT)).toBe(false);
+  });
+});
+
+describe("readComponentsSchedulingState (Phase 18.5)", () => {
+  // makeAttempt's default component: the bāb of entry 1.
+  const BAB = "entry:1:skill:bab_identification";
+  const ROOT = "entry:1:skill:root_identification";
+  const OTHER_WORD = "entry:2:skill:bab_identification";
+  const ACCOUNT = "user-1";
+
+  async function answerBab(day: string, n: number, owner: string | null) {
+    const occurredAtUtc = `${day}T09:30:00.000Z`;
+    await recordGradedAttempt(
+      db,
+      makeAttempt({
+        id: `r-${n}`,
+        sessionId: `rs-${n}`,
+        userId: owner,
+        isCorrect: true,
+        occurredAtUtc,
+        localDateAtEvent: day,
+      }),
+      { eventId: `rev-${n}`, now: Date.parse(occurredAtUtc) + 1000 },
+    );
+  }
+
+  it("is the full snapshot's state for exactly the requested components", async () => {
+    await answerBab("2026-07-17", 1, null);
+    await answerBab("2026-07-18", 2, null);
+    await db.studyComponents.put({
+      ownerKey: GUEST_OWNER_KEY,
+      componentKey: OTHER_WORD,
+      entryId: 2,
+      revision: 1,
+      learnerState: "learning",
+    });
+
+    const scoped = await readComponentsSchedulingState(db, null, [BAB, ROOT]);
+    const full = await readSchedulingSnapshot(db, null);
+    // The same mapper: identical state, unlock signal included.
+    expect(scoped).toEqual(
+      full.components.filter((component) => component.componentKey === BAB),
+    );
+    expect(scoped[0].qualifiesForNextSkill).toBe(true);
+    // Another word's row is never read; a key with no row is simply absent.
+    expect(full.components.map((c) => c.componentKey)).toContain(OTHER_WORD);
+    expect(scoped.map((c) => c.componentKey)).toEqual([BAB]);
+  });
+
+  it("is owner-scoped: another owner's rows and answers are invisible", async () => {
+    await answerBab("2026-07-17", 1, null);
+    await answerBab("2026-07-18", 2, null);
+    await db.studyComponents.put({
+      ownerKey: toOwnerKey(ACCOUNT),
+      componentKey: BAB,
+      entryId: 1,
+      revision: 1,
+      learnerState: "learning",
+    });
+
+    const asGuest = await readComponentsSchedulingState(db, null, [BAB]);
+    const asAccount = await readComponentsSchedulingState(db, ACCOUNT, [BAB]);
+    expect(asGuest[0].qualifiesForNextSkill).toBe(true);
+    // The account's row, and none of the guest's answers.
+    expect(asAccount).toEqual([
+      {
+        componentKey: BAB,
+        fsrs: undefined,
+        learnerState: "learning",
+        qualifiesForNextSkill: false,
+      },
+    ]);
+    expect(await readComponentsSchedulingState(db, "user-2", [BAB])).toEqual(
+      [],
+    );
   });
 });

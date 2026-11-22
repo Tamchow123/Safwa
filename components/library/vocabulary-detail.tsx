@@ -12,6 +12,7 @@ import { useActiveContent } from "@/components/content/use-active-content";
 import { useResolveOwner } from "@/components/sync/use-local-owner";
 import { ContentSourceNotice } from "@/components/library/content-source-notice";
 import { EligibilityBadge } from "@/components/library/eligibility-badge";
+import { EntryProgressCard } from "@/components/library/entry-progress";
 import { VocabularyField } from "@/components/library/vocabulary-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -292,12 +293,7 @@ function EntryDetail({
       ) : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Card>
-          <CardContent className="text-muted-foreground text-sm">
-            Progress tracking will appear here once study sessions are
-            available.
-          </CardContent>
-        </Card>
+        <EntryProgressCard entry={entry} />
         <Card data-testid="detail-collections">
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between gap-3">

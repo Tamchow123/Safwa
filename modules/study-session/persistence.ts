@@ -718,16 +718,8 @@ export async function readSchedulingSnapshot(
         if (chain) chain.push(record);
         else chains.set(record.componentKey, [record]);
       }
-      const components: StoredComponentState[] = componentRecords.map(
-        (record: StudyComponentRecord) => ({
-          componentKey: record.componentKey,
-          fsrs: record.fsrs,
-          learnerState: record.learnerState,
-          qualifiesForNextSkill: qualifiesForNextSkill(
-            record,
-            chains.get(record.componentKey) ?? [],
-          ),
-        }),
+      const components = componentRecords.map((record) =>
+        toStoredComponentState(record, chains.get(record.componentKey) ?? []),
       );
       const events: SchedulingEventSummary[] = eventRows.map(
         (record: ReviewEventRecord) => ({
@@ -740,6 +732,58 @@ export async function readSchedulingSnapshot(
       return { components, events };
     },
   );
+}
+
+/**
+ * The stored scheduling state of the given components only — the entry page's
+ * read (Phase 18.5): one word's handful of components and their own events,
+ * through the owner-keyed primary key and `[ownerKey+componentKey]` index,
+ * instead of the owner's whole history. Each row goes through the SAME mapper
+ * as `readSchedulingSnapshot`, so the entry page and Start studying cannot
+ * disagree about a skill. Keys with no stored row are simply absent.
+ */
+export async function readComponentsSchedulingState(
+  db: SafwaDb,
+  owner: LocalOwnerId,
+  componentKeys: readonly string[],
+): Promise<StoredComponentState[]> {
+  return db.transaction(
+    "r",
+    [db.studyComponents, db.reviewEvents],
+    async () => {
+      const records = await db.studyComponents.bulkGet(
+        componentKeys.map((key) => ownedKey(owner, key)),
+      );
+      const stored: StoredComponentState[] = [];
+      for (const record of records) {
+        if (!record) continue;
+        const chain = await db.reviewEvents
+          .where("[ownerKey+componentKey]")
+          .equals(ownedKey(owner, record.componentKey))
+          .toArray();
+        stored.push(
+          toStoredComponentState(
+            record,
+            chain.filter((event) => event.status === "scheduling"),
+          ),
+        );
+      }
+      return stored;
+    },
+  );
+}
+
+/** One stored component as the planner and the entry page see it. */
+function toStoredComponentState(
+  record: StudyComponentRecord,
+  schedulingChain: readonly ReviewEventRecord[],
+): StoredComponentState {
+  return {
+    componentKey: record.componentKey,
+    fsrs: record.fsrs,
+    learnerState: record.learnerState,
+    qualifiesForNextSkill: qualifiesForNextSkill(record, schedulingChain),
+  };
 }
 
 /** Correct answers on this many separate local days qualify a skill. */

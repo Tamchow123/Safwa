@@ -149,11 +149,36 @@ function emptyRatios<K extends string>(
 }
 
 /** Per-entry essential tallies for the word-state derivation. */
-type EssentialTally = {
+export type EssentialTally = {
   total: number;
   mastered: number;
   started: number;
 };
+
+/** A word's state over its essential components (§5–6). */
+export type WordState = "not_started" | "learning" | "mastered";
+
+/** Count one essential component's EFFECTIVE state into its word's tally. */
+export function tallyEssential(
+  record: EssentialTally,
+  state: LearnerState,
+): void {
+  record.total += 1;
+  if (state === "mastered") record.mastered += 1;
+  if (state !== "not_started") record.started += 1;
+}
+
+/**
+ * The ONE word-state rule: mastered once every essential component is
+ * effectively mastered, learning once any is started, otherwise not started.
+ * The dashboard's word counts and the entry page's word state both use it.
+ * Only essential components feed it — extended mastery can never create word
+ * mastery or "started" status.
+ */
+export function wordStateOf(record: EssentialTally): WordState {
+  if (record.total > 0 && record.mastered === record.total) return "mastered";
+  return record.started > 0 ? "learning" : "not_started";
+}
 
 /**
  * The §6 table over one joined snapshot. `totalEntries` is the release's
@@ -188,20 +213,16 @@ export function computeProgressSummary(
         record = { total: 0, mastered: 0, started: 0 };
         essentials.set(component.entryId, record);
       }
-      record.total += 1;
-      if (mastered) record.mastered += 1;
-      if (component.state !== "not_started") record.started += 1;
+      tallyEssential(record, component.state);
     }
   }
 
   let wordsMastered = 0;
   let wordsLearning = 0;
-  // Every record in `essentials` has total ≥ 1 by construction (records are
-  // only created when an essential component is tallied), so a vacuous
-  // "zero essentials mastered" entry cannot arise here.
   for (const record of essentials.values()) {
-    if (record.mastered === record.total) wordsMastered += 1;
-    else if (record.started > 0) wordsLearning += 1;
+    const state = wordStateOf(record);
+    if (state === "mastered") wordsMastered += 1;
+    else if (state === "learning") wordsLearning += 1;
   }
   const wordsStarted = wordsMastered + wordsLearning;
 

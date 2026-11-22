@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildArtifacts, SOURCE_DATASET_PATH } from "@/modules/content/build";
 import type { ActiveContentState } from "@/components/content/use-active-content";
+import type { StoredComponentState } from "@/modules/study-session/mixed";
 
 const built = buildArtifacts(readFileSync(SOURCE_DATASET_PATH, "utf8"));
 const entries = built.learner.entries;
@@ -32,6 +33,55 @@ vi.mock("@/components/content/use-active-content", async (importOriginal) => {
     useActiveContent: () => ({ state: activeState.current, retry: vi.fn() }),
   };
 });
+
+// jsdom has no IndexedDB: the card's database handle is a stand-in, and its
+// ONE read is mocked below.
+vi.mock("@/modules/content/db", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/modules/content/db")>();
+  return { ...original, getSafwaDb: () => ({}) as never };
+});
+
+// The progress card's ONE read. Each test sets the owner's stored state; the
+// default is a learner with no study history.
+const readComponentsSchedulingState = vi.fn<
+  (
+    db: unknown,
+    owner: string | null,
+    componentKeys: readonly string[],
+  ) => Promise<StoredComponentState[]>
+>(async () => []);
+vi.mock("@/modules/study-session/persistence", async (importOriginal) => {
+  const original =
+    await importOriginal<
+      typeof import("@/modules/study-session/persistence")
+    >();
+  return {
+    ...original,
+    readComponentsSchedulingState: (
+      db: unknown,
+      owner: string | null,
+      componentKeys: readonly string[],
+    ) => readComponentsSchedulingState(db, owner, componentKeys),
+  };
+});
+
+/** A promise the test settles by hand — to hold a read in flight. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function regainVisibility() {
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+}
 
 vi.mock("@/components/collections/use-collections", async (importOriginal) => {
   const original =
@@ -70,6 +120,9 @@ import {
   DEFAULT_LIBRARY_QUERY,
   deriveLibraryFilterOptions,
 } from "@/modules/content/query";
+import { newCard, reviewCard } from "@/modules/scheduler/fsrs";
+import { deriveComponentsForEntry } from "@/modules/study-engine/components";
+import { chainForEntry } from "@/modules/study-session/skill-chain";
 
 const INTERNAL_FIELD_NAMES = [
   "root_provenance",
@@ -141,7 +194,7 @@ describe("VocabularyEntryCard", () => {
         onToggleBookmark={vi.fn()}
       />,
     );
-    expect(container.textContent).toMatch(/field\(s\) not quizzed/);
+    expect(container.textContent).toMatch(/field\(s\) not in quizzes/);
   });
 
   it("does not leak internal metadata", () => {
@@ -203,11 +256,13 @@ describe("VocabularyEntryCard", () => {
 });
 
 describe("EligibilityBadge and VocabularyField", () => {
-  it("badge is textual", () => {
+  it("badge is textual, and says whether the field is used in quizzes — not whether it was asked", () => {
     const { rerender } = render(<EligibilityBadge eligible />);
-    expect(screen.getByText("Quizzed")).toBeInTheDocument();
+    expect(screen.getByText("In quizzes")).toBeInTheDocument();
+    expect(screen.queryByText(/quizzed/i)).not.toBeInTheDocument();
     rerender(<EligibilityBadge eligible={false} />);
-    expect(screen.getByText("Not quizzed")).toBeInTheDocument();
+    expect(screen.getByText("Not in quizzes")).toBeInTheDocument();
+    expect(screen.queryByText(/quizzed/i)).not.toBeInTheDocument();
   });
 
   it("field renders Arabic values through ArabicText", () => {
@@ -218,7 +273,7 @@ describe("EligibilityBadge and VocabularyField", () => {
     );
     const arabic = container.querySelector('[lang="ar"][dir="rtl"]');
     expect(arabic?.textContent).toContain(entries[0].madi);
-    expect(screen.getByText("Quizzed")).toBeInTheDocument();
+    expect(screen.getByText("In quizzes")).toBeInTheDocument();
   });
 
   it("field renders the unavailable state when the value is missing", () => {
@@ -234,7 +289,7 @@ describe("EligibilityBadge and VocabularyField", () => {
     expect(
       screen.getByText("Not available — awaiting verification"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Not quizzed")).toBeInTheDocument();
+    expect(screen.getByText("Not in quizzes")).toBeInTheDocument();
   });
 });
 
@@ -319,12 +374,12 @@ describe("VocabularyDetail", () => {
   });
 
   it("maps every field to its own eligibility boolean (entry 30)", () => {
-    // Entry 30: masdar is quiz-ineligible while other fields stay quizzed.
+    // Entry 30: masdar is quiz-ineligible while other fields stay in quizzes.
     render(<VocabularyDetail idParam="30" />);
     const masdarField = screen.getByTestId("detail-masdar");
-    expect(within(masdarField).getByText("Not quizzed")).toBeInTheDocument();
+    expect(within(masdarField).getByText("Not in quizzes")).toBeInTheDocument();
     const mudariField = screen.getByTestId("detail-mudari");
-    expect(within(mudariField).getByText("Quizzed")).toBeInTheDocument();
+    expect(within(mudariField).getByText("In quizzes")).toBeInTheDocument();
   });
 
   it("shows the base meaning exactly once, labelled as a base meaning", () => {
@@ -376,17 +431,48 @@ describe("VocabularyDetail", () => {
     expect(rootField.textContent).toContain(
       "Not available — awaiting verification",
     );
-    expect(within(rootField).getByText("Not quizzed")).toBeInTheDocument();
+    expect(within(rootField).getByText("Not in quizzes")).toBeInTheDocument();
     expect(rootField.querySelector('[lang="ar"]')).toBeNull();
     const verbTypeField = screen.getByTestId("detail-verb-type");
-    expect(within(verbTypeField).getByText("Not quizzed")).toBeInTheDocument();
+    expect(
+      within(verbTypeField).getByText("Not in quizzes"),
+    ).toBeInTheDocument();
   });
 
-  it("shows the progress placeholder without fake data, and real collection controls instead of the retired bookmark placeholder", () => {
+  it("shows real progress, not a placeholder, and real collection controls instead of the retired bookmark placeholder", async () => {
     const { container } = render(<VocabularyDetail idParam="1" />);
+    const card = await screen.findByTestId("entry-progress-chain");
     expect(
-      screen.getByText(/Progress tracking will appear here/),
-    ).toBeInTheDocument();
+      screen.queryByText(/Progress tracking will appear here/),
+    ).not.toBeInTheDocument();
+    // The guest's own state is the one read — for this word's components only.
+    const entry = entries.find((candidate) => candidate.id === 1)!;
+    expect(readComponentsSchedulingState).toHaveBeenLastCalledWith(
+      expect.anything(),
+      null,
+      deriveComponentsForEntry(entry).map((component) => component.key),
+    );
+    // A learner with no history: the first skill is next up, the rest locked.
+    const rows = within(card).getAllByTestId("entry-progress-skill");
+    expect(rows.map((row) => row.getAttribute("data-status"))).toEqual([
+      "next",
+      "locked",
+      "locked",
+      "locked",
+      "locked",
+      "locked",
+    ]);
+    expect(rows[0]).toHaveTextContent("Next up");
+    expect(rows[0]).toHaveTextContent(
+      "Meaning recognition (Arabic → English) · māḍī",
+    );
+    expect(rows[1]).toHaveTextContent(
+      "Meaning recall (English → Arabic) · māḍī",
+    );
+    expect(rows[2]).toHaveTextContent("Bāb identification");
+    expect(screen.getByTestId("entry-progress-word-state")).toHaveTextContent(
+      "Not started",
+    );
     expect(
       screen.queryByText(/Bookmarking will become available/),
     ).not.toBeInTheDocument();
@@ -395,6 +481,143 @@ describe("VocabularyDetail", () => {
       screen.getByRole("button", { name: "Add to list" }),
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/\d+\s*%/);
+  });
+
+  it("shows each started skill's state, what it unlocked, and skills practised elsewhere", async () => {
+    const entry = entries.find((candidate) => candidate.id === 1)!;
+    const components = deriveComponentsForEntry(entry);
+    const chain = chainForEntry(components);
+    const verbType = components.find(
+      (c) => c.skillType === "verb_type_identification",
+    )!;
+    const card = {
+      ...reviewCard(newCard(Date.now()), Date.now(), "good"),
+      dueAtMs: Date.now() + 5 * 86_400_000,
+    };
+    readComponentsSchedulingState.mockResolvedValueOnce([
+      {
+        componentKey: chain[0].key,
+        fsrs: card,
+        learnerState: "learning",
+        qualifiesForNextSkill: true,
+      },
+      { componentKey: verbType.key, fsrs: card, learnerState: "learning" },
+    ]);
+    render(<VocabularyDetail idParam="1" />);
+    const rows = within(
+      await screen.findByTestId("entry-progress-chain"),
+    ).getAllByTestId("entry-progress-skill");
+    expect(rows[0]).toHaveAttribute("data-status", "started");
+    expect(rows[0]).toHaveTextContent("Learning");
+    expect(rows[1]).toHaveAttribute("data-status", "next");
+    expect(rows[2]).toHaveAttribute("data-status", "locked");
+    const also = screen.getByTestId("entry-progress-also");
+    expect(also).toHaveTextContent("Verb type identification");
+    expect(also).toHaveTextContent("Learning");
+    expect(screen.getByTestId("entry-progress-word-state")).toHaveTextContent(
+      "Learning",
+    );
+  });
+
+  it("a failed progress read says so without internals, and retries", async () => {
+    readComponentsSchedulingState.mockRejectedValueOnce(
+      new Error("DatabaseClosedError: internal detail"),
+    );
+    render(<VocabularyDetail idParam="1" />);
+    const alert = await within(screen.getByTestId("entry-progress")).findByRole(
+      "alert",
+    );
+    expect(alert).toHaveTextContent("Couldn't load your progress");
+    expect(alert).not.toHaveTextContent("DatabaseClosedError");
+    await userEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("entry-progress-chain")).toBeInTheDocument(),
+    );
+  });
+
+  it("never shows the previous word's progress while the next word's read is pending", async () => {
+    const entry1 = entries.find((candidate) => candidate.id === 1)!;
+    const started1 = chainForEntry(deriveComponentsForEntry(entry1))[0];
+    readComponentsSchedulingState.mockResolvedValueOnce([
+      {
+        componentKey: started1.key,
+        fsrs: {
+          ...reviewCard(newCard(Date.now()), Date.now(), "good"),
+          dueAtMs: Date.now() + 5 * 86_400_000,
+        },
+        learnerState: "learning",
+      },
+    ]);
+    const { rerender } = render(<VocabularyDetail idParam="1" />);
+    await waitFor(() =>
+      expect(screen.getByTestId("entry-progress-word-state")).toHaveTextContent(
+        "Learning",
+      ),
+    );
+
+    // A client-side navigation to word 2: the card stays mounted.
+    const pending = deferred<StoredComponentState[]>();
+    readComponentsSchedulingState.mockReturnValueOnce(pending.promise);
+    rerender(<VocabularyDetail idParam="2" />);
+    const card = screen.getByTestId("entry-progress");
+    expect(
+      within(card).getByRole("status", { name: "Loading your progress" }),
+    ).toBeInTheDocument();
+    expect(
+      within(card).queryByTestId("entry-progress-skill"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("entry-progress-word-state"),
+    ).not.toBeInTheDocument();
+
+    await act(async () => pending.resolve([]));
+    expect(screen.getByTestId("entry-progress-word-state")).toHaveTextContent(
+      "Not started",
+    );
+  });
+
+  it("keeps a working card through a transient refresh failure; persistent failures say so", async () => {
+    render(<VocabularyDetail idParam="1" />);
+    await screen.findByTestId("entry-progress-chain");
+
+    const before = readComponentsSchedulingState.mock.calls.length;
+    readComponentsSchedulingState.mockRejectedValueOnce(new Error("blocked"));
+    regainVisibility();
+    await act(async () => {});
+    // The refresh did run, and failed — the card it found stays.
+    expect(readComponentsSchedulingState.mock.calls.length).toBe(before + 1);
+    expect(screen.getByTestId("entry-progress-chain")).toBeInTheDocument();
+    const card = screen.getByTestId("entry-progress");
+    expect(within(card).queryByRole("alert")).not.toBeInTheDocument();
+
+    readComponentsSchedulingState.mockRejectedValueOnce(new Error("blocked"));
+    regainVisibility();
+    await act(async () => {});
+    expect(within(card).queryByRole("alert")).not.toBeInTheDocument();
+
+    readComponentsSchedulingState.mockRejectedValueOnce(new Error("blocked"));
+    regainVisibility();
+    expect(await within(card).findByRole("alert")).toHaveTextContent(
+      "Couldn't load your progress",
+    );
+  });
+
+  it("a burst of visibility changes while a refresh is in flight reads once", async () => {
+    render(<VocabularyDetail idParam="1" />);
+    await screen.findByTestId("entry-progress-chain");
+    const before = readComponentsSchedulingState.mock.calls.length;
+
+    const pending = deferred<StoredComponentState[]>();
+    readComponentsSchedulingState.mockReturnValueOnce(pending.promise);
+    regainVisibility();
+    regainVisibility();
+    regainVisibility();
+    expect(readComponentsSchedulingState.mock.calls.length).toBe(before + 1);
+    await act(async () => pending.resolve([]));
+    // Once it settles, the next return refreshes again.
+    regainVisibility();
+    await act(async () => {});
+    expect(readComponentsSchedulingState.mock.calls.length).toBe(before + 2);
   });
 
   it("renders a not-found state for invalid and absent ids", () => {

@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 
 import { ArabicText } from "@/components/arabic-text";
 import { SOURCE_FORM_METADATA } from "@/lib/form-metadata";
-import { SKILL_LABELS } from "@/lib/skill-labels";
+import { LEARNER_STATE_LABELS, SKILL_LABELS } from "@/lib/skill-labels";
 import type {
   Direction,
   SkillType,
@@ -28,13 +28,6 @@ import type { LearnerState } from "@/modules/scheduler/states";
 const DIRECTION_LABELS: Record<Direction, string> = {
   arabic_to_english: "Arabic → English",
   english_to_arabic: "English → Arabic",
-};
-
-const STATE_LABELS: Record<LearnerState, string> = {
-  not_started: "Not started",
-  learning: "Learning",
-  mastered: "Mastered",
-  needs_review: "Needs review",
 };
 
 export function resolveWeaknessGroupLabel(
@@ -71,7 +64,8 @@ export function resolveWeaknessGroupLabel(
       return { label, accessibleLabel: label };
     }
     case "state": {
-      const label = STATE_LABELS[group.value as LearnerState] ?? group.value;
+      const label =
+        LEARNER_STATE_LABELS[group.value as LearnerState] ?? group.value;
       return { label, accessibleLabel: label };
     }
   }

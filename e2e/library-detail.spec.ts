@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { expectNoSeriousViolations } from "./helpers/axe";
+import { idbSeed, seedCard, seedSchedulingEvent } from "./helpers/idb";
 import {
   ineligibleDisplayedFieldEntry,
   loadLearnerRelease,
@@ -62,7 +64,7 @@ test.describe("vocabulary detail", () => {
       String(first.book_page),
     );
     expect(
-      await page.getByText("Quizzed", { exact: true }).count(),
+      await page.getByText("In quizzes", { exact: true }).count(),
     ).toBeGreaterThan(3);
 
     await page.getByRole("link", { name: /back to library/i }).click();
@@ -110,18 +112,18 @@ test.describe("vocabulary detail", () => {
     await expect(page.getByTestId("detail-madi")).toBeVisible({
       timeout: 15_000,
     });
-    // The ineligible field is displayed AND marked not quizzed.
+    // The ineligible field is displayed AND marked as not in quizzes.
     const fieldTestId = `detail-${field}`;
     const fieldLocator = page.getByTestId(fieldTestId);
     if ((await fieldLocator.count()) > 0) {
-      await expect(fieldLocator.getByText("Not quizzed")).toBeVisible();
+      await expect(fieldLocator.getByText("Not in quizzes")).toBeVisible();
     } else {
-      // Field without a dedicated test id: at least one Not quizzed badge.
-      await expect(page.getByText("Not quizzed").first()).toBeVisible();
+      // Field without a dedicated test id: at least one Not in quizzes badge.
+      await expect(page.getByText("Not in quizzes").first()).toBeVisible();
     }
   });
 
-  test("entry 369 hides the unresolved root and marks verb type not quizzed", async ({
+  test("entry 369 hides the unresolved root and marks verb type not in quizzes", async ({
     page,
   }) => {
     const entry = unresolvedRootEntry();
@@ -129,12 +131,93 @@ test.describe("vocabulary detail", () => {
     const root = page.getByTestId("detail-root");
     await expect(root).toBeVisible({ timeout: 15_000 });
     await expect(root).toContainText("Not available — awaiting verification");
-    await expect(root.getByText("Not quizzed")).toBeVisible();
+    await expect(root.getByText("Not in quizzes")).toBeVisible();
     // No Arabic root value is rendered inside the root field.
     expect(await root.locator('[lang="ar"]').count()).toBe(0);
     const verbType = page.getByTestId("detail-verb-type");
-    await expect(verbType.getByText("Not quizzed")).toBeVisible();
+    await expect(verbType.getByText("Not in quizzes")).toBeVisible();
     await expectNoInternalMetadata(page);
+  });
+
+  test("shows the word's real progress: each skill's state, what is next up, what is locked", async ({
+    page,
+  }) => {
+    // Phase 18.5. The guest answered word 1's māḍī recognition correctly on
+    // two separate days (the real unlock signal, read back through the app's
+    // own snapshot), and practised its verb type in a focused mode.
+    const first = loadLearnerRelease().entries[0];
+    const dayMs = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const recognitionKey = `entry:${first.id}:skill:meaning_recognition:field:madi:direction:arabic_to_english`;
+    const verbTypeKey = `entry:${first.id}:skill:verb_type_identification`;
+
+    await page.goto(`/library/${first.id}`);
+    const progress = page.getByTestId("entry-progress");
+    // A learner with no history: the first skill is next up, the rest locked.
+    await expect(progress.getByTestId("entry-progress-skill")).toHaveCount(6, {
+      timeout: 15_000,
+    });
+    const skills = progress.getByTestId("entry-progress-skill");
+    await expect(skills.nth(0)).toHaveAttribute("data-status", "next");
+    await expect(skills.nth(1)).toHaveAttribute("data-status", "locked");
+    await expect(page.getByTestId("entry-progress-word-state")).toHaveText(
+      "Not started",
+    );
+    await expect(
+      page.getByText(/Progress tracking will appear here/),
+    ).toHaveCount(0);
+
+    await idbSeed(page, "study_components", [
+      {
+        componentKey: recognitionKey,
+        entryId: first.id,
+        fsrs: seedCard(now + 5 * dayMs),
+        learnerState: "learning",
+        revision: 2,
+      },
+      {
+        componentKey: verbTypeKey,
+        entryId: first.id,
+        fsrs: seedCard(now + 5 * dayMs),
+        learnerState: "learning",
+        revision: 1,
+      },
+    ]);
+    await idbSeed(page, "review_events", [
+      seedSchedulingEvent({
+        eventId: "seeded-detail-1",
+        componentKey: recognitionKey,
+        parentEventId: null,
+        rating: "good",
+        occurredAtMs: now - 3 * dayMs,
+        clientSequence: 1,
+      }),
+      seedSchedulingEvent({
+        eventId: "seeded-detail-2",
+        componentKey: recognitionKey,
+        parentEventId: "seeded-detail-1",
+        rating: "good",
+        occurredAtMs: now - 2 * dayMs,
+        clientSequence: 2,
+      }),
+    ]);
+    await page.reload();
+
+    await expect(skills.nth(0)).toHaveAttribute("data-status", "started", {
+      timeout: 15_000,
+    });
+    await expect(skills.nth(0)).toContainText("Learning");
+    await expect(skills.nth(1)).toHaveAttribute("data-status", "next");
+    await expect(skills.nth(1)).toContainText("Next up");
+    await expect(skills.nth(2)).toHaveAttribute("data-status", "locked");
+    await expect(page.getByTestId("entry-progress-also")).toContainText(
+      "Verb type identification",
+    );
+    await expect(page.getByTestId("entry-progress-word-state")).toHaveText(
+      "Learning",
+    );
+    await expectNoInternalMetadata(page);
+    await expectNoSeriousViolations(page);
   });
 
   test("invalid and absent ids show a safe not-found state", async ({
