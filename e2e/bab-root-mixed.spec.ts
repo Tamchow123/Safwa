@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { expectNoSeriousViolations, settleAnimations } from "./helpers/axe";
 import { idbSeed, seedCard, seedSchedulingEvent } from "./helpers/idb";
 import { loadLearnerRelease } from "./helpers/learner-release";
 import {
@@ -645,6 +646,51 @@ test.describe("mixed revision — Start studying", () => {
     }
     // Word B (one correct day) is offered nothing new.
     expect(seen.map((question) => question.entryId)).not.toContain(wordB.id);
+  });
+
+  test("viewing the full entry opens it over the question; closing returns to the same question", async ({
+    page,
+  }) => {
+    // Phase 18.5: "View full entry" used to navigate away, ending the session.
+    await page.goto("/study/mixed");
+    const session = page.getByTestId("mc-quiz-session");
+    await expect(page.getByText("Question 1 of 10")).toBeVisible();
+    const entryId = Number(await session.getAttribute("data-entry-id"));
+    const entry = loadLearnerRelease().entries.find(
+      (candidate) => candidate.id === entryId,
+    )!;
+    await answerCorrectly(page);
+
+    await page.getByTestId("entry-detail-link").click();
+    const dialog = page.getByTestId("entry-detail-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/study\/mixed$/);
+    await expect(dialog.getByRole("heading", { level: 2 })).toContainText(
+      entry.madi,
+    );
+    await expect(dialog).toContainText(entry.meaning);
+    // The progress is live: the skill just answered is already started.
+    await expect(
+      dialog.getByTestId("entry-progress-skill").first(),
+    ).toHaveAttribute("data-status", "started");
+    await settleAnimations(dialog);
+    await expectNoSeriousViolations(page);
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId("entry-detail-link")).toBeFocused();
+    await expect(page.getByText("Question 1 of 10")).toBeVisible();
+    await expect(page.getByTestId("mc-feedback-outcome")).toHaveAttribute(
+      "data-correct",
+      "true",
+    );
+
+    // The same session carries on to the end.
+    await page.getByTestId("mc-next").click();
+    await expect(page.getByText("Question 2 of 10")).toBeVisible();
+    await completeImmediateSession(page);
+    await expect(page.getByTestId("mc-results")).toBeVisible();
+    expect(await idbCount(page, "study_attempts")).toBe(10);
   });
 
   test("the mixed session route has no accessibility violations", async ({

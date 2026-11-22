@@ -62,13 +62,21 @@ function SkillRow({
   );
 }
 
-export function EntryProgressCard({ entry }: { entry: LearnerEntry }) {
+export function EntryProgressCard({
+  entry,
+  headingLevel = "h2",
+}: {
+  entry: LearnerEntry;
+  /** h3 under the in-session entry dialog's own title. */
+  headingLevel?: "h2" | "h3";
+}) {
   const { state, retry } = useEntryProgress(entry);
+  const Heading = headingLevel;
   return (
     <Card data-testid="entry-progress">
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">Your progress</h2>
+          <Heading className="text-base font-semibold">Your progress</Heading>
           {state.status === "ready" ? (
             <Badge
               variant="outline"
@@ -93,14 +101,24 @@ export function EntryProgressCard({ entry }: { entry: LearnerEntry }) {
             </Button>
           </div>
         ) : (
-          <ProgressBody progress={state.progress} />
+          <ProgressBody
+            progress={state.progress}
+            subheading={headingLevel === "h2" ? "h3" : "h4"}
+          />
         )}
       </CardContent>
     </Card>
   );
 }
 
-function ProgressBody({ progress }: { progress: EntryProgress }) {
+function ProgressBody({
+  progress,
+  subheading,
+}: {
+  progress: EntryProgress;
+  subheading: "h3" | "h4";
+}) {
+  const Subheading = subheading;
   return (
     <>
       {progress.chain.length > 0 ? (
@@ -128,7 +146,9 @@ function ProgressBody({ progress }: { progress: EntryProgress }) {
       )}
       {progress.alsoPractised.length > 0 ? (
         <div className="space-y-1">
-          <h3 className="text-sm font-medium">Also practised</h3>
+          <Subheading className="text-sm font-medium">
+            Also practised
+          </Subheading>
           <ul className="divide-y" data-testid="entry-progress-also">
             {progress.alsoPractised.map((skill) => (
               <SkillRow key={skill.component.key} skill={skill} />

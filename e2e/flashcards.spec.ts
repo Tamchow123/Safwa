@@ -296,6 +296,48 @@ test.describe("flashcards", () => {
     }
   });
 
+  test("viewing the full entry opens it over the card; keys in it never grade, and the session carries on", async ({
+    page,
+  }) => {
+    // Phase 18.5: "View full entry" used to navigate away, ending the session.
+    await page.goto("/study/flashcards");
+    await expect(page.getByTestId("flashcard")).toBeVisible();
+    const entryId = Number(
+      await page.getByTestId("flashcard-session").getAttribute("data-entry-id"),
+    );
+    const entry = loadLearnerRelease().entries.find(
+      (candidate) => candidate.id === entryId,
+    )!;
+    await flip(page);
+
+    await page.getByTestId("entry-detail-link").click();
+    const dialog = page.getByTestId("entry-detail-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/study\/flashcards$/);
+    await expect(dialog.getByRole("heading", { level: 2 })).toContainText(
+      entry.madi,
+    );
+    await expect(dialog.getByTestId("entry-progress")).toBeVisible();
+
+    // ← / → grade a card — but not from inside the dialog.
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId("entry-detail-link")).toBeFocused();
+    await expect(page.getByText(/Card 1 of/)).toBeVisible();
+    await expect(page.getByTestId("flashcard")).toHaveAttribute(
+      "data-flipped",
+      "true",
+    );
+    expect(await idbCount(page, "study_attempts")).toBe(0);
+
+    // The same session carries on.
+    await page.getByTestId("rate-know").click();
+    await expect(page.getByText(/Card 2 of/)).toBeVisible();
+    await expect.poll(() => idbCount(page, "study_attempts")).toBe(1);
+  });
+
   test("undo removes exactly the last attempt and its event, once", async ({
     page,
   }) => {

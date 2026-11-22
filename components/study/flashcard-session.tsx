@@ -7,6 +7,7 @@ import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
 import { useCollections } from "@/components/collections/use-collections";
 import { useActiveContent } from "@/components/content/use-active-content";
 import { Flashcard } from "@/components/flashcard";
+import { EntryDetailDialog } from "@/components/study/entry-detail-dialog";
 import { useSessionEndSync } from "@/components/sync/sync-provider";
 import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
@@ -793,11 +794,7 @@ function CardView({
           Undo
         </Button>
         {revealed ? (
-          <Button asChild variant="link" className="min-h-11">
-            <Link href={`/library/${entry.id}`} data-testid="entry-detail-link">
-              View full entry
-            </Link>
-          </Button>
+          <EntryDetailDialog entry={entry} />
         ) : (
           <span aria-hidden className="text-xs">
             &nbsp;
