@@ -17,10 +17,12 @@ Milestones:
 | 🏁 **Multi-device offline Beta** | 19          | concurrent offline reconciliation proven                         |
 | 🏁 **Production launch**         | 22          | hardened, monitored, deployed                                    |
 
-**Phase 18 is the last implemented phase**, followed by four correction phases:
-**18.1** (pre-deployment hardening), **18.2** (SMTP email replaces Resend),
-**18.3** (verification-email recovery and the fixes the first sign-up found)
-and **18.4** (the vocabulary checked against the printed book, entry by entry).
+**Phase 18 is the last implemented phase**, followed by five post-merge
+phases: **18.1** (pre-deployment hardening), **18.2** (SMTP email replaces
+Resend), **18.3** (verification-email recovery and the fixes the first sign-up
+found), **18.4** (the vocabulary checked against the printed book, entry by
+entry) and **18.5** (the daily study flow: Start studying teaches each word one
+skill at a time).
 Phase 18 widened to absorb Phase 22's
 deploy, backup and security-header slices, and 19–21 plus the rest of 22 are
 deferred with the condition that reopens each recorded under "Deliberately
@@ -840,6 +842,77 @@ reviewed slices, quality gate, full council, draft PR).
 | --- | --- |
 | **Quiz eligibility for 138 amr/nahy and 376 maṣdar** | The owner deciding the corrected values are teachable; it means retiring their notes' eligibility effect, a quiz-eligibility change in its own right. |
 | **An independent second reading of the book** | Any public launch, or a learner reporting a value that disagrees with the print. Only then could a value be marked `verified`. |
+
+## Phase 18.5 — Daily study flow: skills unlock word by word, an honest entry page (post-merge change)
+
+Not a planned phase: the owner's first weeks of daily use found that the one
+habit the app is built around did not teach what it should. It ran the same
+workflow as any phase (branch, reviewed slices, quality gate, full council,
+draft PR).
+
+- **What the owner reported (2026-11-22):**
+  - Start studying only ever asked "māḍī, Arabic → English". Its new tier was
+    breadth-first: every word got that skill before any word got a second, so
+    at 10 new a day English → Arabic, the bāb and the root were ~46 days away.
+  - The entry page said "Quizzed" for the bāb, which had never been asked: the
+    badge shows quiz **eligibility**. Its progress card was still the
+    "Progress tracking will appear here" placeholder.
+  - "View full entry" during a session ended the session.
+- **Owner decisions (2026-11-22):**
+  - **Unlock rule:** a word's next skill unlocks once the current one has been
+    answered correctly on **two separate days**.
+  - **Order:** māḍī Arabic → English → māḍī English → Arabic → bāb → muḍāriʿ
+    Arabic → English → maṣdar Arabic → English → root, skipping any skill the
+    entry cannot be quizzed on.
+  - **Daily new allowance:** next skills of started words first, but **at
+    least three new words** a day while any remain.
+  - **Keep the adaptive FSRS scheduler**; no fixed ladder.
+- **Shipped:**
+  - **The unlock signal** (`qualifiesForNextSkill`, `readSchedulingSnapshot`):
+    this owner's correct answers (Good, Hard or Easy — `isCorrectRating`, the
+    one definition) fall on two distinct local dates and the latest answer was
+    not wrong. History the device does not hold counts too: a pull now keeps
+    the server's `masteryDates` (`DATA_MODEL.md` §9; optional and not indexed,
+    so no Dexie version bump), else a stored mastered / needs-review state. The
+    scheduler's own mastery day was rejected as the signal: it counts only due
+    reviews after the card leaves FSRS learning, so a once-a-day learner would
+    unlock on the third correct day, not the second.
+  - **The skill chain** (`modules/study-session/skill-chain.ts`) and the new
+    tier in `buildMixedPlan`: each word offers only its one next skill; at
+    least three new words a day (counted across same-day sessions with the
+    shared `classifySchedulingEvent`, so an undo refunds it), then next skills
+    by chain step and source order, then more new words. Extended skills are
+    no longer introduced by Start studying; started ones are still reviewed
+    when due. The due and weak tiers and the daily targets are unchanged.
+  - **An honest entry page:** the badge reads "In quizzes" / "Not in quizzes"
+    (the library card and filter say the same), and a "Your progress" card
+    shows each chain skill's current state, whether it is next up or locked,
+    skills practised in focused modes, and the word's state. Every value comes
+    from a rule the rest of the app already uses — the chain, the unlock
+    signal, `effectiveLearnerState` and the dashboard's word-state rule (now
+    `wordStateOf` in analytics) — and it reads only the word's own components.
+  - **"View full entry" opens over the session** in a dialog with the same
+    record (`EntryRecord`, shared with the entry page) and progress; closing it
+    returns to the same question or card.
+- **Deliberately NOT changed:** FSRS and its parameters, the focused modes,
+  the daily-target defaults, quiz eligibility, and how answers are recorded or
+  synced. No migration, no server change, no new content release.
+- **What to expect on the first session after merging:** existing history
+  counts. Every skill already answered correctly on two separate days unlocks
+  its next skill at once, so a learner with many words started will see mostly
+  English → Arabic questions for a while — still within the daily new target,
+  and still with three new words a day.
+- **What it does not claim:** ties among next skills go to the earlier chain
+  step, then book order — not to how long a word has waited.
+- **Prerequisites:** Phase 18.4.
+- **Deploy note:** none beyond merging — no migration, no variable, no
+  content release.
+
+| Deferred out of 18.5 | Reopened by |
+| --- | --- |
+| **Keeping pulled `masteryDates` through a later local reprojection** | Phase 19. A local projection write omits them because the owner's own answers then cover the history — true on one device, not once a second device's answers exist only on the server. |
+| **Ordering next skills by how long each word has waited** | The owner finding book order (the tie-break shipped) a poor fit in daily use. |
+| **Teaching extended skills in Start studying** | The owner wanting them in the daily flow rather than the focused modes. |
 
 ## Phase 19 — Multi-device offline reconciliation 🏁 Multi-device offline Beta
 

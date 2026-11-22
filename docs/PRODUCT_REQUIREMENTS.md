@@ -130,8 +130,27 @@ alone and never "Form I–VI" numbering.
 random eligible prompt form; multiple choice over three-radical options
 (typed root input is post-MVP).
 
-**Mixed revision** — one-tap "start studying": due reviews first, then weak
-items, then new items, within the user's daily targets.
+**Mixed revision** — one-tap "start studying", the daily habit: due reviews
+first, then weak items, then new items, within the user's daily targets. New
+items follow each word's **skill chain** (Phase 18.5; the owner's decisions of
+2026-11-22):
+
+- the essential skills, one at a time, in this order: māḍī Arabic → English,
+  māḍī English → Arabic, bāb, muḍāriʿ Arabic → English, maṣdar Arabic →
+  English, root — skipping any the entry cannot be quizzed on (§3 eligibility);
+- a skill unlocks once the one before it has been answered correctly on **two
+  separate days**, the latest answer not wrong (a hinted correct answer
+  counts);
+- of the daily new-item target, the next skills of words already started come
+  first, but **at least three new words** a day are introduced while any
+  remain, and any budget left goes to more new words;
+- scheduling stays FSRS throughout. Extended skills (the other forms'
+  recognition, the other recall directions, verb type) are not introduced
+  here — the focused modes teach them — but once started anywhere they are
+  reviewed here when due.
+
+The entry page shows the same chain: each skill's state, and which is next up
+or still locked.
 
 ### 4.4 Session configuration
 

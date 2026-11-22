@@ -15,7 +15,7 @@ export default function StudyPage() {
     <div className="space-y-6">
       <PageHeader
         title="Study"
-        description="Start a zero-setup mixed session, or choose a specific study mode."
+        description="Start your daily session, or practise one skill in a focused mode."
       />
       <Card>
         <CardHeader>
@@ -23,8 +23,10 @@ export default function StudyPage() {
             <h2 className="text-base font-semibold">Start studying</h2>
           </CardTitle>
           <CardDescription>
-            One tap, no setup: due reviews first, then weak items, then new
-            words — within your daily targets.
+            Your daily session, no setup: reviews that are due and words you
+            have found hard come first, then new skills — each word one skill at
+            a time, from its meaning to English → Arabic, its bāb, its other
+            forms and its root — within your daily targets.
           </CardDescription>
         </CardHeader>
         <CardContent>
