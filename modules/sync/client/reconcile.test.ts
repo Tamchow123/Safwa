@@ -112,6 +112,21 @@ describe("applyPullResponse", () => {
     expect(stored?.syncedHeadClientRevision).toBe(3);
   });
 
+  it("stores the server's mastery dates on the account's row (Phase 18.5)", async () => {
+    const comp = component({ masteryDates: ["2026-11-20", "2026-11-22"] });
+    await applyPullResponse(db, "user-1", pull({ components: [comp] }), 1000);
+
+    const stored = await db.studyComponents.get([
+      ACCOUNT_KEY,
+      comp.componentKey,
+    ]);
+    expect(stored?.masteryDates).toEqual(["2026-11-20", "2026-11-22"]);
+    // Stored for the account only, never as a guest's row.
+    expect(
+      await db.studyComponents.get([GUEST_OWNER_KEY, comp.componentKey]),
+    ).toBeUndefined();
+  });
+
   it("normalises a missing anchor to null for an older server (R2-F2)", async () => {
     await applyPullResponse(
       db,

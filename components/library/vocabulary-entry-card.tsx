@@ -74,8 +74,8 @@ export function VocabularyEntryCard({
             className="font-normal"
           >
             {fully
-              ? "Quizzed in all fields"
-              : `${notQuizzedFieldCount(entry)} field(s) not quizzed`}
+              ? "All fields in quizzes"
+              : `${notQuizzedFieldCount(entry)} field(s) not in quizzes`}
           </Badge>
         </div>
       </Link>

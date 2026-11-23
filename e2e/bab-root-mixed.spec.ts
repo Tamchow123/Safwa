@@ -2,6 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { expectNoSeriousViolations, settleAnimations } from "./helpers/axe";
+import { idbSeed, seedCard, seedSchedulingEvent } from "./helpers/idb";
 import { loadLearnerRelease } from "./helpers/learner-release";
 import {
   answerCorrectly,
@@ -560,6 +562,135 @@ test.describe("mixed revision — Start studying", () => {
     // Non-vacuity: the seeded due components guarantee both skills appeared.
     expect(seenGuardedFields.has("root")).toBe(true);
     expect(seenGuardedFields.has("verb_type")).toBe(true);
+  });
+
+  test("a word answered correctly on two separate days moves on to English→Arabic; one day is not enough", async ({
+    page,
+  }) => {
+    // Phase 18.5 skill chain, end to end through the real unlock signal (the
+    // persisted scheduling answers `readSchedulingSnapshot` reads): word A's
+    // māḍī recognition was answered correctly three days ago and again two
+    // days ago; word B's only once. Neither card is due, and neither has
+    // weakness evidence, so only the new tier decides what they get.
+    const entries = loadLearnerRelease().entries;
+    const [wordA, wordB] = entries;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const recognitionKey = (entryId: number) =>
+      `entry:${entryId}:skill:meaning_recognition:field:madi:direction:arabic_to_english`;
+
+    await page.goto("/study/mixed");
+    await expect(page.getByTestId("mc-quiz-session")).toBeVisible();
+    await idbSeed(page, "study_components", [
+      {
+        componentKey: recognitionKey(wordA.id),
+        entryId: wordA.id,
+        fsrs: seedCard(now + 5 * dayMs),
+        learnerState: "learning",
+        revision: 2,
+      },
+      {
+        componentKey: recognitionKey(wordB.id),
+        entryId: wordB.id,
+        fsrs: seedCard(now + 5 * dayMs),
+        learnerState: "learning",
+        revision: 1,
+      },
+    ]);
+    await idbSeed(page, "review_events", [
+      seedSchedulingEvent({
+        eventId: "seeded-a-1",
+        componentKey: recognitionKey(wordA.id),
+        parentEventId: null,
+        rating: "good",
+        occurredAtMs: now - 3 * dayMs,
+        clientSequence: 1,
+      }),
+      seedSchedulingEvent({
+        eventId: "seeded-a-2",
+        componentKey: recognitionKey(wordA.id),
+        parentEventId: "seeded-a-1",
+        rating: "good",
+        occurredAtMs: now - 2 * dayMs,
+        clientSequence: 2,
+      }),
+      seedSchedulingEvent({
+        eventId: "seeded-b-1",
+        componentKey: recognitionKey(wordB.id),
+        parentEventId: null,
+        rating: "good",
+        occurredAtMs: now - 3 * dayMs,
+        clientSequence: 3,
+      }),
+    ]);
+
+    await page.reload();
+    const session = page.getByTestId("mc-quiz-session");
+    await expect(session).toBeVisible();
+    // Today's ten new items: three owed new words, then word A's next skill,
+    // then more new words.
+    await expect(page.getByText("Question 1 of 10")).toBeVisible();
+    const seen: { entryId: number; skill: string }[] = [];
+    await completeImmediateSession(page, 40, async () => {
+      seen.push({
+        entryId: Number(await session.getAttribute("data-entry-id")),
+        skill: (await session.getAttribute("data-skill-type"))!,
+      });
+    });
+    await expect(page.getByTestId("mc-results")).toBeVisible();
+
+    expect(seen).toHaveLength(10);
+    expect(seen[3]).toEqual({ entryId: wordA.id, skill: "meaning_recall" });
+    for (const question of [...seen.slice(0, 3), ...seen.slice(4)]) {
+      expect(question.skill).toBe("meaning_recognition");
+    }
+    // Word B (one correct day) is offered nothing new.
+    expect(seen.map((question) => question.entryId)).not.toContain(wordB.id);
+  });
+
+  test("viewing the full entry opens it over the question; closing returns to the same question", async ({
+    page,
+  }) => {
+    // Phase 18.5: "View full entry" used to navigate away, ending the session.
+    await page.goto("/study/mixed");
+    const session = page.getByTestId("mc-quiz-session");
+    await expect(page.getByText("Question 1 of 10")).toBeVisible();
+    const entryId = Number(await session.getAttribute("data-entry-id"));
+    const entry = loadLearnerRelease().entries.find(
+      (candidate) => candidate.id === entryId,
+    )!;
+    await answerCorrectly(page);
+
+    await page.getByTestId("entry-detail-link").click();
+    const dialog = page.getByTestId("entry-detail-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/study\/mixed$/);
+    await expect(dialog.getByRole("heading", { level: 2 })).toContainText(
+      entry.madi,
+    );
+    await expect(dialog).toContainText(entry.meaning);
+    // The progress is live: the skill just answered is already started.
+    await expect(
+      dialog.getByTestId("entry-progress-skill").first(),
+    ).toHaveAttribute("data-status", "started");
+    await settleAnimations(dialog);
+    await expectNoSeriousViolations(page);
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId("entry-detail-link")).toBeFocused();
+    await expect(page.getByText("Question 1 of 10")).toBeVisible();
+    await expect(page.getByTestId("mc-feedback-outcome")).toHaveAttribute(
+      "data-correct",
+      "true",
+    );
+
+    // The same session carries on to the end.
+    await page.getByTestId("mc-next").click();
+    await expect(page.getByText("Question 2 of 10")).toBeVisible();
+    await completeImmediateSession(page);
+    await expect(page.getByTestId("mc-results")).toBeVisible();
+    expect(await idbCount(page, "study_attempts")).toBe(10);
   });
 
   test("the mixed session route has no accessibility violations", async ({

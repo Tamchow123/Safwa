@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isCorrectRating,
   ratingForAttempt,
   type AttemptMode,
 } from "@/modules/scheduler/ratings";
@@ -57,5 +58,20 @@ describe("FSRS rating mapping (PRODUCT_REQUIREMENTS §5)", () => {
       ),
     );
     expect(ratings.has("easy")).toBe(false);
+  });
+});
+
+describe("isCorrectRating (the one definition of a correct answer)", () => {
+  it("Good, Hard and Easy are correct; Again is not", () => {
+    expect(isCorrectRating("good")).toBe(true);
+    expect(isCorrectRating("hard")).toBe(true);
+    expect(isCorrectRating("easy")).toBe(true);
+    expect(isCorrectRating("again")).toBe(false);
+  });
+
+  it("anything that is not a rating is not correct", () => {
+    for (const value of [undefined, null, "", "Good", "correct", 1, {}]) {
+      expect(isCorrectRating(value)).toBe(false);
+    }
   });
 });

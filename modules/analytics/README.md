@@ -9,13 +9,13 @@ dates.
 Pure modules (no React, no Dexie, no DOM, no ambient clocks — every instant
 and timezone is injected):
 
-| File          | Responsibility                                                                                        |
-| ------------- | ----------------------------------------------------------------------------------------------------- |
-| `dates.ts`    | ISO date-label validity + calendar arithmetic (never 24-hour-ms maths; DST-safe), instant→local date. |
-| `activity.ts` | Daily-activity derivation from raw attempts + scheduling events (the `daily_activity` cache formula). |
-| `streaks.ts`  | Study days, current streak (today/yesterday grace), longest streak.                                   |
-| `progress.ts` | §7 exact-ratio formulas: word/component mastery, per-skill/per-form/group completion, due-today.      |
-| `index.ts`    | Pure-only barrel (the Dexie adapter is deliberately NOT re-exported).                                 |
+| File          | Responsibility                                                                                                                                                                                                                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dates.ts`    | ISO date-label validity + calendar arithmetic (never 24-hour-ms maths; DST-safe), instant→local date.                                                                                                                                                                                                          |
+| `activity.ts` | Daily-activity derivation from raw attempts + scheduling events (the `daily_activity` cache formula).                                                                                                                                                                                                          |
+| `streaks.ts`  | Study days, current streak (today/yesterday grace), longest streak.                                                                                                                                                                                                                                            |
+| `progress.ts` | §7 exact-ratio formulas: word/component mastery, per-skill/per-form/group completion, due-today. `tallyEssential` + `wordStateOf` are the ONE word-state rule (single implementation — the dashboard's word counts and the entry page's word state, `modules/study-session/entry-progress.ts`, must share it). |
+| `index.ts`    | Pure-only barrel (the Dexie adapter is deliberately NOT re-exported).                                                                                                                                                                                                                                          |
 
 The ONE impure exception is `persistence.ts` — the browser-only Dexie
 adapter (one consistent snapshot read + atomic `daily_activity` cache

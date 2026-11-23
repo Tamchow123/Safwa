@@ -352,7 +352,7 @@ export function serializeLibrarySearchParams(
 export const ELIGIBILITY_FILTER_LABELS: Record<string, string> = {
   all: "All entries",
   "fully-quizzable": "Fully quizzable",
-  "has-not-quizzed": "Has one or more fields not quizzed",
+  "has-not-quizzed": "Has one or more fields not in quizzes",
   "eligible:madi": "Eligible for madi",
   "eligible:mudari": "Eligible for mudari",
   "eligible:masdar": "Eligible for masdar",

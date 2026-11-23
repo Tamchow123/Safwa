@@ -29,6 +29,7 @@ import {
 import { deriveAllComponents } from "@/modules/study-engine/components";
 import {
   buildMixedPlan,
+  newWordsIntroducedOn,
   remainingDailyTargets,
 } from "@/modules/study-session/mixed";
 import { readSchedulingSnapshot } from "@/modules/study-session/persistence";
@@ -79,6 +80,9 @@ export function MixedSession() {
         nowMs,
         targets,
         defaults.questionCount,
+        // Phase 18.5: today's earlier sessions count towards the daily floor
+        // of new words, on the same clock as the budgets above.
+        newWordsIntroducedOn(snapshot.events, localDate, entries),
       );
     },
     [

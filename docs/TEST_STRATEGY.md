@@ -515,3 +515,37 @@ byte floor were verified by hand against a real PG17 dump, with the measurements
 in the comments), the `age` round trip, that a produced dump actually restores —
 that is **H5**'s drill, repeated quarterly — and offline behaviour on real iOS,
 which is **H4**. A green CI run does not claim either.
+
+## 15. The daily study flow (Phase 18.5)
+
+- **The unlock signal** (`tests/study-session/persistence.test.ts`, on
+  fake-indexeddb): same-day answers do not qualify, two days do; a hinted
+  correct answer counts; a wrong latest answer withholds the unlock and a right
+  one restores it; an undo re-evaluates; an out-of-enum rating is not correct;
+  a two-root chain counts each answer once; pulled mastery dates and a legacy
+  mastered state stand in for history the device does not hold, but a wrong
+  local answer still wins; owners never see each other's answers. The bounded
+  entry read (`readComponentsSchedulingState`) deep-equals the full snapshot's
+  row for the same component and reads nothing else.
+- **The chain and the planner** (`skill-chain.test.ts`, `mixed.test.ts`): the
+  owner's order; ineligible skills skipped; every chain skill can be asked;
+  one word walked through all six skills; at least three new words a day,
+  counted across sessions and capped by the budget; next skills before spare
+  new words, earliest chain step first; extended skills never introduced; due
+  reviews still first. Each rule has a mutation that fails a test.
+- **The entry page** (`entry-progress.test.ts`, `library.test.tsx`): its
+  next-up skill is exactly what the planner offers and its word state is the
+  dashboard's rule; the card resets when the word changes, keeps a working
+  card through a transient refresh failure, and coalesces visibility refreshes.
+- **The in-session dialog** (`entry-detail-dialog.test.tsx`): one h2 title
+  with the record and progress under it; keys pressed in the dialog never reach
+  the session; closing returns focus. A flashcard's recorded response time
+  leaves out the time its entry dialog was open (`flashcard-session.test.tsx`),
+  so reading the entry never inflates the dashboard's study time.
+- **E2E:** a word answered correctly on two separate days gets its English →
+  Arabic step and a word answered on one day does not, from seeded scheduling
+  answers read back through the app (`bab-root-mixed`); the entry page shows
+  real progress (`library-detail`); and viewing the entry mid-session keeps the
+  session for both a quiz (`bab-root-mixed`, with the axe gate on the open
+  dialog) and flashcards (`flashcards`, where ← / → pressed in the dialog grade
+  nothing — that test fails without the fix).

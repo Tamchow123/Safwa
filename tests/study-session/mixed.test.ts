@@ -6,15 +6,21 @@ import {
   reviewCard,
   type SchedulerCard,
 } from "@/modules/scheduler/fsrs";
-import { isComponentEligible } from "@/modules/study-engine/components";
+import {
+  deriveComponentsForEntry,
+  isComponentEligible,
+} from "@/modules/study-engine/components";
 import { buildComponentKey } from "@/modules/study-engine/natural-key";
 import {
   buildMixedPlan,
   defaultEntryPromptForm,
+  MIN_NEW_WORDS_PER_DAY,
+  newWordsIntroducedOn,
   remainingDailyTargets,
   type SchedulingEventSummary,
   type StoredComponentState,
 } from "@/modules/study-session/mixed";
+import { chainForEntry } from "@/modules/study-session/skill-chain";
 
 import { entriesById, entry, learnerEntries } from "../study-engine/fixtures";
 
@@ -352,9 +358,9 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
     expect(new Set(plan.map((item) => item.identity.entryId)).size).toBe(10);
   });
 
-  it("recall, bāb, root and verb type are never an entry's first-ever component", () => {
-    // Only two entries: the plan must go multiple components deep per entry,
-    // and each entry's FIRST planned component must still be recognition.
+  it("a brand-new word gets only its first skill, however large the budget", () => {
+    // Two entries, room for forty: nothing has been answered correctly on two
+    // days yet, so neither word's second skill is unlocked.
     const twoEntries = learnerEntries.slice(0, 2);
     const plan = buildMixedPlan(
       twoEntries,
@@ -364,22 +370,9 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
       { newLimit: 40, reviewLimit: 0 },
       40,
     );
-    expect(plan.length).toBeGreaterThan(10); // several components per entry
-    const firstByEntry = new Map<number, string>();
-    for (const item of plan) {
-      if (!firstByEntry.has(item.identity.entryId)) {
-        firstByEntry.set(item.identity.entryId, item.identity.skillType!);
-      }
-    }
-    expect(firstByEntry.size).toBe(2);
-    for (const skill of firstByEntry.values()) {
-      expect(skill).toBe("meaning_recognition");
-    }
-    // The disallowed openers do appear later in the plan — the assertion
-    // above is not vacuous.
-    const skills = new Set(plan.map((item) => item.identity.skillType));
-    expect(skills).toContain("bab_identification");
-    expect(skills).toContain("meaning_recall");
+    expect(plan.map((item) => buildComponentKey(item.identity))).toEqual(
+      twoEntries.map((source) => recognitionKey(source.id)),
+    );
   });
 
   it("entry order follows source order, not raw key string order (1/10/100/101)", () => {
@@ -404,11 +397,11 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
     expect(planEntryOrder).not.toEqual(keyOrder);
   });
 
-  it("an unseen entry with only NON-essential recognition still starts with recognition", () => {
+  it("never introduces an entry with no essential recognition — not even through an extended skill", () => {
     // Synthetic (currently unreachable) release state: every essential
     // recognition field ineligible, ism al-fāʿil the only recognition left.
-    // Without hoisting, bāb (priority 3) would outrank the non-essential
-    // recognition (priority 5) and open the entry — the policy forbids that.
+    // The word has no chain, and extended skills stay in the focused modes,
+    // so Start studying opens it neither with ṣarf nor with ism al-fāʿil.
     const base = entry(1);
     const synthetic = {
       ...base,
@@ -422,17 +415,20 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
         ism_fail: true,
       },
     };
+    const derived = deriveComponentsForEntry(synthetic);
+    // Not vacuous: the entry still has a bāb and an ism al-fāʿil recognition.
+    expect(derived.map((c) => c.skillType)).toContain("bab_identification");
+    expect(
+      derived.some(
+        (c) =>
+          c.skillType === "meaning_recognition" && c.sourceField === "ism_fail",
+      ),
+    ).toBe(true);
     const plan = buildMixedPlan([synthetic], [], new Map(), NOW, {
       newLimit: 10,
       reviewLimit: 0,
     });
-    expect(plan.length).toBeGreaterThan(1);
-    expect(plan[0].identity.skillType).toBe("meaning_recognition");
-    expect(plan[0].identity.sourceField).toBe("ism_fail");
-    // The ṣarf components follow — they were deferred, not dropped.
-    expect(plan.map((item) => item.identity.skillType)).toContain(
-      "bab_identification",
-    );
+    expect(plan).toEqual([]);
   });
 
   it("a score-zero, non-due learning component is not selected as weak", () => {
@@ -562,5 +558,267 @@ describe("buildMixedPlan (due → weak → new, seeded fixture)", () => {
     const a = buildMixedPlan(learnerEntries, stored, new Map(), NOW);
     const b = buildMixedPlan(learnerEntries, stored, new Map(), NOW);
     expect(a).toEqual(b);
+  });
+});
+
+describe("the skill-chain new tier (Phase 18.5)", () => {
+  const NOT_DUE = NOW + 30 * 86_400_000;
+  const keysOf = (plan: ReturnType<typeof buildMixedPlan>) =>
+    plan.map((item) => buildComponentKey(item.identity));
+  const chainKeys = (id: number) =>
+    chainForEntry(deriveComponentsForEntry(entry(id))).map((c) => c.key);
+  /** A started, not-due skill — qualifying for the next one or not. */
+  const started = (
+    componentKey: string,
+    qualifiesForNextSkill: boolean,
+  ): StoredComponentState => ({
+    componentKey,
+    fsrs: cardDueAt(NOT_DUE),
+    learnerState: "learning",
+    qualifiesForNextSkill,
+  });
+  const ids = learnerEntries.map((source) => source.id);
+  const NEW_ONLY = { newLimit: 10, reviewLimit: 0 };
+
+  it("walks one word through the owner's chain, one qualified skill at a time", () => {
+    const words = [entry(1)];
+    const chain = chainKeys(1);
+    expect(chain).toHaveLength(6);
+    const stored: StoredComponentState[] = [];
+    for (const expected of chain) {
+      const plan = buildMixedPlan(words, stored, new Map(), NOW, NEW_ONLY);
+      expect(keysOf(plan)).toEqual([expected]);
+      stored.push(started(expected, true));
+    }
+    // The chain is done: the word's extended skills are never introduced…
+    expect(buildMixedPlan(words, stored, new Map(), NOW, NEW_ONLY)).toEqual([]);
+    // …though it has some (the assertion above is not vacuous).
+    expect(deriveComponentsForEntry(entry(1)).length).toBeGreaterThan(
+      chain.length,
+    );
+  });
+
+  it("a started skill that has not qualified keeps the word's next skill locked", () => {
+    const plan = buildMixedPlan(
+      [entry(1)],
+      [started(chainKeys(1)[0], false)],
+      new Map(),
+      NOW,
+      NEW_ONLY,
+    );
+    expect(plan).toEqual([]);
+  });
+
+  it("skips a skill the entry cannot be quizzed on (hard rule 2)", () => {
+    const base = entry(1);
+    const noMasdar = {
+      ...base,
+      quiz_eligibility: { ...base.quiz_eligibility, masdar: false },
+    };
+    const chain = chainForEntry(deriveComponentsForEntry(noMasdar)).map(
+      (c) => c.key,
+    );
+    // māḍī recognition, māḍī recall, bāb and muḍāriʿ recognition started and
+    // qualified: the root is next, the maṣdar never offered.
+    const stored = chain.slice(0, 4).map((key) => started(key, true));
+    const plan = buildMixedPlan([noMasdar], stored, new Map(), NOW, NEW_ONLY);
+    expect(plan.map((item) => item.identity.skillType)).toEqual([
+      "root_identification",
+    ]);
+  });
+
+  it(`next skills first, but at least ${MIN_NEW_WORDS_PER_DAY} new words a day`, () => {
+    // Ten words started, each ready for its English→Arabic recall.
+    const startedIds = ids.slice(0, 10);
+    const stored = startedIds.map((id) => started(chainKeys(id)[0], true));
+    const plan = buildMixedPlan(
+      learnerEntries,
+      stored,
+      new Map(),
+      NOW,
+      NEW_ONLY,
+    );
+    expect(keysOf(plan)).toEqual([
+      // the owed new words, in source order…
+      ...ids
+        .slice(10, 10 + MIN_NEW_WORDS_PER_DAY)
+        .map((id) => chainKeys(id)[0]),
+      // …then the next skills, in source order.
+      ...startedIds
+        .slice(0, 10 - MIN_NEW_WORDS_PER_DAY)
+        .map((id) => chainKeys(id)[1]),
+    ]);
+  });
+
+  it("new words already introduced today count towards the floor", () => {
+    const startedIds = ids.slice(0, 10);
+    const stored = startedIds.map((id) => started(chainKeys(id)[0], true));
+    const plan = buildMixedPlan(
+      learnerEntries,
+      stored,
+      new Map(),
+      NOW,
+      NEW_ONLY,
+      20,
+      MIN_NEW_WORDS_PER_DAY,
+    );
+    expect(keysOf(plan)).toEqual(startedIds.map((id) => chainKeys(id)[1]));
+  });
+
+  it("spare budget goes to more new words when few next skills are waiting", () => {
+    const stored = ids.slice(0, 2).map((id) => started(chainKeys(id)[0], true));
+    const plan = buildMixedPlan(
+      learnerEntries,
+      stored,
+      new Map(),
+      NOW,
+      NEW_ONLY,
+    );
+    const newWords = ids.slice(2, 10).map((id) => chainKeys(id)[0]);
+    expect(keysOf(plan)).toEqual([
+      ...newWords.slice(0, MIN_NEW_WORDS_PER_DAY),
+      chainKeys(ids[0])[1],
+      chainKeys(ids[1])[1],
+      ...newWords.slice(MIN_NEW_WORDS_PER_DAY),
+    ]);
+  });
+
+  it("the floor never exceeds what is left of the day's new budget", () => {
+    const stored = ids
+      .slice(0, 10)
+      .map((id) => started(chainKeys(id)[0], true));
+    const plan = buildMixedPlan(learnerEntries, stored, new Map(), NOW, {
+      newLimit: 2,
+      reviewLimit: 0,
+    });
+    expect(keysOf(plan)).toEqual(
+      ids.slice(10, 12).map((id) => chainKeys(id)[0]),
+    );
+  });
+
+  it("orders next skills by chain step first: every recall before any bāb", () => {
+    // Word A is ready for its bāb; word B (later in source order) for its
+    // recall. B's earlier step goes first.
+    const [a, b] = [ids[0], ids[1]];
+    const stored = [
+      started(chainKeys(a)[0], true),
+      started(chainKeys(a)[1], true),
+      started(chainKeys(b)[0], true),
+    ];
+    const plan = buildMixedPlan(
+      [entry(a), entry(b)],
+      stored,
+      new Map(),
+      NOW,
+      NEW_ONLY,
+      20,
+      MIN_NEW_WORDS_PER_DAY,
+    );
+    expect(keysOf(plan)).toEqual([chainKeys(b)[1], chainKeys(a)[2]]);
+  });
+
+  it("a word practised only in a focused mode is still new to Start studying", () => {
+    // Its bāb was answered in the Bāb quiz; Start studying still opens the
+    // word with its māḍī recognition, as one of today's owed new words —
+    // ahead of the ten next skills waiting behind it.
+    const focused = ids[1];
+    const stored = [
+      started(chainKeys(focused)[2], true),
+      ...ids.slice(2, 12).map((id) => started(chainKeys(id)[0], true)),
+    ];
+    const plan = buildMixedPlan(
+      [entry(focused), ...ids.slice(2, 12).map(entry)],
+      stored,
+      new Map(),
+      NOW,
+      { newLimit: 1, reviewLimit: 0 },
+    );
+    expect(keysOf(plan)).toEqual([chainKeys(focused)[0]]);
+    // Once today's floor is met it is an EXTRA new word, behind every next
+    // skill — not a next skill of a started word, which would lead.
+    const floorMet = buildMixedPlan(
+      [entry(focused), ...ids.slice(2, 12).map(entry)],
+      stored,
+      new Map(),
+      NOW,
+      { newLimit: 11, reviewLimit: 0 },
+      20,
+      MIN_NEW_WORDS_PER_DAY,
+    );
+    expect(keysOf(floorMet)).toEqual([
+      ...ids.slice(2, 12).map((id) => chainKeys(id)[1]),
+      chainKeys(focused)[0],
+    ]);
+  });
+
+  it("due reviews still come first; the new tier only fills what is left", () => {
+    const dueKey = chainKeys(ids[0])[0];
+    const stored: StoredComponentState[] = [
+      {
+        componentKey: dueKey,
+        fsrs: cardDueAt(NOW - 1000),
+        learnerState: "learning",
+        qualifiesForNextSkill: true,
+      },
+    ];
+    const plan = buildMixedPlan(
+      learnerEntries,
+      stored,
+      new Map(),
+      NOW,
+      { newLimit: 10, reviewLimit: 10 },
+      2,
+    );
+    expect(keysOf(plan)).toEqual([dueKey, chainKeys(ids[1])[0]]);
+  });
+});
+
+describe("newWordsIntroducedOn (Phase 18.5)", () => {
+  const TODAY = "2026-07-17";
+  const chainKey = (id: number, step: number) =>
+    chainForEntry(deriveComponentsForEntry(entry(id)))[step].key;
+  function event(
+    componentKey: string,
+    overrides: Partial<SchedulingEventSummary> = {},
+  ): SchedulingEventSummary {
+    return {
+      componentKey,
+      parentEventId: null,
+      status: "scheduling",
+      localDateAtEvent: TODAY,
+      ...overrides,
+    };
+  }
+
+  it("counts today's introductions of a word's first skill, once each", () => {
+    const events = [
+      event(chainKey(1, 0)),
+      event(chainKey(1, 0), { parentEventId: "e1" }), // a review of it
+      event(chainKey(2, 0)),
+    ];
+    expect(newWordsIntroducedOn(events, TODAY, learnerEntries)).toBe(2);
+  });
+
+  it("a word with two roots (a guest→account merge) is still one word", () => {
+    const events = [event(chainKey(1, 0)), event(chainKey(1, 0))];
+    expect(newWordsIntroducedOn(events, TODAY, learnerEntries)).toBe(1);
+  });
+
+  it("ignores later chain skills, other dates and non-scheduling events", () => {
+    const events = [
+      event(chainKey(1, 1)),
+      event(chainKey(2, 0), { localDateAtEvent: "2026-07-16" }),
+      event(chainKey(3, 0), { status: "reinforcement" }),
+      event(chainKey(4, 0), { localDateAtEvent: null }),
+    ];
+    expect(newWordsIntroducedOn(events, TODAY, learnerEntries)).toBe(0);
+  });
+
+  it("an undone introduction (its event removed) gives the floor back", () => {
+    const events = [event(chainKey(1, 0)), event(chainKey(2, 0))];
+    expect(newWordsIntroducedOn(events, TODAY, learnerEntries)).toBe(2);
+    expect(newWordsIntroducedOn(events.slice(1), TODAY, learnerEntries)).toBe(
+      1,
+    );
   });
 });

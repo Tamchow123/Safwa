@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArabicText } from "@/components/arabic-text";
 import { BookmarkToggle } from "@/components/collections/bookmark-toggle";
 import { useCollections } from "@/components/collections/use-collections";
+import { EntryDetailDialog } from "@/components/study/entry-detail-dialog";
 import { useSessionEndSync } from "@/components/sync/sync-provider";
 import { useResolveOwner } from "@/components/sync/use-local-owner";
 import {
@@ -944,16 +945,7 @@ function QuestionView({
           Undo
         </Button>
         <div className="flex items-center gap-3">
-          {answered ? (
-            <Button asChild variant="link" className="min-h-11">
-              <Link
-                href={`/library/${entry.id}`}
-                data-testid="entry-detail-link"
-              >
-                View full entry
-              </Link>
-            </Button>
-          ) : null}
+          {answered ? <EntryDetailDialog entry={entry} /> : null}
           {answered ? (
             <Button
               type="button"

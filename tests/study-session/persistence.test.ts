@@ -6,8 +6,10 @@ import { SafwaDb } from "@/modules/content/db";
 import { newDeviceProfile } from "@/modules/profile/device";
 import type { AttemptRecord } from "@/modules/study-engine";
 import {
+  readComponentsSchedulingState,
   readSchedulingSnapshot,
   recordGradedAttempt,
+  type PersistedAttempt,
   SupersededUndoError,
   undoGradedAttempt,
 } from "@/modules/study-session/persistence";
@@ -489,5 +491,268 @@ describe("readSchedulingSnapshot owner scoping (R2-F3)", () => {
     expect(asGuest.events.map((e) => e.componentKey)).toEqual([
       "entry:1:guest",
     ]);
+  });
+});
+
+describe("readSchedulingSnapshot qualifiesForNextSkill (Phase 18.5)", () => {
+  // makeAttempt's default component: the bāb of entry 1 (objective, so a hint
+  // downgrades a correct answer to Hard).
+  const BAB = "entry:1:skill:bab_identification";
+  const ACCOUNT = "user-1";
+  let answers = 0;
+
+  /** One scheduling answer on `day` (its own session, so it always schedules). */
+  async function answer(
+    day: string,
+    correct: boolean,
+    options: { hinted?: boolean; owner?: string | null; time?: string } = {},
+  ): Promise<PersistedAttempt> {
+    answers += 1;
+    const occurredAtUtc = `${day}T${options.time ?? "09:30:00.000"}Z`;
+    return recordGradedAttempt(
+      db,
+      makeAttempt({
+        id: `q-${answers}`,
+        sessionId: `s-${answers}`,
+        userId: options.owner ?? null,
+        isCorrect: correct,
+        hintUsed: options.hinted ?? false,
+        hintType: options.hinted ? "first_letter" : null,
+        occurredAtUtc,
+        localDateAtEvent: day,
+      }),
+      { eventId: `ev-${answers}`, now: Date.parse(occurredAtUtc) + 1000 },
+    );
+  }
+
+  async function qualifies(owner: string | null = null) {
+    const snapshot = await readSchedulingSnapshot(db, owner);
+    return snapshot.components.find((c) => c.componentKey === BAB)
+      ?.qualifiesForNextSkill;
+  }
+
+  it("two correct answers on the SAME day do not qualify", async () => {
+    await answer("2026-07-17", true);
+    await answer("2026-07-17", true, { time: "10:00:00.000" });
+    expect(await qualifies()).toBe(false);
+  });
+
+  it("correct on two separate days qualifies", async () => {
+    await answer("2026-07-17", true);
+    expect(await qualifies()).toBe(false);
+    await answer("2026-07-18", true);
+    expect(await qualifies()).toBe(true);
+  });
+
+  it("a hinted correct answer is still correct", async () => {
+    await answer("2026-07-17", true);
+    await answer("2026-07-19", true, { hinted: true });
+    const events = await db.reviewEvents.toArray();
+    expect(events.map((e) => e.rating)).toEqual(["good", "hard"]);
+    expect(await qualifies()).toBe(true);
+  });
+
+  it("a wrong latest answer withholds the unlock until it is right again", async () => {
+    await answer("2026-07-17", true);
+    await answer("2026-07-18", true);
+    await answer("2026-07-19", false);
+    expect(await qualifies()).toBe(false);
+    await answer("2026-07-20", true);
+    expect(await qualifies()).toBe(true);
+  });
+
+  it("a wrong answer is not a correct day", async () => {
+    await answer("2026-07-17", false);
+    await answer("2026-07-18", true);
+    expect(await qualifies()).toBe(false);
+  });
+
+  it("undoing an answer re-evaluates from what remains", async () => {
+    await answer("2026-07-17", true);
+    const second = await answer("2026-07-18", true);
+    expect(await qualifies()).toBe(true);
+    await undoGradedAttempt(db, second, Date.parse("2026-07-18T09:40:00.000Z"));
+    expect(await qualifies()).toBe(false);
+  });
+
+  it("a stored answer whose rating is not a rating is not a correct day, and withholds as the latest", async () => {
+    await answer("2026-07-17", true);
+    await answer("2026-07-18", true);
+    expect(await qualifies()).toBe(true);
+    // An unreadable row on a third day (legacy/corrupt: not one of the four
+    // ratings) is the latest answer — it must not count, and must not pass as
+    // "not wrong" either.
+    await db.reviewEvents.add({
+      ownerKey: GUEST_OWNER_KEY,
+      eventId: "ev-corrupt",
+      componentKey: BAB,
+      parentEventId: `ev-${answers}`,
+      clientComponentRevision: 3,
+      syncStatus: "local",
+      createdAt: 3,
+      status: "scheduling",
+      rating: "correct" as never,
+      occurredAtClient: "2026-07-19T09:30:00.000Z",
+      localDateAtEvent: "2026-07-19",
+    });
+    expect(await qualifies()).toBe(false);
+  });
+
+  it("counts every genuine answer once whatever the chain's shape (two roots)", async () => {
+    // One correct answer under the normal chain, then a second ROOT on a later
+    // day (as a guest→account merge union leaves) — two correct days.
+    await answer("2026-07-17", true);
+    await db.reviewEvents.add({
+      ownerKey: GUEST_OWNER_KEY,
+      eventId: "ev-second-root",
+      componentKey: BAB,
+      parentEventId: null,
+      clientComponentRevision: 1,
+      syncStatus: "local",
+      createdAt: 2,
+      status: "scheduling",
+      rating: "good",
+      occurredAtClient: "2026-07-18T09:30:00.000Z",
+      localDateAtEvent: "2026-07-18",
+    });
+    expect(await qualifies()).toBe(true);
+  });
+
+  describe("history this device does not hold (an account's pulled rows)", () => {
+    async function pulledRow(fields: {
+      masteryDates?: string[];
+      learnerState: "learning" | "mastered" | "needs_review";
+    }) {
+      await db.studyComponents.put({
+        ownerKey: toOwnerKey(ACCOUNT),
+        componentKey: BAB,
+        entryId: 1,
+        revision: 4,
+        learnerState: fields.learnerState,
+        masteryDates: fields.masteryDates,
+        syncedHeadEventId: "head-ev",
+        syncedHeadClientRevision: 3,
+      });
+    }
+
+    it("one server mastery date qualifies an anchor-only component", async () => {
+      await pulledRow({
+        masteryDates: ["2026-07-20"],
+        learnerState: "learning",
+      });
+      expect(await qualifies(ACCOUNT)).toBe(true);
+    });
+
+    it("no server mastery date and a learning state does not", async () => {
+      await pulledRow({ masteryDates: [], learnerState: "learning" });
+      expect(await qualifies(ACCOUNT)).toBe(false);
+    });
+
+    it("a row pulled before mastery dates were stored falls back to its state", async () => {
+      await pulledRow({ learnerState: "mastered" });
+      expect(await qualifies(ACCOUNT)).toBe(true);
+      await pulledRow({ learnerState: "needs_review" });
+      expect(await qualifies(ACCOUNT)).toBe(true);
+      await pulledRow({ learnerState: "learning" });
+      expect(await qualifies(ACCOUNT)).toBe(false);
+    });
+
+    it("a wrong local answer on top of the server history still withholds it", async () => {
+      await pulledRow({
+        masteryDates: ["2026-07-20"],
+        learnerState: "learning",
+      });
+      await answer("2026-07-25", false, { owner: ACCOUNT });
+      expect(await qualifies(ACCOUNT)).toBe(false);
+    });
+  });
+
+  it("is owner-scoped: a guest's answers never qualify an account's component", async () => {
+    await answer("2026-07-17", true);
+    await answer("2026-07-18", true);
+    await db.studyComponents.put({
+      ownerKey: toOwnerKey(ACCOUNT),
+      componentKey: BAB,
+      entryId: 1,
+      revision: 1,
+      learnerState: "learning",
+    });
+    expect(await qualifies(null)).toBe(true);
+    expect(await qualifies(ACCOUNT)).toBe(false);
+  });
+});
+
+describe("readComponentsSchedulingState (Phase 18.5)", () => {
+  // makeAttempt's default component: the bāb of entry 1.
+  const BAB = "entry:1:skill:bab_identification";
+  const ROOT = "entry:1:skill:root_identification";
+  const OTHER_WORD = "entry:2:skill:bab_identification";
+  const ACCOUNT = "user-1";
+
+  async function answerBab(day: string, n: number, owner: string | null) {
+    const occurredAtUtc = `${day}T09:30:00.000Z`;
+    await recordGradedAttempt(
+      db,
+      makeAttempt({
+        id: `r-${n}`,
+        sessionId: `rs-${n}`,
+        userId: owner,
+        isCorrect: true,
+        occurredAtUtc,
+        localDateAtEvent: day,
+      }),
+      { eventId: `rev-${n}`, now: Date.parse(occurredAtUtc) + 1000 },
+    );
+  }
+
+  it("is the full snapshot's state for exactly the requested components", async () => {
+    await answerBab("2026-07-17", 1, null);
+    await answerBab("2026-07-18", 2, null);
+    await db.studyComponents.put({
+      ownerKey: GUEST_OWNER_KEY,
+      componentKey: OTHER_WORD,
+      entryId: 2,
+      revision: 1,
+      learnerState: "learning",
+    });
+
+    const scoped = await readComponentsSchedulingState(db, null, [BAB, ROOT]);
+    const full = await readSchedulingSnapshot(db, null);
+    // The same mapper: identical state, unlock signal included.
+    expect(scoped).toEqual(
+      full.components.filter((component) => component.componentKey === BAB),
+    );
+    expect(scoped[0].qualifiesForNextSkill).toBe(true);
+    // Another word's row is never read; a key with no row is simply absent.
+    expect(full.components.map((c) => c.componentKey)).toContain(OTHER_WORD);
+    expect(scoped.map((c) => c.componentKey)).toEqual([BAB]);
+  });
+
+  it("is owner-scoped: another owner's rows and answers are invisible", async () => {
+    await answerBab("2026-07-17", 1, null);
+    await answerBab("2026-07-18", 2, null);
+    await db.studyComponents.put({
+      ownerKey: toOwnerKey(ACCOUNT),
+      componentKey: BAB,
+      entryId: 1,
+      revision: 1,
+      learnerState: "learning",
+    });
+
+    const asGuest = await readComponentsSchedulingState(db, null, [BAB]);
+    const asAccount = await readComponentsSchedulingState(db, ACCOUNT, [BAB]);
+    expect(asGuest[0].qualifiesForNextSkill).toBe(true);
+    // The account's row, and none of the guest's answers.
+    expect(asAccount).toEqual([
+      {
+        componentKey: BAB,
+        fsrs: undefined,
+        learnerState: "learning",
+        qualifiesForNextSkill: false,
+      },
+    ]);
+    expect(await readComponentsSchedulingState(db, "user-2", [BAB])).toEqual(
+      [],
+    );
   });
 });

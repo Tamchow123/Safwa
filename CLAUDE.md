@@ -20,6 +20,11 @@ sign-in page, an honest `/verify-email`, the guest prompt for guests only, and
 and **Phase 18.4** (every entry checked against the printed book: 61 source
 fields and six notes corrected through `data/safwa-mujarrad.corrections.json`,
 the original left untouched) are the post-merge corrections that follow it.
+**Phase 18.5** reworks the daily habit: Start studying teaches each word one
+skill at a time (`modules/study-session/skill-chain.ts`; a skill unlocks after
+two separate days answered correctly, at least three new words a day), the
+entry page shows real per-skill progress, and "View full entry" opens over a
+session instead of ending it.
 **The first production deploy is live** (2026-11-15: Vercel + Neon + Gmail
 SMTP); `deploy-migrate` runs the migrations and registers new content
 releases, and both must still precede the app that reads them. Phases

@@ -447,6 +447,14 @@ bootstrap, or after a sign-out wipe) parents its next review onto that anchor so
 it EXTENDS the server chain instead of rooting a branch the server rejects as a
 stale-branch conflict.
 
+A pull also stores the server's **`masteryDates`** for the component (Phase
+18.5; optional, not indexed). They stand in for answers this device does not
+hold when Start studying decides whether a word's next skill unlocks
+(`qualifiesForNextSkill` in `modules/study-session/persistence.ts`). A local
+projection write — made only for a complete local chain — omits them, because
+the owner's own answers then cover the whole history; so an absent field means
+"not applicable, read the local answers", never "no mastery days".
+
 The published app configuration ships authoritative skill metadata
 (`skill_type_id, component_shape, allowed_source_fields, allowed_directions`);
 the shared key builder enforces identical component identity on both sides.

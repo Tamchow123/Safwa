@@ -35,6 +35,7 @@ import {
   reviewCard,
   type SchedulerCard,
 } from "@/modules/scheduler/fsrs";
+import { isCorrectRating } from "@/modules/scheduler/ratings";
 
 export class ChainError extends Error {
   constructor(message: string) {
@@ -629,7 +630,7 @@ export function replayChain(
     ) {
       masteryDates.add(event.localDateAtEvent);
     }
-    if (event.rating !== "again") hasCleanSuccess = true;
+    if (isCorrectRating(event.rating)) hasCleanSuccess = true;
     card = reviewCard(card, instant, event.rating);
   }
 

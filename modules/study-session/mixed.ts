@@ -21,12 +21,16 @@
  *    (`remainingDailyTargets`), recomputed from the persisted scheduling
  *    events so repeated same-day sessions share one daily allowance
  *    (§4.4: 10 new/day · 20 reviews/day by default);
- *  - the PEDAGOGICAL ordering of the new tier (`newRank`): an explicit,
- *    typed component-priority policy — recognition before recall before
- *    ṣarf identification — spread across distinct entries (round-robin,
- *    breadth before depth), never raw component-key order. An entry with no
- *    prior component history always starts with an Arabic→English
- *    recognition component (māḍī preferred).
+ *  - the new tier (`newRank`, Phase 18.5): each word moves through its
+ *    skill chain (`skill-chain.ts` — māḍī Arabic→English, māḍī
+ *    English→Arabic, bāb, muḍāriʿ and maṣdar Arabic→English, root), one
+ *    skill at a time, the next unlocking once the one before it was answered
+ *    correctly on two separate days. Each day the next skills of words
+ *    already started come first, except that at least
+ *    {@link MIN_NEW_WORDS_PER_DAY} new words are introduced while any
+ *    remain; whatever is left of the day's new budget goes to more new
+ *    words. Only chain skills are ever introduced here — extended skills stay
+ *    in the focused modes — and never in raw component-key order.
  *
  * Every function is a pure function of its inputs (the clock instant is
  * injected); the impure Dexie read lives in `persistence.ts`.
@@ -47,6 +51,7 @@ import type { SchedulerCard } from "@/modules/scheduler/fsrs";
 import type { LearnerState } from "@/modules/scheduler/states";
 import {
   deriveAllComponents,
+  deriveComponentsForEntry,
   type DerivedComponent,
 } from "@/modules/study-engine/components";
 import { isFieldEligible } from "@/modules/study-engine/fields";
@@ -54,6 +59,11 @@ import { DEFAULT_ENTRY_LEVEL_PROMPT_FORM } from "@/modules/study-engine/generato
 import type { ComponentIdentity } from "@/modules/study-engine/natural-key";
 import { eligiblePromptForms } from "@/modules/study-session/entry-quizzes";
 import { DEFAULT_QUIZ_COUNT } from "@/modules/study-session/quizzes";
+import {
+  chainForEntry,
+  chainStatus,
+  toChainComponentState,
+} from "@/modules/study-session/skill-chain";
 
 /**
  * The stored scheduling state of one component (structurally compatible with
@@ -65,6 +75,13 @@ export type StoredComponentState = {
   fsrs?: SchedulerCard;
   /** Projected learner state (present once the component has been reviewed). */
   learnerState?: LearnerState;
+  /**
+   * Whether this skill has been answered correctly on two separate days and
+   * its latest answer was not wrong — so the word's next skill may unlock in
+   * Start studying (Phase 18.5). Resolved by `readSchedulingSnapshot`, the ONE
+   * source of the signal; absent means false.
+   */
+  qualifiesForNextSkill?: boolean;
 };
 
 /**
@@ -127,136 +144,88 @@ export type MixedPlanItem = {
 };
 
 /* ------------------------------------------------------------------ */
-/* New-component pedagogical priority (Phase 10 correction)            */
+/* The new tier: skill chains (Phase 18.5)                              */
 /* ------------------------------------------------------------------ */
 
 /**
- * The EXPLICIT priority classes for never-studied components, lower studied
- * first (§4.3 "sensible zero-configuration session"). The progression moves
- * from recognising a word to producing and analysing it:
- *
- *   māḍī recognition → other essential recognition (muḍāriʿ/maṣdar) →
- *   essential māḍī recall → bāb → root → remaining translation components →
- *   extended verb-type material.
- *
- * A typed policy — never alphabetical skill names and never raw component-key
- * order, which interleaves skills arbitrarily and sorts unpadded entry ids as
- * strings (entry:100 before entry:1).
+ * New words introduced per local day while any remain, even when the
+ * next skills of started words could fill the whole new budget (the owner's
+ * decision, 2026-11-22) — capped by whatever new budget is left today.
  */
-export const NEW_COMPONENT_PRIORITY = {
-  madi_recognition: 0,
-  essential_recognition: 1,
-  essential_recall: 2,
-  bab_identification: 3,
-  root_identification: 4,
-  remaining_translation: 5,
-  verb_type_identification: 6,
-} as const;
+export const MIN_NEW_WORDS_PER_DAY = 3;
 
-export type NewComponentPriorityClass = keyof typeof NEW_COMPONENT_PRIORITY;
-
-/** Classify a derived component under the new-item priority policy. */
-export function newComponentPriorityClass(
-  component: DerivedComponent,
-): NewComponentPriorityClass {
-  switch (component.skillType) {
-    case "meaning_recognition":
-      if (component.sourceField === "madi") return "madi_recognition";
-      return component.essential
-        ? "essential_recognition"
-        : "remaining_translation";
-    case "meaning_recall":
-      // The essential recall set is māḍī only (§5).
-      return component.essential ? "essential_recall" : "remaining_translation";
-    case "bab_identification":
-      return "bab_identification";
-    case "root_identification":
-      return "root_identification";
-    case "verb_type_identification":
-      return "verb_type_identification";
+/** The key of the skill that introduces each word to Start studying. */
+function firstChainKeys(entries: readonly LearnerEntry[]): Set<string> {
+  const keys = new Set<string>();
+  for (const entry of entries) {
+    const first = chainForEntry(deriveComponentsForEntry(entry))[0];
+    if (first) keys.add(first.key);
   }
+  return keys;
 }
 
-/** The numeric priority (lower studied first) for a derived component. */
-export function newComponentPriority(component: DerivedComponent): number {
-  return NEW_COMPONENT_PRIORITY[newComponentPriorityClass(component)];
+/**
+ * How many new words were introduced on `localDate`: the day's
+ * new-item scheduling events (the ONE shared `classifySchedulingEvent`, so this
+ * never disagrees with the daily budget) on a word's first chain skill,
+ * counted once per component (a guest→account merge can leave two roots).
+ * Repeated same-day sessions therefore share one floor, and an undo (which
+ * deletes its event) gives it back. The first skill counts in whichever mode
+ * it was answered: a word met today in a focused mode has still been
+ * introduced today.
+ */
+export function newWordsIntroducedOn(
+  events: readonly SchedulingEventSummary[],
+  localDate: string,
+  entries: readonly LearnerEntry[],
+): number {
+  const firstKeys = firstChainKeys(entries);
+  const introduced = new Set<string>();
+  for (const event of events) {
+    if (event.localDateAtEvent !== localDate) continue;
+    if (!firstKeys.has(event.componentKey)) continue;
+    if (classifySchedulingEvent(event) === "new_item") {
+      introduced.add(event.componentKey);
+    }
+  }
+  return introduced.size;
 }
 
-/** One entry's not-yet-studied component, ready for rank assignment. */
+/** One candidate for the new tier. */
 type NewCandidate = {
   componentKey: string;
-  priority: number;
-  /** Stable derivation position within the entry (deterministic tiebreak). */
-  order: number;
-  isRecognition: boolean;
+  /** Position of the skill in its word's chain (0 = the word's first). */
+  chainIndex: number;
+  /** The word's position in the release's source order. */
+  sourceIndex: number;
 };
 
 /**
- * Assign the pedagogical `newRank` for every selectable new component:
+ * The new tier in rank order:
  *
- *  1. Within an entry, candidates run in priority-class order (recognition
- *     before recall before bāb/root, verb-type last).
- *  2. Entries take turns round-robin — at most one new component per entry
- *     per round — so a session spreads across distinct words while enough
- *     entries are available (breadth before depth).
- *  3. Entries with fewer already-materialised components go first, tiebroken
- *     by source order (the release's entry order — numeric, never string
- *     order of unpadded ids).
- *  4. An entry with NO component history always STARTS with a recognition
- *     component: its earliest recognition candidate is hoisted to the queue
- *     head even when only a non-essential recognition is eligible (which
- *     would otherwise rank behind bāb/root). In the (structurally possible,
- *     currently unreachable) case that such an entry has no recognition
- *     component at all, its components are left out of this session's new
- *     tier rather than opening with recall or ṣarf analysis.
+ *  1. the new words still owed today (`owedNewWords`), in source order;
+ *  2. every unlocked next skill of a started word, earliest chain step first
+ *     (every word's English→Arabic before any word's bāb), then source order;
+ *  3. the remaining new words, in source order.
  *
- * Returns a total rank per component key — raw key order never decides.
+ * `buildMixedSession` then takes as many as today's new budget allows, so the
+ * owed words always make the cut and spare budget falls to new words when
+ * fewer next skills are waiting.
  */
-function assignNewRanks(
-  newByEntry: ReadonlyMap<number, NewCandidate[]>,
-  materialisedCountByEntry: ReadonlyMap<number, number>,
-  entrySourceIndexById: ReadonlyMap<number, number>,
-): Map<string, number> {
-  const queues: { entryId: number; queue: NewCandidate[] }[] = [];
-  for (const [entryId, candidates] of newByEntry) {
-    const queue = [...candidates].sort(
-      (a, b) => a.priority - b.priority || a.order - b.order,
-    );
-    const unseen = (materialisedCountByEntry.get(entryId) ?? 0) === 0;
-    if (unseen) {
-      const recognitionIndex = queue.findIndex(
-        (candidate) => candidate.isRecognition,
-      );
-      if (recognitionIndex < 0) continue; // never open with recall/ṣarf
-      if (recognitionIndex > 0) {
-        const [firstRecognition] = queue.splice(recognitionIndex, 1);
-        queue.unshift(firstRecognition);
-      }
-    }
-    queues.push({ entryId, queue });
-  }
-  queues.sort(
-    (a, b) =>
-      (materialisedCountByEntry.get(a.entryId) ?? 0) -
-        (materialisedCountByEntry.get(b.entryId) ?? 0) ||
-      entrySourceIndexById.get(a.entryId)! -
-        entrySourceIndexById.get(b.entryId)!,
+function rankNewTier(
+  nextSkills: NewCandidate[],
+  newWords: NewCandidate[],
+  owedNewWords: number,
+): string[] {
+  const bySource = (a: NewCandidate, b: NewCandidate) =>
+    a.sourceIndex - b.sourceIndex;
+  const words = [...newWords].sort(bySource);
+  const skills = [...nextSkills].sort(
+    (a, b) => a.chainIndex - b.chainIndex || bySource(a, b),
   );
-
-  const ranks = new Map<string, number>();
-  let rank = 0;
-  let remaining = queues.reduce((sum, item) => sum + item.queue.length, 0);
-  while (remaining > 0) {
-    for (const item of queues) {
-      const next = item.queue.shift();
-      if (next) {
-        ranks.set(next.componentKey, rank);
-        rank += 1;
-        remaining -= 1;
-      }
-    }
-  }
-  return ranks;
+  const owed = words.slice(0, owedNewWords);
+  const rest = words.slice(owedNewWords);
+  return [...owed, ...skills, ...rest].map((c) => c.componentKey);
 }
 
 /**
@@ -290,6 +259,10 @@ export function defaultEntryPromptForm(
  * (§4.4: 20 questions/session) — the daily budgets say what may still be
  * studied today, the session limit says how much of it fits in one sitting.
  * The due → weak → new priority decides what makes the cut.
+ *
+ * `newWordsToday` is how many new words today's earlier sessions already
+ * introduced (`newWordsIntroducedOn`), so the daily floor of
+ * {@link MIN_NEW_WORDS_PER_DAY} holds across sessions rather than per session.
  */
 export function buildMixedPlan(
   entries: readonly LearnerEntry[],
@@ -298,6 +271,7 @@ export function buildMixedPlan(
   nowMs: number,
   targets: DailyTargets = DEFAULT_DAILY_TARGETS,
   sessionLimit: number = DEFAULT_QUIZ_COUNT,
+  newWordsToday: number = 0,
 ): MixedPlanItem[] {
   if (!Number.isInteger(sessionLimit) || sessionLimit < 1) {
     throw new Error(
@@ -314,9 +288,11 @@ export function buildMixedPlan(
 
   const items: SchedulableItem[] = [];
   const planByKey = new Map<string, MixedPlanItem>();
-  const newByEntry = new Map<number, NewCandidate[]>();
-  const materialisedCountByEntry = new Map<number, number>();
+  const componentsByEntry = new Map<number, DerivedComponent[]>();
   for (const component of deriveAllComponents(entries)) {
+    const entryComponents = componentsByEntry.get(component.entryId);
+    if (entryComponents) entryComponents.push(component);
+    else componentsByEntry.set(component.entryId, [component]);
     const identity: ComponentIdentity = {
       entryId: component.entryId,
       skillType: component.skillType,
@@ -338,10 +314,6 @@ export function buildMixedPlan(
     const card = record?.fsrs ?? null;
     if (card !== null) {
       // Already materialised (has a scheduling card): a due/weak candidate.
-      materialisedCountByEntry.set(
-        component.entryId,
-        (materialisedCountByEntry.get(component.entryId) ?? 0) + 1,
-      );
       items.push({
         componentKey: component.key,
         card,
@@ -357,33 +329,40 @@ export function buildMixedPlan(
         state: record?.learnerState ?? "not_started",
         weakScore: weakScores.get(component.key) ?? 0,
       });
-    } else {
-      // Never studied: collect for pedagogical rank assignment.
-      const candidates = newByEntry.get(component.entryId);
-      const candidate: NewCandidate = {
-        componentKey: component.key,
-        priority: newComponentPriority(component),
-        order: candidates?.length ?? 0,
-        isRecognition: component.skillType === "meaning_recognition",
-      };
-      if (candidates) candidates.push(candidate);
-      else newByEntry.set(component.entryId, [candidate]);
     }
   }
 
-  const newRanks = assignNewRanks(
-    newByEntry,
-    materialisedCountByEntry,
-    entrySourceIndexById,
-  );
-  for (const [componentKey, newRank] of newRanks) {
-    items.push({
-      componentKey,
-      card: null,
-      state: "not_started",
-      newRank,
-    });
+  // The new tier: each word's one `next` chain skill, if it has one. A word
+  // whose FIRST skill is next is new to Start studying (even if a focused
+  // mode touched another of its skills) — the same test
+  // `newWordsIntroducedOn` counts by, so the floor and the ranking agree.
+  const nextSkills: NewCandidate[] = [];
+  const newWords: NewCandidate[] = [];
+  for (const entry of entries) {
+    const chain = chainForEntry(componentsByEntry.get(entry.id) ?? []);
+    const statuses = chainStatus(chain, (key) =>
+      toChainComponentState(storedByKey.get(key)),
+    );
+    const chainIndex = statuses.findIndex((skill) => skill.status === "next");
+    if (chainIndex < 0) continue;
+    const candidate: NewCandidate = {
+      componentKey: statuses[chainIndex].component.key,
+      chainIndex,
+      sourceIndex: entrySourceIndexById.get(entry.id)!,
+    };
+    (chainIndex === 0 ? newWords : nextSkills).push(candidate);
   }
+  const owedNewWords = Math.max(0, MIN_NEW_WORDS_PER_DAY - newWordsToday);
+  rankNewTier(nextSkills, newWords, owedNewWords).forEach(
+    (componentKey, index) => {
+      items.push({
+        componentKey,
+        card: null,
+        state: "not_started",
+        newRank: index,
+      });
+    },
+  );
 
   // Take the first `sessionLimit` of the (priority-ordered) daily allocation:
   // due reviews always make the cut before weak items, and those before new.

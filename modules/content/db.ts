@@ -217,6 +217,15 @@ export type StudyComponentRecord = {
    */
   syncedHeadEventId?: string | null;
   syncedHeadClientRevision?: number | null;
+  /**
+   * The server's mastery dates for this component (Phase 18.5), stored by a
+   * pull so an account whose answers live on another device (an anchor-only or
+   * partial local chain) still counts them when Start studying decides whether
+   * the word's next skill unlocks. Not indexed (no schema-version change). A
+   * local projection write — made only for a complete local chain — omits it,
+   * because this owner's own answers then cover the whole history.
+   */
+  masteryDates?: string[];
 };
 
 export type StudyAttemptRecord = {
